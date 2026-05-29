@@ -37,6 +37,11 @@ import {
 import { abortChatRunById } from "./chat-abort.js";
 import type { GatewayRequestContext } from "./server-methods/shared-types.js";
 import { forgetUnifiedTalkSession } from "./talk-session-registry.js";
+import {
+  RealtimeMiddleware,
+  getGovernorContext,
+  clearGovernorContext,
+} from "../agents/tool-governor/index.js";
 
 const RELAY_SESSION_TTL_MS = 30 * 60 * 1000;
 const MAX_AUDIO_BASE64_BYTES = 512 * 1024;
@@ -235,6 +240,7 @@ function closeRelaySession(session: RelaySession, reason: "completed" | "error")
   session.forcedConsults.clear();
   relaySessions.delete(session.id);
   forgetUnifiedTalkSession(session.id);
+  clearGovernorContext(session.id);
   clearTimeout(session.cleanupTimer);
   abortRelayAgentRuns(session, reason === "error" ? "relay-error" : "relay-closed");
   session.bridge.close();
@@ -372,8 +378,19 @@ export function createTalkRealtimeRelaySession(
           final,
         },
       );
+      if (relay && role === "assistant" && final) {
+        relay.talk.endTurn({ turnId });
+      }
       if (role === "user" && final && text.trim()) {
         const question = text.trim();
+        
+        // Intercept Transcript and calculate deterministic confidence
+        void RealtimeMiddleware.interceptTranscript(
+          question,
+          relaySessionId,
+          params.tools,
+        ).catch(() => {});
+
         if (
           relay &&
           pruneInactiveRelayAgentRuns(relay) > 0 &&
@@ -410,38 +427,74 @@ export function createTalkRealtimeRelaySession(
     },
     onToolCall: (toolCall) => {
       const turnId = relay ? ensureRelayTurn(relay) : undefined;
-      if (relay && toolCall.name === REALTIME_VOICE_AGENT_CONSULT_TOOL_NAME) {
-        const forcedConsult = relay.forcedConsults.recordNativeConsult(
-          toolCall.args,
-          toolCall.callId,
-        );
-        if (forcedConsult.kind === "in_flight" || forcedConsult.kind === "already_delivered") {
-          if (forcedConsult.kind === "already_delivered") {
-            submitAlreadyDeliveredToolResult(relay, toolCall.callId, turnId);
-          } else {
-            submitRealtimeAgentConsultWorkingResponse(relay, toolCall.callId, turnId);
-          }
+      const ctx = getGovernorContext(relaySessionId);
+      const confidence = ctx.lastConfidence ?? 0.0;
+
+      void RealtimeMiddleware.interceptToolCall(
+        { name: toolCall.name, args: toolCall.args },
+        relaySessionId,
+        confidence,
+        params.tools,
+      ).then((interceptResult) => {
+        if (!interceptResult.allowed) {
+          const errorPayload = {
+            success: false,
+            error: interceptResult.reason ?? "Execution blocked by Tool Governor",
+          };
+          bridge.submitToolResult(toolCall.callId, errorPayload);
+          emit(
+            {
+              relaySessionId,
+              type: "toolResult",
+              callId: toolCall.callId,
+            },
+            {
+              type: "tool.result",
+              callId: toolCall.callId,
+              turnId,
+              payload: { name: toolCall.name, result: errorPayload },
+              final: true,
+            },
+          );
           return;
         }
-        submitRealtimeAgentConsultWorkingResponse(relay, toolCall.callId, turnId);
-      }
-      emit(
-        {
-          relaySessionId,
-          type: "toolCall",
-          itemId: toolCall.itemId,
-          callId: toolCall.callId,
-          name: toolCall.name,
-          args: toolCall.args,
-        },
-        {
-          type: "tool.call",
-          itemId: toolCall.itemId,
-          callId: toolCall.callId,
-          turnId,
-          payload: { name: toolCall.name, args: toolCall.args },
-        },
-      );
+
+        const finalArgs = interceptResult.repairedArgs ?? toolCall.args;
+
+        if (relay && toolCall.name === REALTIME_VOICE_AGENT_CONSULT_TOOL_NAME) {
+          const forcedConsult = relay.forcedConsults.recordNativeConsult(
+            finalArgs,
+            toolCall.callId,
+          );
+          if (forcedConsult.kind === "in_flight" || forcedConsult.kind === "already_delivered") {
+            if (forcedConsult.kind === "already_delivered") {
+              submitAlreadyDeliveredToolResult(relay, toolCall.callId, turnId);
+            } else {
+              submitRealtimeAgentConsultWorkingResponse(relay, toolCall.callId, turnId);
+            }
+            return;
+          }
+          submitRealtimeAgentConsultWorkingResponse(relay, toolCall.callId, turnId);
+        }
+
+        emit(
+          {
+            relaySessionId,
+            type: "toolCall",
+            itemId: toolCall.itemId,
+            callId: toolCall.callId,
+            name: toolCall.name,
+            args: finalArgs,
+          },
+          {
+            type: "tool.call",
+            itemId: toolCall.itemId,
+            callId: toolCall.callId,
+            turnId,
+            payload: { name: toolCall.name, args: finalArgs },
+          },
+        );
+      });
     },
     onReady: () =>
       emit({ relaySessionId, type: "ready" }, { type: "session.ready", payload: null }),
@@ -710,16 +763,51 @@ export function submitTalkRealtimeRelayToolResult(params: {
     });
     return;
   }
-  session.bridge.submitToolResult(params.callId, params.result, params.options);
-  const turnId = ensureRelayTurn(session);
   const final = params.options?.willContinue !== true;
   if (final) {
-    const runId = session.activeAgentToolCalls.get(params.callId);
-    if (runId) {
-      session.activeAgentRuns.delete(runId);
-      session.activeAgentToolCalls.delete(params.callId);
-    }
+    const ctx = getGovernorContext(params.relaySessionId);
+    const toolName = ctx.lastToolName ?? "unknown_tool";
+
+    void RealtimeMiddleware.interceptExecution(
+      { name: toolName, args: {} },
+      params.result,
+      params.relaySessionId,
+    ).then((execResult) => {
+      let finalResult = params.result;
+      if (!execResult.success && execResult.fallbackText) {
+        finalResult = {
+          success: false,
+          error: execResult.fallbackText,
+        };
+      }
+
+      session.bridge.submitToolResult(params.callId, finalResult, params.options);
+      const turnId = ensureRelayTurn(session);
+
+      const runId = session.activeAgentToolCalls.get(params.callId);
+      if (runId) {
+        session.activeAgentRuns.delete(runId);
+        session.activeAgentToolCalls.delete(params.callId);
+      }
+
+      broadcastToOwner(session.context, session.connId, {
+        relaySessionId: session.id,
+        type: "toolResult",
+        callId: params.callId,
+        talkEvent: session.talk.emit({
+          type: "tool.result",
+          callId: params.callId,
+          turnId,
+          payload: { result: finalResult },
+          final,
+        }),
+      });
+    });
+    return;
   }
+
+  session.bridge.submitToolResult(params.callId, params.result, params.options);
+  const turnId = ensureRelayTurn(session);
   broadcastToOwner(session.context, session.connId, {
     relaySessionId: session.id,
     type: "toolResult",
