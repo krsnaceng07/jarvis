@@ -238,7 +238,22 @@ async function submitConfigChange(
     await loadConfig(state);
     return true;
   } catch (err) {
-    state.lastError = String(err);
+    const errorStr = String(err);
+    if (errorStr.includes("config changed since last load")) {
+      try {
+        // Sync base hash on desync block without losing local edits.
+        // If removed, client configuration edits are lost/blocked until manual reload.
+        const freshSnapshot = await state.client.request<ConfigSnapshot>("config.get", {});
+        applyConfigSnapshot(state, freshSnapshot);
+        state.configDraftBaseHash = freshSnapshot.hash ?? null;
+        state.lastError =
+          "Configuration was updated on the server. Your pending changes have been preserved and the base hash has been synchronized. Please review and click Save/Apply again to save your changes.";
+      } catch (getErr) {
+        state.lastError = `Failed to synchronize config hash: ${String(getErr)}. Original error: ${errorStr}`;
+      }
+    } else {
+      state.lastError = errorStr;
+    }
     return false;
   } finally {
     state[busyKey] = false;

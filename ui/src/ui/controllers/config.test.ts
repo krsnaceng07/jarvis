@@ -862,7 +862,65 @@ describe("saveConfig", () => {
     const call = requireRequestCall(request);
     expect(call[0]).toBe("config.set");
     const params = call[1] as { raw: string; baseHash: string };
-    expect(params.baseHash).toBe("hash-original");
+  });
+
+  it("recovers gracefully on desync block, fetches fresh baseHash, and succeeds on second save without losing edits", async () => {
+    let requestCount = 0;
+    const request = vi
+      .fn()
+      .mockImplementation(async (method: string, params?: Record<string, unknown>) => {
+        requestCount++;
+        if (method === "config.set") {
+          if (params?.baseHash === "hash-original") {
+            throw new Error(
+              "GatewayRequestError: config changed since last load; re-run config.get and retry",
+            );
+          }
+          return { ok: true };
+        }
+        if (method === "config.get") {
+          return {
+            hash: "hash-refreshed",
+            config: { gateway: { mode: "external" } },
+            valid: true,
+            issues: [],
+            raw: '{\n  "gateway": { "mode": "external" }\n}\n',
+          };
+        }
+        return {};
+      });
+
+    const state = createState();
+    state.connected = true;
+    state.client = { request } as unknown as ConfigState["client"];
+    state.configFormMode = "form";
+    applyConfigSnapshot(state, {
+      hash: "hash-original",
+      config: { gateway: { mode: "local" } },
+      valid: true,
+      issues: [],
+      raw: '{\n  "gateway": { "mode": "local" }\n}\n',
+    });
+
+    // Make local edits
+    updateConfigFormValue(state, ["gateway", "mode"], "remote");
+    expect(state.configFormDirty).toBe(true);
+    expect(state.configDraftBaseHash).toBe("hash-original");
+
+    // First save: fails on desync, synchronizes base hash, preserves edits
+    const firstResult = await saveConfig(state);
+    expect(firstResult).toBe(false);
+    expect(state.configFormDirty).toBe(true); // Edits are preserved!
+    expect(state.configForm).toEqual({ gateway: { mode: "remote" } });
+    expect(state.configDraftBaseHash).toBe("hash-refreshed"); // Synchronized!
+    expect(state.configSnapshot?.hash).toBe("hash-refreshed");
+    expect(state.lastError).toContain("Configuration was updated on the server");
+
+    // Second save: succeeds because it uses the new baseHash
+    const secondResult = await saveConfig(state);
+    expect(secondResult).toBe(true);
+    expect(state.configFormDirty).toBe(false);
+    expect(state.configDraftBaseHash).toBe("hash-refreshed");
   });
 
   it("coerces schema-typed values before config.set in form mode", async () => {
