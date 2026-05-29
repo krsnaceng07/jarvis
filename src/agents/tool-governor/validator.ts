@@ -16,9 +16,12 @@ export function validateToolCall(
   declaredTools: RealtimeVoiceTool[],
   confidence: number = 1.0,
 ): ValidationResult {
-  const tool = declaredTools.find(t => t.name === toolCall.name);
+  const tool = declaredTools.find((t) => t.name === toolCall.name);
   if (!tool) {
-    return { valid: false, reason: `Tool "${toolCall.name}" is not registered in the active capabilities catalog.` };
+    return {
+      valid: false,
+      reason: `Tool "${toolCall.name}" is not registered in the active capabilities catalog.`,
+    };
   }
 
   let args = toolCall.args;
@@ -33,14 +36,18 @@ export function validateToolCall(
     if (tool.name === "open_app" || tool.name === "open_url") {
       const appNameKey = "appName";
       const urlKey = "url";
-      
+
       // Auto-repair missing or empty appName to chrome
-      if (tool.name === "open_app" && (!mutableArgs[appNameKey] || String(mutableArgs[appNameKey]).trim() === "")) {
+      const appNameVal = mutableArgs[appNameKey];
+      const appNameStr = typeof appNameVal === "string" ? appNameVal : "";
+      if (tool.name === "open_app" && (!appNameVal || appNameStr.trim() === "")) {
         mutableArgs[appNameKey] = "chrome";
       }
-      
+
       // Auto-repair missing or empty url to google.com
-      if (tool.name === "open_url" && (!mutableArgs[urlKey] || String(mutableArgs[urlKey]).trim() === "")) {
+      const urlVal = mutableArgs[urlKey];
+      const urlStr = typeof urlVal === "string" ? urlVal : "";
+      if (tool.name === "open_url" && (!urlVal || urlStr.trim() === "")) {
         mutableArgs[urlKey] = "https://www.google.com";
       }
     }
@@ -60,19 +67,28 @@ export function validateToolCall(
   };
 }
 
-function recursiveValidate(value: unknown, schema: any, path: string): string | null {
-  if (!schema) return null;
+function recursiveValidate(value: unknown, schema: unknown, path: string): string | null {
+  if (!schema) {
+    return null;
+  }
+  const s = schema as {
+    type?: string;
+    required?: string[];
+    properties?: Record<string, unknown>;
+    items?: unknown;
+    enum?: unknown[];
+  };
 
   // Handle object validation
-  if (schema.type === "object") {
+  if (s.type === "object") {
     if (typeof value !== "object" || value === null || Array.isArray(value)) {
       return `Expected object at ${path}`;
     }
     const valObj = value as Record<string, unknown>;
 
     // Verify required fields
-    if (Array.isArray(schema.required)) {
-      for (const reqKey of schema.required) {
+    if (Array.isArray(s.required)) {
+      for (const reqKey of s.required) {
         if (!(reqKey in valObj) || valObj[reqKey] === undefined || valObj[reqKey] === null) {
           return `Missing required property "${reqKey}" at ${path}`;
         }
@@ -80,11 +96,13 @@ function recursiveValidate(value: unknown, schema: any, path: string): string | 
     }
 
     // Recursively validate child properties
-    if (schema.properties && typeof schema.properties === "object") {
-      for (const [propName, propSchema] of Object.entries(schema.properties)) {
+    if (s.properties && typeof s.properties === "object") {
+      for (const [propName, propSchema] of Object.entries(s.properties)) {
         if (propName in valObj) {
           const err = recursiveValidate(valObj[propName], propSchema, `${path}.${propName}`);
-          if (err) return err;
+          if (err) {
+            return err;
+          }
         }
       }
     }
@@ -92,45 +110,47 @@ function recursiveValidate(value: unknown, schema: any, path: string): string | 
   }
 
   // Handle array validation
-  if (schema.type === "array") {
+  if (s.type === "array") {
     if (!Array.isArray(value)) {
       return `Expected array at ${path}`;
     }
-    if (schema.items) {
+    if (s.items) {
       for (let i = 0; i < value.length; i++) {
-        const err = recursiveValidate(value[i], schema.items, `${path}[${i}]`);
-        if (err) return err;
+        const err = recursiveValidate(value[i], s.items, `${path}[${i}]`);
+        if (err) {
+          return err;
+        }
       }
     }
     return null;
   }
 
   // Handle primitive string validation
-  if (schema.type === "string") {
+  if (s.type === "string") {
     if (typeof value !== "string") {
       return `Expected string at ${path}`;
     }
-    if (Array.isArray(schema.enum)) {
-      if (!schema.enum.includes(value)) {
-        return `Value "${value}" at ${path} must be one of [${schema.enum.join(", ")}]`;
+    if (Array.isArray(s.enum)) {
+      if (!s.enum.includes(value)) {
+        return `Value "${value}" at ${path} must be one of [${s.enum.join(", ")}]`;
       }
     }
     return null;
   }
 
   // Handle primitive number validation
-  if (schema.type === "number" || schema.type === "integer") {
+  if (s.type === "number" || s.type === "integer") {
     if (typeof value !== "number" || !Number.isFinite(value)) {
       return `Expected number at ${path}`;
     }
-    if (schema.type === "integer" && !Number.isInteger(value)) {
+    if (s.type === "integer" && !Number.isInteger(value)) {
       return `Expected integer at ${path}`;
     }
     return null;
   }
 
   // Handle primitive boolean validation
-  if (schema.type === "boolean") {
+  if (s.type === "boolean") {
     if (typeof value !== "boolean") {
       return `Expected boolean at ${path}`;
     }

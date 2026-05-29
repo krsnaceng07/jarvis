@@ -1,4 +1,9 @@
 import { randomUUID } from "node:crypto";
+import {
+  RealtimeMiddleware,
+  getGovernorContext,
+  clearGovernorContext,
+} from "../agents/tool-governor/index.js";
 import type { OpenClawConfig } from "../config/types.js";
 import type { RealtimeVoiceProviderPlugin } from "../plugins/types.js";
 import {
@@ -37,11 +42,6 @@ import {
 import { abortChatRunById } from "./chat-abort.js";
 import type { GatewayRequestContext } from "./server-methods/shared-types.js";
 import { forgetUnifiedTalkSession } from "./talk-session-registry.js";
-import {
-  RealtimeMiddleware,
-  getGovernorContext,
-  clearGovernorContext,
-} from "../agents/tool-governor/index.js";
 
 const RELAY_SESSION_TTL_MS = 30 * 60 * 1000;
 const MAX_AUDIO_BASE64_BYTES = 512 * 1024;
@@ -383,13 +383,11 @@ export function createTalkRealtimeRelaySession(
       }
       if (role === "user" && final && text.trim()) {
         const question = text.trim();
-        
+
         // Intercept Transcript and calculate deterministic confidence
-        void RealtimeMiddleware.interceptTranscript(
-          question,
-          relaySessionId,
-          params.tools,
-        ).catch(() => {});
+        void RealtimeMiddleware.interceptTranscript(question, relaySessionId, params.tools).catch(
+          () => {},
+        );
 
         if (
           relay &&
@@ -775,10 +773,21 @@ export function submitTalkRealtimeRelayToolResult(params: {
     ).then((execResult) => {
       let finalResult = params.result;
       if (!execResult.success && execResult.fallbackText) {
-        finalResult = {
-          success: false,
-          error: execResult.fallbackText,
-        };
+        if (params.result && typeof params.result === "object" && !Array.isArray(params.result)) {
+          const resObj = params.result as Record<string, unknown>;
+          const rawError = resObj.error ?? resObj.message ?? execResult.fallbackText;
+          const errorStr = typeof rawError === "string" ? rawError : JSON.stringify(rawError ?? "");
+          finalResult = {
+            ...resObj,
+            success: false,
+            error: errorStr,
+          };
+        } else {
+          finalResult = {
+            success: false,
+            error: execResult.fallbackText,
+          };
+        }
       }
 
       session.bridge.submitToolResult(params.callId, finalResult, params.options);

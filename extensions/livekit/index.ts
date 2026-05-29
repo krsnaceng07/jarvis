@@ -1,5 +1,8 @@
 import { definePluginEntry } from "openclaw/plugin-sdk/plugin-entry";
-import type { RealtimeVoiceProviderPlugin } from "openclaw/plugin-sdk/realtime-voice";
+import type {
+  RealtimeVoiceBridge,
+  RealtimeVoiceProviderPlugin,
+} from "openclaw/plugin-sdk/realtime-voice";
 
 let livekitRealtimeVoiceProviderPromise: Promise<RealtimeVoiceProviderPlugin> | null = null;
 
@@ -23,22 +26,20 @@ function createLazyLiveKitRealtimeVoiceProvider(): RealtimeVoiceProviderPlugin {
       return {
         url: typeof raw.url === "string" ? raw.url : process.env.LIVEKIT_URL,
         apiKey: typeof raw.apiKey === "string" ? raw.apiKey : process.env.LIVEKIT_API_KEY,
-        apiSecret: typeof raw.apiSecret === "string" ? raw.apiSecret : process.env.LIVEKIT_API_SECRET,
+        apiSecret:
+          typeof raw.apiSecret === "string" ? raw.apiSecret : process.env.LIVEKIT_API_SECRET,
       };
     },
     isConfigured: ({ providerConfig }) => {
-      return Boolean(
-        providerConfig.apiKey ||
-        process.env.LIVEKIT_API_KEY
-      );
+      return Boolean(providerConfig.apiKey || process.env.LIVEKIT_API_KEY);
     },
     createBridge: (req) => {
-      let bridge: any;
-      let bridgePromise: Promise<any> | undefined;
+      let bridge: RealtimeVoiceBridge | undefined;
+      let bridgePromise: Promise<RealtimeVoiceBridge> | undefined;
       const loadBridge = async () => {
         if (!bridgePromise) {
           bridgePromise = loadLiveKitRealtimeVoiceProvider().then((provider) =>
-            provider.createBridge(req)
+            provider.createBridge(req),
           );
         }
         bridge = await bridgePromise;
@@ -72,7 +73,7 @@ function createLazyLiveKitRealtimeVoiceProvider(): RealtimeVoiceProviderPlugin {
         },
         isConnected: () => {
           return bridge?.isConnected() ?? false;
-        }
+        },
       };
     },
     createBrowserSession: async (req) => {
@@ -81,7 +82,7 @@ function createLazyLiveKitRealtimeVoiceProvider(): RealtimeVoiceProviderPlugin {
         throw new Error("LiveKit provider missing createBrowserSession");
       }
       return await provider.createBrowserSession(req);
-    }
+    },
   };
 }
 
@@ -91,5 +92,5 @@ export default definePluginEntry({
   description: "Native LiveKit WebRTC Voice Room Provider plugin",
   register(api) {
     api.registerRealtimeVoiceProvider(createLazyLiveKitRealtimeVoiceProvider());
-  }
+  },
 });

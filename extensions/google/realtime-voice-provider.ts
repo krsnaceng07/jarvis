@@ -420,7 +420,7 @@ function formatGoogleLiveCloseEvent(
 }
 
 class GoogleRealtimeVoiceBridge implements RealtimeVoiceBridge {
-  readonly supportsToolResultContinuation = true;
+  readonly supportsToolResultContinuation = false;
 
   private session: GoogleLiveSession | null = null;
   private connected = false;
@@ -431,6 +431,8 @@ class GoogleRealtimeVoiceBridge implements RealtimeVoiceBridge {
   private consecutiveSilenceMs = 0;
   private audioStreamEnded = false;
   private pendingFunctionNames = new Map<string, string>();
+  private lastUserText = "";
+  private lastAssistantText = "";
   private readonly audioFormat: RealtimeVoiceAudioFormat;
   private resumptionHandle: string | undefined;
   private reconnectAttempts = 0;
@@ -634,6 +636,8 @@ class GoogleRealtimeVoiceBridge implements RealtimeVoiceBridge {
     this.consecutiveSilenceMs = 0;
     this.audioStreamEnded = false;
     this.pendingFunctionNames.clear();
+    this.lastUserText = "";
+    this.lastAssistantText = "";
     const session = this.session;
     this.session = null;
     session?.close();
@@ -717,19 +721,24 @@ class GoogleRealtimeVoiceBridge implements RealtimeVoiceBridge {
     }
 
     if (content.inputTranscription?.text) {
-      this.config.onTranscript?.(
-        "user",
-        content.inputTranscription.text,
-        content.inputTranscription.finished ?? false,
-      );
+      this.lastUserText = content.inputTranscription.text;
+      const isFinal = content.inputTranscription.finished !== false;
+      this.config.onTranscript?.("user", content.inputTranscription.text, isFinal);
+    } else if (content.inputTranscription?.finished) {
+      this.config.onTranscript?.("user", this.lastUserText || " ", true);
     }
 
     if (content.outputTranscription?.text) {
+      this.lastAssistantText = content.outputTranscription.text;
       this.config.onTranscript?.(
         "assistant",
         content.outputTranscription.text,
         content.outputTranscription.finished ?? false,
       );
+    }
+    if (content.outputTranscription?.finished) {
+      this.config.onTranscript?.("assistant", this.lastAssistantText || " ", true);
+      this.lastAssistantText = "";
     }
 
     let emittedAssistantText = false;
@@ -749,12 +758,20 @@ class GoogleRealtimeVoiceBridge implements RealtimeVoiceBridge {
       }
       if (!content.outputTranscription?.text && typeof part.text === "string" && part.text.trim()) {
         emittedAssistantText = true;
+        this.lastAssistantText = part.text;
         this.config.onTranscript?.("assistant", part.text, content.turnComplete ?? false);
       }
     }
 
-    if (!emittedAssistantText && content.turnComplete && content.waitingForInput === false) {
-      return;
+    if (content.turnComplete) {
+      if (this.lastAssistantText) {
+        this.config.onTranscript?.("assistant", this.lastAssistantText, true);
+        this.lastAssistantText = "";
+      }
+      this.lastUserText = "";
+      if (!emittedAssistantText && content.waitingForInput === false) {
+        return;
+      }
     }
   }
 
@@ -766,11 +783,22 @@ class GoogleRealtimeVoiceBridge implements RealtimeVoiceBridge {
       }
       const callId = call.id?.trim() || `google-live-${randomUUID()}`;
       this.pendingFunctionNames.set(callId, name);
+      // Gemini NON_BLOCKING tool calls can fire with empty args (no question).
+      // Inject lastUserText as question fallback so the gateway can satisfy
+      // the required field instead of throwing "question required".
+      let args: Record<string, unknown> = call.args ?? {};
+      if (
+        name === REALTIME_VOICE_AGENT_CONSULT_TOOL_NAME &&
+        !args["question"] &&
+        this.lastUserText.trim()
+      ) {
+        args = { ...args, question: this.lastUserText.trim() };
+      }
       this.config.onToolCall?.({
         itemId: callId,
         callId,
         name,
-        args: call.args ?? {},
+        args,
       });
     }
   }

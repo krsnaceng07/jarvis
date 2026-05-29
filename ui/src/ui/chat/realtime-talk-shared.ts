@@ -98,6 +98,7 @@ export type RealtimeTalkSessionResult =
 export type RealtimeTalkTransport = {
   start(): Promise<void>;
   stop(): void;
+  sendUserMessage?(message: string): void;
 };
 
 export type RealtimeTalkTransportContext = {

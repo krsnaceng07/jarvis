@@ -244,7 +244,7 @@ function createLazyGoogleRealtimeVoiceBridge(
     }
   };
   return {
-    supportsToolResultContinuation: true,
+    supportsToolResultContinuation: false,
     connect: async () => {
       const loadedBridge = await loadBridge();
       if (closed) {

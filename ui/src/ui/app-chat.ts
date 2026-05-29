@@ -79,6 +79,8 @@ export type ChatHost = ChatInputHistoryState & {
   chatSubmitGuards?: Map<string, Promise<void>>;
   /** Callback for slash-command side effects that need app-level access. */
   onSlashAction?: (action: string) => void | Promise<void>;
+  realtimeTalkActive?: boolean;
+  realtimeTalkSession?: unknown;
 };
 
 export type ChatSendOptions = {
@@ -559,6 +561,22 @@ export async function handleSendChat(
   if (!host.connected) {
     return;
   }
+
+  if (host.realtimeTalkActive && host.realtimeTalkSession) {
+    const message = (messageOverride ?? host.chatMessage).trim();
+    if (message) {
+      const session = host.realtimeTalkSession as { sendUserMessage?: (msg: string) => boolean };
+      const handled =
+        typeof session.sendUserMessage === "function" && session.sendUserMessage(message);
+      if (handled) {
+        if (messageOverride == null) {
+          host.chatMessage = "";
+        }
+        return;
+      }
+    }
+  }
+
   const previousDraft = host.chatMessage;
   const message = (messageOverride ?? host.chatMessage).trim();
   const submittedSessionKey = host.sessionKey;

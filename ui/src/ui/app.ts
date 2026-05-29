@@ -1152,6 +1152,28 @@ export class OpenClawApp extends LitElement {
             entry,
           );
           this.realtimeTalkConversation = this.realtimeTalkConversationState.entries;
+
+          if (entry.final) {
+            const nextMessages = [
+              ...(this.chatMessages ?? []),
+              {
+                role: entry.role,
+                content: [{ type: "text", text: entry.text }],
+                timestamp: Date.now(),
+              },
+            ];
+            const selfObj = this as unknown as Record<string, unknown>;
+            if (typeof this.hasAttribute === "function" && selfObj.updateComplete !== undefined) {
+              this.chatMessages = nextMessages;
+              scheduleChatScrollInternal(this, true, true);
+            } else {
+              Object.defineProperty(this, "chatMessages", {
+                value: nextMessages,
+                writable: true,
+                configurable: true,
+              });
+            }
+          }
         },
       },
       this.buildRealtimeTalkLaunchOptions(),

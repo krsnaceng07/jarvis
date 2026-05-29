@@ -9,6 +9,31 @@ export const ACTION_PATTERNS = [
   /navigate/i,
   /launch/i,
   /toggle/i,
+  /close/i,
+  /stop/i,
+  /exit/i,
+  /kill/i,
+  /terminate/i,
+  /shut/i,
+  /banda/i,
+  /cancel/i,
+  /quit/i,
+  /delete/i,
+  /remove/i,
+  /clear/i,
+  /create/i,
+  /make/i,
+  /add/i,
+  /get/i,
+  /fetch/i,
+  /show/i,
+  /find/i,
+  /write/i,
+  /read/i,
+  /update/i,
+  /edit/i,
+  /change/i,
+  /send/i,
 ];
 
 export type ActionMatchResult = {
@@ -22,7 +47,7 @@ export type ActionMatchResult = {
  * Excludes any scoring or heuristic weight calculations.
  */
 export function matchActionPatterns(text: string): ActionMatchResult {
-  const normalized = normalizeOptionalString(text).trim();
+  const normalized = (normalizeOptionalString(text) ?? "").trim();
   if (!normalized) {
     return { matches: false, patterns: [] };
   }

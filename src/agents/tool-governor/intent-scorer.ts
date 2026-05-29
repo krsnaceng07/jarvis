@@ -59,13 +59,18 @@ export function calculateIntentConfidence(
   let syntaxScore = 0.0;
   if (hasActionVerb) {
     const words = normalized.split(/\s+/);
-    const verbIndexes = words.map((w, idx) => {
-      const match = matchActionPatterns(w);
-      return match.matches ? idx : -1;
-    }).filter(idx => idx !== -1);
+    const verbIndexes = words
+      .map((w, idx) => {
+        const match = matchActionPatterns(w);
+        return match.matches ? idx : -1;
+      })
+      .filter((idx) => idx !== -1);
 
-    if (verbIndexes.length > 0 && Math.min(...verbIndexes) <= 2) {
-      syntaxScore = 1.0; // Verb sits near start of sentence
+    if (
+      verbIndexes.length > 0 &&
+      (Math.min(...verbIndexes) <= 2 || Math.max(...verbIndexes) >= words.length - 3)
+    ) {
+      syntaxScore = 1.0; // Verb sits near start of sentence (SVO) or end of sentence (SOV)
     }
   }
 
@@ -79,7 +84,7 @@ export function calculateIntentConfidence(
 
   // 5. Ambiguity & Question Penalties
   let ambiguityPenalty = 0.0;
-  
+
   // Rule: If question-type turn (e.g. "can you...", "tell me...", "why...") -> penalize heavily
   const isQuestion =
     normalized.endsWith("?") ||
@@ -100,10 +105,10 @@ export function calculateIntentConfidence(
   // Calculate final deterministic formula
   // Confidence = (VerbScore * 0.4) + (ToolMatch * 0.3) + (SyntaxScore * 0.2) + (ContextScore * 0.1) - AmbiguityPenalty
   const rawConfidence =
-    (verbScore * 0.4) +
-    (toolMatchScore * 0.3) +
-    (syntaxScore * 0.2) +
-    (contextScore * 0.1) -
+    verbScore * 0.4 +
+    toolMatchScore * 0.3 +
+    syntaxScore * 0.2 +
+    contextScore * 0.1 -
     ambiguityPenalty;
 
   const confidence = Math.max(0.0, Math.min(1.0, rawConfidence));

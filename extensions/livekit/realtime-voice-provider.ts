@@ -1,21 +1,18 @@
 import { randomUUID } from "node:crypto";
 import { AccessToken } from "livekit-server-sdk";
 import type {
-  RealtimeVoiceAudioFormat,
   RealtimeVoiceBridge,
   RealtimeVoiceBrowserSession,
   RealtimeVoiceBrowserSessionCreateRequest,
   RealtimeVoiceBridgeCreateRequest,
   RealtimeVoiceProviderConfig,
   RealtimeVoiceProviderPlugin,
-  RealtimeVoiceTool,
   RealtimeVoiceToolResultOptions,
 } from "openclaw/plugin-sdk/realtime-voice";
 import {
   REALTIME_VOICE_AUDIO_FORMAT_PCM16_24KHZ,
   resamplePcm,
 } from "openclaw/plugin-sdk/realtime-voice";
-import { normalizeResolvedSecretInputString } from "openclaw/plugin-sdk/secret-input";
 import { normalizeOptionalString } from "openclaw/plugin-sdk/string-coerce-runtime";
 
 const LIVEKIT_DEFAULT_URL = "ws://localhost:7880";
@@ -35,25 +32,22 @@ export class LiveKitRealtimeVoiceBridge implements RealtimeVoiceBridge {
   private config: LiveKitVoiceProviderConfig;
   private apiKey: string;
   private apiSecret: string;
-  private url: string;
   private roomName: string;
   private participantIdentity: string;
   private connected = false;
   private closed = false;
-  private mediaTimestamp = 0;
 
   constructor(
     req: RealtimeVoiceBridgeCreateRequest,
     config: LiveKitVoiceProviderConfig,
     apiKey: string,
     apiSecret: string,
-    url: string
+    _url: string,
   ) {
     this.req = req;
     this.config = config;
     this.apiKey = apiKey;
     this.apiSecret = apiSecret;
-    this.url = url;
     this.roomName = config.roomName || `room_${randomUUID().slice(0, 8)}`;
     this.participantIdentity = config.participantIdentity || `agent_${randomUUID().slice(0, 8)}`;
   }
@@ -80,11 +74,11 @@ export class LiveKitRealtimeVoiceBridge implements RealtimeVoiceBridge {
         canPublishData: true,
       });
 
-      const jwt = await token.toJwt();
-      
+      await token.toJwt();
+
       // Simulate/Establish signaling connection
       this.connected = true;
-      
+
       // Trigger native onReady event hook
       if (this.req.onReady) {
         this.req.onReady();
@@ -94,10 +88,9 @@ export class LiveKitRealtimeVoiceBridge implements RealtimeVoiceBridge {
       if (this.req.instructions) {
         this.triggerGreeting(this.req.instructions);
       }
-
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (this.req.onError) {
-        this.req.onError(err);
+        this.req.onError(err instanceof Error ? err : new Error(String(err)));
       }
       throw err;
     }
@@ -111,21 +104,21 @@ export class LiveKitRealtimeVoiceBridge implements RealtimeVoiceBridge {
     // Server-side PCM Resampling (if input is 24kHz but LiveKit requires 48kHz)
     const targetSampleRate = 48000;
     const inputSampleRate = this.req.audioFormat?.sampleRateHz || 24000;
-    
+
     let processedAudio = audio;
-    if (inputSampleRate !== targetSampleRate) {
+    if ((inputSampleRate as number) !== targetSampleRate) {
       processedAudio = resamplePcm(audio, inputSampleRate, targetSampleRate);
     }
 
     // Process and broadcast resampled audio frame to subscribed participants
     if (this.req.onAudio) {
       // Echo back for verification & recording streams in testing/loopback modes
-      this.req.onAudio(audio);
+      this.req.onAudio(processedAudio);
     }
   }
 
-  setMediaTimestamp(ts: number): void {
-    this.mediaTimestamp = ts;
+  setMediaTimestamp(_ts: number): void {
+    // Media timestamp updates
   }
 
   sendUserMessage(text: string): void {
@@ -146,19 +139,23 @@ export class LiveKitRealtimeVoiceBridge implements RealtimeVoiceBridge {
     }, 200);
   }
 
-  triggerGreeting(instructions?: string): void {
+  triggerGreeting(_instructions?: string): void {
     if (!this.connected || this.closed) {
       return;
     }
 
     setTimeout(() => {
       if (this.req.onTranscript) {
-        this.req.onTranscript("assistant", "Hello! Welcome to the LiveKit voice room. How can I help you?", true);
+        this.req.onTranscript(
+          "assistant",
+          "Hello! Welcome to the LiveKit voice room. How can I help you?",
+          true,
+        );
       }
     }, 150);
   }
 
-  handleBargeIn(options?: { audioPlaybackActive?: boolean; force?: boolean }): void {
+  handleBargeIn(_options?: { audioPlaybackActive?: boolean; force?: boolean }): void {
     if (this.req.onClearAudio) {
       this.req.onClearAudio();
     }
@@ -167,7 +164,7 @@ export class LiveKitRealtimeVoiceBridge implements RealtimeVoiceBridge {
   submitToolResult(
     callId: string,
     result: unknown,
-    options?: RealtimeVoiceToolResultOptions
+    _options?: RealtimeVoiceToolResultOptions,
   ): void {
     if (!this.connected || this.closed) {
       return;
@@ -175,7 +172,11 @@ export class LiveKitRealtimeVoiceBridge implements RealtimeVoiceBridge {
 
     // Report back tool execution results to room participants
     if (this.req.onTranscript) {
-      this.req.onTranscript("assistant", `[Tool Result ${callId}]: ${JSON.stringify(result)}`, true);
+      this.req.onTranscript(
+        "assistant",
+        `[Tool Result ${callId}]: ${JSON.stringify(result)}`,
+        true,
+      );
     }
   }
 
@@ -198,16 +199,15 @@ export class LiveKitRealtimeVoiceBridge implements RealtimeVoiceBridge {
 
 function normalizeProviderConfig(
   raw: RealtimeVoiceProviderConfig,
-  cfg?: any
+  _cfg?: unknown,
 ): LiveKitVoiceProviderConfig {
   const url =
     normalizeOptionalString(raw.url) ??
     normalizeOptionalString(process.env.LIVEKIT_URL) ??
     LIVEKIT_DEFAULT_URL;
-  
+
   const apiKey =
-    normalizeOptionalString(raw.apiKey) ??
-    normalizeOptionalString(process.env.LIVEKIT_API_KEY);
+    normalizeOptionalString(raw.apiKey) ?? normalizeOptionalString(process.env.LIVEKIT_API_KEY);
 
   const apiSecret =
     normalizeOptionalString(raw.apiSecret) ??
@@ -224,10 +224,10 @@ function normalizeProviderConfig(
 }
 
 export async function createLiveKitRealtimeBrowserSession(
-  req: RealtimeVoiceBrowserSessionCreateRequest
+  req: RealtimeVoiceBrowserSessionCreateRequest,
 ): Promise<RealtimeVoiceBrowserSession> {
   const config = normalizeProviderConfig(req.providerConfig, req.cfg);
-  
+
   const apiKey = config.apiKey || process.env.LIVEKIT_API_KEY;
   const apiSecret = config.apiSecret || process.env.LIVEKIT_API_SECRET;
 

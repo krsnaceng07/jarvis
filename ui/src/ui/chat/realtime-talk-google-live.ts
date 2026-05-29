@@ -402,6 +402,21 @@ export class GoogleLiveRealtimeTalkTransport implements RealtimeTalkTransport {
       this.stopOutput();
     }
   }
+
+  sendUserMessage(message: string): void {
+    this.stopOutput();
+    this.send({
+      clientContent: {
+        turns: [
+          {
+            role: "user",
+            parts: [{ text: message }],
+          },
+        ],
+        turnComplete: true,
+      },
+    });
+  }
 }
 
 async function decodeGoogleLiveMessageData(data: unknown): Promise<string> {

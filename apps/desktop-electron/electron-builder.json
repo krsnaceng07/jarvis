@@ -1,0 +1,25 @@
+{
+  "appId": "ai.openclaw.desktop",
+  "productName": "OpenClaw",
+  "directories": {
+    "output": "dist"
+  },
+  "files": [
+    "main.js",
+    "preload.js",
+    "assets/**"
+  ],
+  "win": {
+    "target": "nsis",
+    "icon": "assets/icon.png"
+  },
+  "mac": {
+    "target": "dmg",
+    "icon": "assets/icon.png",
+    "category": "public.app-category.productivity"
+  },
+  "linux": {
+    "target": "AppImage",
+    "icon": "assets/icon.png"
+  }
+}

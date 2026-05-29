@@ -5,8 +5,8 @@
   "description": "OpenClaw LiveKit plugin",
   "type": "module",
   "dependencies": {
-    "livekit-server-sdk": "^2.9.3",
-    "ws": "^8.18.0"
+    "livekit-server-sdk": "2.15.3",
+    "ws": "8.18.0"
   },
   "devDependencies": {
     "@openclaw/plugin-sdk": "workspace:*"

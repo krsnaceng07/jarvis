@@ -348,6 +348,21 @@ export class WebRtcSdpRealtimeTalkTransport implements RealtimeTalkTransport {
     }
   }
 
+  sendUserMessage(message: string): void {
+    if (this.responseActive) {
+      this.send({ type: "response.cancel" });
+    }
+    this.send({
+      type: "conversation.item.create",
+      item: {
+        type: "message",
+        role: "user",
+        content: [{ type: "input_text", text: message }],
+      },
+    });
+    this.requestResponseCreate();
+  }
+
   private requestResponseCreate(): void {
     if (this.responseActive || this.responseCreateInFlight) {
       this.responseCreatePending = true;

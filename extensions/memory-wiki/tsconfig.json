@@ -1,7 +1,8 @@
 {
   "extends": "../tsconfig.package-boundary.base.json",
   "compilerOptions": {
-    "rootDir": "."
+    "rootDir": ".",
+    "ignoreDeprecations": "5.0"
   },
   "include": ["./*.ts", "./src/**/*.ts"],
   "exclude": [

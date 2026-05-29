@@ -1,6 +1,6 @@
+import { AccessToken } from "livekit-server-sdk";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { buildLiveKitRealtimeVoiceProvider } from "./realtime-voice-provider.js";
-import { AccessToken } from "livekit-server-sdk";
 
 describe("LiveKit Realtime Voice Provider", () => {
   const originalEnv = process.env;
@@ -63,9 +63,9 @@ describe("LiveKit Realtime Voice Provider", () => {
       delete process.env.LIVEKIT_API_KEY;
       delete process.env.LIVEKIT_API_SECRET;
       const provider = buildLiveKitRealtimeVoiceProvider();
-      await expect(
-        provider.createBrowserSession!({ providerConfig: {} })
-      ).rejects.toThrow("LiveKit API Key or API Secret missing");
+      await expect(provider.createBrowserSession!({ providerConfig: {} })).rejects.toThrow(
+        "LiveKit API Key or API Secret missing",
+      );
     });
 
     it("should generate a valid JWT token browser session", async () => {
@@ -73,9 +73,9 @@ describe("LiveKit Realtime Voice Provider", () => {
       process.env.LIVEKIT_API_SECRET = "dev-secret";
 
       const provider = buildLiveKitRealtimeVoiceProvider();
-      const session = await provider.createBrowserSession!({
+      const session = (await provider.createBrowserSession!({
         providerConfig: { url: "wss://project.livekit.cloud" },
-      });
+      })) as any;
 
       expect(session.provider).toBe("livekit");
       expect(session.transport).toBe("managed-room");
@@ -95,7 +95,7 @@ describe("LiveKit Realtime Voice Provider", () => {
           providerConfig: {},
           onAudio: vi.fn(),
           onClearAudio: vi.fn(),
-        })
+        }),
       ).toThrow("LiveKit API Key or API Secret missing");
     });
 

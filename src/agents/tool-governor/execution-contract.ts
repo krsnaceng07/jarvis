@@ -31,7 +31,8 @@ export async function verifyToolContract(
     (typeof resObj.error === "string" && resObj.error.trim() !== "");
 
   if (isFailed) {
-    const error = String(resObj.error ?? resObj.message ?? "Tool returned a failure result status.");
+    const rawError = resObj.error ?? resObj.message ?? "Tool returned a failure result status.";
+    const error = typeof rawError === "string" ? rawError : JSON.stringify(rawError ?? "");
     return {
       success: false,
       error,

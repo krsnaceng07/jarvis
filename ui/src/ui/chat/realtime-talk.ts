@@ -134,4 +134,12 @@ export class RealtimeTalkSession {
     this.transport?.stop();
     this.transport = null;
   }
+
+  sendUserMessage(message: string): boolean {
+    if (this.transport && typeof this.transport.sendUserMessage === "function") {
+      this.transport.sendUserMessage(message);
+      return true;
+    }
+    return false;
+  }
 }

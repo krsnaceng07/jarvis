@@ -3923,7 +3923,8 @@ describe("active-memory plugin", () => {
 
     expect(mkdtempSpy).toHaveBeenCalled();
     const sessionFile = lastEmbeddedSessionFile();
-    expect(sessionFile).toMatch(/openclaw-active-memory-.*\/session\.jsonl$/);
+    const normalizedSessionFile = sessionFile.replace(/\\/g, "/");
+    expect(normalizedSessionFile).toMatch(/openclaw-active-memory-.*\/session\.jsonl$/);
     expect(rmSpy).toHaveBeenCalledWith(path.dirname(sessionFile), {
       recursive: true,
       force: true,

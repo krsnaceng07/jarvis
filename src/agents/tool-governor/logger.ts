@@ -19,8 +19,8 @@ export type GovernorLogEntry = {
  * Observability Telemetry Layer:
  * Zero business logic. Strictly handles turn trace recording for telemetry auditing.
  */
-export class ToolGovernorLogger {
-  static logTurn(entry: GovernorLogEntry): void {
+export const ToolGovernorLogger = {
+  logTurn(entry: GovernorLogEntry): void {
     const timestamp = new Date().toISOString();
     const prefix = `[governor-telemetry][${timestamp}][session=${entry.sessionId}]`;
 
@@ -53,5 +53,5 @@ export class ToolGovernorLogger {
         `${prefix} execution contract: ${entry.executionResult.success ? "SUCCESS" : "FAILED"} | error: ${entry.executionResult.error ?? "none"}`,
       );
     }
-  }
-}
+  },
+};

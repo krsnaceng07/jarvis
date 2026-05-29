@@ -33,15 +33,15 @@ export type InterceptGeminiResponseResult = {
  * Acting strictly as the runtime pipeline connector. Contains zero business logic,
  * delegating all scoring, checking, and decider workflows to their respective modules.
  */
-export class RealtimeMiddleware {
-  static async interceptTranscript(
+export const RealtimeMiddleware = {
+  async interceptTranscript(
     text: string,
     sessionId: string,
     declaredTools: RealtimeVoiceTool[],
   ): Promise<InterceptTranscriptResult> {
     const ctx = getGovernorContext(sessionId);
     const scorerResult = calculateIntentConfidence(text, declaredTools, ctx);
-    
+
     updateGovernorContext(sessionId, {
       intentChain: [...ctx.intentChain, `transcript-${Date.now()}`],
       lastConfidence: scorerResult.confidence,
@@ -63,16 +63,14 @@ export class RealtimeMiddleware {
       requiresTool: isActionMatch && scorerResult.confidence >= 0.85,
       confidence: scorerResult.confidence,
     };
-  }
+  },
 
-  static async interceptToolCall(
+  async interceptToolCall(
     call: { name: string; args: unknown },
     sessionId: string,
     confidence: number,
     declaredTools: RealtimeVoiceTool[],
   ): Promise<InterceptToolCallResult> {
-    const ctx = getGovernorContext(sessionId);
-
     // Call Authority Decider (TAR)
     const result = await approveExecution(call, sessionId, confidence, declaredTools);
 
@@ -98,15 +96,13 @@ export class RealtimeMiddleware {
       repairedArgs: result.repairedArgs,
       reason: result.reason,
     };
-  }
+  },
 
-  static async interceptExecution(
+  async interceptExecution(
     call: { name: string; args: unknown },
     result: unknown,
     sessionId: string,
   ): Promise<InterceptExecutionResult> {
-    const ctx = getGovernorContext(sessionId);
-    
     // Call Execution Contract Validation
     const contract = await verifyToolContract(call.name, result);
 
@@ -123,11 +119,11 @@ export class RealtimeMiddleware {
       success: contract.success,
       fallbackText: contract.fallbackText,
     };
-  }
+  },
 
-  static async interceptGeminiResponse(
-    response: string,
-    sessionId: string,
+  async interceptGeminiResponse(
+    _response: string,
+    _sessionId: string,
   ): Promise<InterceptGeminiResponseResult> {
     // Under Wave 1, Stream Intervention operates in detection-only mode.
     // Preserves stable conversational flow without active interruptions.
@@ -135,5 +131,5 @@ export class RealtimeMiddleware {
       allowed: true,
       interventionRequired: false,
     };
-  }
-}
+  },
+};

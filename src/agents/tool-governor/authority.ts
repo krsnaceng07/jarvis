@@ -20,7 +20,7 @@ export type AuthorityResult = {
  */
 export async function approveExecution(
   toolCall: { name: string; args: unknown },
-  sessionId: string,
+  _sessionId: string,
   confidence: number,
   declaredTools: RealtimeVoiceTool[],
 ): Promise<AuthorityResult> {
