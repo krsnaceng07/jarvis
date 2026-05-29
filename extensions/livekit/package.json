@@ -1,0 +1,19 @@
+{
+  "name": "@openclaw/livekit-plugin",
+  "version": "2026.5.29",
+  "private": true,
+  "description": "OpenClaw LiveKit plugin",
+  "type": "module",
+  "dependencies": {
+    "livekit-server-sdk": "^2.9.3",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@openclaw/plugin-sdk": "workspace:*"
+  },
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

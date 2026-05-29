@@ -1,0 +1,34 @@
+{
+  "id": "livekit",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": ["livekit"],
+  "setup": {
+    "providers": [
+      {
+        "id": "livekit",
+        "envVars": ["LIVEKIT_URL", "LIVEKIT_API_KEY", "LIVEKIT_API_SECRET"]
+      }
+    ]
+  },
+  "contracts": {
+    "realtimeVoiceProviders": ["livekit"]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "url": {
+        "type": "string"
+      },
+      "apiKey": {
+        "type": "string"
+      },
+      "apiSecret": {
+        "type": "string"
+      }
+    }
+  }
+}
