@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type {
   ActivityHandling,
-  Behavior,
   EndSensitivity,
   FunctionDeclaration,
   FunctionResponse,
@@ -321,16 +320,16 @@ function buildRealtimeInputConfig(
 
 function buildFunctionDeclarations(tools: RealtimeVoiceTool[] | undefined): FunctionDeclaration[] {
   return (tools ?? []).map((tool) => {
-    const declaration: any = {
+    const declaration = {
       name: tool.name,
       description: tool.description,
       parameters: tool.parameters,
       parametersJsonSchema: tool.parameters,
-    };
+    } as unknown as Record<string, unknown>;
     if (tool.name === REALTIME_VOICE_AGENT_CONSULT_TOOL_NAME) {
-      declaration.behavior = "NON_BLOCKING" as Behavior;
+      declaration.behavior = "NON_BLOCKING";
     }
-    return declaration as FunctionDeclaration;
+    return declaration as unknown as FunctionDeclaration;
   });
 }
 
