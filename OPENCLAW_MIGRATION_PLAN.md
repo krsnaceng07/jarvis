@@ -2116,3 +2116,132 @@ Phase 3 will:
    fire without the user re-issuing `jarvis cron-list`).
 
 Phase 3 starts immediately upon user go-ahead.
+
+## 25. Phase 3 — COMPLETED (2026-07-19)
+
+**PR Phase 3 deliverable: gateway + Telegram channel + host wiring + CLI.
+OpenClaw structural parity for HTTP routes, channels, and host subsystems.**
+
+### What landed
+
+- **`jarvis.gateway`** (new module) — stdlib HTTP server on
+  `127.0.0.1:7433`. Mirrors OpenClaw's `src/gateway/server/`:
+  - `EADDRINUSE` retry × 20 at 500ms (OpenClaw parity).
+  - `GatewayLockError` after retry budget exhausted (consumed by
+    `jarvis doctor`).
+  - Bearer-token auth, auto-generated at `~/.jarvis/gateway.token`,
+    persisted across restarts.
+  - Plugin HTTP routes via `add_raw(dict)` or `add_route(HttpRoute)`
+    with `exact`/`prefix` match.
+  - Built-in `/health` endpoint (no auth).
+  - Case-insensitive header lookup (RFC 7230 §3.2).
+
+- **`extensions/telegram/`** (new extension) — Phase 3 simplified
+  port of OpenClaw's `extensions/telegram/`:
+  - `send`: httpx POST to `/sendMessage`.
+  - `listen`: long-polling `/getUpdates`, pairs on first message
+    (operator-only, like OpenClaw's account resolution).
+  - `TelegramState` persists `bot_token` + `paired_chat_id` to
+    `~/.jarvis/telegram.json`.
+  - Doctor contract flags missing bot_token.
+
+- **SDK hardening** (`packages/plugin_sdk/src/jarvis_sdk/api.py`):
+  - `PluginApi.register_http_handler` now accepts `HttpRoute`
+    dataclass OR dict (dict path unchanged from Phase 1).
+
+- **Host wiring** (`apps/desktop/src/jarvis_desktop/app.py`):
+  - `_load_plugins()` return tuple extended from 8 to 10 elements
+    (`+ http_handlers`, `+ channel`).
+  - Gateway is constructed + started at module load time (background
+    daemon thread). Another JARVIS instance on 7433 is logged and
+    skipped — the host doesn't refuse to start.
+  - Plugin-registered channel is exposed via `_PLUGIN_CHANNELS` dict
+    (no auto-listener; opt-in via future "start channel" hook).
+  - **Phase 2 skill bodies are now injected into the system prompt**
+    (`skills_to_prompt_section` was defined in Phase 2 but never
+    wired — Phase 3 fixed that).
+  - **Phase 2 hooks now fire at agent-loop boundaries**:
+    `before_agent_start` in `_build_config`, `agent_end` in
+    `_receive_audio` turn-complete branch.
+
+- **CLI** (`apps/cli/src/jarvis_cli/main.py`):
+  - `jarvis gateway start|status` — start the gateway or check
+    the port.
+  - `jarvis telegram setup|status` — `--token`, `--reset`, or
+    show state.
+  - Phase 2 dead `_build_parser()` removed; `_build_parser_v2()` is
+    the single parser.
+
+### Tests
+
+- **40 new Phase 3 tests** in `tests/test_phase3.py`:
+  - **Gateway** (19 tests): `HttpRoute` shape, route dispatch
+    (`/health`, 401/403/200, 404 unknown, exact vs prefix, 500
+    handler exception), `add_raw` validation, token persistence,
+    URL-safe format, free-port bind, EADDRINUSE → `GatewayLockError`,
+    retry constants match OpenClaw, live HTTP server via
+    `http.client`.
+  - **Telegram** (15 tests): state persistence + env override,
+    polling interval clamp, send (no token, mocked httpx, empty
+    text, httpx exception), listen (no token, pairing), doctor
+    contract, plugin entry shape + register surface.
+  - **CLI** (6 tests): parser for `gateway start|status`,
+    `telegram setup|status`, `--help` shows new commands,
+    gateway status reports free port.
+
+- **Test count progression**: 19 (Phase 0) → 28 (1A) → 44 (1B) →
+  84 (1C) → 122 (Phase 2) → **149 (Phase 3, +27)**.
+
+- `tests/test_smoke.py` updated for the 10-tuple `_load_plugins()`
+  shape (was 8). `tests/test_phase2.py` `test_call_memory_get_missing_arg`
+  now properly closes the runtime + restores the singleton default
+  (was leaking a sqlite3 connection in teardown).
+
+### Pre-commit + checks
+
+All 7 hooks pass on the Phase 3 commit:
+- `ruff` + `ruff-format`
+- `pyright`
+- `tools/ci/check_imports.py` (plugin import boundaries)
+- `tools/ci/check_cycles.py` (import cycles)
+- `tools/ci/check_file_length.py` (≤ 2000 lines/file)
+- `tools/ci/check_manifests.py` (extension manifest schema)
+
+### Commits
+
+- `c56af17` — Phase 3 — gateway, telegram channel, and host wiring
+
+### OpenClaw parity (what we matched, what we deferred)
+
+| OpenClaw surface              | Phase 3 status          |
+| ----------------------------- | ----------------------- |
+| `src/gateway/server/http-listen.ts` | ported to `jarvis/gateway.py` (stdlib only) |
+| `src/gateway/server/eaddrinuse.ts` | ported (20 × 500ms, matches OpenClaw)    |
+| `src/gateway/server/gateway-lock.ts` | `GatewayLockError` mirrors `GatewayLockError` |
+| `extensions/telegram/src/channel.ts` | simplified port (send + listen + pairing) |
+| `extensions/telegram/src/accounts.js` | `TelegramState` (single-instance)        |
+| `api.registerHttpRoute()`     | `PluginApi.register_http_handler` (HttpRoute OR dict) |
+| `api.registerChannel()`       | `PluginApi.register_channel` (unchanged from Phase 2)   |
+| **Deferred to Phase 3.5+**    |                                         |
+| `extensions/telegram/` account snapshots | single instance, no snapshot    |
+| `extensions/telegram/` allow-list | not ported (operator-only by design)       |
+| `extensions/telegram/` threads | not ported                                |
+| `extensions/telegram/` inline buttons | not ported                          |
+| `extensions/discord/`         | deferred (OpenClaw is 250+ files)        |
+| `extensions/slack/`           | deferred                                  |
+| HTTPS / TLS                   | Phase 4+ (gateway is HTTP, behind localhost) |
+
+### What's next: Phase 3.5+ candidates
+
+1. **LanceDB opt-in backend** for `memory_core` (semantic search;
+   Phase 2 ships SQLite substring, Phase 3 keeps that as the
+   default and makes LanceDB a drop-in).
+2. **Cron auto-start in desktop host** — register all cron jobs
+   with the host's task queue so reminders fire without re-running
+   `jarvis cron-list`.
+3. **Discord channel** (port `extensions/discord/`'s shape, but the
+   OpenClaw impl is 250+ files — needs its own PR).
+4. **Full OpenClaw Telegram parity** (account snapshots, allow-list,
+   inline buttons, threads).
+5. **HTTPS gateway** + bearer-token rotation.
+6. **MCP server** (OpenClaw has one) — out of scope for now.
