@@ -359,12 +359,16 @@ class TestMemoryCorePlugin:
         # Force default() to return our test instance.
         from extensions.memory_core import runtime as rt_mod
 
+        prev_default = rt_mod.MemoryRuntime._default
         rt_mod.MemoryRuntime._default = rt
-
-        p = MemoryCorePlugin()
-        result = await p.call("memory_get", {})
-        assert isinstance(result, Err)
-        assert result.code == "MISSING_ARG"
+        try:
+            p = MemoryCorePlugin()
+            result = await p.call("memory_get", {})
+            assert isinstance(result, Err)
+            assert result.code == "MISSING_ARG"
+        finally:
+            rt_mod.MemoryRuntime._default = prev_default
+            rt.close()
 
     def test_manifest(self) -> None:
         import json

@@ -1,6 +1,6 @@
 """jarvis CLI — main entry. Mirrors OpenClaw's ``openclaw`` command tree.
 
-Phase 2. The CLI is a thin wrapper over the same modules the
+Phase 3. The CLI is a thin wrapper over the same modules the
 ``apps/desktop`` host uses. It loads plugins (via the same
 ``_load_plugins()`` machinery the desktop uses, but a slimmed
 CLI-only loader), then dispatches subcommands to the
@@ -10,12 +10,17 @@ Why a separate CLI loader? Because the desktop host has a
 PyQt6 UI to wire (slash commands, hooks, cron runner) and the
 CLI doesn't. We share the SDK + extensions; the wiring is what
 differs.
+
+Phase 3 subcommands: ``gateway start|status`` (HTTP server on
+127.0.0.1:7433), ``telegram setup|status`` (Telegram channel
+configuration).
 """
 
 from __future__ import annotations
 
 import argparse
 import importlib
+import socket
 import sys
 from pathlib import Path
 from typing import Any
@@ -218,70 +223,85 @@ def _cmd_bootstrap(args: argparse.Namespace, workspace: Path) -> int:
     return 0
 
 
+# ── Phase 3: gateway + telegram subcommands ─────────────────────
+
+
+def _cmd_gateway_start(args: argparse.Namespace, workspace: Path) -> int:
+    """Start the JARVIS gateway (Phase 3)."""
+    from jarvis.gateway import DEFAULT_PORT, Gateway, GatewayLockError
+
+    host = args.host or "127.0.0.1"
+    port = int(args.port) if args.port else DEFAULT_PORT
+    gw = Gateway(host=host, port=port)
+    try:
+        gw.start()
+    except GatewayLockError as e:
+        print(f"Error: {e}")
+        return 1
+    print(f"Gateway started on http://{host}:{port}")
+    print(f"Token file: {gw._token_path}")
+    return 0
+
+
+def _cmd_gateway_status(args: argparse.Namespace, workspace: Path) -> int:
+    """Show the gateway status (Phase 3)."""
+    from jarvis.gateway import DEFAULT_PORT
+
+    port = DEFAULT_PORT
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(0.5)
+            try:
+                s.connect(("127.0.0.1", port))
+                print(f"Gateway: RUNNING on 127.0.0.1:{port}")
+                return 0
+            except OSError:
+                print(f"Gateway: NOT RUNNING (port {port} is free)")
+                return 1
+    except Exception as e:
+        print(f"Gateway: error checking status: {e}")
+        return 1
+
+
+def _cmd_telegram_setup(args: argparse.Namespace, workspace: Path) -> int:
+    """Configure the Telegram channel (Phase 3)."""
+    from extensions.telegram.runtime import TelegramState
+
+    state = TelegramState.default()
+    if args.reset:
+        state.bot_token = ""
+        state.paired_chat_id = ""
+        state._save()
+        print("Telegram state reset.")
+        return 0
+    if args.token:
+        state.set_bot_token(args.token)
+        print("Bot token set. Send a message to your bot to complete pairing.")
+        return 0
+    # No flag: show current state.
+    print(f"bot_token:    {'set' if state.bot_token else 'unset'}")
+    print(f"paired_chat:  {state.paired_chat_id or '(not paired)'}")
+    print(f"polling_sec:  {state.polling_interval_sec}")
+    return 0
+
+
+def _cmd_telegram_status(args: argparse.Namespace, workspace: Path) -> int:
+    """Show Telegram channel state."""
+    from extensions.telegram.runtime import TelegramState
+
+    state = TelegramState.default()
+    print(f"bot_token:    {'set' if state.bot_token else 'unset'}")
+    print(f"paired_chat:  {state.paired_chat_id or '(not paired)'}")
+    print(f"polling_sec:  {state.polling_interval_sec}")
+    return 0
+
+
 # ── argparse setup ───────────────────────────────────────────────
-
-
-def _build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
-        prog="jarvis",
-        description=(
-            "JARVIS headless CLI — mirrors OpenClaw's `openclaw` command tree. " "Phase 2."
-        ),
-    )
-    p.add_argument(
-        "--workspace",
-        type=Path,
-        default=Path.cwd(),
-        help="Path to the JARVIS workspace (default: cwd).",
-    )
-    sub = p.add_subparsers(dest="command", required=True, metavar="<subcommand>")
-
-    sub.add_parser("tools", help="Tool commands.").add_subparsers(dest="subcommand", required=True)
-    sub.choices["tools"].add_parser("list", help="List every registered tool.")
-
-    skills_p = sub.add_parser("skills", help="Skill commands.")
-    skills_p.add_subparsers(dest="subcommand", required=True)
-    skills_p.choices["list"] = skills_p.choices["subcommand"]  # type: ignore
-    sub.choices["skills"] = sub.choices["skills"]  # type: ignore
-
-    sub.add_parser("hooks", help="Hook commands.").add_subparsers(dest="subcommand", required=True)
-
-    doctor_p = sub.add_parser("doctor", help="Run doctor contracts.")
-    doctor_p.add_argument(
-        "contract_id",
-        nargs="?",
-        default=None,
-        help="Optional contract id (default: run all).",
-    )
-
-    memory_p = sub.add_parser("memory", help="Memory commands.")
-    memory_sub = memory_p.add_subparsers(dest="subcommand", required=True)
-    memory_sub.add_parser("status", help="Show memory store stats.")
-    search_p = memory_sub.add_parser("search", help="Search memory.")
-    search_p.add_argument("query", help="Substring to search for.")
-    get_p = memory_sub.add_parser("get", help="Read a memory entry by key.")
-    get_p.add_argument("key", help="Memory key.")
-
-    cron_p = sub.add_parser("cron", help="Cron commands.")
-    cron_sub = cron_p.add_subparsers(dest="subcommand", required=True)
-    cron_sub.add_parser("list", help="List registered cron jobs.")
-
-    sub.add_parser("config", help="Config commands.").add_subparsers(
-        dest="subcommand", required=True
-    )
-    sub.add_parser("bootstrap", help="Re-seed workspace files.")
-
-    return p
-
-
-# Phase 2 hack: argparse sub-subparsers are messy; use a simpler layout
-# where each top-level command has its own subcommand list. The above
-# tree is overly complex; simplify to flat command names.
 
 
 def _build_parser_v2() -> argparse.ArgumentParser:
     """Simpler parser: each top-level command is a verb."""
-    p = argparse.ArgumentParser(prog="jarvis", description="JARVIS CLI (Phase 2).")
+    p = argparse.ArgumentParser(prog="jarvis", description="JARVIS CLI (Phase 3).")
     p.add_argument(
         "--workspace",
         type=Path,
@@ -306,17 +326,43 @@ def _build_parser_v2() -> argparse.ArgumentParser:
     sp.add_parser("cron-list", help="List cron jobs.")
     sp.add_parser("config-show", help="Print config/jarvis.json.")
     sp.add_parser("bootstrap", help="Re-seed workspace files.")
+
+    # ── Phase 3: gateway subcommands ─────────────────────────────
+    gw_p = sp.add_parser("gateway", help="Gateway commands.")
+    gw_sub = gw_p.add_subparsers(dest="subcommand", required=True, metavar="<action>")
+    gw_start = gw_sub.add_parser("start", help="Start the JARVIS gateway.")
+    gw_start.add_argument("--host", default=None, help="Bind host (default: 127.0.0.1).")
+    gw_start.add_argument("--port", default=None, help="Bind port (default: 7433).")
+    gw_sub.add_parser("status", help="Show gateway status.")
+
+    # ── Phase 3: telegram subcommands ────────────────────────────
+    tg_p = sp.add_parser("telegram", help="Telegram channel commands.")
+    tg_sub = tg_p.add_subparsers(dest="subcommand", required=True, metavar="<action>")
+    tg_setup = tg_sub.add_parser("setup", help="Configure the Telegram channel.")
+    tg_setup.add_argument(
+        "--token",
+        default=None,
+        help="Telegram Bot API token (from @BotFather).",
+    )
+    tg_setup.add_argument(
+        "--reset",
+        action="store_true",
+        help="Clear all telegram state (token + paired chat).",
+    )
+    tg_sub.add_parser("status", help="Show Telegram channel state.")
+
     return p
 
 
 # ── main ──────────────────────────────────────────────────────────
 
 
-# ruff: noqa: PLR0911
-# The CLI main() has 11 returns — one per subcommand. Consolidating
-# into a dispatch table would lose the per-command error handling
-# (memory-status can raise, doctor returns 0/1, etc.). Each return
-# is a clear, distinct branch.
+# ruff: noqa: PLR0911, PLR0912
+# The CLI main() has 15+ returns + 18 branches — one per subcommand
+# (Phase 3 adds gateway + telegram). Consolidating into a dispatch
+# table would lose the per-command error handling (memory-status can
+# raise, doctor returns 0/1, etc.). Each return is a clear, distinct
+# branch.
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -362,6 +408,16 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_config_show(args, workspace)
     if args.command == "bootstrap":
         return _cmd_bootstrap(args, workspace)
+    if args.command == "gateway":
+        if args.subcommand == "start":
+            return _cmd_gateway_start(args, workspace)
+        if args.subcommand == "status":
+            return _cmd_gateway_status(args, workspace)
+    if args.command == "telegram":
+        if args.subcommand == "setup":
+            return _cmd_telegram_setup(args, workspace)
+        if args.subcommand == "status":
+            return _cmd_telegram_status(args, workspace)
     parser.print_help()
     return 1
 

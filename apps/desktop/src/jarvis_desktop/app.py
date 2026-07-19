@@ -142,6 +142,8 @@ def _load_plugins() -> (
         "list",  # hooks (list[HookRegistration])
         "list",  # cron_jobs (list[CronDecl])
         "list[dict]",  # doctor_contracts (raw dicts)
+        "list[dict]",  # http_handlers (Phase 3, raw dicts)
+        "dict | None",  # channel (Phase 3, single-active-slot)
     ]
 ):
     """Discover + register every extension's plugin entry via the SDK.
@@ -151,10 +153,12 @@ def _load_plugins() -> (
       1. dynamically import ``extensions.<id>``
       2. call ``entry.register(api)`` with a real ``PluginApi``
       3. collect tools / commands / cli / skills / hooks / cron /
-         doctor contracts
+         doctor contracts / http_handlers / channel
 
-    Returns the 8-tuple
-    ``(tool_decls, dispatch, commands, cli, skills, hooks, cron, doctor)``.
+    Returns the 10-tuple
+    ``(tool_decls, dispatch, commands, cli, skills, hooks, cron,
+    doctor, http_handlers, channel)``. ``channel`` is single-slot
+    (the last plugin to register wins; matches OpenClaw).
     """
     import json as _json
     import importlib
@@ -165,7 +169,7 @@ def _load_plugins() -> (
     workspace = _Path(__file__).resolve().parents[4]  # jarvis_desktop/src/jarvis_desktop/app.py
     extensions_dir = workspace / "extensions"
     if not extensions_dir.exists():
-        return [], {}, [], []
+        return [], {}, [], [], [], [], [], [], [], None
 
     tool_decls: "list[dict]" = []
     plugin_dispatch: "dict[str, tuple]" = {}
@@ -175,6 +179,8 @@ def _load_plugins() -> (
     hooks: list = []  # list[HookRegistration]
     cron_jobs: list = []  # list[CronDecl]
     doctor_contracts: "list[dict]" = []
+    http_handlers: "list[dict]" = []  # Phase 3
+    channel: "dict | None" = None  # Phase 3, single-active-slot
 
     for manifest_path in sorted(extensions_dir.glob("*/openclaw.plugin.json")):
         ext_name = manifest_path.parent.name
@@ -233,6 +239,12 @@ def _load_plugins() -> (
         hooks.extend(api.hooks)
         cron_jobs.extend(api.cron_jobs)
         doctor_contracts.extend(api.doctor_contracts)
+        http_handlers.extend(api.http_handlers)
+        # Channel is single-active-slot (last writer wins, matches
+        # OpenClaw's behavior). We keep the surface small: one
+        # channel per process, the gateway and host route to it.
+        if api.channel is not None:
+            channel = api.channel
 
     return (
         tool_decls,
@@ -243,6 +255,8 @@ def _load_plugins() -> (
         hooks,
         cron_jobs,
         doctor_contracts,
+        http_handlers,
+        channel,
     )
 
 
@@ -343,6 +357,8 @@ TOOL_DECLARATIONS = [
     _PLUGIN_HOOKS,
     _PLUGIN_CRON_JOBS,
     _PLUGIN_DOCTOR_CONTRACTS,
+    _PLUGIN_HTTP_HANDLERS,  # Phase 3
+    _PLUGIN_CHANNEL,  # Phase 3, single-active-slot
 ) = _load_plugins()
 TOOL_DECLARATIONS.extend(_PLUGIN_TOOL_DECLS)
 
@@ -358,6 +374,46 @@ _PLUGIN_HOOK_BUS = HookBus()
 _PLUGIN_HOOK_BUS.register_all(_PLUGIN_HOOKS)
 _PLUGIN_DOCTOR = DoctorRunner()
 _PLUGIN_DOCTOR.add_raws(_PLUGIN_DOCTOR_CONTRACTS)
+
+# ── Phase 3: gateway + channel wiring ────────────────────────────
+# The gateway exposes plugin-registered HTTP routes on
+# 127.0.0.1:7433. We register routes eagerly (so the plugin's
+# `api.register_http_handler` call is honored), then start the
+# server in a background thread. If the port is busy, we log a
+# warning and skip — the desktop host shouldn't refuse to start
+# just because another JARVIS instance is already running.
+from jarvis.gateway import Gateway, GatewayLockError  # noqa: E402
+
+_GATEWAY = Gateway()
+for _raw in _PLUGIN_HTTP_HANDLERS:
+    try:
+        _GATEWAY.add_raw(_raw)
+    except (ValueError, TypeError) as e:
+        print(f"[WARN] gateway: bad route {_raw.get('path', '?')!r}: {e}")
+
+try:
+    _GATEWAY.start()
+except GatewayLockError as e:
+    # Another JARVIS instance is already holding 7433 — that's
+    # fine; the operator can route to that one instead. We do not
+    # crash the host for this.
+    print(f"[WARN] gateway: {e}")
+
+# Phase 3 channel framework (simplified): if a plugin registered
+# a channel, we expose it as a class-level singleton the slash
+# command router can call. We don't auto-start a long-polling
+# listener — that's opt-in via the CLI (`jarvis telegram setup`
+# configures the bot; a future Phase 3.5 will add a "start
+# channel" hook). For now the channel surface is wired so
+# `api.register_channel({...})` is honored, but the listener is
+# not spun up implicitly.
+_PLUGIN_CHANNELS: dict[str, dict] = {}
+if _PLUGIN_CHANNEL is not None:
+    _PLUGIN_CHANNELS[_PLUGIN_CHANNEL.get("id", "default")] = _PLUGIN_CHANNEL
+    print(
+        f"[INFO] channel: registered {_PLUGIN_CHANNEL.get('id', '?')!r} "
+        f"(send + listen available; listener not auto-started)"
+    )
 
 
 class JarvisLive:
@@ -433,6 +489,18 @@ class JarvisLive:
     def _build_config(self) -> types.LiveConnectConfig:
         from datetime import datetime
 
+        # Phase 3: fire `before_agent_start` hook. Plugins can mutate
+        # the system prompt (e.g. inject a skill, add context) before
+        # the LLM session opens. Fire-and-forget — we don't block the
+        # build on plugin hooks.
+        from jarvis.hooks import fire_sync
+
+        fire_sync(
+            _PLUGIN_HOOK_BUS,
+            "before_agent_start",
+            {"timestamp": datetime.now().isoformat()},
+        )
+
         memory = load_memory()
         mem_str = format_memory_for_prompt(memory)
         sys_prompt = _load_system_prompt()
@@ -445,10 +513,20 @@ class JarvisLive:
             f"Use this to calculate exact times for reminders.\n\n"
         )
 
+        # ── Phase 2: inject skill bodies into the system prompt ────
+        # Each skill's body becomes a labeled section. This is
+        # the same one-shot the OpenClaw host does before
+        # ``client.aio.live.connect``.
+        from jarvis.skills import skills_to_prompt_section
+
+        skills_section = skills_to_prompt_section(_PLUGIN_SKILLS)
+
         parts = [time_ctx]
         if mem_str:
             parts.append(mem_str)
         parts.append(sys_prompt)
+        if skills_section:
+            parts.append(skills_section)
 
         return types.LiveConnectConfig(
             response_modalities=["AUDIO"],
@@ -659,6 +737,17 @@ class JarvisLive:
                                     args=(full_in, full_out),
                                     daemon=True,
                                 ).start()
+
+                            # Phase 3: fire `agent_end` hook after each
+                            # complete turn. Plugins can persist state
+                            # (memory flush, metric emission, etc.).
+                            from jarvis.hooks import fire_sync
+
+                            fire_sync(
+                                _PLUGIN_HOOK_BUS,
+                                "agent_end",
+                                {"input": full_in, "output": full_out},
+                            )
 
                     if response.tool_call:
                         fn_responses = []

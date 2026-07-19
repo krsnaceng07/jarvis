@@ -257,10 +257,36 @@ class PluginApi:
         contract["_owner_id"] = self._ctx.plugin_id
         self._doctor_contracts.append(contract)
 
-    def register_http_handler(self, handler: dict[str, Any]) -> None:
-        """Register an HTTP handler for the gateway's admin surface."""
-        handler["_owner_id"] = self._ctx.plugin_id
-        self._http_handlers.append(handler)
+    def register_http_handler(self, handler: dict[str, Any] | Any) -> None:
+        """Register an HTTP handler for the gateway's admin surface.
+
+        Mirrors OpenClaw's ``api.registerHttpRoute(params)``. Accepts
+        a dict with the same keys OpenClaw uses:
+          - ``path`` (required)   URL path
+          - ``handler`` (required) callable(method, url, body, headers) -> dict
+          - ``auth``              ``"gateway"`` (default) or ``"plugin"``
+          - ``match``             ``"exact"`` (default) or ``"prefix"``
+        """
+        if isinstance(handler, dict):
+            if "path" not in handler or "handler" not in handler:
+                raise ValueError(f"http route missing required keys (path, handler): {handler!r}")
+            handler["_owner_id"] = self._ctx.plugin_id
+            self._http_handlers.append(handler)
+        else:
+            # Typed object path (HttpRoute).
+            path = getattr(handler, "path", None)
+            cb = getattr(handler, "handler", None)
+            if not path or not callable(cb):
+                raise ValueError(f"http route missing path/handler: {handler!r}")
+            self._http_handlers.append(
+                {
+                    "path": path,
+                    "handler": cb,
+                    "auth": getattr(handler, "auth", "gateway"),
+                    "match": getattr(handler, "match", "exact"),
+                    "_owner_id": self._ctx.plugin_id,
+                }
+            )
 
     def register_skill(self, skill: SkillDecl) -> None:
         """Register a declarative skill (markdown frontmatter + body).

@@ -14,6 +14,7 @@ members = [
     "jarvis-desktop",
     "jarvis-memory-core",
     "jarvis-plugin-sdk",
+    "jarvis-telegram",
     "jarvis-tool-open-app",
     "jarvis-tool-reminder",
     "jarvis-tool-send-message",
@@ -1007,6 +1008,17 @@ source = { virtual = "extensions/memory_core" }
 name = "jarvis-plugin-sdk"
 version = "0.1.0rc1"
 source = { editable = "packages/plugin_sdk" }
+
+[[package]]
+name = "jarvis-telegram"
+version = "0.1.0"
+source = { virtual = "extensions/telegram" }
+dependencies = [
+    { name = "httpx" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "httpx", specifier = ">=0.27.0" }]
 
 [[package]]
 name = "jarvis-tool-open-app"
