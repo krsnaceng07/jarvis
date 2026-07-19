@@ -7,6 +7,7 @@ and the result formatter.
 Mirrors OpenClaw's per-extension ``runtime.ts`` pattern: heavy
 imports and side effects live here, not in the entry module.
 """
+
 from __future__ import annotations
 
 import json

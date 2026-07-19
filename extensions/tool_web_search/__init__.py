@@ -2,6 +2,7 @@
 
 Migrated from ``actions/web_search.py``. Same behavior, OpenClaw shape.
 """
+
 from __future__ import annotations
 
 from jarvis_sdk import PluginApi, define_plugin_entry

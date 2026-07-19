@@ -1,4 +1,5 @@
 """tool_youtube_video — JARVIS YouTube controller (Phase 1C)."""
+
 from __future__ import annotations
 
 from jarvis_sdk import PluginApi, define_plugin_entry

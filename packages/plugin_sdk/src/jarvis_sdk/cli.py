@@ -13,6 +13,7 @@ where ``register(ctx)`` mutates ``ctx.program`` (an
 ``descriptors`` advertises the top-level commands for the global
 ``--help`` output.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

@@ -3,6 +3,7 @@
 Migrated from ``actions/web_search.py``. Same algorithm, reorganized
 into the OpenClaw 8-file shape.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -17,7 +18,6 @@ from jarvis_sdk import (
 )
 
 from . import runtime
-
 
 WEB_SEARCH_TOOL = ToolDecl(
     name="web_search",

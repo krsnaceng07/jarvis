@@ -6,13 +6,13 @@ pyautogui-based automation.
 
 Mirrors OpenClaw's per-extension ``runtime.ts`` pattern.
 """
+
 from __future__ import annotations
 
 import time
 import webbrowser
 
 import pyautogui  # type: ignore[import-not-found]
-
 
 pyautogui.FAILSAFE = True
 pyautogui.PAUSE = 0.08

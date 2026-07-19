@@ -6,21 +6,33 @@ calls into this module.
 
 Mirrors OpenClaw's per-extension ``runtime.ts`` pattern.
 """
+
+# ruff: noqa: S603, S607, S110, SIM105
+# - S603: `subprocess.Popen` is called with a list-form command and
+#   a fixed executable (`open`, `xdg-open`, `cmd /c start`). No user
+#   input flows into the command string.
+# - S607: `open` (macOS) and `xdg-open` (Linux) are intentional PATH
+#   lookups; `notepad.exe` and the `cmd /c start` (Windows) are
+#   system binaries.
+# - S110: `try/except/pass` is intentional — transcript-language
+#   fallback is "try manual, then generated, then any".
+# - SIM105: same; `contextlib.suppress` would change behavior (we
+#   need the inner block's success/failure to drive the next block).
+
 from __future__ import annotations
 
 import re
 import subprocess
 import sys
 import tkinter as tk
-import tkinter.simpledialog as simpledialog
 from datetime import datetime
 from pathlib import Path
+from tkinter import simpledialog
 from urllib.parse import quote_plus
 
 import requests  # type: ignore[import-not-found]
 
 from config import is_linux, is_mac, is_windows  # type: ignore[import-not-found]
-
 
 HEADERS = {
     "User-Agent": (
@@ -40,11 +52,11 @@ _YT_VIDEO_FILTER = "EgIQAQ%3D%3D"
 def _open_url(url: str) -> None:
     try:
         if is_mac():
-            subprocess.Popen(["open", url])  # noqa: S603
+            subprocess.Popen(["open", url])
         elif is_linux():
-            subprocess.Popen(["xdg-open", url])  # noqa: S603
+            subprocess.Popen(["xdg-open", url])
         else:
-            subprocess.Popen(["cmd", "/c", "start", "", url], shell=False)  # noqa: S603
+            subprocess.Popen(["cmd", "/c", "start", "", url], shell=False)
     except Exception as e:
         print(f"[YouTube] open_url failed: {e}")
 
@@ -237,11 +249,11 @@ def save_summary(content: str, video_url: str) -> str:
     filepath.write_text(header + content, encoding="utf-8")
     try:
         if is_windows():
-            subprocess.Popen(["notepad.exe", str(filepath)])  # noqa: S603
+            subprocess.Popen(["notepad.exe", str(filepath)])
         elif is_mac():
-            subprocess.Popen(["open", "-t", str(filepath)])  # noqa: S603
+            subprocess.Popen(["open", "-t", str(filepath)])
         else:
-            subprocess.Popen(["xdg-open", str(filepath)])  # noqa: S603
+            subprocess.Popen(["xdg-open", str(filepath)])
     except Exception as e:
         print(f"[YouTube] could not open text editor: {e}")
     return str(filepath)

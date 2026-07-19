@@ -3,6 +3,13 @@
 Migrated from ``actions/youtube_video.py``. Same action table, same
 scrapers. Returns ``Result[str]`` (Phase 1C contract).
 """
+
+# ruff: noqa: PLR0911
+# - PLR0911: `_summarize` has 8 returns because it has 8 distinct
+#   failure modes (MISSING_DEP / MISSING_ARG / BAD_URL / BAD_URL /
+#   NO_TRANSCRIPT / SUMMARIZE_FAILED / save ok / no-save ok). Each
+#   carries a different error code; merging them would lose fidelity.
+
 from __future__ import annotations
 
 from typing import Any
@@ -17,7 +24,6 @@ from jarvis_sdk import (
 )
 
 from . import runtime
-
 
 YOUTUBE_TOOL = ToolDecl(
     name="youtube_video",
@@ -107,7 +113,7 @@ class YouTubeVideoPlugin(ToolPlugin):
             return Err("Please tell me what you'd like to watch, sir.", code="MISSING_ARG")
         video_url = runtime.scrape_first_video_url(query)
         if video_url:
-            runtime._open_url(video_url)  # noqa: SLF001 - intentional internal call
+            runtime._open_url(video_url)
             return Ok(f"Playing: {query}")
         # Fallback: open the search-results page filtered to videos.
         from urllib.parse import quote_plus
@@ -117,7 +123,7 @@ class YouTubeVideoPlugin(ToolPlugin):
             f"?search_query={quote_plus(query)}"
             f"&sp={runtime._YT_VIDEO_FILTER}"
         )
-        runtime._open_url(fallback_url)  # noqa: SLF001
+        runtime._open_url(fallback_url)
         return Ok(f"Opened YouTube search for: {query} (manual selection required)")
 
     def _summarize(self, args: dict[str, Any]) -> Result[str]:
@@ -129,7 +135,7 @@ class YouTubeVideoPlugin(ToolPlugin):
                 "Run: pip install youtube-transcript-api",
                 code="MISSING_DEP",
             )
-        url = (args.get("url") or "").strip() or (runtime._ask_for_url() or "")  # noqa: SLF001
+        url = (args.get("url") or "").strip() or (runtime._ask_for_url() or "")
         if not url:
             return Err("No URL provided, sir. Summary cancelled.", code="MISSING_ARG")
         if not runtime.is_valid_youtube_url(url):
@@ -139,7 +145,9 @@ class YouTubeVideoPlugin(ToolPlugin):
             return Err("Could not extract video ID from that URL, sir.", code="BAD_URL")
         transcript = runtime.get_transcript(video_id)
         if not transcript:
-            return Err("I couldn't retrieve a transcript for that video, sir.", code="NO_TRANSCRIPT")
+            return Err(
+                "I couldn't retrieve a transcript for that video, sir.", code="NO_TRANSCRIPT"
+            )
         try:
             summary = runtime.summarize_with_or(transcript, url)
         except Exception as e:
@@ -152,7 +160,7 @@ class YouTubeVideoPlugin(ToolPlugin):
     def _get_info(self, args: dict[str, Any]) -> Result[str]:
         url = (args.get("url") or "").strip()
         if not url:
-            url = runtime._ask_for_url() or ""  # noqa: SLF001
+            url = runtime._ask_for_url() or ""
         if not url or not runtime.is_valid_youtube_url(url):
             return Err("Please provide a valid YouTube URL, sir.", code="BAD_URL")
         video_id = runtime.extract_video_id(url)

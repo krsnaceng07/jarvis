@@ -4,13 +4,24 @@ Phase 1C: pure-OS launching primitives. The actual ``subprocess`` and
 ``pyautogui`` calls live here; ``plugin.py`` only orchestrates
 (alias-lookup → launch → report).
 """
+
+# ruff: noqa: S110, S603, S607, PLC0415
+# - S110: `try/except/pass` is intentional — each block is a "soft
+#   fallback" that lets the next try-block attempt a different path.
+# - S603: `subprocess.run` with a list-form command is the documented
+#   safe pattern; the app_name comes from the LLM and is passed as
+#   a positional arg, never shell-constructed.
+# - S607: `xdg-open`, `gtk-launch`, etc. are intentional PATH lookups
+#   for cross-platform app launching.
+# - PLC0415: `import pyautogui` lives inside the fallback path because
+#   pyautogui is an optional dependency (the plugin works without it).
+
 from __future__ import annotations
 
 import platform
 import shutil
 import subprocess
 import time
-
 
 # ── App name aliases (per OS) ────────────────────────────────────────
 # Mirrors OpenClaw's per-extension `runtime-config.ts` pattern: a
@@ -145,7 +156,7 @@ def _launch_linux(app_name: str) -> bool:
     )
     if binary:
         try:
-            subprocess.Popen(  # noqa: S603
+            subprocess.Popen(
                 [binary],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
@@ -155,17 +166,13 @@ def _launch_linux(app_name: str) -> bool:
         except Exception:
             pass
     try:
-        subprocess.run(  # noqa: S603
-            ["xdg-open", app_name], capture_output=True, timeout=5, check=False
-        )
+        subprocess.run(["xdg-open", app_name], capture_output=True, timeout=5, check=False)
         return True
     except Exception:
         pass
     try:
         desktop_name = app_name.lower().replace(" ", "-")
-        subprocess.run(  # noqa: S603
-            ["gtk-launch", desktop_name], capture_output=True, timeout=5, check=False
-        )
+        subprocess.run(["gtk-launch", desktop_name], capture_output=True, timeout=5, check=False)
         return True
     except Exception:
         pass

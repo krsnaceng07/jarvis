@@ -7,6 +7,7 @@ the contract (e.g. flattens ``Result``, drops ``match()``, makes
 ``handler`` optional again) is caught before a downstream extension
 inherits the bug.
 """
+
 from __future__ import annotations
 
 import string
@@ -28,8 +29,6 @@ from jarvis_sdk import (
 from jarvis_sdk.api import PluginApi
 from jarvis_sdk.context import PluginContext
 from jarvis_sdk.entry import PluginEntry
-from jarvis_sdk.result import ResultNone
-
 
 # ── Result.match() property tests ───────────────────────────────────
 
@@ -98,9 +97,7 @@ def _safe_param_name() -> st.SearchStrategy[str]:
     required=st.booleans(),
     description=st.text(max_size=200),
 )
-def test_tool_param_construction(
-    name: str, type_: str, required: bool, description: str
-) -> None:
+def test_tool_param_construction(name: str, type_: str, required: bool, description: str) -> None:
     """ToolParam is a frozen dataclass — fields round-trip and is not mutable.
 
     Note: ``type_`` is a ``str`` for property-test coverage; the SDK
@@ -108,7 +105,10 @@ def test_tool_param_construction(
     string. Pyright complains about the widening — that's the intent.
     """
     p = ToolParam(
-        name=name, type=type_, description=description, required=required  # type: ignore[arg-type]
+        name=name,
+        type=type_,  # type: ignore[arg-type]
+        description=description,
+        required=required,
     )
     assert p.name == name
     assert p.type == type_

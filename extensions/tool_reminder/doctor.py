@@ -6,11 +6,14 @@ Mirrors OpenClaw's ``doctor-contract-api.ts`` pattern. The host's
 no-op stub in 1C; a real migration lands when the legacy
 ``core/reminders.json`` schema is documented.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @dataclass(frozen=True, slots=True)

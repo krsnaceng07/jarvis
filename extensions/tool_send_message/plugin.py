@@ -3,6 +3,7 @@
 Migrated from ``actions/send_message.py``. Same dispatch table, same
 pyautogui sequences. Returns ``Result[str]`` (Phase 1C contract).
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -17,7 +18,6 @@ from jarvis_sdk import (
 )
 
 from . import runtime
-
 
 SEND_MESSAGE_TOOL = ToolDecl(
     name="send_message",
@@ -42,10 +42,7 @@ SEND_MESSAGE_TOOL = ToolDecl(
         ToolParam(
             name="platform",
             type="string",
-            description=(
-                "whatsapp | instagram | telegram | <any app name>. "
-                "Default: whatsapp."
-            ),
+            description=("whatsapp | instagram | telegram | <any app name>. " "Default: whatsapp."),
             required=False,
         ),
     ],

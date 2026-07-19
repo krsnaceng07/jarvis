@@ -8,6 +8,7 @@ the per-OS launcher in ``runtime.py``.
 Returns ``Result[str]`` (``Ok`` with a confirmation message,
 ``Err`` with a code on a known failure).
 """
+
 from __future__ import annotations
 
 import platform
@@ -23,7 +24,6 @@ from jarvis_sdk import (
 )
 
 from . import runtime
-
 
 # ── Tool declaration (mirrors the manifest's tools[] entry) ──────────
 OPEN_APP_TOOL = ToolDecl(

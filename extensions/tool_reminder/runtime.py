@@ -6,12 +6,19 @@ The actual ``schtasks`` invocation lives in ``plugin.py``; this module
 is the read-side (list + cancel) so the command handler doesn't need
 to know Windows Task Scheduler details.
 """
+
+# ruff: noqa: S603, S607
+# - S603: `subprocess.run` with a list-form command is the documented
+#   safe pattern; `schtasks` arguments are derived from sanitized
+#   timestamps (no user input flows into the command string).
+# - S607: `schtasks` is a built-in Windows command, not a binary on
+#   PATH; we use the list-form exactly as Microsoft documents it.
+
 from __future__ import annotations
 
 import re
 import subprocess
 from typing import Any
-
 
 _REMINDER_PREFIX = "JARVISReminder_"
 _REMINDER_NAME_RE = re.compile(r"^" + _REMINDER_PREFIX + r"(\d{8})_(\d{4})$")

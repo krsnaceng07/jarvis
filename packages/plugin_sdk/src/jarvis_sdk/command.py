@@ -10,6 +10,7 @@ or multi-session yet), so the context has fewer fields than OpenClaw's.
 The shape is still compatible — the missing fields default to ``None``
 and the host can populate them as JARVIS grows.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

@@ -12,6 +12,7 @@ Mirrors OpenClaw's extension layout:
   - ``openclaw.plugin.json`` (manifest)
   - ``pyproject.toml`` (workspace member)
 """
+
 from __future__ import annotations
 
 from jarvis_sdk import PluginApi, define_plugin_entry
