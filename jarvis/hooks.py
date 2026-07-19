@@ -9,16 +9,17 @@ long the host will wait.
 Mirrors OpenClaw's ``src/hooks/internal-hook-types.ts`` + the
 ``api.on(hookName, handler, opts)`` registration surface.
 """
+
 from __future__ import annotations
 
 import asyncio
 import logging
 import traceback
 from collections import defaultdict
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from jarvis_sdk import HookName, HookRegistration
-
+if TYPE_CHECKING:
+    from jarvis_sdk import HookRegistration
 
 _log = logging.getLogger("jarvis.hooks")
 
@@ -38,9 +39,7 @@ class HookBus:
     def register(self, registration: HookRegistration) -> None:
         """Add a handler. Sorted on dispatch, not on insert."""
         if not callable(registration.handler):
-            raise TypeError(
-                f"HookRegistration({registration.name!r}).handler must be callable"
-            )
+            raise TypeError(f"HookRegistration({registration.name!r}).handler must be callable")
         self._handlers[registration.name].append(registration)
 
     def register_all(self, registrations: list[HookRegistration]) -> None:
@@ -79,19 +78,17 @@ class HookBus:
                 coro_or_value = reg.handler(payload)
                 if asyncio.iscoroutine(coro_or_value):
                     if reg.timeout_ms is not None:
-                        await asyncio.wait_for(
-                            coro_or_value, timeout=reg.timeout_ms / 1000.0
-                        )
+                        await asyncio.wait_for(coro_or_value, timeout=reg.timeout_ms / 1000.0)
                     else:
                         await coro_or_value
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 _log.warning(
                     "hook %s for %s timed out after %sms",
                     reg.handler,
                     name,
                     reg.timeout_ms,
                 )
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 _log.warning("hook %s for %s failed: %s", reg.handler, name, e)
                 traceback.print_exc()
 
@@ -112,8 +109,10 @@ def fire_sync(bus: HookBus, name: str, payload: Any = None) -> None:
         # No running loop — use asyncio.run (blocks until done).
         asyncio.run(bus.fire(name, payload))
         return
-    # Inside an async context: just await.
-    return loop.create_task(bus.fire(name, payload))
+    # Inside an async context: just create a task and return None —
+    # the caller can await the task if it cares.
+    _ = loop.create_task(bus.fire(name, payload))  # noqa: RUF006 (fire-and-forget)
+    return
 
 
 __all__ = ["HookBus", "fire_sync"]

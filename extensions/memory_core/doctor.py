@@ -4,13 +4,16 @@ Mirrors OpenClaw's ``extensions/memory-core/src/public-artifacts.ts``
 + the migration contract shape. Phase 2 ships ``detect`` only;
 ``apply`` lands in Phase 2.5.
 """
+
 from __future__ import annotations
 
 import json
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from jarvis.doctor import DoctorFinding
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def detect_legacy(state_dir: Path, config: dict[str, Any]) -> list[DoctorFinding]:

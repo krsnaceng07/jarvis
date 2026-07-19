@@ -5,6 +5,7 @@ The host calls ``build(config, ctx)`` to get the memory section that
 goes into the agent's system prompt. The function is intentionally
 side-effect-free (no I/O) so the host can cache the result.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -23,7 +24,7 @@ def build(config: dict[str, Any] | None = None, ctx: dict[str, Any] | None = Non
         return ""
 
     name = ctx.get("agent_id", "JARVIS")
-    body = (
+    return (
         f"# {name} Memory\n"
         "\n"
         "You have access to two memory tools:\n"
@@ -38,7 +39,6 @@ def build(config: dict[str, Any] | None = None, ctx: dict[str, Any] | None = Non
         "Write new memories with the `save_memory` core tool (the "
         "host routes it to this plugin's SQLite store).\n"
     )
-    return body
 
 
 def flush_plan(ctx: dict[str, Any] | None = None) -> dict[str, Any]:

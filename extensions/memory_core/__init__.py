@@ -12,6 +12,7 @@ Mirrors OpenClaw's ``extensions/memory-core/`` plugin. Provides:
 The default backend is SQLite (Phase 2 ships stdlib-only). A
 LanceDB backend is a Phase 2.5+ extension.
 """
+
 from __future__ import annotations
 
 from jarvis_sdk import (
@@ -21,9 +22,8 @@ from jarvis_sdk import (
     define_plugin_entry,
 )
 
+from . import doctor as doctor_module, prompt_section
 from .plugin import MemoryCorePlugin
-from . import doctor as doctor_module
-from . import prompt_section
 
 
 def _memory_command_handler(ctx: PluginCommandContext) -> PluginCommandResult:

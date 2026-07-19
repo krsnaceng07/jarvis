@@ -16,10 +16,14 @@ A cron job has:
 The OpenClaw cron model is a single cross-platform runner; JARVIS
 follows the same shape (one runner, one job table, OS-agnostic).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 @dataclass(frozen=True, slots=True)

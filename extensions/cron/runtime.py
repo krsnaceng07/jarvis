@@ -8,6 +8,7 @@ This is intentionally separate from ``jarvis.cron.CronRunner``
 (the execution engine) so the data model is testable without
 threads.
 """
+
 from __future__ import annotations
 
 import json
@@ -28,7 +29,7 @@ class CronTable:
     ``CronRunner`` reads the snapshot.
     """
 
-    _default: "CronTable | None" = None
+    _default: CronTable | None = None
     _lock = threading.Lock()
 
     def __init__(self, store_path: Path | None = None) -> None:
@@ -39,13 +40,10 @@ class CronTable:
             self._load()
 
     @classmethod
-    def default(cls) -> "CronTable":
+    def default(cls) -> CronTable:
         with cls._lock:
             if cls._default is None:
-                data_dir = Path(
-                    os.environ.get("JARVIS_DATA_DIR")
-                    or (Path.home() / ".jarvis")
-                )
+                data_dir = Path(os.environ.get("JARVIS_DATA_DIR") or (Path.home() / ".jarvis"))
                 cls._default = cls(data_dir / "core" / "cron.json")
             return cls._default
 
@@ -94,7 +92,7 @@ class CronTable:
                 except RuntimeError:
                     asyncio.run(result)
                 else:
-                    loop.create_task(result)
+                    _ = loop.create_task(result)  # noqa: RUF006 (fire-and-forget)
         except Exception:
             return False
         return True
@@ -121,6 +119,8 @@ class CronTable:
         )
 
     def _load(self) -> None:
+        if self._store_path is None:
+            return
         try:
             data = json.loads(self._store_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):

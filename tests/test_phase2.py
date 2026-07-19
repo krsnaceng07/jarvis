@@ -3,19 +3,15 @@
 Tests the new ``jarvis.*`` modules and the Phase 2 plugins
 (``memory_core``, ``cron``).
 """
+
 from __future__ import annotations
 
-import asyncio
 import json
-import os
-import sqlite3
-import sys
 import tempfile
 from datetime import datetime
 from pathlib import Path
 
 import pytest
-
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -40,7 +36,7 @@ class TestFrontmatter:
             "---\n"
             "name: weather\n"
             "description: get weather\n"
-            "metadata: { \"openclaw\": { \"emoji\": \"🌤️\" } }\n"
+            'metadata: { "openclaw": { "emoji": "🌤️" } }\n'
             "---\n"
             "# body"
         )
@@ -243,7 +239,7 @@ class TestBootstrap:
 
 class TestDoctor:
     def test_run_all_aggregates_findings(self) -> None:
-        from jarvis.doctor import DoctorRunner, DoctorContract, DoctorFinding
+        from jarvis.doctor import DoctorContract, DoctorFinding, DoctorRunner
 
         runner = DoctorRunner()
         runner.add(
@@ -268,7 +264,7 @@ class TestDoctor:
         assert len(report.contracts_run) == 2
 
     def test_run_one(self) -> None:
-        from jarvis.doctor import DoctorRunner, DoctorContract, DoctorFinding
+        from jarvis.doctor import DoctorContract, DoctorFinding, DoctorRunner
 
         runner = DoctorRunner()
         runner.add(
@@ -348,6 +344,7 @@ class TestMemoryCorePlugin:
 
         p = MemoryCorePlugin()
         from jarvis_sdk import Err
+
         result = await p.call("not_a_tool", {})
         assert isinstance(result, Err)
         assert result.code == "UNKNOWN_TOOL"
@@ -355,8 +352,8 @@ class TestMemoryCorePlugin:
     @pytest.mark.asyncio
     async def test_call_memory_get_missing_arg(self, tmp_path: Path) -> None:
         from extensions.memory_core.plugin import MemoryCorePlugin
-        from jarvis_sdk import Err
         from extensions.memory_core.runtime import MemoryRuntime
+        from jarvis_sdk import Err
 
         rt = MemoryRuntime(tmp_path / "memory.sqlite")
         # Force default() to return our test instance.
@@ -424,12 +421,12 @@ class TestCronTable:
 class TestCronExtensionPlugin:
     @pytest.mark.asyncio
     async def test_call_unknown_tool(self, tmp_path: Path) -> None:
-        from extensions.cron.plugin import CronExtensionPlugin
-        from jarvis_sdk import Err
         from extensions.cron import runtime as rt_mod
+        from extensions.cron.plugin import CronExtensionPlugin
 
         # Force default to a test instance.
         from extensions.cron.runtime import CronTable
+        from jarvis_sdk import Err
 
         rt_mod.CronTable._default = CronTable(tmp_path / "cron.json")
         p = CronExtensionPlugin()
@@ -439,8 +436,8 @@ class TestCronExtensionPlugin:
 
     @pytest.mark.asyncio
     async def test_call_cron_schedule_and_list(self, tmp_path: Path) -> None:
-        from extensions.cron.plugin import CronExtensionPlugin
         from extensions.cron import runtime as rt_mod
+        from extensions.cron.plugin import CronExtensionPlugin
         from extensions.cron.runtime import CronTable
         from jarvis_sdk import Ok
 
@@ -517,7 +514,7 @@ class TestSdkNewTypes:
 
         ctx = PluginContext(plugin_id="t", plugin_kind="tool")
         api = PluginApi(ctx)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="name and description"):
             api.register_skill(SkillDecl(name="", description="x", body="y"))
 
     def test_register_hook(self) -> None:

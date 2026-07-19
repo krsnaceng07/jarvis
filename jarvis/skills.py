@@ -17,18 +17,19 @@ OpenClaw's canonical example is ``skills/weather/SKILL.md``::
 
     ## Quick start
     ...
-    """
+"""
 
 from __future__ import annotations
 
 import logging
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 from jarvis_sdk import SkillDecl
 
 from .frontmatter import split_skill_file
-
 
 _log = logging.getLogger("jarvis.skills")
 
@@ -77,20 +78,12 @@ def parse_skill(skill_md: Path) -> SkillDecl | None:
         return None
 
     metadata = fm.get("metadata") or {}
-    openclaw_meta = (
-        metadata.get("openclaw", {}) if isinstance(metadata, dict) else {}
-    )
-    requires = (
-        openclaw_meta.get("requires", {}) if isinstance(openclaw_meta, dict) else {}
-    )
+    openclaw_meta = metadata.get("openclaw", {}) if isinstance(metadata, dict) else {}
+    requires = openclaw_meta.get("requires", {}) if isinstance(openclaw_meta, dict) else {}
     bins = requires.get("bins", []) if isinstance(requires, dict) else []
     if not isinstance(bins, list):
         bins = []
-    emoji = (
-        str(openclaw_meta.get("emoji", "")).strip()
-        if isinstance(openclaw_meta, dict)
-        else ""
-    )
+    emoji = str(openclaw_meta.get("emoji", "")).strip() if isinstance(openclaw_meta, dict) else ""
 
     return SkillDecl(
         name=name,

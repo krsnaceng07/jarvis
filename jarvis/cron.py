@@ -19,6 +19,7 @@ Also note: this replaces the Windows-only ``schtasks`` path in
 ``extensions/tool_reminder/plugin.py``. The reminder plugin in
 Phase 2 uses the cron runner so reminders work on all 3 OSes.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -26,10 +27,10 @@ import logging
 import re
 import threading
 from datetime import datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING
 
-from jarvis_sdk import CronDecl
-
+if TYPE_CHECKING:
+    from jarvis_sdk import CronDecl
 
 _log = logging.getLogger("jarvis.cron")
 
@@ -109,7 +110,7 @@ class CronRunner:
                 continue
             try:
                 due = self._is_due(job, now)
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 _log.warning("cron: %s schedule error: %s", job_id, e)
                 continue
             if not due:
@@ -137,14 +138,14 @@ class CronRunner:
         _log.info("cron: firing %s", job.id)
         try:
             result = job.handler()
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             _log.warning("cron: %s handler raised: %s", job.id, e)
             return
         if asyncio.iscoroutine(result) and self._loop is not None:
             try:
                 fut = asyncio.run_coroutine_threadsafe(result, self._loop)
                 fut.result(timeout=30.0)
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 _log.warning("cron: %s async handler failed: %s", job.id, e)
 
 

@@ -8,6 +8,7 @@ arrives in Phase 2.5.
 Schema mirrors what OpenClaw's memory-core uses (sans the FTS5
 index, which we'd add in Phase 2.5).
 """
+
 from __future__ import annotations
 
 import json
@@ -15,7 +16,6 @@ import sqlite3
 import threading
 from pathlib import Path
 from typing import Any
-
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS memory (
@@ -38,7 +38,7 @@ class MemoryRuntime:
     ``$JARVIS_DATA_DIR`` or ``~/.jarvis``.
     """
 
-    _default: "MemoryRuntime | None" = None
+    _default: MemoryRuntime | None = None
     _lock = threading.Lock()
 
     def __init__(self, db_path: Path) -> None:
@@ -54,15 +54,12 @@ class MemoryRuntime:
         self._conn_lock = threading.Lock()
 
     @classmethod
-    def default(cls) -> "MemoryRuntime":
+    def default(cls) -> MemoryRuntime:
         with cls._lock:
             if cls._default is None:
                 import os
 
-                data_dir = Path(
-                    os.environ.get("JARVIS_DATA_DIR")
-                    or (Path.home() / ".jarvis")
-                )
+                data_dir = Path(os.environ.get("JARVIS_DATA_DIR") or (Path.home() / ".jarvis"))
                 cls._default = cls(data_dir / "core" / "memory.sqlite")
             return cls._default
 
@@ -86,9 +83,7 @@ class MemoryRuntime:
 
     def get(self, key: str) -> str | None:
         with self._conn_lock:
-            row = self._conn.execute(
-                "SELECT value FROM memory WHERE key = ?", (key,)
-            ).fetchone()
+            row = self._conn.execute("SELECT value FROM memory WHERE key = ?", (key,)).fetchone()
         return row["value"] if row else None
 
     def delete(self, key: str) -> bool:

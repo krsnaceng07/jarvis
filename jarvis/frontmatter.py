@@ -24,18 +24,23 @@ This keeps the SDK stdlib-only. If users have PyYAML installed, we
 use it as a faster / more-correct path; otherwise we fall back to
 the inline parser.
 """
+
 from __future__ import annotations
 
 import json
 import re
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 try:
-    import yaml  # type: ignore[import-not-found]
+    import yaml as _yaml  # type: ignore[import-not-found]
 
+    yaml = _yaml  # bind for use in parse_frontmatter
     _HAS_YAML = True
 except ImportError:
+    yaml = None  # type: ignore[assignment]
     _HAS_YAML = False
 
 
@@ -57,7 +62,7 @@ def parse_frontmatter(text: str) -> tuple[dict[str, Any], str]:
     fm_raw = match.group("fm")
     body = match.group("body")
 
-    if _HAS_YAML:
+    if _HAS_YAML and yaml is not None:
         try:
             fm = yaml.safe_load(fm_raw) or {}
         except yaml.YAMLError:
@@ -131,9 +136,7 @@ def _inline_parse(text: str) -> dict[str, Any]:
             continue
         # Top-level key:value (or key: alone, signaling nested block).
         if ":" not in line:
-            raise ValueError(
-                f"frontmatter: malformed line {line_no}: {raw_line!r}"
-            )
+            raise ValueError(f"frontmatter: malformed line {line_no}: {raw_line!r}")
         k, _, v = line.partition(":")
         k = k.strip()
         v = v.strip()
@@ -157,7 +160,7 @@ def _coerce_value(v: str) -> Any:
     """
     v_stripped = v.strip()
     # JSON-style object / array (OpenClaw metadata)
-    if v_stripped.startswith("{") or v_stripped.startswith("["):
+    if v_stripped.startswith(("{", "[")):
         try:
             return json.loads(v_stripped)
         except json.JSONDecodeError:

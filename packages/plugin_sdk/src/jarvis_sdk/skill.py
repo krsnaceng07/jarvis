@@ -24,6 +24,7 @@ The frontmatter keys we honor:
   - ``metadata.openclaw.emoji`` (optional) — UI hint only.
   - ``metadata.openclaw.requires.bins`` (optional) — required CLI tools.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

@@ -16,10 +16,12 @@ Canonical hook names (mirror OpenClaw's
   - ``session_start`` — fired when a session is created.
   - ``session_end`` — fired when a session closes.
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Callable, Literal
+from collections.abc import Callable
+from dataclasses import dataclass
+from typing import Any, Literal
 
 # Canonical hook names. Mirrors OpenClaw's `PluginHookName` enum.
 HookName = Literal[

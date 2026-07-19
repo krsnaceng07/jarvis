@@ -13,13 +13,15 @@ Phase 2 shape: 100% mirror of OpenClaw's doctor runner. The
 runner-side API is ``DoctorRunner.run_all()``; CLI side is in
 ``apps/cli/src/jarvis_cli/doctor.py`` (Phase 2.5).
 """
+
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
 _log = logging.getLogger("jarvis.doctor")
 
@@ -124,9 +126,7 @@ class DoctorRunner:
         the SDK's ``register_doctor_contract``).
         """
         if "id" not in raw or "version" not in raw or "detect" not in raw:
-            raise ValueError(
-                f"doctor contract missing required keys (id, version, detect): {raw}"
-            )
+            raise ValueError(f"doctor contract missing required keys (id, version, detect): {raw}")
         contract = DoctorContract(
             id=raw["id"],
             version=int(raw["version"]),
@@ -146,9 +146,7 @@ class DoctorRunner:
     def list_ids(self) -> list[str]:
         return sorted(self._contracts.keys())
 
-    def run_all(
-        self, state_dir: Path, config: dict[str, Any] | None = None
-    ) -> DoctorReport:
+    def run_all(self, state_dir: Path, config: dict[str, Any] | None = None) -> DoctorReport:
         """Run every contract's ``detect()`` and collect findings."""
         cfg = config or {}
         findings: list[DoctorFinding] = []
@@ -158,7 +156,7 @@ class DoctorRunner:
         for cid, contract in self._contracts.items():
             try:
                 contract_findings = contract.detect(state_dir, cfg) or []
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 _log.warning("doctor: contract %s raised: %s", cid, e)
                 contract_errors[cid] = str(e)
                 continue

@@ -9,6 +9,7 @@ The actual scheduling is done by ``jarvis.cron.CronRunner`` (the
 host). This plugin is the OpenClaw-shaped consumer that talks to
 ``CronTable.default()`` — a thin alias layer.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -23,7 +24,6 @@ from jarvis_sdk import (
 )
 
 from .runtime import CronTable
-
 
 CRON_SCHEDULE_TOOL = ToolDecl(
     name="cron_schedule",
@@ -162,7 +162,7 @@ class CronExtensionPlugin(ToolPlugin):
 async def _stub_handler() -> None:  # pragma: no cover
     """Placeholder handler. The real job handler comes from the
     plugin that registered the cron entry (e.g. ``tool_reminder``)."""
-    return None
+    return
 
 
 __all__ = [

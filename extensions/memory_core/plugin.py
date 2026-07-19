@@ -3,6 +3,7 @@
 Phase 2 ships substring search only. Semantic search via LanceDB
 lands in Phase 2.5.
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -15,7 +16,6 @@ from jarvis_sdk import (
     ToolParam,
     ToolPlugin,
 )
-
 
 MEMORY_SEARCH_TOOL = ToolDecl(
     name="memory_search",

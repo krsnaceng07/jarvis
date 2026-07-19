@@ -12,6 +12,7 @@ is the host-side implementation. Separating them keeps the host
 thin and lets the extension be replaced/swapped without touching
 ``apps/desktop``.
 """
+
 from __future__ import annotations
 
 from jarvis_sdk import (
@@ -25,13 +26,17 @@ from jarvis_sdk import (
 from .plugin import CronExtensionPlugin
 from .runtime import CronTable
 
+# ruff: noqa: PLR0911
+# Each ``if sub in ...`` branch returns a distinct message — the
+# 9 returns mirror the 9 distinct (sub, args) combinations we
+# support. Consolidating would lose per-subcommand feedback.
+
 
 def _cron_command_handler(ctx: PluginCommandContext) -> PluginCommandResult:
     """Slash command handler for ``/cron [list|cancel <id>|run <id>]``."""
-    from .runtime import CronTable as _T
 
     args = (ctx.args or "").strip()
-    table = _T.default()
+    table = CronTable.default()
     sub, _, rest = args.partition(" ")
 
     if sub in ("", "list"):
@@ -47,9 +52,7 @@ def _cron_command_handler(ctx: PluginCommandContext) -> PluginCommandResult:
     if sub == "cancel":
         target = rest.strip()
         if not target:
-            return PluginCommandResult(
-                reply_text="Usage: /cron cancel <id>"
-            )
+            return PluginCommandResult(reply_text="Usage: /cron cancel <id>")
         if table.remove(target):
             return PluginCommandResult(reply_text=f"Cancelled cron job {target!r}.")
         return PluginCommandResult(reply_text=f"No cron job with id {target!r}.")

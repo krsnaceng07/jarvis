@@ -17,14 +17,17 @@ best-effort non-interactive seeder (the operator can edit the seeded
 files post-hoc). This is intentional — JARVIS is a single-operator
 desktop assistant, not a multi-channel agent platform.
 """
+
 from __future__ import annotations
 
 import json
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from pathlib import Path
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from pathlib import Path
 
 _log = logging.getLogger("jarvis.bootstrap")
 

@@ -11,15 +11,14 @@ PyQt6 UI to wire (slash commands, hooks, cron runner) and the
 CLI doesn't. We share the SDK + extensions; the wiring is what
 differs.
 """
+
 from __future__ import annotations
 
 import argparse
 import importlib
-import json
 import sys
 from pathlib import Path
 from typing import Any
-
 
 # ── Plugin discovery (CLI-slim variant) ───────────────────────────
 
@@ -31,13 +30,8 @@ def _load_cli_plugins(workspace: Path) -> dict[str, Any]:
     only consumes the bits it needs (tools, doctor contracts, etc.).
     """
     from jarvis_sdk import (
-        CliDescriptor,
-        CommandDecl,
-        CronDecl,
-        HookRegistration,
         PluginApi,
         PluginContext,
-        SkillDecl,
     )
 
     # Add the workspace root to sys.path so ``import extensions.X``
@@ -70,7 +64,7 @@ def _load_cli_plugins(workspace: Path) -> dict[str, Any]:
         api = PluginApi(ctx_template(ext_name))
         try:
             entry.register(api)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             print(f"[WARN] {ext_name}.register() failed: {e}", file=sys.stderr)
             continue
         out["tool_decls"].extend(api.tool_instances)
@@ -196,7 +190,9 @@ def _cmd_cron_list(args: argparse.Namespace, workspace: Path) -> int:
         return 0
     print("Registered cron jobs:")
     for r in rows:
-        print(f"  - {r['id']}: schedule={r['schedule']!r} enabled={r['enabled']} ({r['description']})")
+        print(
+            f"  - {r['id']}: schedule={r['schedule']!r} enabled={r['enabled']} ({r['description']})"
+        )
     return 0
 
 
@@ -229,8 +225,7 @@ def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="jarvis",
         description=(
-            "JARVIS headless CLI — mirrors OpenClaw's `openclaw` command tree. "
-            "Phase 2."
+            "JARVIS headless CLI — mirrors OpenClaw's `openclaw` command tree. " "Phase 2."
         ),
     )
     p.add_argument(
@@ -241,9 +236,7 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     sub = p.add_subparsers(dest="command", required=True, metavar="<subcommand>")
 
-    sub.add_parser("tools", help="Tool commands.").add_subparsers(
-        dest="subcommand", required=True
-    )
+    sub.add_parser("tools", help="Tool commands.").add_subparsers(dest="subcommand", required=True)
     sub.choices["tools"].add_parser("list", help="List every registered tool.")
 
     skills_p = sub.add_parser("skills", help="Skill commands.")
@@ -251,9 +244,7 @@ def _build_parser() -> argparse.ArgumentParser:
     skills_p.choices["list"] = skills_p.choices["subcommand"]  # type: ignore
     sub.choices["skills"] = sub.choices["skills"]  # type: ignore
 
-    sub.add_parser("hooks", help="Hook commands.").add_subparsers(
-        dest="subcommand", required=True
-    )
+    sub.add_parser("hooks", help="Hook commands.").add_subparsers(dest="subcommand", required=True)
 
     doctor_p = sub.add_parser("doctor", help="Run doctor contracts.")
     doctor_p.add_argument(
@@ -306,7 +297,7 @@ def _build_parser_v2() -> argparse.ArgumentParser:
     doc = sp.add_parser("doctor", help="Run doctor contracts.")
     doc.add_argument("contract_id", nargs="?", default=None)
 
-    ms = sp.add_parser("memory-status", help="Memory store stats.")
+    sp.add_parser("memory-status", help="Memory store stats.")
     sr = sp.add_parser("memory-search", help="Search memory.")
     sr.add_argument("query")
     gp = sp.add_parser("memory-get", help="Read memory by key.")
@@ -319,6 +310,13 @@ def _build_parser_v2() -> argparse.ArgumentParser:
 
 
 # ── main ──────────────────────────────────────────────────────────
+
+
+# ruff: noqa: PLR0911
+# The CLI main() has 11 returns — one per subcommand. Consolidating
+# into a dispatch table would lose the per-command error handling
+# (memory-status can raise, doctor returns 0/1, etc.). Each return
+# is a clear, distinct branch.
 
 
 def main(argv: list[str] | None = None) -> int:
