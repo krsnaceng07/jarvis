@@ -7,10 +7,7 @@ from datetime import datetime
 
 
 def reminder(
-    parameters: dict,
-    response: str | None = None,
-    player=None,
-    session_memory=None
+    parameters: dict, response: str | None = None, player=None, session_memory=None
 ) -> str:
     """
     Sets a timed reminder using Windows Task Scheduler.
@@ -26,7 +23,7 @@ def reminder(
 
     date_str = parameters.get("date")
     time_str = parameters.get("time")
-    message  = parameters.get("message", "Reminder")
+    message = parameters.get("message", "Reminder")
 
     if not date_str or not time_str:
         return "I need both a date and a time to set a reminder."
@@ -37,8 +34,8 @@ def reminder(
         if target_dt <= datetime.now():
             return "That time is already in the past."
 
-        task_name    = f"MARKReminder_{target_dt.strftime('%Y%m%d_%H%M')}"
-        safe_message = message.replace('"', '').replace("'", "").strip()[:200]
+        task_name = f"MARKReminder_{target_dt.strftime('%Y%m%d_%H%M')}"
+        safe_message = message.replace('"', "").replace("'", "").strip()[:200]
 
         python_exe = sys.executable
         if python_exe.lower().endswith("python.exe"):
@@ -46,13 +43,11 @@ def reminder(
             if os.path.exists(pythonw):
                 python_exe = pythonw
 
-        temp_dir      = os.environ.get("TEMP", "C:\\Temp")
+        temp_dir = os.environ.get("TEMP", "C:\\Temp")
         notify_script = os.path.join(temp_dir, f"{task_name}.pyw")
-        project_root  = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..")
-        )
+        project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
-        script_code = f'''import sys, os, time
+        script_code = f"""import sys, os, time
 sys.path.insert(0, r"{project_root}")
 
 try:
@@ -83,11 +78,11 @@ try:
     os.remove(__file__)
 except Exception:
     pass
-'''
+"""
         with open(notify_script, "w", encoding="utf-8") as f:
             f.write(script_code)
 
-        xml_content = f'''<?xml version="1.0" encoding="UTF-16"?>
+        xml_content = f"""<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
     <Description>MARK Reminder: {safe_message}</Description>
@@ -119,7 +114,7 @@ except Exception:
       <RunLevel>LeastPrivilege</RunLevel>
     </Principal>
   </Principals>
-</Task>'''
+</Task>"""
 
         xml_path = os.path.join(temp_dir, f"{task_name}.xml")
         with open(xml_path, "w", encoding="utf-16") as f:
@@ -127,7 +122,9 @@ except Exception:
 
         result = subprocess.run(
             f'schtasks /Create /TN "{task_name}" /XML "{xml_path}" /F',
-            shell=True, capture_output=True, text=True
+            shell=True,
+            capture_output=True,
+            text=True,
         )
 
         try:

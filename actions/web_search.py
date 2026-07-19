@@ -1,7 +1,8 @@
-#web_search.py
+# web_search.py
 import json
 import sys
 from pathlib import Path
+
 
 def _get_base_dir() -> Path:
     if getattr(sys, "frozen", False):
@@ -9,7 +10,7 @@ def _get_base_dir() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
-BASE_DIR        = _get_base_dir()
+BASE_DIR = _get_base_dir()
 API_CONFIG_PATH = BASE_DIR / "config" / "api_keys.json"
 
 
@@ -21,7 +22,7 @@ def _get_api_key() -> str:
 def _gemini_search(query: str) -> str:
     from google import genai
 
-    client   = genai.Client(api_key=_get_api_key())
+    client = genai.Client(api_key=_get_api_key())
     response = client.models.generate_content(
         model="gemini-2.5-flash",
         contents=query,
@@ -48,11 +49,13 @@ def _ddg_search(query: str, max_results: int = 6) -> list[dict]:
     results = []
     with DDGS() as ddgs:
         for r in ddgs.text(query, max_results=max_results):
-            results.append({
-                "title":   r.get("title",  ""),
-                "snippet": r.get("body",   ""),
-                "url":     r.get("href",   ""),
-            })
+            results.append(
+                {
+                    "title": r.get("title", ""),
+                    "snippet": r.get("body", ""),
+                    "url": r.get("href", ""),
+                }
+            )
     return results
 
 
@@ -62,17 +65,18 @@ def _format_ddg(query: str, results: list[dict]) -> str:
 
     lines = [f"Search results for: {query}\n"]
     for i, r in enumerate(results, 1):
-        if r.get("title"):   lines.append(f"{i}. {r['title']}")
-        if r.get("snippet"): lines.append(f"   {r['snippet']}")
-        if r.get("url"):     lines.append(f"   {r['url']}")
+        if r.get("title"):
+            lines.append(f"{i}. {r['title']}")
+        if r.get("snippet"):
+            lines.append(f"   {r['snippet']}")
+        if r.get("url"):
+            lines.append(f"   {r['url']}")
         lines.append("")
     return "\n".join(lines).strip()
 
+
 def _compare(items: list[str], aspect: str) -> str:
-    query = (
-        f"Compare {', '.join(items)} in terms of {aspect}. "
-        "Give specific facts and data."
-    )
+    query = f"Compare {', '.join(items)} in terms of {aspect}. " "Give specific facts and data."
     try:
         return _gemini_search(query)
     except Exception as e:
@@ -94,16 +98,17 @@ def _compare(items: list[str], aspect: str) -> str:
                 lines.append(f"  • {r['snippet']}")
     return "\n".join(lines)
 
+
 def web_search(
-    parameters:     dict,
+    parameters: dict,
     response=None,
     player=None,
     session_memory=None,
 ) -> str:
     params = parameters or {}
-    query  = params.get("query", "").strip()
-    mode   = params.get("mode",  "search").lower().strip()
-    items  = params.get("items", [])
+    query = params.get("query", "").strip()
+    mode = params.get("mode", "search").lower().strip()
+    items = params.get("items", [])
     aspect = params.get("aspect", "general").strip() or "general"
 
     if not query and not items:
@@ -116,22 +121,22 @@ def web_search(
         player.write_log(f"[Search] {query or ', '.join(items)}")
 
     print(f"[WebSearch] 🔍 Query: {query!r}  Mode: {mode}")
-# replace: result = _gemini_search(query) block with:
+    # replace: result = _gemini_search(query) block with:
     try:
         from or_client import client
+
         result = client.chat(
-            query,
-            system="You are a web search assistant. Answer factually and concisely."
+            query, system="You are a web search assistant. Answer factually and concisely."
         )
         print("[WebSearch] ✅ OpenRouter OK.")
         return result
     except Exception as e:
         print(f"[WebSearch] ⚠️ OpenRouter failed ({e}) — trying DDG...")
         results = _ddg_search(query)
-        result  = _format_ddg(query, results)
+        result = _format_ddg(query, results)
         print(f"[WebSearch] ✅ DDG: {len(results)} result(s).")
         return result
-    
+
     except Exception as e:
         print(f"[WebSearch] ❌ All backends failed: {e}")
         return f"Search failed, sir: {e}"

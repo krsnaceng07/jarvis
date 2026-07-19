@@ -11,15 +11,15 @@ def get_base_dir() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
-BASE_DIR        = get_base_dir()
+BASE_DIR = get_base_dir()
 API_CONFIG_PATH = BASE_DIR / "config" / "api_keys.json"
 
 
 class ErrorDecision(Enum):
-    RETRY       = "retry"      
-    SKIP        = "skip"       
-    REPLAN      = "replan"     
-    ABORT       = "abort"    
+    RETRY = "retry"
+    SKIP = "skip"
+    REPLAN = "replan"
+    ABORT = "abort"
 
 
 ERROR_ANALYST_PROMPT = """You are the error recovery module of MARK XXV AI assistant.
@@ -54,12 +54,7 @@ def _get_api_key() -> str:
         return json.load(f)["gemini_api_key"]
 
 
-def analyze_error(
-    step: dict,
-    error: str,
-    attempt: int = 1,
-    max_attempts: int = 2
-) -> dict:
+def analyze_error(step: dict, error: str, attempt: int = 1, max_attempts: int = 2) -> dict:
     """
     Analyzes a failed step and returns a recovery decision.
 
@@ -83,17 +78,16 @@ def analyze_error(
     if attempt >= max_attempts:
         print(f"[ErrorHandler] ⚠️ Max attempts reached for step {step.get('step')} — forcing replan")
         return {
-            "decision":      ErrorDecision.REPLAN,
-            "reason":        f"Failed {attempt} times: {error[:100]}",
+            "decision": ErrorDecision.REPLAN,
+            "reason": f"Failed {attempt} times: {error[:100]}",
             "fix_suggestion": "Try a completely different approach or tool",
-            "max_retries":   0,
-            "user_message":  "Trying a different approach, sir."
+            "max_retries": 0,
+            "user_message": "Trying a different approach, sir.",
         }
 
     genai.configure(api_key=_get_api_key())
     model = genai.GenerativeModel(
-        model_name="gemini-2.5-flash-lite",
-        system_instruction=ERROR_ANALYST_PROMPT
+        model_name="gemini-2.5-flash-lite", system_instruction=ERROR_ANALYST_PROMPT
     )
 
     prompt = f"""Failed step:
@@ -109,22 +103,21 @@ Attempt number: {attempt}"""
 
     try:
         response = model.generate_content(prompt)
-        text     = response.text.strip()
-        text     = re.sub(r"```(?:json)?", "", text).strip().rstrip("`").strip()
+        text = response.text.strip()
+        text = re.sub(r"```(?:json)?", "", text).strip().rstrip("`").strip()
 
         result = json.loads(text)
         decision_str = result.get("decision", "replan").lower()
         decision_map = {
-            "retry":  ErrorDecision.RETRY,
-            "skip":   ErrorDecision.SKIP,
+            "retry": ErrorDecision.RETRY,
+            "skip": ErrorDecision.SKIP,
             "replan": ErrorDecision.REPLAN,
-            "abort":  ErrorDecision.ABORT,
+            "abort": ErrorDecision.ABORT,
         }
         result["decision"] = decision_map.get(decision_str, ErrorDecision.REPLAN)
 
-
         if step.get("critical") and result["decision"] == ErrorDecision.SKIP:
-            result["decision"]     = ErrorDecision.REPLAN
+            result["decision"] = ErrorDecision.REPLAN
             result["user_message"] = "This step is critical — finding alternative approach, sir."
 
         print(f"[ErrorHandler] Decision: {result['decision'].value} — {result.get('reason', '')}")
@@ -133,11 +126,11 @@ Attempt number: {attempt}"""
     except Exception as e:
         print(f"[ErrorHandler] ⚠️ Analysis failed: {e} — defaulting to replan")
         return {
-            "decision":       ErrorDecision.REPLAN,
-            "reason":         str(e),
+            "decision": ErrorDecision.REPLAN,
+            "reason": str(e),
             "fix_suggestion": "Try alternative approach",
-            "max_retries":    1,
-            "user_message":   "Encountered an issue, adjusting approach, sir."
+            "max_retries": 1,
+            "user_message": "Encountered an issue, adjusting approach, sir.",
         }
 
 
@@ -172,26 +165,26 @@ Return ONLY the Python code, no explanation."""
         code = re.sub(r"```(?:python)?", "", code).strip().rstrip("`").strip()
 
         return {
-            "step":        step.get("step"),
-            "tool":        "code_helper",
+            "step": step.get("step"),
+            "tool": "code_helper",
             "description": f"Auto-fix for: {step.get('description')}",
             "parameters": {
-                "action":      "run",
+                "action": "run",
                 "description": fix_suggestion,
-                "code":        code,
-                "language":    "python"
+                "code": code,
+                "language": "python",
             },
             "depends_on": step.get("depends_on", []),
-            "critical":   step.get("critical", False)
+            "critical": step.get("critical", False),
         }
 
     except Exception as e:
         print(f"[ErrorHandler] ⚠️ Fix generation failed: {e}")
         return {
-            "step":        step.get("step"),
-            "tool":        "generated_code",
+            "step": step.get("step"),
+            "tool": "generated_code",
             "description": f"Fallback for: {step.get('description')}",
-            "parameters":  {"description": step.get("description", "")},
-            "depends_on":  step.get("depends_on", []),
-            "critical":    step.get("critical", False)
+            "parameters": {"description": step.get("description", "")},
+            "depends_on": step.get("depends_on", []),
+            "critical": step.get("critical", False),
         }

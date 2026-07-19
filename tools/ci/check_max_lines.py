@@ -7,6 +7,7 @@ Per AGENTS.md:
 This check enforces a hard 2000-line ceiling (twice the soft 700 target).
 Files over 700 should be split; files over 2000 must be split.
 """
+
 from __future__ import annotations
 
 import sys

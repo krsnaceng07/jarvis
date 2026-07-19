@@ -7,4 +7,5 @@ during PR 0.4; the filter now lives in the root `pyproject.toml`
 This file is kept so that future per-test setup (fixtures, markers, plugins)
 has an obvious home. See `tests/README.md` for the test layout.
 """
+
 from __future__ import annotations

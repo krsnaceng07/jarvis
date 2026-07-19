@@ -84,6 +84,19 @@ extend-exclude = [
     "dist",
     "openclaw-main",     # upstream reference, do not lint
     "**/legacy_*",       # transitional code, removed per migration plan
+    # TRANSITIONAL (PR 0.4/0.5): legacy root-level code that will be
+    # refactored into proper packages in Phase 1+ (see
+    # OPENCLAW_MIGRATION_PLAN.md §5). Removed from exclude list as
+    # each module is migrated.
+    "actions",
+    "agent",
+    "memory",
+    "core",
+    "or_client.py",
+    "config",
+    # Moved legacy app.py + ui.py (still monolithic, will split in Phase 1).
+    "apps/desktop/src/jarvis_desktop/app.py",
+    "apps/desktop/src/jarvis_desktop/ui.py",
 ]
 
 [tool.ruff.lint]
@@ -117,10 +130,10 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**/*.py" = ["S101", "S106", "PLR2004", "N802"]
+"tests/**/*.py" = ["S101", "S106", "S603", "PLR2004", "N802"]
 "**/legacy_*/*.py" = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "PL"]  # frozen legacy
 "**/__init__.py" = ["F401"]  # re-exports allowed
-"tools/**/*.py" = ["T201"]   # print allowed in scripts
+"tools/**/*.py" = ["T201", "PLR0912"]   # print allowed in scripts; many branches in validators
 
 [tool.ruff.lint.isort]
 known-first-party = ["jarvis_sdk", "jarvis_desktop", "jarvis_cli"]
@@ -149,6 +162,17 @@ exclude = [
     ".venv",
     "build",
     "dist",
+    # TRANSITIONAL (PR 0.4/0.5): legacy root-level code being migrated.
+    # Removed from exclude list as each module is migrated to a proper package.
+    "actions",
+    "agent",
+    "memory",
+    "core",
+    "or_client.py",
+    "config",
+    # Moved legacy app.py + ui.py (monolithic; splits in Phase 1).
+    "apps/desktop/src/jarvis_desktop/app.py",
+    "apps/desktop/src/jarvis_desktop/ui.py",
 ]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"

@@ -9,8 +9,8 @@ def get_base_dir() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
-BASE_DIR    = get_base_dir()
-CONFIG_DIR  = BASE_DIR / "config"
+BASE_DIR = get_base_dir()
+CONFIG_DIR = BASE_DIR / "config"
 CONFIG_FILE = CONFIG_DIR / "api_keys.json"
 
 
@@ -34,10 +34,7 @@ def save_api_keys(gemini_api_key: str) -> None:
 
     data["gemini_api_key"] = gemini_api_key.strip()
 
-    CONFIG_FILE.write_text(
-        json.dumps(data, indent=2),
-        encoding="utf-8"
-    )
+    CONFIG_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
 def load_api_keys() -> dict:

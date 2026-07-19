@@ -11,6 +11,7 @@ code yet.
 **Phase 0.4 transitional shim** — to be removed in Phase 1 when the legacy
 modules are split into proper packages.
 """
+
 from __future__ import annotations
 
 import sys

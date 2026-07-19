@@ -6,6 +6,7 @@ from pathlib import Path
 from datetime import datetime
 import send2trash
 
+
 def _get_desktop() -> Path:
     """Returns desktop path — works on Windows, Mac, Linux."""
     return Path.home() / "Desktop"
@@ -21,13 +22,13 @@ def _resolve_path(raw: str) -> Path:
     Supports shortcuts: 'desktop', 'downloads', 'documents', 'home'
     """
     shortcuts = {
-        "desktop":   Path.home() / "Desktop",
+        "desktop": Path.home() / "Desktop",
         "downloads": Path.home() / "Downloads",
         "documents": Path.home() / "Documents",
-        "pictures":  Path.home() / "Pictures",
-        "music":     Path.home() / "Music",
-        "videos":    Path.home() / "Videos",
-        "home":      Path.home(),
+        "pictures": Path.home() / "Pictures",
+        "music": Path.home() / "Music",
+        "videos": Path.home() / "Videos",
+        "home": Path.home(),
     }
     lower = raw.strip().lower()
     if lower in shortcuts:
@@ -106,7 +107,6 @@ def delete_file(path: str, confirm: bool = True) -> str:
             return f"Not found: {path}"
 
         try:
-
             send2trash.send2trash(str(target))
             return f"Moved to Recycle Bin: {target.name}"
         except ImportError:
@@ -129,8 +129,8 @@ def delete_file(path: str, confirm: bool = True) -> str:
 def move_file(source: str, destination: str) -> str:
     """Moves a file or folder to a new location."""
     try:
-        src  = Path(source).expanduser()
-        dst  = _resolve_path(destination)
+        src = Path(source).expanduser()
+        dst = _resolve_path(destination)
 
         if not src.exists():
             return f"Source not found: {source}"
@@ -174,7 +174,7 @@ def copy_file(source: str, destination: str) -> str:
 def rename_file(path: str, new_name: str) -> str:
     """Renames a file or folder."""
     try:
-        target   = Path(path).expanduser()
+        target = Path(path).expanduser()
         new_path = target.parent / new_name
 
         if not target.exists():
@@ -221,8 +221,9 @@ def write_file(path: str, content: str, append: bool = False) -> str:
         return f"Could not write file: {e}"
 
 
-def find_files(name: str = "", extension: str = "", path: str = "home",
-               max_results: int = 20) -> str:
+def find_files(
+    name: str = "", extension: str = "", path: str = "home", max_results: int = 20
+) -> str:
     """
     Searches for files by name or extension.
     Example: find_files(extension=".pdf", path="documents")
@@ -289,11 +290,11 @@ def get_disk_usage(path: str = "home") -> str:
     """Returns disk usage information."""
     try:
         target = _resolve_path(path)
-        usage  = shutil.disk_usage(target)
-        total  = _format_size(usage.total)
-        used   = _format_size(usage.used)
-        free   = _format_size(usage.free)
-        pct    = usage.used / usage.total * 100
+        usage = shutil.disk_usage(target)
+        total = _format_size(usage.total)
+        used = _format_size(usage.used)
+        free = _format_size(usage.free)
+        pct = usage.used / usage.total * 100
 
         return (
             f"Disk usage for {target}:\n"
@@ -313,23 +314,32 @@ def organize_desktop() -> str:
     try:
         desktop = _get_desktop()
         type_map = {
-            "Images":    [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg", ".ico"],
-            "Documents": [".pdf", ".doc", ".docx", ".txt", ".xls", ".xlsx", ".ppt", ".pptx", ".csv"],
-            "Videos":    [".mp4", ".avi", ".mkv", ".mov", ".wmv", ".flv", ".webm"],
-            "Music":     [".mp3", ".wav", ".flac", ".aac", ".ogg", ".wma"],
-            "Archives":  [".zip", ".rar", ".7z", ".tar", ".gz"],
-            "Code":      [".py", ".js", ".html", ".css", ".json", ".xml", ".ts", ".cpp", ".java"],
+            "Images": [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".svg", ".ico"],
+            "Documents": [
+                ".pdf",
+                ".doc",
+                ".docx",
+                ".txt",
+                ".xls",
+                ".xlsx",
+                ".ppt",
+                ".pptx",
+                ".csv",
+            ],
+            "Videos": [".mp4", ".avi", ".mkv", ".mov", ".wmv", ".flv", ".webm"],
+            "Music": [".mp3", ".wav", ".flac", ".aac", ".ogg", ".wma"],
+            "Archives": [".zip", ".rar", ".7z", ".tar", ".gz"],
+            "Code": [".py", ".js", ".html", ".css", ".json", ".xml", ".ts", ".cpp", ".java"],
         }
 
-        moved    = []
-        skipped  = []
+        moved = []
+        skipped = []
 
         for item in desktop.iterdir():
-
             if item.is_dir() or item.name.startswith("."):
                 continue
 
-            ext        = item.suffix.lower()
+            ext = item.suffix.lower()
             target_dir = None
 
             for folder, extensions in type_map.items():
@@ -373,11 +383,11 @@ def get_file_info(path: str) -> str:
 
         stat = target.stat()
         info = {
-            "Name":     target.name,
-            "Type":     "Folder" if target.is_dir() else "File",
-            "Size":     _format_size(stat.st_size),
+            "Name": target.name,
+            "Type": "Folder" if target.is_dir() else "File",
+            "Size": _format_size(stat.st_size),
             "Location": str(target.parent),
-            "Created":  datetime.fromtimestamp(stat.st_ctime).strftime("%Y-%m-%d %H:%M"),
+            "Created": datetime.fromtimestamp(stat.st_ctime).strftime("%Y-%m-%d %H:%M"),
             "Modified": datetime.fromtimestamp(stat.st_mtime).strftime("%Y-%m-%d %H:%M"),
             "Extension": target.suffix or "None",
         }
@@ -387,15 +397,11 @@ def get_file_info(path: str) -> str:
     except Exception as e:
         return f"Could not get file info: {e}"
 
-def file_controller(
-    parameters: dict,
-    response=None,
-    player=None,
-    session_memory=None
-) -> str:
-    action  = (parameters or {}).get("action", "").lower().strip()
-    path    = (parameters or {}).get("path", "desktop")
-    name    = (parameters or {}).get("name", "")
+
+def file_controller(parameters: dict, response=None, player=None, session_memory=None) -> str:
+    action = (parameters or {}).get("action", "").lower().strip()
+    path = (parameters or {}).get("path", "desktop")
+    name = (parameters or {}).get("name", "")
     content = (parameters or {}).get("content", "")
 
     def _full_path(p: str, n: str) -> str:
@@ -440,25 +446,18 @@ def file_controller(
 
         elif action == "write":
             full = _full_path(path, name)
-            result = write_file(
-                full,
-                content=content,
-                append=parameters.get("append", False)
-            )
+            result = write_file(full, content=content, append=parameters.get("append", False))
 
         elif action == "find":
             result = find_files(
                 name=name or parameters.get("name", ""),
                 extension=parameters.get("extension", ""),
                 path=path,
-                max_results=parameters.get("max_results", 20)
+                max_results=parameters.get("max_results", 20),
             )
 
         elif action == "largest":
-            result = get_largest_files(
-                path=path,
-                count=parameters.get("count", 10)
-            )
+            result = get_largest_files(path=path, count=parameters.get("count", 10))
 
         elif action == "disk_usage":
             result = get_disk_usage(path)

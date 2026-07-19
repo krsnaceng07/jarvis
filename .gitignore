@@ -76,6 +76,19 @@ $RECYCLE.BIN/
 data/
 workspace/
 
+# User-supplied API keys and config files (never commit real keys!)
+# These are created by the JARVIS setup overlay on first run.
+config/
+config/*.local.json
+apps/**/config/api_keys.json
+apps/**/config/*.local.json
+*.local.json
+.env
+.env.local
+.env.*.local
+!**/jarvis.plugin.json
+!**/pyproject.toml
+
 # Build artifacts
 target/
 *.exe

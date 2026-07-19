@@ -11,14 +11,16 @@ import requests
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("openrouter_client")
 
+
 def _get_base_dir() -> Path:
     if getattr(sys, "frozen", False):
         return Path(sys.executable).parent
     return Path(__file__).resolve().parent
 
 
-BASE_DIR     = _get_base_dir()
+BASE_DIR = _get_base_dir()
 API_KEY_PATH = BASE_DIR / "config" / "api_keys.json"
+
 
 def _load_api_key() -> str:
     try:
@@ -32,6 +34,7 @@ def _load_api_key() -> str:
         raise RuntimeError(f"api_keys.json not found at: {API_KEY_PATH}")
     except Exception as e:
         raise RuntimeError(f"Failed to load OpenRouter API key: {e}")
+
 
 TEXT_MODELS: list[str] = [
     "nvidia/nemotron-3-super-120b-a12b:free",
@@ -69,25 +72,25 @@ VISION_MODELS: list[str] = [
     "nvidia/nemotron-3-super-120b-a12b:free",
 ]
 
-API_URL               = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_MAX_TOKENS    = 4096
-DEFAULT_TEMPERATURE   = 0.7
-REQUEST_TIMEOUT       = 60   # seconds per request
-MAX_RETRIES_PER_MODEL = 2    # attempts before moving to next model
-RETRY_DELAY           = 2    # seconds between retries
-RATE_LIMIT_COOLDOWN   = 60   # seconds before retrying a rate-limited model
+API_URL = "https://openrouter.ai/api/v1/chat/completions"
+DEFAULT_MAX_TOKENS = 4096
+DEFAULT_TEMPERATURE = 0.7
+REQUEST_TIMEOUT = 60  # seconds per request
+MAX_RETRIES_PER_MODEL = 2  # attempts before moving to next model
+RETRY_DELAY = 2  # seconds between retries
+RATE_LIMIT_COOLDOWN = 60  # seconds before retrying a rate-limited model
 
 _rate_limited: dict[str, float] = {}
 
-class OpenRouterClient:
 
+class OpenRouterClient:
     def __init__(self) -> None:
-        self.api_key  = _load_api_key()
+        self.api_key = _load_api_key()
         self._headers = {
             "Authorization": f"Bearer {self.api_key}",
-            "Content-Type":  "application/json",
-            "HTTP-Referer":  "https://github.com/mark-xxv",
-            "X-Title":       "MARK XXV",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://github.com/mark-xxv",
+            "X-Title": "MARK XXV",
         }
 
     def _is_rate_limited(self, model: str) -> bool:
@@ -102,8 +105,7 @@ class OpenRouterClient:
     def _mark_rate_limited(self, model: str) -> None:
         _rate_limited[model] = time.time()
         logger.warning(
-            f"[OpenRouter] Rate limited: {model} — "
-            f"cooling down for {RATE_LIMIT_COOLDOWN}s"
+            f"[OpenRouter] Rate limited: {model} — " f"cooling down for {RATE_LIMIT_COOLDOWN}s"
         )
 
     def _call(
@@ -115,9 +117,9 @@ class OpenRouterClient:
         response_format: Optional[dict] = None,
     ) -> Optional[str]:
         payload: dict = {
-            "model":       model,
-            "messages":    messages,
-            "max_tokens":  max_tokens,
+            "model": model,
+            "messages": messages,
+            "max_tokens": max_tokens,
             "temperature": temperature,
         }
         if response_format:
@@ -137,12 +139,8 @@ class OpenRouterClient:
                     return None
 
                 if resp.status_code == 200:
-                    data    = resp.json()
-                    content = (
-                        data.get("choices", [{}])[0]
-                            .get("message", {})
-                            .get("content", "")
-                    )
+                    data = resp.json()
+                    content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
                     return content.strip() if content else None
 
                 logger.warning(
@@ -176,10 +174,7 @@ class OpenRouterClient:
             result = self._call(model, messages, max_tokens, temperature, response_format)
             if result:
                 return result
-            logger.info(
-                f"[OpenRouter] Requested model failed, "
-                f"falling back to pool: {model}"
-            )
+            logger.info(f"[OpenRouter] Requested model failed, " f"falling back to pool: {model}")
 
         for m in pool:
             if self._is_rate_limited(m):
@@ -208,29 +203,24 @@ class OpenRouterClient:
     ) -> str:
         messages = [
             {"role": "system", "content": system},
-            {"role": "user",   "content": prompt},
+            {"role": "user", "content": prompt},
         ]
-        return self._call_with_fallback(
-            TEXT_MODELS, messages, model, max_tokens, temperature
-        )
+        return self._call_with_fallback(TEXT_MODELS, messages, model, max_tokens, temperature)
 
     def chat_json(
         self,
         prompt: str,
         system: str = (
-            "Return ONLY valid JSON. "
-            "No markdown fences, no extra text, no explanation."
+            "Return ONLY valid JSON. " "No markdown fences, no extra text, no explanation."
         ),
         model: Optional[str] = None,
         max_tokens: int = DEFAULT_MAX_TOKENS,
     ) -> dict:
         messages = [
             {"role": "system", "content": system},
-            {"role": "user",   "content": prompt},
+            {"role": "user", "content": prompt},
         ]
-        raw = self._call_with_fallback(
-            TEXT_MODELS, messages, model, max_tokens, temperature=0.2
-        )
+        raw = self._call_with_fallback(TEXT_MODELS, messages, model, max_tokens, temperature=0.2)
 
         clean = raw.strip()
         if clean.startswith("```"):
@@ -247,10 +237,7 @@ class OpenRouterClient:
                 f"[OpenRouter] JSON parse failed: {e}\n"
                 f"Raw response (first 300 chars): {raw[:300]}"
             )
-            raise ValueError(
-                f"Model returned unparseable JSON: {e}\n"
-                f"Raw output: {raw[:200]}"
-            )
+            raise ValueError(f"Model returned unparseable JSON: {e}\n" f"Raw output: {raw[:200]}")
 
     def vision(
         self,
@@ -268,17 +255,13 @@ class OpenRouterClient:
                 "content": [
                     {
                         "type": "image_url",
-                        "image_url": {
-                            "url": f"data:{mime};base64,{image_b64}"
-                        },
+                        "image_url": {"url": f"data:{mime};base64,{image_b64}"},
                     },
                     {"type": "text", "text": prompt},
                 ],
             },
         ]
-        return self._call_with_fallback(
-            VISION_MODELS, messages, model, max_tokens, temperature=0.2
-        )
+        return self._call_with_fallback(VISION_MODELS, messages, model, max_tokens, temperature=0.2)
 
     def vision_from_file(
         self,
@@ -290,11 +273,11 @@ class OpenRouterClient:
     ) -> str:
         path = Path(image_path)
         mime_map = {
-            ".png":  "image/png",
-            ".jpg":  "image/jpeg",
+            ".png": "image/png",
+            ".jpg": "image/jpeg",
             ".jpeg": "image/jpeg",
             ".webp": "image/webp",
-            ".gif":  "image/gif",
+            ".gif": "image/gif",
         }
         mime = mime_map.get(path.suffix.lower(), "image/png")
 
@@ -310,19 +293,17 @@ class OpenRouterClient:
         max_tokens: int = DEFAULT_MAX_TOKENS,
         temperature: float = DEFAULT_TEMPERATURE,
     ) -> str:
-    
-        return self._call_with_fallback(
-            TEXT_MODELS, messages, model, max_tokens, temperature
-        )
+        return self._call_with_fallback(TEXT_MODELS, messages, model, max_tokens, temperature)
 
     def available_models(self) -> dict:
         return {
-            "text_models":   TEXT_MODELS,
+            "text_models": TEXT_MODELS,
             "vision_models": VISION_MODELS,
-            "rate_limited":  list(_rate_limited.keys()),
-            "total_text":    len(TEXT_MODELS),
-            "total_vision":  len(VISION_MODELS),
+            "rate_limited": list(_rate_limited.keys()),
+            "total_text": len(TEXT_MODELS),
+            "total_vision": len(VISION_MODELS),
         }
+
 
 client = OpenRouterClient()
 
@@ -335,7 +316,7 @@ if __name__ == "__main__":
     try:
         reply = client.chat("Introduce yourself in one sentence.")
         print(f"  Response : {reply}")
-        print(f"  Status   : PASS ✓")
+        print("  Status   : PASS ✓")
     except Exception as e:
         print(f"  Status   : FAIL ✗ — {e}")
 
@@ -343,24 +324,24 @@ if __name__ == "__main__":
     try:
         data = client.chat_json(
             'List 3 programming languages. Format: {"languages": ["a", "b", "c"]}',
-            system="Return only valid JSON. No extra text."
+            system="Return only valid JSON. No extra text.",
         )
         print(f"  Response : {data}")
-        print(f"  Status   : PASS ✓")
+        print("  Status   : PASS ✓")
     except Exception as e:
         print(f"  Status   : FAIL ✗ — {e}")
 
     print("\n[TEST 3] Multi-turn conversation...")
     try:
         history = [
-            {"role": "system",    "content": "You are a helpful assistant. Be brief."},
-            {"role": "user",      "content": "My name is Tony."},
+            {"role": "system", "content": "You are a helpful assistant. Be brief."},
+            {"role": "user", "content": "My name is Tony."},
             {"role": "assistant", "content": "Hello Tony, how can I help you?"},
-            {"role": "user",      "content": "What is my name?"},
+            {"role": "user", "content": "What is my name?"},
         ]
         reply = client.multi_turn(history)
         print(f"  Response : {reply}")
-        print(f"  Status   : PASS ✓")
+        print("  Status   : PASS ✓")
     except Exception as e:
         print(f"  Status   : FAIL ✗ — {e}")
 
@@ -369,7 +350,7 @@ if __name__ == "__main__":
     print(f"  Text models   : {info['total_text']}")
     print(f"  Vision models : {info['total_vision']}")
     print(f"  Rate limited  : {info['rate_limited'] or 'none'}")
-    print(f"  Status        : PASS ✓")
+    print("  Status        : PASS ✓")
 
     print("\n" + "=" * 55)
     print("  All tests complete.")

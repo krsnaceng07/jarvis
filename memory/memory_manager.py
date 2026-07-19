@@ -12,21 +12,21 @@ def get_base_dir() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
-BASE_DIR         = get_base_dir()
-MEMORY_PATH      = BASE_DIR / "memory" / "long_term.json"
-_lock            = Lock()
+BASE_DIR = get_base_dir()
+MEMORY_PATH = BASE_DIR / "memory" / "long_term.json"
+_lock = Lock()
 MAX_VALUE_LENGTH = 380
 MEMORY_MAX_CHARS = 2200
 
 
 def _empty_memory() -> dict:
     return {
-        "identity":      {},
-        "preferences":   {},
-        "projects":      {},
+        "identity": {},
+        "preferences": {},
+        "projects": {},
         "relationships": {},
-        "wishes":        {},
-        "notes":         {}
+        "wishes": {},
+        "notes": {},
     }
 
 
@@ -85,10 +85,7 @@ def save_memory(memory: dict) -> None:
 
     MEMORY_PATH.parent.mkdir(parents=True, exist_ok=True)
     with _lock:
-        MEMORY_PATH.write_text(
-            json.dumps(memory, indent=2, ensure_ascii=False),
-            encoding="utf-8"
-        )
+        MEMORY_PATH.write_text(json.dumps(memory, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def _truncate_value(val: str) -> str:
@@ -117,7 +114,7 @@ def _recursive_update(target: dict, updates: dict) -> bool:
             else:
                 new_val = _truncate_value(str(value))
 
-            entry    = {"value": new_val, "updated": datetime.now().strftime("%Y-%m-%d")}
+            entry = {"value": new_val, "updated": datetime.now().strftime("%Y-%m-%d")}
             existing = target.get(key, {})
             if not isinstance(existing, dict) or existing.get("value") != new_val:
                 target[key] = entry
@@ -224,7 +221,7 @@ def format_memory_for_prompt(memory: dict | None) -> str:
 
     lines = []
 
-    identity  = memory.get("identity", {})
+    identity = memory.get("identity", {})
     id_fields = ["name", "age", "birthday", "city", "job", "language", "school", "nationality"]
     for field in id_fields:
         entry = identity.get(field)
@@ -305,12 +302,13 @@ def remember(key: str, value: str, category: str = "notes") -> str:
 
 def forget(key: str, category: str = "notes") -> str:
     memory = load_memory()
-    cat    = memory.get(category, {})
+    cat = memory.get(category, {})
     if key in cat:
         del cat[key]
         memory[category] = cat
         save_memory(memory)
         return f"Forgotten: {category}/{key}"
     return f"Not found: {category}/{key}"
+
 
 forget_memory = forget

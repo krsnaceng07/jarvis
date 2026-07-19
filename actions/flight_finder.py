@@ -1,12 +1,12 @@
-#flight_finder.py
-import json
+# flight_finder.py
 import re
 import subprocess
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from config import is_windows, is_mac, is_linux
+from config import is_windows, is_mac
+
 
 def _get_base_dir() -> Path:
     if getattr(sys, "frozen", False):
@@ -14,28 +14,46 @@ def _get_base_dir() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
-BASE_DIR        = _get_base_dir()
+BASE_DIR = _get_base_dir()
 API_CONFIG_PATH = BASE_DIR / "config" / "api_keys.json"
 
 _MONTH_MAP: dict[str, int] = {
-
-    "january": 1, "february": 2, "march": 3,     "april": 4,
-    "may": 5,     "june": 6,     "july": 7,       "august": 8,
-    "september": 9, "october": 10, "november": 11, "december": 12,
-    "ocak": 1,  "şubat": 2,  "mart": 3,   "nisan": 4,
-    "mayıs": 5, "haziran": 6, "temmuz": 7, "ağustos": 8,
-    "eylül": 9, "ekim": 10,  "kasım": 11, "aralık": 12,
+    "january": 1,
+    "february": 2,
+    "march": 3,
+    "april": 4,
+    "may": 5,
+    "june": 6,
+    "july": 7,
+    "august": 8,
+    "september": 9,
+    "october": 10,
+    "november": 11,
+    "december": 12,
+    "ocak": 1,
+    "şubat": 2,
+    "mart": 3,
+    "nisan": 4,
+    "mayıs": 5,
+    "haziran": 6,
+    "temmuz": 7,
+    "ağustos": 8,
+    "eylül": 9,
+    "ekim": 10,
+    "kasım": 11,
+    "aralık": 12,
 }
 
 _RELATIVE_MAP_KEYS = {
-    "today", "bugün",
-    "tomorrow", "yarın",
+    "today",
+    "bugün",
+    "tomorrow",
+    "yarın",
 }
 
 
 def _parse_date(raw: str) -> str:
-
-    raw   = raw.strip()
+    raw = raw.strip()
     lower = raw.lower()
     today = datetime.now()
 
@@ -48,21 +66,23 @@ def _parse_date(raw: str) -> str:
             pass
 
     relative = {
-        "today": today, "bugün": today,
+        "today": today,
+        "bugün": today,
         "tomorrow": today + timedelta(days=1),
-        "yarın":    today + timedelta(days=1),
+        "yarın": today + timedelta(days=1),
     }
     for key, val in relative.items():
         if key in lower:
             return val.strftime("%Y-%m-%d")
-# replace the try/except genai block with:
+    # replace the try/except genai block with:
     try:
         from or_client import client
+
         result = client.chat(
             f"Today is {today.strftime('%Y-%m-%d')}. "
             f"Convert this date expression to YYYY-MM-DD: '{raw}'. "
             f"Return ONLY the date string, nothing else.",
-            system="You are a date converter. Return only the YYYY-MM-DD string."
+            system="You are a date converter. Return only the YYYY-MM-DD string.",
         )
         result = result.strip()
         if re.match(r"\d{4}-\d{2}-\d{2}", result):
@@ -73,7 +93,7 @@ def _parse_date(raw: str) -> str:
         if month_name in lower:
             day_match = re.search(r"\d{1,2}", raw)
             if day_match:
-                day  = int(day_match.group())
+                day = int(day_match.group())
                 year = today.year if month_num >= today.month else today.year + 1
                 return f"{year}-{month_num:02d}-{day:02d}"
 
@@ -81,26 +101,28 @@ def _parse_date(raw: str) -> str:
     print(f"[FlightFinder] ⚠️ Could not parse date '{raw}' — using today.")
     return today.strftime("%Y-%m-%d")
 
+
 _CABIN_CODE: dict[str, str] = {
-    "economy":  "1",
-    "premium":  "2",
+    "economy": "1",
+    "premium": "2",
     "business": "3",
-    "first":    "4",
+    "first": "4",
 }
 
+
 def _build_google_flights_url(
-    origin:      str,
+    origin: str,
     destination: str,
-    date:        str,
+    date: str,
     return_date: str | None = None,
-    passengers:  int        = 1,
-    cabin:       str        = "economy",
+    passengers: int = 1,
+    cabin: str = "economy",
 ) -> str:
     from urllib.parse import quote_plus
 
     cabin_code = _CABIN_CODE.get(cabin.lower(), "1")
 
-    origin_enc      = quote_plus(origin)
+    origin_enc = quote_plus(origin)
     destination_enc = quote_plus(destination)
 
     if return_date:
@@ -116,20 +138,19 @@ def _build_google_flights_url(
         f"&adults={passengers}"
     )
 
+
 def _search_flights_browser(
-    origin:      str,
+    origin: str,
     destination: str,
-    date:        str,
+    date: str,
     return_date: str | None,
-    passengers:  int,
-    cabin:       str,
+    passengers: int,
+    cabin: str,
 ) -> tuple[str, str]:
     import time
     from actions.browser_control import browser_control
 
-    url = _build_google_flights_url(
-        origin, destination, date, return_date, passengers, cabin
-    )
+    url = _build_google_flights_url(origin, destination, date, return_date, passengers, cabin)
 
     print(f"[FlightFinder] 🌐 Opening: {url}")
     browser_control({"action": "go_to", "url": url})
@@ -137,11 +158,13 @@ def _search_flights_browser(
 
     raw = browser_control({"action": "get_text"})
     return (raw or ""), url
+
+
 def _parse_flights_with_gemini(
-    raw_text:    str,
-    origin:      str,
+    raw_text: str,
+    origin: str,
     destination: str,
-    date:        str,
+    date: str,
 ) -> list[dict]:
     from or_client import client
 
@@ -161,11 +184,12 @@ def _parse_flights_with_gemini(
         print(f"[FlightFinder] ⚠️ parse failed: {e}")
         return []
 
+
 def _format_spoken(
-    flights:     list[dict],
-    origin:      str,
+    flights: list[dict],
+    origin: str,
     destination: str,
-    date:        str,
+    date: str,
 ) -> str:
     if not flights:
         return (
@@ -176,17 +200,17 @@ def _format_spoken(
     lines = [f"Here are the top flights from {origin} to {destination} on {date}, sir."]
 
     for i, f in enumerate(flights[:5], 1):
-        airline   = f.get("airline",   "Unknown airline")
+        airline = f.get("airline", "Unknown airline")
         departure = f.get("departure", "--:--")
-        arrival   = f.get("arrival",   "--:--")
-        duration  = f.get("duration",  "")
-        stops     = f.get("stops",     0)
-        price     = f.get("price",     "")
-        currency  = f.get("currency",  "")
+        arrival = f.get("arrival", "--:--")
+        duration = f.get("duration", "")
+        stops = f.get("stops", 0)
+        price = f.get("price", "")
+        currency = f.get("currency", "")
 
-        stop_str  = "non-stop" if stops == 0 else f"{stops} stop{'s' if stops > 1 else ''}"
+        stop_str = "non-stop" if stops == 0 else f"{stops} stop{'s' if stops > 1 else ''}"
         price_str = f"{price} {currency}".strip() if price else "price unavailable"
-        dur_str   = f", {duration}" if duration else ""
+        dur_str = f", {duration}" if duration else ""
 
         lines.append(
             f"Option {i}: {airline}, departing {departure}, "
@@ -209,12 +233,12 @@ def _format_spoken(
 
 
 def _format_text_report(
-    flights:     list[dict],
-    origin:      str,
+    flights: list[dict],
+    origin: str,
     destination: str,
-    date:        str,
+    date: str,
     return_date: str | None,
-    page_url:    str,
+    page_url: str,
 ) -> str:
     lines = [
         "JARVIS — Flight Search Results",
@@ -235,7 +259,7 @@ def _format_text_report(
         lines.append("No flights found.")
     else:
         for i, f in enumerate(flights, 1):
-            stops    = f.get("stops", 0)
+            stops = f.get("stops", 0)
             stop_str = "Non-stop" if stops == 0 else f"{stops} stop(s)"
             lines += [
                 f"Flight {i}:",
@@ -250,10 +274,11 @@ def _format_text_report(
 
     return "\n".join(lines)
 
+
 def _save_to_desktop(content: str, origin: str, destination: str) -> str:
-    ts       = datetime.now().strftime("%Y%m%d_%H%M%S")
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"flights_{origin}_{destination}_{ts}.txt".replace(" ", "_")
-    desktop  = Path.home() / "Desktop"
+    desktop = Path.home() / "Desktop"
     desktop.mkdir(parents=True, exist_ok=True)
     filepath = desktop / filename
 
@@ -276,13 +301,13 @@ def _save_to_desktop(content: str, origin: str, destination: str) -> str:
 def flight_finder(parameters: dict, player=None, speak=None) -> str:
     params = parameters or {}
 
-    origin      = params.get("origin",      "").strip()
+    origin = params.get("origin", "").strip()
     destination = params.get("destination", "").strip()
-    date_raw    = params.get("date",        "").strip()
-    return_raw  = (params.get("return_date") or "").strip()
-    passengers  = max(1, int(params.get("passengers", 1)))
-    cabin       = params.get("cabin", "economy").strip().lower()
-    save        = bool(params.get("save", False))
+    date_raw = params.get("date", "").strip()
+    return_raw = (params.get("return_date") or "").strip()
+    passengers = max(1, int(params.get("passengers", 1)))
+    cabin = params.get("cabin", "economy").strip().lower()
+    save = bool(params.get("save", False))
 
     if not origin or not destination:
         return "Please provide both origin and destination, sir."
@@ -293,7 +318,7 @@ def flight_finder(parameters: dict, player=None, speak=None) -> str:
     if cabin not in _CABIN_CODE:
         cabin = "economy"
 
-    date        = _parse_date(date_raw)
+    date = _parse_date(date_raw)
     return_date = _parse_date(return_raw) if return_raw else None
 
     if player:
@@ -320,7 +345,7 @@ def flight_finder(parameters: dict, player=None, speak=None) -> str:
             speak("Analysing the results now, sir.")
 
         flights = _parse_flights_with_gemini(raw_text, origin, destination, date)
-        spoken  = _format_spoken(flights, origin, destination, date)
+        spoken = _format_spoken(flights, origin, destination, date)
 
         if speak:
             speak(spoken)
@@ -328,9 +353,9 @@ def flight_finder(parameters: dict, player=None, speak=None) -> str:
         result = spoken
 
         if save and flights:
-            report     = _format_text_report(flights, origin, destination, date, return_date, page_url)
+            report = _format_text_report(flights, origin, destination, date, return_date, page_url)
             saved_path = _save_to_desktop(report, origin, destination)
-            result    += f" Results saved to Desktop: {saved_path}"
+            result += f" Results saved to Desktop: {saved_path}"
 
         return result
 

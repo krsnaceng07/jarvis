@@ -10,7 +10,7 @@ def get_base_dir() -> Path:
     return Path(__file__).resolve().parent.parent
 
 
-BASE_DIR        = get_base_dir()
+BASE_DIR = get_base_dir()
 API_CONFIG_PATH = BASE_DIR / "config" / "api_keys.json"
 
 
@@ -182,8 +182,7 @@ def create_plan(goal: str, context: str = "") -> dict:
 
     genai.configure(api_key=_get_api_key())
     model = genai.GenerativeModel(
-        model_name="gemini-2.5-flash-lite",
-        system_instruction=PLANNER_PROMPT
+        model_name="gemini-2.5-flash-lite", system_instruction=PLANNER_PROMPT
     )
 
     user_input = f"Goal: {goal}"
@@ -192,8 +191,8 @@ def create_plan(goal: str, context: str = "") -> dict:
 
     try:
         response = model.generate_content(user_input)
-        text     = response.text.strip()
-        text     = re.sub(r"```(?:json)?", "", text).strip().rstrip("`").strip()
+        text = response.text.strip()
+        text = re.sub(r"```(?:json)?", "", text).strip().rstrip("`").strip()
 
         plan = json.loads(text)
 
@@ -202,7 +201,9 @@ def create_plan(goal: str, context: str = "") -> dict:
 
         for step in plan["steps"]:
             if step.get("tool") in ("generated_code",):
-                print(f"[Planner] ⚠️ generated_code detected in step {step.get('step')} — replacing with web_search")
+                print(
+                    f"[Planner] ⚠️ generated_code detected in step {step.get('step')} — replacing with web_search"
+                )
                 desc = step.get("description", goal)
                 step["tool"] = "web_search"
                 step["parameters"] = {"query": desc[:200]}
@@ -231,9 +232,9 @@ def _fallback_plan(goal: str) -> dict:
                 "tool": "web_search",
                 "description": f"Search for: {goal}",
                 "parameters": {"query": goal},
-                "critical": True
+                "critical": True,
             }
-        ]
+        ],
     }
 
 
@@ -241,10 +242,7 @@ def replan(goal: str, completed_steps: list, failed_step: dict, error: str) -> d
     import google.generativeai as genai
 
     genai.configure(api_key=_get_api_key())
-    model = genai.GenerativeModel(
-        model_name="gemini-2.5-flash",
-        system_instruction=PLANNER_PROMPT
-    )
+    model = genai.GenerativeModel(model_name="gemini-2.5-flash", system_instruction=PLANNER_PROMPT)
 
     completed_summary = "\n".join(
         f"  - Step {s['step']} ({s['tool']}): DONE" for s in completed_steps
@@ -262,9 +260,9 @@ Create a REVISED plan for the remaining work only. Do not repeat completed steps
 
     try:
         response = model.generate_content(prompt)
-        text     = response.text.strip()
-        text     = re.sub(r"```(?:json)?", "", text).strip().rstrip("`").strip()
-        plan     = json.loads(text)
+        text = response.text.strip()
+        text = re.sub(r"```(?:json)?", "", text).strip().rstrip("`").strip()
+        plan = json.loads(text)
 
         for step in plan.get("steps", []):
             if step.get("tool") == "generated_code":

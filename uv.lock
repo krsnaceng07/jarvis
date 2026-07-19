@@ -11,6 +11,7 @@ members = [
     "jarvis",
     "jarvis-cli",
     "jarvis-desktop",
+    "jarvis-tool-weather",
     "jarvis-tui",
 ]
 
@@ -860,6 +861,11 @@ requires-dist = [
     { name = "youtube-transcript-api", specifier = ">=0.6.0" },
 ]
 provides-extras = ["windows", "macos", "linux", "all"]
+
+[[package]]
+name = "jarvis-tool-weather"
+version = "0.1.0"
+source = { virtual = "extensions/tool_weather" }
 
 [[package]]
 name = "jarvis-tui"

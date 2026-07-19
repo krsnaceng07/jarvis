@@ -12,6 +12,7 @@ original:
 The full monolithic content is preserved; HUD splitting into ``hud/`` submodules
 happens in Phase 1.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -26,27 +27,33 @@ from google import genai
 from google.genai import types
 from .ui import JarvisUI
 from memory.memory_manager import (
-    load_memory, update_memory, format_memory_for_prompt,
-    should_extract_memory, extract_memory
+    load_memory,
+    update_memory,
+    format_memory_for_prompt,
+    should_extract_memory,
+    extract_memory,
 )
 
 from actions.file_processor import file_processor
-from actions.flight_finder     import flight_finder
-from actions.open_app          import open_app
-from actions.weather_report    import weather_action
-from actions.send_message      import send_message
-from actions.reminder          import reminder
+from actions.flight_finder import flight_finder
+from actions.open_app import open_app
+
+# `weather_report` migrated to extensions/tool_weather/ in PR 1A. Loaded
+# dynamically from the manifest; see `_load_plugin_manifests()` and
+# `JarvisLive.__init__`. Remaining 15 actions migrate in Phase 2.
+from actions.send_message import send_message
+from actions.reminder import reminder
 from actions.computer_settings import computer_settings
-from actions.screen_processor  import screen_process
-from actions.youtube_video     import youtube_video
-from actions.desktop           import desktop_control
-from actions.browser_control   import browser_control
-from actions.file_controller   import file_controller
-from actions.code_helper       import code_helper
-from actions.dev_agent         import dev_agent
-from actions.web_search        import web_search as web_search_action
-from actions.computer_control  import computer_control
-from actions.game_updater      import game_updater
+from actions.screen_processor import screen_process
+from actions.youtube_video import youtube_video
+from actions.desktop import desktop_control
+from actions.browser_control import browser_control
+from actions.file_controller import file_controller
+from actions.code_helper import code_helper
+from actions.dev_agent import dev_agent
+from actions.web_search import web_search as web_search_action
+from actions.computer_control import computer_control
+from actions.game_updater import game_updater
 
 
 def get_base_dir() -> Path:
@@ -68,14 +75,14 @@ def get_base_dir() -> Path:
     return Path(__file__).resolve().parents[4]
 
 
-BASE_DIR        = get_base_dir()
+BASE_DIR = get_base_dir()
 API_CONFIG_PATH = BASE_DIR / "config" / "api_keys.json"
-PROMPT_PATH     = BASE_DIR / "core" / "prompt.txt"
-LIVE_MODEL          = "models/gemini-2.5-flash-native-audio-preview-12-2025"
-CHANNELS            = 1
-SEND_SAMPLE_RATE    = 16000
+PROMPT_PATH = BASE_DIR / "core" / "prompt.txt"
+LIVE_MODEL = "models/gemini-2.5-flash-native-audio-preview-12-2025"
+CHANNELS = 1
+SEND_SAMPLE_RATE = 16000
 RECEIVE_SAMPLE_RATE = 24000
-CHUNK_SIZE          = 1024
+CHUNK_SIZE = 1024
 
 
 def _get_api_key() -> str:
@@ -93,12 +100,14 @@ def _load_system_prompt() -> str:
             "Never simulate or guess results — always call the appropriate tool."
         )
 
+
 _last_memory_input = ""
+
 
 def _update_memory_async(user_text: str, jarvis_text: str) -> None:
     global _last_memory_input
 
-    user_text   = (user_text   or "").strip()
+    user_text = (user_text or "").strip()
     jarvis_text = (jarvis_text or "").strip()
 
     if len(user_text) < 5 or user_text == _last_memory_input:
@@ -117,6 +126,54 @@ def _update_memory_async(user_text: str, jarvis_text: str) -> None:
         if "429" not in str(e):
             print(f"[Memory] ⚠️ {e}")
 
+
+# ─────────────────────────────────────────────────────────────────────
+# Plugin manifest loader (PR 1A — minimal; full SDK lands in Phase 1C)
+#
+# Reads every `extensions/*/jarvis.plugin.json` and returns the tool
+# declarations declared in each manifest. Used to extend TOOL_DECLARATIONS
+# below. Phase 1C will move this into `packages/plugin_sdk/` with a
+# proper `PluginManifest` / `ToolDecl` typed contract, a real loader
+# that imports plugin classes via `entrypoint`, lifecycle hooks, and
+# a `Result` discriminated union for plugin call responses.
+# ─────────────────────────────────────────────────────────────────────
+def _load_plugin_manifests() -> list[dict]:
+    """Return tool declarations from every `extensions/*/jarvis.plugin.json`.
+
+    The manifest is the public contract (see `extensions/README.md`). For PR 1A
+    we only consume the `tools` field; plugin classes are still imported
+    directly via `from extensions.<id>.plugin import ...`. Phase 1C will
+    switch the plugin class lookup to use the manifest's `entrypoint`.
+    """
+    import json as _json
+    from pathlib import Path as _Path
+
+    workspace = _Path(__file__).resolve().parents[4]  # jarvis_desktop/src/jarvis_desktop/app.py
+    extensions_dir = workspace / "extensions"
+    if not extensions_dir.exists():
+        return []
+
+    declarations: list[dict] = []
+    for manifest_path in sorted(extensions_dir.glob("*/jarvis.plugin.json")):
+        try:
+            manifest = _json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, _json.JSONDecodeError) as e:
+            print(f"[WARN] Could not read manifest {manifest_path}: {e}")
+            continue
+        for tool in manifest.get("tools", []):
+            if "name" not in tool or "description" not in tool:
+                print(f"[WARN] {manifest_path}: tool missing name/description, skipping")
+                continue
+            declarations.append(
+                {
+                    "name": tool["name"],
+                    "description": tool["description"],
+                    "parameters": tool.get("parameters", {"type": "OBJECT", "properties": {}}),
+                }
+            )
+    return declarations
+
+
 TOOL_DECLARATIONS = [
     {
         "name": "open_app",
@@ -130,11 +187,11 @@ TOOL_DECLARATIONS = [
             "properties": {
                 "app_name": {
                     "type": "STRING",
-                    "description": "Exact name of the application (e.g. 'WhatsApp', 'Chrome', 'Spotify')"
+                    "description": "Exact name of the application (e.g. 'WhatsApp', 'Chrome', 'Spotify')",
                 }
             },
-            "required": ["app_name"]
-        }
+            "required": ["app_name"],
+        },
     },
     {
         "name": "web_search",
@@ -142,37 +199,32 @@ TOOL_DECLARATIONS = [
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "query":  {"type": "STRING", "description": "Search query"},
-                "mode":   {"type": "STRING", "description": "search (default) or compare"},
-                "items":  {"type": "ARRAY", "items": {"type": "STRING"}, "description": "Items to compare"},
-                "aspect": {"type": "STRING", "description": "price | specs | reviews"}
+                "query": {"type": "STRING", "description": "Search query"},
+                "mode": {"type": "STRING", "description": "search (default) or compare"},
+                "items": {
+                    "type": "ARRAY",
+                    "items": {"type": "STRING"},
+                    "description": "Items to compare",
+                },
+                "aspect": {"type": "STRING", "description": "price | specs | reviews"},
             },
-            "required": ["query"]
-        }
+            "required": ["query"],
+        },
     },
-    {
-        "name": "weather_report",
-        "description": "Gives the weather report to user",
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "city": {"type": "STRING", "description": "City name"}
-            },
-            "required": ["city"]
-        }
-    },
+    # `weather_report` removed in PR 1A — now loaded dynamically from
+    # extensions/tool_weather/jarvis.plugin.json via `_load_plugin_manifests()`.
     {
         "name": "send_message",
         "description": "Sends a text message via WhatsApp, Telegram, or other messaging platform.",
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "receiver":     {"type": "STRING", "description": "Recipient contact name"},
+                "receiver": {"type": "STRING", "description": "Recipient contact name"},
                 "message_text": {"type": "STRING", "description": "The message to send"},
-                "platform":     {"type": "STRING", "description": "Platform: WhatsApp, Telegram, etc."}
+                "platform": {"type": "STRING", "description": "Platform: WhatsApp, Telegram, etc."},
             },
-            "required": ["receiver", "message_text", "platform"]
-        }
+            "required": ["receiver", "message_text", "platform"],
+        },
     },
     {
         "name": "reminder",
@@ -180,12 +232,12 @@ TOOL_DECLARATIONS = [
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "date":    {"type": "STRING", "description": "Date in YYYY-MM-DD format"},
-                "time":    {"type": "STRING", "description": "Time in HH:MM format (24h)"},
-                "message": {"type": "STRING", "description": "Reminder message text"}
+                "date": {"type": "STRING", "description": "Date in YYYY-MM-DD format"},
+                "time": {"type": "STRING", "description": "Time in HH:MM format (24h)"},
+                "message": {"type": "STRING", "description": "Reminder message text"},
             },
-            "required": ["date", "time", "message"]
-        }
+            "required": ["date", "time", "message"],
+        },
     },
     {
         "name": "youtube_video",
@@ -196,14 +248,23 @@ TOOL_DECLARATIONS = [
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "action": {"type": "STRING", "description": "play | summarize | get_info | trending (default: play)"},
-                "query":  {"type": "STRING", "description": "Search query for play action"},
-                "save":   {"type": "BOOLEAN", "description": "Save summary to Notepad (summarize only)"},
-                "region": {"type": "STRING", "description": "Country code for trending e.g. TR, US"},
-                "url":    {"type": "STRING", "description": "Video URL for get_info action"},
+                "action": {
+                    "type": "STRING",
+                    "description": "play | summarize | get_info | trending (default: play)",
+                },
+                "query": {"type": "STRING", "description": "Search query for play action"},
+                "save": {
+                    "type": "BOOLEAN",
+                    "description": "Save summary to Notepad (summarize only)",
+                },
+                "region": {
+                    "type": "STRING",
+                    "description": "Country code for trending e.g. TR, US",
+                },
+                "url": {"type": "STRING", "description": "Video URL for get_info action"},
             },
-            "required": []
-        }
+            "required": [],
+        },
     },
     {
         "name": "screen_process",
@@ -217,11 +278,17 @@ TOOL_DECLARATIONS = [
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "angle": {"type": "STRING", "description": "'screen' to capture display, 'camera' for webcam. Default: 'screen'"},
-                "text":  {"type": "STRING", "description": "The question or instruction about the captured image"}
+                "angle": {
+                    "type": "STRING",
+                    "description": "'screen' to capture display, 'camera' for webcam. Default: 'screen'",
+                },
+                "text": {
+                    "type": "STRING",
+                    "description": "The question or instruction about the captured image",
+                },
             },
-            "required": ["text"]
-        }
+            "required": ["text"],
+        },
     },
     {
         "name": "computer_settings",
@@ -234,12 +301,18 @@ TOOL_DECLARATIONS = [
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "action":      {"type": "STRING", "description": "The action to perform"},
-                "description": {"type": "STRING", "description": "Natural language description of what to do"},
-                "value":       {"type": "STRING", "description": "Optional value: volume level, text to type, etc."}
+                "action": {"type": "STRING", "description": "The action to perform"},
+                "description": {
+                    "type": "STRING",
+                    "description": "Natural language description of what to do",
+                },
+                "value": {
+                    "type": "STRING",
+                    "description": "Optional value: volume level, text to type, etc.",
+                },
             },
-            "required": []
-        }
+            "required": [],
+        },
     },
     {
         "name": "browser_control",
@@ -250,18 +323,24 @@ TOOL_DECLARATIONS = [
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "action":      {"type": "STRING", "description": "go_to | search | click | type | scroll | fill_form | smart_click | smart_type | get_text | press | close"},
-                "url":         {"type": "STRING", "description": "URL for go_to action"},
-                "query":       {"type": "STRING", "description": "Search query for search action"},
-                "selector":    {"type": "STRING", "description": "CSS selector for click/type"},
-                "text":        {"type": "STRING", "description": "Text to click or type"},
-                "description": {"type": "STRING", "description": "Element description for smart_click/smart_type"},
-                "direction":   {"type": "STRING", "description": "up or down for scroll"},
-                "key":         {"type": "STRING", "description": "Key name for press action"},
-                "incognito":   {"type": "BOOLEAN", "description": "Open in private/incognito mode"},
+                "action": {
+                    "type": "STRING",
+                    "description": "go_to | search | click | type | scroll | fill_form | smart_click | smart_type | get_text | press | close",
+                },
+                "url": {"type": "STRING", "description": "URL for go_to action"},
+                "query": {"type": "STRING", "description": "Search query for search action"},
+                "selector": {"type": "STRING", "description": "CSS selector for click/type"},
+                "text": {"type": "STRING", "description": "Text to click or type"},
+                "description": {
+                    "type": "STRING",
+                    "description": "Element description for smart_click/smart_type",
+                },
+                "direction": {"type": "STRING", "description": "up or down for scroll"},
+                "key": {"type": "STRING", "description": "Key name for press action"},
+                "incognito": {"type": "BOOLEAN", "description": "Open in private/incognito mode"},
             },
-            "required": ["action"]
-        }
+            "required": ["action"],
+        },
     },
     {
         "name": "file_controller",
@@ -269,17 +348,26 @@ TOOL_DECLARATIONS = [
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "action":      {"type": "STRING", "description": "list | create_file | create_folder | delete | move | copy | rename | read | write | find | largest | disk_usage | organize_desktop | info"},
-                "path":        {"type": "STRING", "description": "File/folder path or shortcut: desktop, downloads, documents, home"},
+                "action": {
+                    "type": "STRING",
+                    "description": "list | create_file | create_folder | delete | move | copy | rename | read | write | find | largest | disk_usage | organize_desktop | info",
+                },
+                "path": {
+                    "type": "STRING",
+                    "description": "File/folder path or shortcut: desktop, downloads, documents, home",
+                },
                 "destination": {"type": "STRING", "description": "Destination path for move/copy"},
-                "new_name":    {"type": "STRING", "description": "New name for rename"},
-                "content":     {"type": "STRING", "description": "Content for create_file/write"},
-                "name":        {"type": "STRING", "description": "File name to search for"},
-                "extension":   {"type": "STRING", "description": "File extension to search (e.g. .pdf)"},
-                "count":       {"type": "INTEGER", "description": "Number of results for largest"},
+                "new_name": {"type": "STRING", "description": "New name for rename"},
+                "content": {"type": "STRING", "description": "Content for create_file/write"},
+                "name": {"type": "STRING", "description": "File name to search for"},
+                "extension": {
+                    "type": "STRING",
+                    "description": "File extension to search (e.g. .pdf)",
+                },
+                "count": {"type": "INTEGER", "description": "Number of results for largest"},
             },
-            "required": ["action"]
-        }
+            "required": ["action"],
+        },
     },
     {
         "name": "desktop_control",
@@ -287,14 +375,17 @@ TOOL_DECLARATIONS = [
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "action": {"type": "STRING", "description": "wallpaper | wallpaper_url | organize | clean | list | stats | task"},
-                "path":   {"type": "STRING", "description": "Image path for wallpaper"},
-                "url":    {"type": "STRING", "description": "Image URL for wallpaper_url"},
-                "mode":   {"type": "STRING", "description": "by_type or by_date for organize"},
-                "task":   {"type": "STRING", "description": "Natural language desktop task"},
+                "action": {
+                    "type": "STRING",
+                    "description": "wallpaper | wallpaper_url | organize | clean | list | stats | task",
+                },
+                "path": {"type": "STRING", "description": "Image path for wallpaper"},
+                "url": {"type": "STRING", "description": "Image URL for wallpaper_url"},
+                "mode": {"type": "STRING", "description": "by_type or by_date for organize"},
+                "task": {"type": "STRING", "description": "Natural language desktop task"},
             },
-            "required": ["action"]
-        }
+            "required": ["action"],
+        },
     },
     {
         "name": "code_helper",
@@ -302,17 +393,32 @@ TOOL_DECLARATIONS = [
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "action":      {"type": "STRING", "description": "write | edit | explain | run | build | auto (default: auto)"},
-                "description": {"type": "STRING", "description": "What the code should do or what change to make"},
-                "language":    {"type": "STRING", "description": "Programming language (default: python)"},
+                "action": {
+                    "type": "STRING",
+                    "description": "write | edit | explain | run | build | auto (default: auto)",
+                },
+                "description": {
+                    "type": "STRING",
+                    "description": "What the code should do or what change to make",
+                },
+                "language": {
+                    "type": "STRING",
+                    "description": "Programming language (default: python)",
+                },
                 "output_path": {"type": "STRING", "description": "Where to save the file"},
-                "file_path":   {"type": "STRING", "description": "Path to existing file for edit/explain/run/build"},
-                "code":        {"type": "STRING", "description": "Raw code string for explain"},
-                "args":        {"type": "STRING", "description": "CLI arguments for run/build"},
-                "timeout":     {"type": "INTEGER", "description": "Execution timeout in seconds (default: 30)"},
+                "file_path": {
+                    "type": "STRING",
+                    "description": "Path to existing file for edit/explain/run/build",
+                },
+                "code": {"type": "STRING", "description": "Raw code string for explain"},
+                "args": {"type": "STRING", "description": "CLI arguments for run/build"},
+                "timeout": {
+                    "type": "INTEGER",
+                    "description": "Execution timeout in seconds (default: 30)",
+                },
             },
-            "required": ["action"]
-        }
+            "required": ["action"],
+        },
     },
     {
         "name": "dev_agent",
@@ -320,13 +426,19 @@ TOOL_DECLARATIONS = [
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "description":  {"type": "STRING", "description": "What the project should do"},
-                "language":     {"type": "STRING", "description": "Programming language (default: python)"},
+                "description": {"type": "STRING", "description": "What the project should do"},
+                "language": {
+                    "type": "STRING",
+                    "description": "Programming language (default: python)",
+                },
                 "project_name": {"type": "STRING", "description": "Optional project folder name"},
-                "timeout":      {"type": "INTEGER", "description": "Run timeout in seconds (default: 30)"},
+                "timeout": {
+                    "type": "INTEGER",
+                    "description": "Run timeout in seconds (default: 30)",
+                },
             },
-            "required": ["description"]
-        }
+            "required": ["description"],
+        },
     },
     {
         "name": "agent_task",
@@ -338,11 +450,17 @@ TOOL_DECLARATIONS = [
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "goal":     {"type": "STRING", "description": "Complete description of what to accomplish"},
-                "priority": {"type": "STRING", "description": "low | normal | high (default: normal)"}
+                "goal": {
+                    "type": "STRING",
+                    "description": "Complete description of what to accomplish",
+                },
+                "priority": {
+                    "type": "STRING",
+                    "description": "low | normal | high (default: normal)",
+                },
             },
-            "required": ["goal"]
-        }
+            "required": ["goal"],
+        },
     },
     {
         "name": "computer_control",
@@ -350,24 +468,33 @@ TOOL_DECLARATIONS = [
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "action":      {"type": "STRING", "description": "type | smart_type | click | double_click | right_click | hotkey | press | scroll | move | copy | paste | screenshot | wait | clear_field | focus_window | screen_find | screen_click | random_data | user_data"},
-                "text":        {"type": "STRING", "description": "Text to type or paste"},
-                "x":           {"type": "INTEGER", "description": "X coordinate"},
-                "y":           {"type": "INTEGER", "description": "Y coordinate"},
-                "keys":        {"type": "STRING", "description": "Key combination e.g. 'ctrl+c'"},
-                "key":         {"type": "STRING", "description": "Single key e.g. 'enter'"},
-                "direction":   {"type": "STRING", "description": "up | down | left | right"},
-                "amount":      {"type": "INTEGER", "description": "Scroll amount (default: 3)"},
-                "seconds":     {"type": "NUMBER",  "description": "Seconds to wait"},
-                "title":       {"type": "STRING",  "description": "Window title for focus_window"},
-                "description": {"type": "STRING",  "description": "Element description for screen_find/screen_click"},
-                "type":        {"type": "STRING",  "description": "Data type for random_data"},
-                "field":       {"type": "STRING",  "description": "Field for user_data: name|email|city"},
-                "clear_first": {"type": "BOOLEAN", "description": "Clear field before typing (default: true)"},
-                "path":        {"type": "STRING",  "description": "Save path for screenshot"},
+                "action": {
+                    "type": "STRING",
+                    "description": "type | smart_type | click | double_click | right_click | hotkey | press | scroll | move | copy | paste | screenshot | wait | clear_field | focus_window | screen_find | screen_click | random_data | user_data",
+                },
+                "text": {"type": "STRING", "description": "Text to type or paste"},
+                "x": {"type": "INTEGER", "description": "X coordinate"},
+                "y": {"type": "INTEGER", "description": "Y coordinate"},
+                "keys": {"type": "STRING", "description": "Key combination e.g. 'ctrl+c'"},
+                "key": {"type": "STRING", "description": "Single key e.g. 'enter'"},
+                "direction": {"type": "STRING", "description": "up | down | left | right"},
+                "amount": {"type": "INTEGER", "description": "Scroll amount (default: 3)"},
+                "seconds": {"type": "NUMBER", "description": "Seconds to wait"},
+                "title": {"type": "STRING", "description": "Window title for focus_window"},
+                "description": {
+                    "type": "STRING",
+                    "description": "Element description for screen_find/screen_click",
+                },
+                "type": {"type": "STRING", "description": "Data type for random_data"},
+                "field": {"type": "STRING", "description": "Field for user_data: name|email|city"},
+                "clear_first": {
+                    "type": "BOOLEAN",
+                    "description": "Clear field before typing (default: true)",
+                },
+                "path": {"type": "STRING", "description": "Save path for screenshot"},
             },
-            "required": ["action"]
-        }
+            "required": ["action"],
+        },
     },
     {
         "name": "game_updater",
@@ -381,16 +508,34 @@ TOOL_DECLARATIONS = [
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "action":    {"type": "STRING",  "description": "update | install | list | download_status | schedule | cancel_schedule | schedule_status (default: update)"},
-                "platform":  {"type": "STRING",  "description": "steam | epic | both (default: both)"},
-                "game_name": {"type": "STRING",  "description": "Game name (partial match supported)"},
-                "app_id":    {"type": "STRING",  "description": "Steam AppID for install (optional)"},
-                "hour":      {"type": "INTEGER", "description": "Hour for scheduled update 0-23 (default: 3)"},
-                "minute":    {"type": "INTEGER", "description": "Minute for scheduled update 0-59 (default: 0)"},
-                "shutdown_when_done": {"type": "BOOLEAN", "description": "Shut down PC when download finishes"},
+                "action": {
+                    "type": "STRING",
+                    "description": "update | install | list | download_status | schedule | cancel_schedule | schedule_status (default: update)",
+                },
+                "platform": {
+                    "type": "STRING",
+                    "description": "steam | epic | both (default: both)",
+                },
+                "game_name": {
+                    "type": "STRING",
+                    "description": "Game name (partial match supported)",
+                },
+                "app_id": {"type": "STRING", "description": "Steam AppID for install (optional)"},
+                "hour": {
+                    "type": "INTEGER",
+                    "description": "Hour for scheduled update 0-23 (default: 3)",
+                },
+                "minute": {
+                    "type": "INTEGER",
+                    "description": "Minute for scheduled update 0-59 (default: 0)",
+                },
+                "shutdown_when_done": {
+                    "type": "BOOLEAN",
+                    "description": "Shut down PC when download finishes",
+                },
             },
-            "required": []
-        }
+            "required": [],
+        },
     },
     {
         "name": "flight_finder",
@@ -398,150 +543,193 @@ TOOL_DECLARATIONS = [
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "origin":      {"type": "STRING",  "description": "Departure city or airport code"},
-                "destination": {"type": "STRING",  "description": "Arrival city or airport code"},
-                "date":        {"type": "STRING",  "description": "Departure date (any format)"},
-                "return_date": {"type": "STRING",  "description": "Return date for round trips"},
-                "passengers":  {"type": "INTEGER", "description": "Number of passengers (default: 1)"},
-                "cabin":       {"type": "STRING",  "description": "economy | premium | business | first"},
-                "save":        {"type": "BOOLEAN", "description": "Save results to Notepad"},
+                "origin": {"type": "STRING", "description": "Departure city or airport code"},
+                "destination": {"type": "STRING", "description": "Arrival city or airport code"},
+                "date": {"type": "STRING", "description": "Departure date (any format)"},
+                "return_date": {"type": "STRING", "description": "Return date for round trips"},
+                "passengers": {
+                    "type": "INTEGER",
+                    "description": "Number of passengers (default: 1)",
+                },
+                "cabin": {"type": "STRING", "description": "economy | premium | business | first"},
+                "save": {"type": "BOOLEAN", "description": "Save results to Notepad"},
             },
-            "required": ["origin", "destination", "date"]
-        }
+            "required": ["origin", "destination", "date"],
+        },
     },
     {
-    "name": "file_processor",
-    "description": (
-        "Processes any file that the user has uploaded or dropped onto the interface. "
-        "Use this when the user refers to an uploaded file and wants an action on it. "
-        "Supports: images (describe/ocr/resize/compress/convert), "
-        "PDFs (summarize/extract_text/to_word), "
-        "Word docs & text files (summarize/fix/reformat/translate), "
-        "CSV/Excel (analyze/stats/filter/sort/convert), "
-        "JSON/XML (validate/format/analyze), "
-        "code files (explain/review/fix/optimize/run/document/test), "
-        "audio (transcribe/trim/convert/info), "
-        "video (trim/extract_audio/extract_frame/compress/transcribe/info), "
-        "archives (list/extract), "
-        "presentations (summarize/extract_text). "
-        "ALWAYS call this tool when a file has been uploaded and the user gives a command about it. "
-        "If the user's command is ambiguous, pick the most logical action for that file type."
-    ),
-    "parameters": {
-        "type": "OBJECT",
-        "properties": {
-            "file_path": {
-                "type": "STRING",
-                "description": "Full path to the uploaded file. Leave empty to use the currently uploaded file."
+        "name": "file_processor",
+        "description": (
+            "Processes any file that the user has uploaded or dropped onto the interface. "
+            "Use this when the user refers to an uploaded file and wants an action on it. "
+            "Supports: images (describe/ocr/resize/compress/convert), "
+            "PDFs (summarize/extract_text/to_word), "
+            "Word docs & text files (summarize/fix/reformat/translate), "
+            "CSV/Excel (analyze/stats/filter/sort/convert), "
+            "JSON/XML (validate/format/analyze), "
+            "code files (explain/review/fix/optimize/run/document/test), "
+            "audio (transcribe/trim/convert/info), "
+            "video (trim/extract_audio/extract_frame/compress/transcribe/info), "
+            "archives (list/extract), "
+            "presentations (summarize/extract_text). "
+            "ALWAYS call this tool when a file has been uploaded and the user gives a command about it. "
+            "If the user's command is ambiguous, pick the most logical action for that file type."
+        ),
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "file_path": {
+                    "type": "STRING",
+                    "description": "Full path to the uploaded file. Leave empty to use the currently uploaded file.",
+                },
+                "action": {
+                    "type": "STRING",
+                    "description": (
+                        "What to do with the file. Examples by type:\n"
+                        "image: describe | ocr | resize | compress | convert | info\n"
+                        "pdf: summarize | extract_text | to_word | info\n"
+                        "docx/txt: summarize | fix | reformat | translate_hint | word_count | to_bullet\n"
+                        "csv/excel: analyze | stats | filter | sort | convert | info\n"
+                        "json: validate | format | analyze | to_csv\n"
+                        "code: explain | review | fix | optimize | run | document | test\n"
+                        "audio: transcribe | trim | convert | info\n"
+                        "video: trim | extract_audio | extract_frame | compress | transcribe | info | convert\n"
+                        "archive: list | extract\n"
+                        "pptx: summarize | extract_text | analyze"
+                    ),
+                },
+                "instruction": {
+                    "type": "STRING",
+                    "description": "Free-form instruction if action doesn't cover it. E.g. 'translate this to Turkish', 'find all email addresses'",
+                },
+                "format": {
+                    "type": "STRING",
+                    "description": "Target format for conversion. E.g. 'mp3', 'pdf', 'csv', 'png'",
+                },
+                "width": {"type": "INTEGER", "description": "Target width for image resize"},
+                "height": {"type": "INTEGER", "description": "Target height for image resize"},
+                "scale": {
+                    "type": "NUMBER",
+                    "description": "Scale factor for image resize (e.g. 0.5)",
+                },
+                "quality": {
+                    "type": "INTEGER",
+                    "description": "Quality 1-100 for image/video compress",
+                },
+                "start": {
+                    "type": "STRING",
+                    "description": "Start time for trim: seconds or HH:MM:SS",
+                },
+                "end": {"type": "STRING", "description": "End time for trim: seconds or HH:MM:SS"},
+                "timestamp": {
+                    "type": "STRING",
+                    "description": "Timestamp for video frame extraction HH:MM:SS",
+                },
+                "column": {"type": "STRING", "description": "Column name for CSV filter/sort"},
+                "value": {"type": "STRING", "description": "Filter value for CSV filter"},
+                "condition": {
+                    "type": "STRING",
+                    "description": "Filter condition: equals|contains|gt|lt",
+                },
+                "ascending": {
+                    "type": "BOOLEAN",
+                    "description": "Sort order for CSV sort (default: true)",
+                },
+                "save": {"type": "BOOLEAN", "description": "Save result to file (default: true)"},
+                "destination": {
+                    "type": "STRING",
+                    "description": "Output folder for archive extract",
+                },
             },
-            "action": {
-                "type": "STRING",
-                "description": (
-                    "What to do with the file. Examples by type:\n"
-                    "image: describe | ocr | resize | compress | convert | info\n"
-                    "pdf: summarize | extract_text | to_word | info\n"
-                    "docx/txt: summarize | fix | reformat | translate_hint | word_count | to_bullet\n"
-                    "csv/excel: analyze | stats | filter | sort | convert | info\n"
-                    "json: validate | format | analyze | to_csv\n"
-                    "code: explain | review | fix | optimize | run | document | test\n"
-                    "audio: transcribe | trim | convert | info\n"
-                    "video: trim | extract_audio | extract_frame | compress | transcribe | info | convert\n"
-                    "archive: list | extract\n"
-                    "pptx: summarize | extract_text | analyze"
-                )
-            },
-            "instruction": {
-                "type": "STRING",
-                "description": "Free-form instruction if action doesn't cover it. E.g. 'translate this to Turkish', 'find all email addresses'"
-            },
-            "format": {
-                "type": "STRING",
-                "description": "Target format for conversion. E.g. 'mp3', 'pdf', 'csv', 'png'"
-            },
-            "width":     {"type": "INTEGER", "description": "Target width for image resize"},
-            "height":    {"type": "INTEGER", "description": "Target height for image resize"},
-            "scale":     {"type": "NUMBER",  "description": "Scale factor for image resize (e.g. 0.5)"},
-            "quality":   {"type": "INTEGER", "description": "Quality 1-100 for image/video compress"},
-            "start":     {"type": "STRING",  "description": "Start time for trim: seconds or HH:MM:SS"},
-            "end":       {"type": "STRING",  "description": "End time for trim: seconds or HH:MM:SS"},
-            "timestamp": {"type": "STRING",  "description": "Timestamp for video frame extraction HH:MM:SS"},
-            "column":    {"type": "STRING",  "description": "Column name for CSV filter/sort"},
-            "value":     {"type": "STRING",  "description": "Filter value for CSV filter"},
-            "condition": {"type": "STRING",  "description": "Filter condition: equals|contains|gt|lt"},
-            "ascending": {"type": "BOOLEAN", "description": "Sort order for CSV sort (default: true)"},
-            "save":      {"type": "BOOLEAN", "description": "Save result to file (default: true)"},
-            "destination": {"type": "STRING", "description": "Output folder for archive extract"},
+            "required": [],
         },
-        "required": []
-    }
-},
-    {
-    "name": "shutdown_jarvis",
-    "description": (
-        "Shuts down the assistant completely. "
-        "Call this when the user expresses intent to end the conversation, "
-        "close the assistant, say goodbye, or stop Jarvis. "
-        "The user can say this in ANY language."
-    ),
-    "parameters": {
-        "type": "OBJECT",
-        "properties": {},
-    }
     },
     {
-    "name": "save_memory",
-    "description": (
-        "Save an important personal fact about the user to long-term memory. "
-        "Call this silently whenever the user reveals something worth remembering: "
-        "name, age, city, job, preferences, hobbies, relationships, projects, or future plans. "
-        "Do NOT call for: weather, reminders, searches, or one-time commands. "
-        "Do NOT announce that you are saving — just call it silently. "
-        "Values must be in English regardless of the conversation language."
-    ),
-    "parameters": {
-        "type": "OBJECT",
-        "properties": {
-            "category": {
-                "type": "STRING",
-                "description": (
-                    "identity — name, age, birthday, city, job, language, nationality | "
-                    "preferences — favorite food/color/music/film/game/sport, hobbies | "
-                    "projects — active projects, goals, things being built | "
-                    "relationships — friends, family, partner, colleagues | "
-                    "wishes — future plans, things to buy, travel dreams | "
-                    "notes — habits, schedule, anything else worth remembering"
-                )
-            },
-            "key":   {"type": "STRING", "description": "Short snake_case key (e.g. name, favorite_food, sister_name)"},
-            "value": {"type": "STRING", "description": "Concise value in English (e.g. Fatih, pizza, older sister)"},
+        "name": "shutdown_jarvis",
+        "description": (
+            "Shuts down the assistant completely. "
+            "Call this when the user expresses intent to end the conversation, "
+            "close the assistant, say goodbye, or stop Jarvis. "
+            "The user can say this in ANY language."
+        ),
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {},
         },
-        "required": ["category", "key", "value"]
-    }
+    },
+    {
+        "name": "save_memory",
+        "description": (
+            "Save an important personal fact about the user to long-term memory. "
+            "Call this silently whenever the user reveals something worth remembering: "
+            "name, age, city, job, preferences, hobbies, relationships, projects, or future plans. "
+            "Do NOT call for: weather, reminders, searches, or one-time commands. "
+            "Do NOT announce that you are saving — just call it silently. "
+            "Values must be in English regardless of the conversation language."
+        ),
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "category": {
+                    "type": "STRING",
+                    "description": (
+                        "identity — name, age, birthday, city, job, language, nationality | "
+                        "preferences — favorite food/color/music/film/game/sport, hobbies | "
+                        "projects — active projects, goals, things being built | "
+                        "relationships — friends, family, partner, colleagues | "
+                        "wishes — future plans, things to buy, travel dreams | "
+                        "notes — habits, schedule, anything else worth remembering"
+                    ),
+                },
+                "key": {
+                    "type": "STRING",
+                    "description": "Short snake_case key (e.g. name, favorite_food, sister_name)",
+                },
+                "value": {
+                    "type": "STRING",
+                    "description": "Concise value in English (e.g. Fatih, pizza, older sister)",
+                },
+            },
+            "required": ["category", "key", "value"],
+        },
     },
 ]
 
 
-class JarvisLive:
+# ── Extend TOOL_DECLARATIONS with plugin-loaded tools ──────────────
+# PR 1A: just `weather_report` (from extensions/tool_weather/manifest).
+# Phase 2+ adds the rest of the 15 actions as they migrate.
+# We extend the list at module load time so the Gemini Live config
+# (line 754 in the next refresh) sees the full set.
+TOOL_DECLARATIONS.extend(_load_plugin_manifests())
 
+
+class JarvisLive:
     def __init__(self, ui: JarvisUI):
-        self.ui             = ui
-        self.session        = None
+        self.ui = ui
+        self.session = None
         self.audio_in_queue = None
-        self.out_queue      = None
-        self._loop          = None
-        self._is_speaking   = False
+        self.out_queue = None
+        self._loop = None
+        self._is_speaking = False
         self._speaking_lock = threading.Lock()
         self.ui.on_text_command = self._on_text_command
+
+        # ── Plugin initialization (PR 1A) ──────────────────────────
+        # Plugins are direct-imported here. Phase 1C will switch to a
+        # generic loader driven by `jarvis.plugin.json` `entrypoint`.
+        # Each plugin is initialized with the UI handle for log/speak.
+        from extensions.tool_weather.plugin import WeatherPlugin
+
+        self._weather_plugin = WeatherPlugin()
+        self._weather_plugin.init(self.ui)
 
     def _on_text_command(self, text: str):
         if not self._loop or not self.session:
             return
         asyncio.run_coroutine_threadsafe(
-            self.session.send_client_content(
-                turns={"parts": [{"text": text}]},
-                turn_complete=True
-            ),
-            self._loop
+            self.session.send_client_content(turns={"parts": [{"text": text}]}, turn_complete=True),
+            self._loop,
         )
 
     def set_speaking(self, value: bool):
@@ -556,11 +744,8 @@ class JarvisLive:
         if not self._loop or not self.session:
             return
         asyncio.run_coroutine_threadsafe(
-            self.session.send_client_content(
-                turns={"parts": [{"text": text}]},
-                turn_complete=True
-            ),
-            self._loop
+            self.session.send_client_content(turns={"parts": [{"text": text}]}, turn_complete=True),
+            self._loop,
         )
 
     def speak_error(self, tool_name: str, error: str):
@@ -571,11 +756,11 @@ class JarvisLive:
     def _build_config(self) -> types.LiveConnectConfig:
         from datetime import datetime
 
-        memory     = load_memory()
-        mem_str    = format_memory_for_prompt(memory)
+        memory = load_memory()
+        mem_str = format_memory_for_prompt(memory)
         sys_prompt = _load_system_prompt()
 
-        now      = datetime.now()
+        now = datetime.now()
         time_str = now.strftime("%A, %B %d, %Y — %I:%M %p")
         time_ctx = (
             f"[CURRENT DATE & TIME]\n"
@@ -597,9 +782,7 @@ class JarvisLive:
             session_resumption=types.SessionResumptionConfig(),
             speech_config=types.SpeechConfig(
                 voice_config=types.VoiceConfig(
-                    prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                        voice_name="Charon"
-                    )
+                    prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name="Charon")
                 )
             ),
         )
@@ -612,112 +795,158 @@ class JarvisLive:
         self.ui.set_state("THINKING")
         if name == "save_memory":
             category = args.get("category", "notes")
-            key      = args.get("key", "")
-            value    = args.get("value", "")
+            key = args.get("key", "")
+            value = args.get("value", "")
             if key and value:
                 update_memory({category: {key: {"value": value}}})
                 print(f"[Memory] 💾 save_memory: {category}/{key} = {value}")
             if not self.ui.muted:
                 self.ui.set_state("LISTENING")
             return types.FunctionResponse(
-                id=fc.id, name=name,
-                response={"result": "ok", "silent": True}
+                id=fc.id, name=name, response={"result": "ok", "silent": True}
             )
 
-        loop   = asyncio.get_event_loop()
+        loop = asyncio.get_event_loop()
         result = "Done."
 
         try:
             if name == "open_app":
-                r = await loop.run_in_executor(None, lambda: open_app(parameters=args, response=None, player=self.ui))
+                r = await loop.run_in_executor(
+                    None, lambda: open_app(parameters=args, response=None, player=self.ui)
+                )
                 result = r or f"Opened {args.get('app_name')}."
 
             elif name == "weather_report":
-                r = await loop.run_in_executor(None, lambda: weather_action(parameters=args, player=self.ui))
+                # PR 1A: dispatched via the extensions/tool_weather/ plugin.
+                r = await loop.run_in_executor(
+                    None, lambda: self._weather_plugin.call("weather_report", args)
+                )
                 result = r or "Weather delivered."
 
             elif name == "browser_control":
-                r = await loop.run_in_executor(None, lambda: browser_control(parameters=args, player=self.ui))
+                r = await loop.run_in_executor(
+                    None, lambda: browser_control(parameters=args, player=self.ui)
+                )
                 result = r or "Done."
 
             elif name == "file_controller":
-                r = await loop.run_in_executor(None, lambda: file_controller(parameters=args, player=self.ui))
+                r = await loop.run_in_executor(
+                    None, lambda: file_controller(parameters=args, player=self.ui)
+                )
                 result = r or "Done."
 
             elif name == "send_message":
-                r = await loop.run_in_executor(None, lambda: send_message(parameters=args, response=None, player=self.ui, session_memory=None))
+                r = await loop.run_in_executor(
+                    None,
+                    lambda: send_message(
+                        parameters=args, response=None, player=self.ui, session_memory=None
+                    ),
+                )
                 result = r or f"Message sent to {args.get('receiver')}."
 
             elif name == "reminder":
-                r = await loop.run_in_executor(None, lambda: reminder(parameters=args, response=None, player=self.ui))
+                r = await loop.run_in_executor(
+                    None, lambda: reminder(parameters=args, response=None, player=self.ui)
+                )
                 result = r or "Reminder set."
 
             elif name == "youtube_video":
-                r = await loop.run_in_executor(None, lambda: youtube_video(parameters=args, response=None, player=self.ui))
+                r = await loop.run_in_executor(
+                    None, lambda: youtube_video(parameters=args, response=None, player=self.ui)
+                )
                 result = r or "Done."
             elif name == "file_processor":
                 if not args.get("file_path") and self.ui.current_file:
                     args["file_path"] = self.ui.current_file
                 r = await loop.run_in_executor(
-                    None,
-                    lambda: file_processor(parameters=args, player=self.ui, speak=self.speak)
+                    None, lambda: file_processor(parameters=args, player=self.ui, speak=self.speak)
                 )
                 result = r or "Done."
-
 
             elif name == "screen_process":
                 threading.Thread(
                     target=screen_process,
-                    kwargs={"parameters": args, "response": None,
-                            "player": self.ui, "session_memory": None},
-                    daemon=True
+                    kwargs={
+                        "parameters": args,
+                        "response": None,
+                        "player": self.ui,
+                        "session_memory": None,
+                    },
+                    daemon=True,
                 ).start()
                 result = "Vision module activated. Stay completely silent — vision module will speak directly."
 
             elif name == "computer_settings":
-                r = await loop.run_in_executor(None, lambda: computer_settings(parameters=args, response=None, player=self.ui))
+                r = await loop.run_in_executor(
+                    None, lambda: computer_settings(parameters=args, response=None, player=self.ui)
+                )
                 result = r or "Done."
 
             elif name == "desktop_control":
-                r = await loop.run_in_executor(None, lambda: desktop_control(parameters=args, player=self.ui))
+                r = await loop.run_in_executor(
+                    None, lambda: desktop_control(parameters=args, player=self.ui)
+                )
                 result = r or "Done."
 
             elif name == "code_helper":
-                r = await loop.run_in_executor(None, lambda: code_helper(parameters=args, player=self.ui, speak=self.speak))
+                r = await loop.run_in_executor(
+                    None, lambda: code_helper(parameters=args, player=self.ui, speak=self.speak)
+                )
                 result = r or "Done."
 
             elif name == "dev_agent":
-                r = await loop.run_in_executor(None, lambda: dev_agent(parameters=args, player=self.ui, speak=self.speak))
+                r = await loop.run_in_executor(
+                    None, lambda: dev_agent(parameters=args, player=self.ui, speak=self.speak)
+                )
                 result = r or "Done."
 
             elif name == "agent_task":
                 from agent.task_queue import get_queue, TaskPriority
-                priority_map = {"low": TaskPriority.LOW, "normal": TaskPriority.NORMAL, "high": TaskPriority.HIGH}
-                priority = priority_map.get(args.get("priority", "normal").lower(), TaskPriority.NORMAL)
-                task_id  = get_queue().submit(goal=args.get("goal", ""), priority=priority, speak=self.speak)
-                result   = f"Task started (ID: {task_id})."
+
+                priority_map = {
+                    "low": TaskPriority.LOW,
+                    "normal": TaskPriority.NORMAL,
+                    "high": TaskPriority.HIGH,
+                }
+                priority = priority_map.get(
+                    args.get("priority", "normal").lower(), TaskPriority.NORMAL
+                )
+                task_id = get_queue().submit(
+                    goal=args.get("goal", ""), priority=priority, speak=self.speak
+                )
+                result = f"Task started (ID: {task_id})."
 
             elif name == "web_search":
-                r = await loop.run_in_executor(None, lambda: web_search_action(parameters=args, player=self.ui))
+                r = await loop.run_in_executor(
+                    None, lambda: web_search_action(parameters=args, player=self.ui)
+                )
                 result = r or "Done."
 
             elif name == "computer_control":
-                r = await loop.run_in_executor(None, lambda: computer_control(parameters=args, player=self.ui))
+                r = await loop.run_in_executor(
+                    None, lambda: computer_control(parameters=args, player=self.ui)
+                )
                 result = r or "Done."
 
             elif name == "game_updater":
-                r = await loop.run_in_executor(None, lambda: game_updater(parameters=args, player=self.ui, speak=self.speak))
+                r = await loop.run_in_executor(
+                    None, lambda: game_updater(parameters=args, player=self.ui, speak=self.speak)
+                )
                 result = r or "Done."
 
             elif name == "flight_finder":
-                r = await loop.run_in_executor(None, lambda: flight_finder(parameters=args, player=self.ui))
+                r = await loop.run_in_executor(
+                    None, lambda: flight_finder(parameters=args, player=self.ui)
+                )
                 result = r or "Done."
             elif name == "shutdown_jarvis":
                 self.ui.write_log("SYS: Shutdown requested.")
                 self.speak("Goodbye, sir.")
 
                 def _shutdown():
-                    import time, sys, os
+                    import time
+                    import os
+
                     time.sleep(1)
                     os._exit(0)
 
@@ -735,10 +964,7 @@ class JarvisLive:
 
         print(f"[JARVIS] 📤 {name} → {str(result)[:80]}")
 
-        return types.FunctionResponse(
-            id=fc.id, name=name,
-            response={"result": result}
-        )
+        return types.FunctionResponse(id=fc.id, name=name, response={"result": result})
 
     async def _send_realtime(self):
         while True:
@@ -755,8 +981,7 @@ class JarvisLive:
             if not jarvis_speaking and not self.ui.muted:
                 data = indata.tobytes()
                 loop.call_soon_threadsafe(
-                    self.out_queue.put_nowait,
-                    {"data": data, "mime_type": "audio/pcm"}
+                    self.out_queue.put_nowait, {"data": data, "mime_type": "audio/pcm"}
                 )
 
         try:
@@ -781,7 +1006,6 @@ class JarvisLive:
         try:
             while True:
                 async for response in self.session.receive():
-
                     if response.data:
                         self.audio_in_queue.put_nowait(response.data)
 
@@ -816,7 +1040,7 @@ class JarvisLive:
                                 threading.Thread(
                                     target=_update_memory_async,
                                     args=(full_in, full_out),
-                                    daemon=True
+                                    daemon=True,
                                 ).start()
 
                     if response.tool_call:
@@ -825,9 +1049,7 @@ class JarvisLive:
                             print(f"[JARVIS] 📞 {fc.name}")
                             fr = await self._execute_tool(fc)
                             fn_responses.append(fr)
-                        await self.session.send_tool_response(
-                            function_responses=fn_responses
-                        )
+                        await self.session.send_tool_response(function_responses=fn_responses)
 
         except Exception as e:
             print(f"[JARVIS] ❌ Recv: {e}")
@@ -859,10 +1081,7 @@ class JarvisLive:
             stream.close()
 
     async def run(self):
-        client = genai.Client(
-            api_key=_get_api_key(),
-            http_options={"api_version": "v1beta"}
-        )
+        client = genai.Client(api_key=_get_api_key(), http_options={"api_version": "v1beta"})
 
         while True:
             try:
@@ -874,10 +1093,10 @@ class JarvisLive:
                     client.aio.live.connect(model=LIVE_MODEL, config=config) as session,
                     asyncio.TaskGroup() as tg,
                 ):
-                    self.session        = session
-                    self._loop          = asyncio.get_event_loop()
+                    self.session = session
+                    self._loop = asyncio.get_event_loop()
                     self.audio_in_queue = asyncio.Queue()
-                    self.out_queue      = asyncio.Queue(maxsize=10)
+                    self.out_queue = asyncio.Queue(maxsize=10)
 
                     print("[JARVIS] ✅ Connected.")
                     self.ui.set_state("LISTENING")
@@ -896,6 +1115,7 @@ class JarvisLive:
             self.ui.set_state("THINKING")
             print("[JARVIS] 🔄 Reconnecting in 3s...")
             await asyncio.sleep(3)
+
 
 def main():
     ui = JarvisUI("face.png")

@@ -7,59 +7,58 @@ from typing import Callable, Any
 
 
 class TaskStatus(Enum):
-    PENDING    = "pending"
-    RUNNING    = "running"
-    COMPLETED  = "completed"
-    FAILED     = "failed"
-    CANCELLED  = "cancelled"
+    PENDING = "pending"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
 
 
 class TaskPriority(Enum):
-    LOW    = 3
+    LOW = 3
     NORMAL = 2
-    HIGH   = 1   
+    HIGH = 1
 
 
 @dataclass(order=True)
 class Task:
-    priority:    int                       
-    created_at:  float = field(compare=False)
-    task_id:     str   = field(compare=False)
-    goal:        str   = field(compare=False)
-    status:      TaskStatus = field(compare=False, default=TaskStatus.PENDING)
-    result:      Any        = field(compare=False, default=None)
-    error:       str        = field(compare=False, default="")
-    speak:       Any        = field(compare=False, default=None)   
-    on_complete: Any        = field(compare=False, default=None)  
+    priority: int
+    created_at: float = field(compare=False)
+    task_id: str = field(compare=False)
+    goal: str = field(compare=False)
+    status: TaskStatus = field(compare=False, default=TaskStatus.PENDING)
+    result: Any = field(compare=False, default=None)
+    error: str = field(compare=False, default="")
+    speak: Any = field(compare=False, default=None)
+    on_complete: Any = field(compare=False, default=None)
     cancel_flag: threading.Event = field(compare=False, default_factory=threading.Event)
 
 
 class TaskQueue:
     def __init__(self, max_concurrent: int = 1):
-        self._queue:        list[Task]       = []
-        self._lock:         threading.Lock   = threading.Lock()
-        self._condition:    threading.Condition = threading.Condition(self._lock)
-        self._tasks:        dict[str, Task]  = {} 
-        self._running:      bool             = False
+        self._queue: list[Task] = []
+        self._lock: threading.Lock = threading.Lock()
+        self._condition: threading.Condition = threading.Condition(self._lock)
+        self._tasks: dict[str, Task] = {}
+        self._running: bool = False
         self._worker_thread: threading.Thread | None = None
         self._max_concurrent = max_concurrent
-        self._active_count   = 0
-        self._executor       = None  
+        self._active_count = 0
+        self._executor = None
 
     def _get_executor(self):
         if self._executor is None:
             from agent.executor import AgentExecutor
+
             self._executor = AgentExecutor()
         return self._executor
 
     def start(self) -> None:
         if self._running:
             return
-        self._running      = True
+        self._running = True
         self._worker_thread = threading.Thread(
-            target=self._worker_loop,
-            daemon=True,
-            name="AgentTaskQueue"
+            target=self._worker_loop, daemon=True, name="AgentTaskQueue"
         )
         self._worker_thread.start()
         print("[TaskQueue] ✅ Started")
@@ -72,20 +71,19 @@ class TaskQueue:
 
     def submit(
         self,
-        goal:        str,
-        priority:    TaskPriority = TaskPriority.NORMAL,
-        speak:       Callable | None = None,
+        goal: str,
+        priority: TaskPriority = TaskPriority.NORMAL,
+        speak: Callable | None = None,
         on_complete: Callable | None = None,
     ) -> str:
-
         task_id = str(uuid.uuid4())[:8]
-        task    = Task(
-            priority    = priority.value,
-            created_at  = time.time(),
-            task_id     = task_id,
-            goal        = goal,
-            speak       = speak,
-            on_complete = on_complete,
+        task = Task(
+            priority=priority.value,
+            created_at=time.time(),
+            task_id=task_id,
+            goal=goal,
+            speak=speak,
+            on_complete=on_complete,
         )
 
         with self._condition:
@@ -98,7 +96,6 @@ class TaskQueue:
         return task_id
 
     def cancel(self, task_id: str) -> bool:
-
         with self._lock:
             task = self._tasks.get(task_id)
             if not task:
@@ -118,10 +115,10 @@ class TaskQueue:
                 return None
             return {
                 "task_id": task.task_id,
-                "goal":    task.goal,
-                "status":  task.status.value,
-                "result":  task.result,
-                "error":   task.error,
+                "goal": task.goal,
+                "status": task.status.value,
+                "result": task.result,
+                "error": task.error,
             }
 
     def get_all_statuses(self) -> list[dict]:
@@ -129,8 +126,8 @@ class TaskQueue:
             return [
                 {
                     "task_id": t.task_id,
-                    "goal":    t.goal[:50],
-                    "status":  t.status.value,
+                    "goal": t.goal[:50],
+                    "status": t.status.value,
                 }
                 for t in self._tasks.values()
             ]
@@ -160,7 +157,7 @@ class TaskQueue:
                     target=self._run_task,
                     args=(task,),
                     daemon=True,
-                    name=f"AgentTask-{task.task_id}"
+                    name=f"AgentTask-{task.task_id}",
                 ).start()
 
     def _next_task(self) -> Task | None:
@@ -175,10 +172,10 @@ class TaskQueue:
         print(f"[TaskQueue] ▶️ Running: [{task.task_id}] {task.goal[:60]}")
         try:
             executor = self._get_executor()
-            result   = executor.execute(
-                goal        = task.goal,
-                speak       = task.speak,
-                cancel_flag = task.cancel_flag,
+            result = executor.execute(
+                goal=task.goal,
+                speak=task.speak,
+                cancel_flag=task.cancel_flag,
             )
 
             with self._lock:
@@ -200,16 +197,17 @@ class TaskQueue:
         except Exception as e:
             with self._lock:
                 task.status = TaskStatus.FAILED
-                task.error  = str(e)
+                task.error = str(e)
                 self._active_count -= 1
             print(f"[TaskQueue] ❌ Failed: [{task.task_id}] {e}")
 
         with self._condition:
             self._condition.notify()
 
-_queue        = TaskQueue()
+
+_queue = TaskQueue()
 _queue_started = False
-_queue_lock    = threading.Lock()
+_queue_lock = threading.Lock()
 
 
 def get_queue() -> TaskQueue:

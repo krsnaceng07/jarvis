@@ -6,14 +6,24 @@ repos:
     rev: v0.6.9
     hooks:
       - id: ruff
-        args: [--fix, --exit-non-zero-on-fix]
+        # Pass pyproject.toml as the config so the workspace's
+        # `[tool.ruff]` settings (including `extend-exclude` for legacy
+        # code being migrated) are honored by the pre-commit hook.
+        args: ["--config", "pyproject.toml", --fix, --exit-non-zero-on-fix]
       - id: ruff-format
 
   - repo: https://github.com/RobertCraigie/pyright-python
     rev: v1.1.370
     hooks:
       - id: pyright
-        additional_dependencies: []
+        # Pass pyrightconfig.json as the config so the workspace's
+        # exclude list (legacy code being migrated) is honored.
+        # Also list dependencies so pyright can resolve `pytest` and
+        # the workspace member `jarvis_desktop`.
+        additional_dependencies:
+          - pytest>=8.3.0
+          - pytest-asyncio>=0.24.0
+        args: ["--project", "pyrightconfig.json"]
 
   - repo: local
     hooks:

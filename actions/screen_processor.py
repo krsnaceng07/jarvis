@@ -3,7 +3,6 @@ import base64
 import io
 import json
 import re
-import os
 import sys
 import time
 import threading
@@ -11,11 +10,11 @@ import cv2
 import mss
 import mss.tools
 import sounddevice as sd
-import numpy as np
 from pathlib import Path
 
 try:
     import PIL.Image
+
     _PIL_OK = True
 except ImportError:
     _PIL_OK = False
@@ -23,22 +22,24 @@ except ImportError:
 from google import genai
 from google.genai import types
 
+
 def get_base_dir():
     if getattr(sys, "frozen", False):
         return Path(sys.executable).parent
     return Path(__file__).resolve().parent.parent
 
-BASE_DIR        = get_base_dir()
+
+BASE_DIR = get_base_dir()
 API_CONFIG_PATH = BASE_DIR / "config" / "api_keys.json"
 
-LIVE_MODEL          = "models/gemini-2.5-flash-native-audio-preview-12-2025"
-CHANNELS            = 1
+LIVE_MODEL = "models/gemini-2.5-flash-native-audio-preview-12-2025"
+CHANNELS = 1
 RECEIVE_SAMPLE_RATE = 24000
-CHUNK_SIZE          = 1024
+CHUNK_SIZE = 1024
 
 IMG_MAX_W = 640
 IMG_MAX_H = 360
-JPEG_Q    = 55
+JPEG_Q = 55
 
 SYSTEM_PROMPT = (
     "You are JARVIS from Iron Man movies. "
@@ -118,7 +119,7 @@ def _to_jpeg(img_bytes: bytes) -> bytes:
 
 def _capture_screenshot() -> bytes:
     with mss.mss() as sct:
-        shot      = sct.grab(sct.monitors[1])
+        shot = sct.grab(sct.monitors[1])
         png_bytes = mss.tools.to_png(shot.rgb, shot.size)
     return _to_jpeg(png_bytes)
 
@@ -146,16 +147,15 @@ def _capture_camera() -> bytes:
 
 
 class _LiveSession:
-
     def __init__(self):
-        self._loop:      asyncio.AbstractEventLoop | None = None
-        self._thread:    threading.Thread | None          = None
-        self._session                                     = None
-        self._out_queue: asyncio.Queue | None             = None
-        self._audio_in:  asyncio.Queue | None             = None
-        self._ready:     threading.Event                  = threading.Event()
-        self._player                                      = None
-        self._send_lock: asyncio.Lock | None              = None
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._thread: threading.Thread | None = None
+        self._session = None
+        self._out_queue: asyncio.Queue | None = None
+        self._audio_in: asyncio.Queue | None = None
+        self._ready: threading.Event = threading.Event()
+        self._player = None
+        self._send_lock: asyncio.Lock | None = None
 
     def start(self, player=None):
         if self._thread and self._thread.is_alive():
@@ -177,13 +177,10 @@ class _LiveSession:
 
     async def _main(self):
         self._out_queue = asyncio.Queue(maxsize=30)
-        self._audio_in  = asyncio.Queue()
+        self._audio_in = asyncio.Queue()
         self._send_lock = asyncio.Lock()
 
-        client = genai.Client(
-            api_key=_get_api_key(),
-            http_options={"api_version": "v1beta"}
-        )
+        client = genai.Client(api_key=_get_api_key(), http_options={"api_version": "v1beta"})
 
         config = types.LiveConnectConfig(
             response_modalities=["AUDIO"],
@@ -191,9 +188,7 @@ class _LiveSession:
             system_instruction=SYSTEM_PROMPT,
             speech_config=types.SpeechConfig(
                 voice_config=types.VoiceConfig(
-                    prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                        voice_name="Charon"
-                    )
+                    prebuilt_voice_config=types.PrebuiltVoiceConfig(voice_name="Charon")
                 )
             ),
         )
@@ -227,10 +222,10 @@ class _LiveSession:
                         turns={
                             "parts": [
                                 {"inline_data": {"mime_type": mime_type, "data": b64}},
-                                {"text": user_text}
+                                {"text": user_text},
                             ]
                         },
-                        turn_complete=True
+                        turn_complete=True,
                     )
                     print("[ScreenProcess] ✅ Image sent")
                 except Exception as e:
@@ -251,7 +246,7 @@ class _LiveSession:
                         transcript_buf.append(chunk)
                 if sc.turn_complete:
                     if transcript_buf and self._player:
-                        full = re.sub(r'\s+', ' ', " ".join(transcript_buf)).strip()
+                        full = re.sub(r"\s+", " ", " ".join(transcript_buf)).strip()
                         if full:
                             self._player.write_log(f"Jarvis: {full}")
                             print(f"[ScreenProcess] 💬 {full}")
@@ -284,16 +279,15 @@ class _LiveSession:
         if not self._loop:
             return
         asyncio.run_coroutine_threadsafe(
-            self._out_queue.put((image_bytes, mime_type, user_text)),
-            self._loop
+            self._out_queue.put((image_bytes, mime_type, user_text)), self._loop
         )
 
     def is_ready(self) -> bool:
         return self._session is not None
 
 
-_live       = _LiveSession()
-_started    = False
+_live = _LiveSession()
+_started = False
 _start_lock = threading.Lock()
 
 
@@ -308,8 +302,8 @@ def _ensure_started(player=None):
 
 
 def screen_process(
-    parameters:     dict,
-    response:       str | None = None,
+    parameters: dict,
+    response: str | None = None,
     player=None,
     session_memory=None,
 ) -> bool:
@@ -327,14 +321,16 @@ def screen_process(
     try:
         if angle == "camera":
             image_bytes = _capture_camera()
-            mime_type   = "image/jpeg"
+            mime_type = "image/jpeg"
             print("[ScreenProcess] 📷 Camera captured")
         else:
             image_bytes = _capture_screenshot()
-            mime_type   = "image/jpeg" if _PIL_OK else "image/png"
+            mime_type = "image/jpeg" if _PIL_OK else "image/png"
             print("[ScreenProcess] 🖥️ Screen captured")
     except Exception as e:
-        import traceback; traceback.print_exc()
+        import traceback
+
+        traceback.print_exc()
         print(f"[ScreenProcess] ❌ Capture error: {e}")
         return False
 
@@ -353,14 +349,14 @@ def warmup_session(player=None):
 if __name__ == "__main__":
     print("[TEST] screen_processor.py v8 — image-only session")
     print("=" * 50)
-    mode    = input("screen / camera (default: screen): ").strip().lower() or "screen"
+    mode = input("screen / camera (default: screen): ").strip().lower() or "screen"
     request = input("Question (Enter for default): ").strip() or "What do you see? Be brief."
 
     t0 = time.perf_counter()
     warmup_session()
     print(f"Session ready — {time.perf_counter()-t0:.2f}s\n")
 
-    t1     = time.perf_counter()
+    t1 = time.perf_counter()
     result = screen_process({"angle": mode, "text": request}, player=None)
     print(f"Sent — {time.perf_counter()-t1:.3f}s | audio incoming...")
     time.sleep(8)

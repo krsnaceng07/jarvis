@@ -1,0 +1,28 @@
+{
+  "id": "tool_weather",
+  "kind": "tool",
+  "version": "0.1.0",
+  "description": "Current weather and forecasts via Google search.",
+  "activation": "on_startup",
+  "entrypoint": "plugin:WeatherPlugin",
+  "tools": [
+    {
+      "name": "weather_report",
+      "description": "Gives the weather report for a city. Opens Google weather search in the browser.",
+      "parameters": {
+        "type": "OBJECT",
+        "properties": {
+          "city": {
+            "type": "STRING",
+            "description": "City name"
+          },
+          "time": {
+            "type": "STRING",
+            "description": "today, tomorrow, or a specific date"
+          }
+        },
+        "required": ["city"]
+      }
+    }
+  ]
+}

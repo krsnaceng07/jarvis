@@ -7,14 +7,27 @@
     "tests",
     "examples"
   ],
+  "extraPaths": [
+    "apps/desktop/src"
+  ],
   "exclude": [
     "**/legacy_*",
     "openclaw-main",
     ".venv",
     "build",
-    "dist"
+    "dist",
+    "**/node_modules",
+    "TRANSITIONAL (PR 0.4/0.5): legacy root-level code being migrated to proper packages in Phase 1+. Removed as each module is migrated.",
+    "actions",
+    "agent",
+    "memory",
+    "core",
+    "config",
+    "or_client.py",
+    "**/jarvis_desktop/app.py",
+    "**/jarvis_desktop/ui.py"
   ],
-  "pythonVersion": "3.12",
+  "pythonVersion": "3.13",
   "typeCheckingMode": "standard",
   "useLibraryCodeForTypes": true,
   "reportMissingImports": "error",

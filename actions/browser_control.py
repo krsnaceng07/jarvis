@@ -14,9 +14,10 @@ def _get_default_browser_id() -> str:
     try:
         if system == "Windows":
             import winreg
+
             key = winreg.OpenKey(
                 winreg.HKEY_CURRENT_USER,
-                r"Software\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice"
+                r"Software\Microsoft\Windows\Shell\Associations\UrlAssociations\http\UserChoice",
             )
             prog_id = winreg.QueryValueEx(key, "ProgId")[0].lower()
             winreg.CloseKey(key)
@@ -24,17 +25,24 @@ def _get_default_browser_id() -> str:
 
         elif system == "Darwin":
             result = subprocess.run(
-                ["defaults", "read",
-                 "com.apple.LaunchServices/com.apple.launchservices.secure",
-                 "LSHandlers"],
-                capture_output=True, text=True, timeout=5
+                [
+                    "defaults",
+                    "read",
+                    "com.apple.LaunchServices/com.apple.launchservices.secure",
+                    "LSHandlers",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             return result.stdout.lower()
 
         elif system == "Linux":
             result = subprocess.run(
                 ["xdg-settings", "get", "default-web-browser"],
-                capture_output=True, text=True, timeout=5
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
             return result.stdout.lower()
 
@@ -46,24 +54,24 @@ def _get_default_browser_id() -> str:
 
 _BROWSER_BINARIES = {
     "Windows": {
-        "opera":   ["opera.exe"],
-        "brave":   ["brave.exe"],
+        "opera": ["opera.exe"],
+        "brave": ["brave.exe"],
         "vivaldi": ["vivaldi.exe"],
-        "chrome":  ["chrome.exe"],
+        "chrome": ["chrome.exe"],
         "firefox": ["firefox.exe"],
     },
     "Darwin": {
-        "opera":   ["opera"],
-        "brave":   ["brave browser", "brave"],
+        "opera": ["opera"],
+        "brave": ["brave browser", "brave"],
         "vivaldi": ["vivaldi"],
-        "chrome":  ["google chrome", "google-chrome"],
+        "chrome": ["google chrome", "google-chrome"],
         "firefox": ["firefox"],
     },
     "Linux": {
-        "opera":   ["opera", "opera-stable"],
-        "brave":   ["brave-browser", "brave"],
+        "opera": ["opera", "opera-stable"],
+        "brave": ["brave-browser", "brave"],
         "vivaldi": ["vivaldi-stable", "vivaldi"],
-        "chrome":  ["google-chrome", "google-chrome-stable", "chromium-browser", "chromium"],
+        "chrome": ["google-chrome", "google-chrome-stable", "chromium-browser", "chromium"],
         "firefox": ["firefox"],
     },
 }
@@ -74,6 +82,7 @@ def _get_opera_executable() -> str | None:
         return None
     try:
         import winreg
+
         candidate_keys = [
             r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\opera.exe",
             r"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\launcher.exe",
@@ -102,7 +111,7 @@ def _find_browser_executable(prog_id: str) -> tuple:
     Returns (engine_name, exe_path, channel, is_opera).
     is_opera=True → extra args needed to prevent private-mode launch.
     """
-    system  = platform.system()
+    system = platform.system()
     os_bins = _BROWSER_BINARIES.get(system, {})
 
     if any(x in prog_id for x in ["firefox", "mozilla"]):
@@ -124,9 +133,9 @@ def _find_browser_executable(prog_id: str) -> tuple:
                 return "chromium", path, None, True
 
     browser_patterns = {
-        "brave":   ["brave"],
+        "brave": ["brave"],
         "vivaldi": ["vivaldi"],
-        "chrome":  ["chrome"],
+        "chrome": ["chrome"],
     }
     for browser_name, patterns in browser_patterns.items():
         if not any(p in prog_id for p in patterns):
@@ -145,26 +154,23 @@ def _find_browser_executable(prog_id: str) -> tuple:
 
 
 class _BrowserThread:
-
     def __init__(self):
-        self._loop       = None
-        self._thread     = None
-        self._ready      = threading.Event()
+        self._loop = None
+        self._thread = None
+        self._ready = threading.Event()
         self._playwright = None
-        self._browser    = None
-        self._context    = None
-        self._page       = None
+        self._browser = None
+        self._context = None
+        self._page = None
         self._engine_name = "chromium"
-        self._exe_path   = None
-        self._channel    = None
-        self._is_opera   = False
+        self._exe_path = None
+        self._channel = None
+        self._is_opera = False
 
     def start(self):
         if self._thread and self._thread.is_alive():
             return
-        self._thread = threading.Thread(
-            target=self._run_loop, daemon=True, name="BrowserThread"
-        )
+        self._thread = threading.Thread(target=self._run_loop, daemon=True, name="BrowserThread")
         self._thread.start()
         self._ready.wait(timeout=15)
 
@@ -195,7 +201,9 @@ class _BrowserThread:
             return
 
         prog_id = _get_default_browser_id()
-        self._engine_name, self._exe_path, self._channel, self._is_opera = _find_browser_executable(prog_id)
+        self._engine_name, self._exe_path, self._channel, self._is_opera = _find_browser_executable(
+            prog_id
+        )
         engine = getattr(self._playwright, self._engine_name)
 
         # Temel chromium argümanları
@@ -228,8 +236,7 @@ class _BrowserThread:
         except Exception as e:
             print(f"[Browser] ⚠️ Launch failed ({e}), falling back to built-in Chromium")
             self._browser = await self._playwright.chromium.launch(
-                headless=False,
-                args=["--start-maximized"]
+                headless=False, args=["--start-maximized"]
             )
 
     async def _get_page(self):
@@ -249,7 +256,7 @@ class _BrowserThread:
                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                     "AppleWebKit/537.36 (KHTML, like Gecko) "
                     "Chrome/120.0.0.0 Safari/537.36"
-                )
+                ),
             )
 
         if self._page is None or self._page.is_closed():
@@ -273,8 +280,8 @@ class _BrowserThread:
 
     async def _search(self, query: str, engine: str = "google") -> str:
         engines = {
-            "google":     f"https://www.google.com/search?q={query.replace(' ', '+')}",
-            "bing":       f"https://www.bing.com/search?q={query.replace(' ', '+')}",
+            "google": f"https://www.google.com/search?q={query.replace(' ', '+')}",
+            "bing": f"https://www.bing.com/search?q={query.replace(' ', '+')}",
             "duckduckgo": f"https://duckduckgo.com/?q={query.replace(' ', '+')}",
         }
         url = engines.get(engine.lower(), engines["google"])
@@ -332,7 +339,7 @@ class _BrowserThread:
             return f"Could not get page text: {e}"
 
     async def _fill_form(self, fields: dict) -> str:
-        page    = await self._get_page()
+        page = await self._get_page()
         results = []
         for selector, value in fields.items():
             try:
@@ -345,14 +352,14 @@ class _BrowserThread:
         return "Form filled: " + ", ".join(results)
 
     async def _smart_click(self, description: str) -> str:
-        page       = await self._get_page()
+        page = await self._get_page()
         desc_lower = description.lower()
 
         role_hints = {
-            "button":    ["button", "buton", "btn"],
-            "link":      ["link", "bağlantı"],
+            "button": ["button", "buton", "btn"],
+            "link": ["link", "bağlantı"],
             "searchbox": ["search", "arama"],
-            "textbox":   ["input", "field", "alan"],
+            "textbox": ["input", "field", "alan"],
         }
         for role, keywords in role_hints.items():
             if any(k in desc_lower for k in keywords):
@@ -381,8 +388,8 @@ class _BrowserThread:
 
         for method, locator in [
             ("placeholder", page.get_by_placeholder(description, exact=False)),
-            ("label",       page.get_by_label(description, exact=False)),
-            ("role",        page.get_by_role("textbox")),
+            ("label", page.get_by_label(description, exact=False)),
+            ("role", page.get_by_role("textbox")),
         ]:
             try:
                 el = locator.first
@@ -399,7 +406,7 @@ class _BrowserThread:
             await self._browser.close()
             self._browser = None
             self._context = None
-            self._page    = None
+            self._page = None
 
         if self._playwright:
             await self._playwright.stop()
@@ -410,9 +417,9 @@ class _BrowserThread:
 
 # ── Singleton browser thread ─────────────────────────────────────────────────
 
-_bt         = _BrowserThread()
+_bt = _BrowserThread()
 _bt_started = False
-_bt_lock    = threading.Lock()
+_bt_lock = threading.Lock()
 
 
 def _ensure_started():
@@ -425,12 +432,8 @@ def _ensure_started():
 
 # ── Public API ───────────────────────────────────────────────────────────────
 
-def browser_control(
-    parameters:     dict,
-    response=None,
-    player=None,
-    session_memory=None
-) -> str:
+
+def browser_control(parameters: dict, response=None, player=None, session_memory=None) -> str:
     """
     Browser controller — auto-detects and uses system default browser.
     Always reuses the existing browser window/page; never opens incognito.
@@ -460,29 +463,37 @@ def browser_control(
             result = _bt.run(_bt._go_to(parameters.get("url", "")))
 
         elif action == "search":
-            result = _bt.run(_bt._search(
-                parameters.get("query", ""),
-                parameters.get("engine", "google"),
-            ))
+            result = _bt.run(
+                _bt._search(
+                    parameters.get("query", ""),
+                    parameters.get("engine", "google"),
+                )
+            )
 
         elif action == "click":
-            result = _bt.run(_bt._click(
-                selector=parameters.get("selector"),
-                text=parameters.get("text"),
-            ))
+            result = _bt.run(
+                _bt._click(
+                    selector=parameters.get("selector"),
+                    text=parameters.get("text"),
+                )
+            )
 
         elif action == "type":
-            result = _bt.run(_bt._type(
-                selector=parameters.get("selector"),
-                text=parameters.get("text", ""),
-                clear_first=parameters.get("clear_first", True),
-            ))
+            result = _bt.run(
+                _bt._type(
+                    selector=parameters.get("selector"),
+                    text=parameters.get("text", ""),
+                    clear_first=parameters.get("clear_first", True),
+                )
+            )
 
         elif action == "scroll":
-            result = _bt.run(_bt._scroll(
-                direction=parameters.get("direction", "down"),
-                amount=parameters.get("amount", 500),
-            ))
+            result = _bt.run(
+                _bt._scroll(
+                    direction=parameters.get("direction", "down"),
+                    amount=parameters.get("amount", 500),
+                )
+            )
 
         elif action == "fill_form":
             result = _bt.run(_bt._fill_form(parameters.get("fields", {})))
@@ -491,10 +502,12 @@ def browser_control(
             result = _bt.run(_bt._smart_click(parameters.get("description", "")))
 
         elif action == "smart_type":
-            result = _bt.run(_bt._smart_type(
-                parameters.get("description", ""),
-                parameters.get("text", ""),
-            ))
+            result = _bt.run(
+                _bt._smart_type(
+                    parameters.get("description", ""),
+                    parameters.get("text", ""),
+                )
+            )
 
         elif action == "get_text":
             result = _bt.run(_bt._get_text())

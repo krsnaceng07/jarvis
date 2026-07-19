@@ -5,6 +5,7 @@ Mirrors OpenClaw's `pnpm check:import-cycles` + `pnpm check:madge-import-cycles`
 Phase 0.2 stub: when packages/ and apps/ are empty, this is a no-op.
 Full cycle detection (using `importlib` + DFS) is added in Phase 1.
 """
+
 from __future__ import annotations
 
 import ast

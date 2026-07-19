@@ -18,6 +18,7 @@ Optional fields (validated when present):
 - channels: list[str]
 - entrypoint: str
 """
+
 from __future__ import annotations
 
 import json
@@ -32,7 +33,10 @@ REQUIRED = {"id", "kind", "version", "description"}
 ALLOWED_KINDS = {"channel", "provider", "tool", "memory", "skill", "infra", "migration"}
 ALLOWED_ACTIVATION = {"always", "on_startup", "on_demand"}
 SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$")
-KEBAB_RE = re.compile(r"^[a-z][a-z0-9-]*[a-z0-9]$")
+# Python extensions use snake_case (since `from extensions.tool_weather import X`
+# requires a valid Python identifier). OpenClaw uses kebab-case because Node
+# imports tolerate hyphens. We allow both.
+ID_RE = re.compile(r"^[a-z][a-z0-9_-]*[a-z0-9]$")
 
 
 def validate_manifest(ext_dir: Path) -> list[str]:
@@ -61,24 +65,23 @@ def validate_manifest(ext_dir: Path) -> list[str]:
             errors.append(f"{ext_dir.name}: 'id' must be a string")
         elif mid != ext_dir.name:
             errors.append(f"{ext_dir.name}: 'id' ({mid}) must match directory name")
-        elif not KEBAB_RE.match(mid):
-            errors.append(f"{ext_dir.name}: 'id' ({mid}) must be kebab-case")
+        elif not ID_RE.match(mid):
+            errors.append(
+                f"{ext_dir.name}: 'id' ({mid}) must be snake/kebab-case "
+                f"(lowercase letters, digits, underscore or hyphen)"
+            )
 
     # kind
     if "kind" in manifest:
         kind = manifest["kind"]
         if kind not in ALLOWED_KINDS:
-            errors.append(
-                f"{ext_dir.name}: 'kind' ({kind}) must be one of {sorted(ALLOWED_KINDS)}"
-            )
+            errors.append(f"{ext_dir.name}: 'kind' ({kind}) must be one of {sorted(ALLOWED_KINDS)}")
 
     # version
     if "version" in manifest:
         version = manifest["version"]
         if not isinstance(version, str) or not SEMVER_RE.match(version):
-            errors.append(
-                f"{ext_dir.name}: 'version' ({version!r}) must be semver (e.g. '0.1.0')"
-            )
+            errors.append(f"{ext_dir.name}: 'version' ({version!r}) must be semver (e.g. '0.1.0')")
 
     # activation (optional)
     if "activation" in manifest and manifest["activation"] not in ALLOWED_ACTIVATION:

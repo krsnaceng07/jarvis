@@ -11,6 +11,7 @@ Full rule enforcement is added in Phase 1 (after `plugin_sdk` exists).
 This Phase 0.2 version is a stub that validates the structure and flags
 violations of the rules above that are already enforceable today.
 """
+
 from __future__ import annotations
 
 import re
@@ -23,12 +24,12 @@ PACKAGES = ROOT / "packages"
 
 # ── Forbidden top-level module names (legacy JARVIS modules being migrated) ──
 FORBIDDEN_TOP_LEVEL = {
-    "main",                # current monolithic main.py
-    "ui",                  # current monolithic ui.py
-    "or_client",           # current or_client.py (becomes packages/llm_client)
-    "actions",             # current flat actions/ (becomes extensions/tool_*)
-    "agent",               # current agent/ (becomes packages/agent_runtime)
-    "memory",              # current memory/ (becomes extensions/memory_core)
+    "main",  # current monolithic main.py
+    "ui",  # current monolithic ui.py
+    "or_client",  # current or_client.py (becomes packages/llm_client)
+    "actions",  # current flat actions/ (becomes extensions/tool_*)
+    "agent",  # current agent/ (becomes packages/agent_runtime)
+    "memory",  # current memory/ (becomes extensions/memory_core)
 }
 
 # ── Allowed SDK imports (anything else in jarvis_* is suspicious in extensions) ──

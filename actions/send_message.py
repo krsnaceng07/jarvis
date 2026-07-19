@@ -5,10 +5,10 @@
 
 import time
 import pyautogui
-from pathlib import Path
 
 pyautogui.FAILSAFE = True
 pyautogui.PAUSE = 0.08
+
 
 def _open_app(app_name: str) -> bool:
     """Opens an app via Windows search."""
@@ -18,7 +18,7 @@ def _open_app(app_name: str) -> bool:
         pyautogui.write(app_name, interval=0.04)
         time.sleep(0.5)
         pyautogui.press("enter")
-        time.sleep(2.0)  
+        time.sleep(2.0)
         return True
     except Exception as e:
         print(f"[SendMessage] Could not open {app_name}: {e}")
@@ -115,6 +115,7 @@ def _send_instagram(receiver: str, message: str) -> str:
     except Exception as e:
         return f"Instagram error: {e}"
 
+
 def _send_telegram(receiver: str, message: str) -> str:
     """Sends a Telegram message via Windows desktop app."""
     try:
@@ -138,7 +139,6 @@ def _send_telegram(receiver: str, message: str) -> str:
 
     except Exception as e:
         return f"Telegram error: {e}"
-
 
 
 def _send_generic(platform: str, receiver: str, message: str) -> str:
@@ -167,12 +167,8 @@ def _send_generic(platform: str, receiver: str, message: str) -> str:
     except Exception as e:
         return f"{platform} error: {e}"
 
-def send_message(
-    parameters: dict,
-    response=None,
-    player=None,
-    session_memory=None
-) -> str:
+
+def send_message(parameters: dict, response=None, player=None, session_memory=None) -> str:
     """
     Called from main.py.
 
@@ -182,10 +178,10 @@ def send_message(
         platform     : whatsapp | instagram | telegram | <any app name>
                        Default: whatsapp
     """
-    params       = parameters or {}
-    receiver     = params.get("receiver", "").strip()
+    params = parameters or {}
+    receiver = params.get("receiver", "").strip()
     message_text = params.get("message_text", "").strip()
-    platform     = params.get("platform", "whatsapp").strip().lower()
+    platform = params.get("platform", "whatsapp").strip().lower()
 
     if not receiver:
         return "Please specify who to send the message to, sir."
