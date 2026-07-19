@@ -1,0 +1,11 @@
+[project]
+name = "jarvis-tool-send-message"
+version = "0.1.0"
+description = "JARVIS cross-platform messenger (Phase 1C migration of actions/send_message.py)."
+requires-python = ">=3.13"
+dependencies = [
+    "pyautogui>=0.9.54",
+]
+
+[tool.uv]
+package = false

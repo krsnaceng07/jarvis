@@ -1,4 +1,4 @@
-"""tool_reminder — JARVIS reminder tool (Phase 1B).
+"""tool_reminder — JARVIS reminder tool (Phase 1B/1C).
 
 Sets timed reminders using Windows Task Scheduler (Windows-only on day
 one; macOS/Linux land in Phase 9 alongside cron integration).
@@ -15,10 +15,42 @@ from __future__ import annotations
 
 from jarvis_sdk import (
     PluginApi,
+    PluginCommandContext,
+    PluginCommandResult,
     define_plugin_entry,
 )
 
 from .plugin import ReminderPlugin
+
+
+async def _reminders_command_handler(ctx: PluginCommandContext) -> PluginCommandResult:
+    """Slash command handler for ``/reminders [list|cancel-all]``.
+
+    Mirrors OpenClaw's required-``handler`` contract on
+    ``OpenClawPluginCommandDefinition``. Phase 1C keeps this simple —
+    lists the user's currently-scheduled Windows tasks under
+    ``JARVISReminder_*``. A real cancel-all / per-id cancel lands in
+    Phase 2 once the reminder runtime exposes a public API.
+    """
+    sub = (ctx.args or "").strip().lower()
+    if sub in ("list", ""):
+        from .runtime import list_scheduled_reminders
+
+        rows = list_scheduled_reminders()
+        if not rows:
+            return PluginCommandResult(
+                reply_text="No scheduled reminders.",
+            )
+        body = "\n".join(f"  - {row}" for row in rows)
+        return PluginCommandResult(reply_text=f"Scheduled reminders:\n{body}")
+    if sub == "cancel-all":
+        from .runtime import cancel_all_reminders
+
+        n = cancel_all_reminders()
+        return PluginCommandResult(reply_text=f"Cancelled {n} reminder(s).")
+    return PluginCommandResult(
+        reply_text=f"Unknown subcommand {sub!r}. Try: list, cancel-all.",
+    )
 
 
 def _register(api: PluginApi) -> None:
@@ -28,19 +60,18 @@ def _register(api: PluginApi) -> None:
         names=["reminder"],
     )
 
-    # Register a slash command for ad-hoc reminder management
-    # (mirrors OpenClaw's `registerCommand` pattern in memory-core).
+    # Slash command with a real handler (Phase 1C: required).
     api.register_command(
         {
             "name": "reminders",
             "description": "List, cancel, or pause scheduled reminders.",
             "accepts_args": True,
             "expose_sender_is_owner": True,
+            "handler": _reminders_command_handler,
         }
     )
 
-    # Register the doctor contract so the user's existing scheduled tasks
-    # (if migrating from MARK XXXIX-OR) can be reindexed.
+    # Doctor / migration contract for legacy data.
     api.register_doctor_contract(
         {
             "id": "tool_reminder.legacy_xxxix_oras",
@@ -56,7 +87,7 @@ entry = define_plugin_entry(
     id="tool_reminder",
     kind="tool",
     name="Reminder",
-    description="Set timed reminders via Windows Task Scheduler (Phase 1B: Windows-only).",
+    description="Set timed reminders via Windows Task Scheduler (Phase 1B/1C: Windows-only).",
     register=_register,
     version="0.1.0",
     activation="on_startup",

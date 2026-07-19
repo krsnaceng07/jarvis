@@ -1,0 +1,18 @@
+{
+  "id": "tool_open_app",
+  "activation": "on_startup",
+  "kind": "tool",
+  "contracts": {
+    "tools": ["open_app"]
+  },
+  "permissions": ["os:exec", "ui:input-simulation"],
+  "tools": [
+    {
+      "name": "open_app",
+      "description": "Opens any application on the Windows computer. Use this whenever the user asks to launch, start, or open an app.",
+      "parameters": [
+        { "name": "app_name", "type": "string", "required": true, "description": "The name of the application to open (e.g. 'chrome', 'vscode', 'spotify')." }
+      ]
+    }
+  ]
+}

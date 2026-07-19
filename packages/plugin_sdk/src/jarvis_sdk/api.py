@@ -1,17 +1,23 @@
 """PluginApi — the registration surface the host gives each plugin.
 
-Mirrors OpenClaw's plugin-registration API. The host instantiates a
+Mirrors OpenClaw's ``OpenClawPluginApi`` from
+``src/plugins/plugin-api.types.ts``. The host instantiates a
 ``PluginApi`` per plugin, calls ``register(api)`` (from the plugin's
 ``define_plugin_entry``), and then reads back the collected tools /
-commands / CLI handlers.
+commands / CLI handlers / etc.
+
+Grouped facades (``api.session``, ``api.agent``, ``api.run_context``,
+``api.lifecycle``) mirror OpenClaw's namespace layout. Flat methods on
+``api`` are kept for backwards compatibility with the Phase 1B SDK
+shape — Phase 2 will deprecate them and migrate plugins to the grouped
+form.
 
 Adding a new registration point:
-1. Add a method on ``PluginApi`` here.
-2. Add a private accumulator (``self._<thing>``).
-3. Add a public property that returns a copy of the accumulator.
-4. The host reads the property and wires the registered objects into
-   its own subsystems.
-5. Mirror the change in the host's loader (``apps/desktop/src/jarvis_desktop/app.py``).
+1. Add the accumulator + public property here.
+2. Mirror the change in the host's loader
+   (``apps/desktop/src/jarvis_desktop/app.py::_load_plugins``).
+3. Wire the collected registration into the host subsystem that
+   consumes it (e.g. command router, CLI parser, doctor runner).
 """
 
 from __future__ import annotations
@@ -24,6 +30,10 @@ if TYPE_CHECKING:
 
     from .context import PluginContext
 
+from .cli import CliDescriptor  # used at runtime in register_cli()
+
+# ── Command + CLI registration descriptors ──────────────────────────
+
 
 @dataclass
 class CommandDecl:
@@ -35,39 +45,90 @@ class CommandDecl:
         The slash-command name (without leading ``/``).
     description : str
         User-facing help text.
+    handler : Callable
+        **Required.** Async function with signature
+        ``async (ctx) -> PluginCommandResult``. The host invokes
+        ``handler(ctx)`` and uses the result to drive the agent loop.
     accepts_args : bool
-        Whether the command accepts trailing arguments.
+        Whether the command accepts trailing arguments. Default: True.
     expose_sender_is_owner : bool
         If True, the command works only when the sender is the operator
         (vs a paired remote user). Used for security-sensitive commands.
-    handler : Callable | None
-        Async function with signature ``async (ctx, args, sender) -> Any``.
-        Optional for stub commands (declaration-only until the handler
-        lands in a later phase). Required for live command routing.
     """
 
     name: str
     description: str
-    handler: Callable[..., Any] | None = None
+    handler: Callable[..., Any]
     accepts_args: bool = True
     expose_sender_is_owner: bool = True
 
+    def __post_init__(self) -> None:
+        # Validate the handler is callable at construction time so
+        # plugins can't ship a stub and the host only has to check
+        # once.
+        if not callable(self.handler):
+            raise TypeError(
+                f"CommandDecl({self.name!r}).handler must be callable; "
+                f"got {type(self.handler).__name__}. Use an async function "
+                f"returning PluginCommandResult."
+            )
+
+
+# `CliDescriptor` is defined in `cli.py` (single source of truth).
+# It is re-exported from `__init__.py` for plugin convenience.
+
+
+# ── Grouped facades (mirror OpenClaw's namespace layout) ────────────
+
 
 @dataclass
-class CliDescriptor:
-    """A CLI subcommand registration. Mirrors OpenClaw's CLI descriptor."""
+class PluginSessionApi:
+    """Grouped facade for session-state registrations. Stubs in 1C."""
 
-    name: str
-    description: str
-    has_subcommands: bool = False
+    state: Any = None  # registerSessionExtension (Phase 2)
+    workflow: Any = None  # enqueueNextTurnInjection (Phase 2)
+    controls: Any = None  # registerSessionAction (Phase 2)
+
+
+@dataclass
+class PluginAgentApi:
+    """Grouped facade for agent-event registrations. Stubs in 1C."""
+
+    events: Any = None  # registerAgentEventSubscription (Phase 2)
+
+
+@dataclass
+class PluginRunContextApi:
+    """Grouped facade for run-scoped scratch state. Stubs in 1C."""
+
+    def set_run_context(self, patch: dict) -> bool:
+        return False
+
+    def get_run_context(self, params: dict) -> Any:
+        return None
+
+    def clear_run_context(self, params: dict) -> None:
+        return None
+
+
+@dataclass
+class PluginLifecycleApi:
+    """Grouped facade for runtime cleanup hooks. Stubs in 1C."""
+
+    def register_runtime_lifecycle(self, lifecycle: dict) -> None:
+        return None
+
+
+# ── Main PluginApi ───────────────────────────────────────────────────
 
 
 class PluginApi:
     """The host gives one of these to each plugin's ``register(api)`` callback.
 
-    Plugins use the methods to register their capabilities; the host
-    reads the public properties afterward to wire them into its
-    subsystems (the LLM, the slash-command router, the CLI entry, etc.).
+    Mirrors OpenClaw's ``OpenClawPluginApi``. Plugins use the methods
+    to register their capabilities; the host reads the public
+    properties afterward to wire them into its subsystems (the LLM,
+    the slash-command router, the CLI entry, etc.).
     """
 
     def __init__(self, ctx: PluginContext, logger: Any = None) -> None:
@@ -83,6 +144,12 @@ class PluginApi:
         self._channel: dict[str, Any] | None = None
         self._doctor_contracts: list[dict[str, Any]] = []
         self._http_handlers: list[dict[str, Any]] = []
+
+        # ── Grouped facades (mirror OpenClaw) ───────────────────────
+        self.session = PluginSessionApi()
+        self.agent = PluginAgentApi()
+        self.run_context = PluginRunContextApi()
+        self.lifecycle = PluginLifecycleApi()
 
     # ── Identity / accessors ──────────────────────────────────────────
     @property
@@ -101,20 +168,30 @@ class PluginApi:
         *,
         names: list[str] | None = None,
     ) -> None:
-        """Register a tool instance. ``tool`` is any object with
-        ``.tools`` and ``.call`` (matches ``ToolCallable`` protocol,
-        or a ``ToolPlugin`` subclass).
-
-        ``names`` (optional): explicit tool-name list to register this
-        instance under. If None, all names from ``tool.tools`` are used.
-        """
+        """Register a tool. ``tool`` is any object with ``.tools`` and
+        ``.call`` (matches ``ToolCallable`` protocol, or a
+        ``ToolPlugin`` subclass). ``names`` is the explicit tool-name
+        list; if None, all names from ``tool.tools`` are used."""
         self._tools.append((tool, names))
 
-    def register_command(self, command: CommandDecl | dict) -> None:
-        """Register a slash command. ``command`` is a ``CommandDecl`` or
-        a dict with the same fields (for ergonomic plugin definitions)."""
+    def register_command(
+        self,
+        command: CommandDecl | dict,
+    ) -> None:
+        """Register a slash command. ``handler`` is required.
+
+        Mirrors OpenClaw's ``registerCommand``. Plugins must supply a
+        callable ``handler`` (async fn returning a ``PluginCommandResult``)
+        so the host can route invocations without a stub.
+        """
         if isinstance(command, dict):
             command = CommandDecl(**command)
+        if not callable(command.handler):
+            raise TypeError(
+                f"CommandDecl({command.name!r}).handler must be callable; "
+                f"got {type(command.handler).__name__}. Use an async function "
+                f"returning PluginCommandResult."
+            )
         self._commands.append(command)
 
     def register_cli(
@@ -125,12 +202,10 @@ class PluginApi:
     ) -> None:
         """Register a CLI subcommand.
 
-        ``register_fn`` signature: ``async ({program, config, ...}) -> None``.
-        It mutates ``program`` (an argparse-like subparser) to add the
-        subcommand's CLI surface.
-
-        ``descriptors`` (optional): list of CLI descriptors that describe
-        the subcommand in the global help / completion.
+        ``register_fn`` mutates ``ctx.program`` (argparse) to add the
+        plugin's subcommands. ``descriptors`` advertises the
+        top-level commands for global help. Mirrors OpenClaw's
+        ``registerCli``.
         """
         norm_descriptors: list[CliDescriptor] = []
         for d in descriptors or []:
@@ -141,19 +216,11 @@ class PluginApi:
         self._cli_handlers.append((register_fn, norm_descriptors))
 
     def register_memory_capability(self, capability: dict[str, Any]) -> None:
-        """Register a memory-host capability. Only one plugin per
-        process can register this (single-active-slot pattern). Mirrors
-        OpenClaw's ``registerMemoryCapability``.
+        """Register a memory-host capability. Only one plugin per process.
 
-        ``capability`` keys:
-        - ``prompt_builder``: ``Callable[[config, ctx], str]`` — inject
-          memory context into the system prompt.
-        - ``flush_plan_resolver``: ``Callable[[session_ctx], Plan]`` —
-          decide when/how to flush short-term memory to long-term.
-        - ``runtime``: object exposing ``getMemorySearchManager(...)``
-          and ``closeAllMemorySearchManagers()``.
-        - ``public_artifacts``: optional dict of introspection endpoints
-          (used by ``jarvis doctor`` and the control UI).
+        Mirrors OpenClaw's ``registerMemoryCapability``. The capability
+        is a dict that may include ``prompt_builder``, ``flush_plan_resolver``,
+        ``runtime``, and ``public_artifacts``.
         """
         if self._memory_capability is not None:
             raise RuntimeError(
@@ -165,43 +232,27 @@ class PluginApi:
         self._memory_capability = capability
 
     def register_provider(self, provider: dict[str, Any]) -> None:
-        """Register an LLM provider. The host uses ``provider['complete']``
-        and ``provider['list_models']`` to route completions."""
+        """Register an LLM provider (text-inference capability)."""
         provider["_owner_id"] = self._ctx.plugin_id
         self._provider = provider
 
     def register_channel(self, channel: dict[str, Any]) -> None:
-        """Register a messaging channel. Mirrors OpenClaw's
-        ``registerChannel``.
-
-        ``channel`` keys:
-        - ``id`` (str): channel id (e.g. ``"telegram"``).
-        - ``send``: ``async (target, message) -> Result[None]``.
-        - ``listen``: ``async (callback) -> None``.
-        - ``config_schema``: JSON Schema for the channel's config block.
-        - ``account_resolution``: optional account-snapshot helper.
-        """
+        """Register a messaging channel (channel capability)."""
         channel["_owner_id"] = self._ctx.plugin_id
         self._channel = channel
 
     def register_doctor_contract(self, contract: dict[str, Any]) -> None:
-        """Register a doctor / migration contract. Mirrors OpenClaw's
-        ``PluginDoctorStateMigration``.
+        """Register a doctor / migration contract.
 
-        ``contract`` keys:
-        - ``id``: unique migration id.
-        - ``version``: target schema version this migration brings to.
-        - ``detect``: ``Callable[[state_dir, config], list[Finding]]`` —
-          find legacy data the plugin can migrate.
-        - ``apply``: ``Callable[[state_dir, config], list[Change]]`` —
-          perform the migration (archive the legacy file, rewrite state).
+        Mirrors OpenClaw's ``PluginDoctorStateMigration``. The contract
+        is a dict with ``id``, ``version``, and a ``detect`` + ``apply``
+        callable for finding/rewriting legacy data.
         """
         contract["_owner_id"] = self._ctx.plugin_id
         self._doctor_contracts.append(contract)
 
     def register_http_handler(self, handler: dict[str, Any]) -> None:
-        """Register an HTTP handler for the gateway's admin surface
-        (e.g. ``POST /v1/extensions/<id>/...``)."""
+        """Register an HTTP handler for the gateway's admin surface."""
         handler["_owner_id"] = self._ctx.plugin_id
         self._http_handlers.append(handler)
 
@@ -209,12 +260,10 @@ class PluginApi:
 
     @property
     def tools(self) -> list[tuple[Any, list[str] | None]]:
-        """All registered ``(tool_instance, names_or_none)`` pairs."""
         return list(self._tools)
 
     @property
     def tool_instances(self) -> list[Any]:
-        """Just the tool instances (drops the optional name list)."""
         return [t for t, _ in self._tools]
 
     @property
@@ -249,5 +298,9 @@ class PluginApi:
 __all__ = [
     "CliDescriptor",
     "CommandDecl",
+    "PluginAgentApi",
     "PluginApi",
+    "PluginLifecycleApi",
+    "PluginRunContextApi",
+    "PluginSessionApi",
 ]

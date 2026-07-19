@@ -1,0 +1,12 @@
+[project]
+name = "jarvis-tool-youtube-video"
+version = "0.1.0"
+description = "JARVIS YouTube controller (Phase 1C migration of actions/youtube_video.py)."
+requires-python = ">=3.13"
+dependencies = [
+    "requests>=2.31.0",
+    "youtube-transcript-api>=0.6.2",
+]
+
+[tool.uv]
+package = false

@@ -482,7 +482,7 @@ class TestAppManifestLoader:
             assert d["name"] in dispatch, f"missing dispatch for {d['name']!r}"
 
     def test_load_plugins_commands_have_required_keys(self) -> None:
-        """Each registered command carries `name` and `description`."""
+        """Each registered command carries name+description+handler."""
         from jarvis_desktop.app import _load_plugins
         from jarvis_sdk import CommandDecl
 
@@ -492,6 +492,8 @@ class TestAppManifestLoader:
             assert isinstance(c, CommandDecl)
             assert c.name
             assert c.description
+            # Phase 1C: handler is REQUIRED on every registered command.
+            assert callable(c.handler), f"command {c.name!r} has no handler"
         # The reminders command from tool_reminder.
         assert any(c.name == "reminders" for c in commands)
 
@@ -500,10 +502,320 @@ class TestAppManifestLoader:
         from jarvis_desktop.app import TOOL_DECLARATIONS
 
         names = [d["name"] for d in TOOL_DECLARATIONS]
-        assert "weather_report" in names
-        assert "reminder" in names
+        # 6 tools loaded from extensions (PR 1A + 1B + 1C):
+        for expected in (
+            "weather_report",
+            "reminder",
+            "open_app",
+            "web_search",
+            "send_message",
+            "youtube_video",
+        ):
+            assert expected in names, f"missing tool {expected!r} in TOOL_DECLARATIONS"
         # No duplicates.
         assert len(names) == len(set(names))
+
+
+class TestToolOpenAppPlugin:
+    """PR 1C: extensions/tool_open_app/ — 4th consumer (alias table + per-OS launch)."""
+
+    def test_manifest_file_exists(self) -> None:
+        import json
+
+        path = REPO_ROOT / "extensions" / "tool_open_app" / "openclaw.plugin.json"
+        assert path.is_file()
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        assert manifest["id"] == "tool_open_app"
+        assert manifest["kind"] == "tool"
+        assert manifest["tools"][0]["name"] == "open_app"
+
+    def test_plugin_instantiates_and_has_identity(self) -> None:
+        from extensions.tool_open_app.plugin import OpenAppPlugin
+
+        p = OpenAppPlugin()
+        assert p.id == "tool_open_app"
+        assert p.kind == "tool"
+        assert p.version == "0.1.0"
+
+    @pytest.mark.asyncio
+    async def test_plugin_call_unknown_tool(self) -> None:
+        from extensions.tool_open_app.plugin import OpenAppPlugin
+        from jarvis_sdk import Err
+
+        p = OpenAppPlugin()
+        result = await p.call("not_a_tool", {})
+        assert isinstance(result, Err)
+        assert result.code == "UNKNOWN_TOOL"
+
+    @pytest.mark.asyncio
+    async def test_plugin_call_open_app_missing_arg(self) -> None:
+        from extensions.tool_open_app.plugin import OpenAppPlugin
+        from jarvis_sdk import Err
+
+        p = OpenAppPlugin()
+        result = await p.call("open_app", {})
+        assert isinstance(result, Err)
+        assert result.code == "MISSING_ARG"
+
+    def test_resolve_alias_known(self) -> None:
+        from extensions.tool_open_app import runtime
+
+        # Chrome resolves to "Google Chrome" on macOS, "chrome" on Windows.
+        assert runtime.resolve_alias("chrome", system="Windows") == "chrome"
+        assert runtime.resolve_alias("chrome", system="Darwin") == "Google Chrome"
+        assert runtime.resolve_alias("vscode", system="Linux") == "code"
+
+    def test_resolve_alias_unknown_returns_input(self) -> None:
+        from extensions.tool_open_app import runtime
+
+        # Unknown app names pass through unchanged.
+        assert runtime.resolve_alias("my-custom-app", system="Windows") == "my-custom-app"
+
+
+class TestToolWebSearchPlugin:
+    """PR 1C: extensions/tool_web_search/ — 5th consumer (OpenRouter → DDG)."""
+
+    def test_manifest_file_exists(self) -> None:
+        import json
+
+        path = REPO_ROOT / "extensions" / "tool_web_search" / "openclaw.plugin.json"
+        assert path.is_file()
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        assert manifest["id"] == "tool_web_search"
+        assert manifest["kind"] == "tool"
+
+    def test_plugin_instantiates_and_has_identity(self) -> None:
+        from extensions.tool_web_search.plugin import WebSearchPlugin
+
+        p = WebSearchPlugin()
+        assert p.id == "tool_web_search"
+        assert p.kind == "tool"
+
+    @pytest.mark.asyncio
+    async def test_plugin_call_missing_query(self) -> None:
+        from extensions.tool_web_search.plugin import WebSearchPlugin
+        from jarvis_sdk import Err
+
+        p = WebSearchPlugin()
+        result = await p.call("web_search", {})
+        assert isinstance(result, Err)
+        assert result.code == "MISSING_ARG"
+
+    @pytest.mark.asyncio
+    async def test_plugin_call_compare_mode_auto(self) -> None:
+        """Items present + no explicit mode → compare (auto)."""
+        from extensions.tool_web_search.plugin import WebSearchPlugin
+        from jarvis_sdk import Ok
+
+        p = WebSearchPlugin()
+        # items is a list of strings.
+        result = await p.call("web_search", {"items": ["iPhone 15", "Pixel 8"]})
+        # Even if backends fail, the dispatch should land on compare and
+        # return an Ok with a human-readable comparison text.
+        assert isinstance(result, Ok)
+        assert "Comparison" in result.value or "iPhone" in result.value
+
+    def test_format_ddg_empty(self) -> None:
+        from extensions.tool_web_search import runtime
+
+        assert runtime.format_ddg("nothing", []) == "No results found for: nothing"
+
+
+class TestToolSendMessagePlugin:
+    """PR 1C: extensions/tool_send_message/ — 6th consumer (pyautogui messenger)."""
+
+    def test_manifest_file_exists(self) -> None:
+        import json
+
+        path = REPO_ROOT / "extensions" / "tool_send_message" / "openclaw.plugin.json"
+        assert path.is_file()
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        assert manifest["id"] == "tool_send_message"
+        assert manifest["kind"] == "tool"
+
+    def test_plugin_instantiates_and_has_identity(self) -> None:
+        from extensions.tool_send_message.plugin import SendMessagePlugin
+
+        p = SendMessagePlugin()
+        assert p.id == "tool_send_message"
+        assert p.kind == "tool"
+
+    @pytest.mark.asyncio
+    async def test_plugin_call_missing_receiver(self) -> None:
+        from extensions.tool_send_message.plugin import SendMessagePlugin
+        from jarvis_sdk import Err
+
+        p = SendMessagePlugin()
+        result = await p.call("send_message", {"message_text": "hi"})
+        assert isinstance(result, Err)
+        assert result.code == "MISSING_ARG"
+
+    @pytest.mark.asyncio
+    async def test_plugin_call_missing_message(self) -> None:
+        from extensions.tool_send_message.plugin import SendMessagePlugin
+        from jarvis_sdk import Err
+
+        p = SendMessagePlugin()
+        result = await p.call("send_message", {"receiver": "Alice"})
+        assert isinstance(result, Err)
+        assert result.code == "MISSING_ARG"
+
+    def test_route_platform(self) -> None:
+        from extensions.tool_send_message.plugin import _route_platform
+
+        # Aliases
+        assert _route_platform("whatsapp")[0] == "whatsapp"
+        assert _route_platform("wp")[0] == "whatsapp"
+        assert _route_platform("wapp")[0] == "whatsapp"
+        assert _route_platform("instagram")[0] == "instagram"
+        assert _route_platform("ig")[0] == "instagram"
+        assert _route_platform("insta")[0] == "instagram"
+        assert _route_platform("telegram")[0] == "telegram"
+        assert _route_platform("tg")[0] == "telegram"
+        # Generic fallback
+        assert _route_platform("discord")[0] == "generic"
+        assert _route_platform("signal")[0] == "generic"
+        assert _route_platform("messenger")[0] == "generic"
+
+
+class TestToolYouTubeVideoPlugin:
+    """PR 1C: extensions/tool_youtube_video/ — 7th consumer (scraper + summarizer)."""
+
+    def test_manifest_file_exists(self) -> None:
+        import json
+
+        path = REPO_ROOT / "extensions" / "tool_youtube_video" / "openclaw.plugin.json"
+        assert path.is_file()
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        assert manifest["id"] == "tool_youtube_video"
+        assert manifest["kind"] == "tool"
+
+    def test_plugin_instantiates_and_has_identity(self) -> None:
+        from extensions.tool_youtube_video.plugin import YouTubeVideoPlugin
+
+        p = YouTubeVideoPlugin()
+        assert p.id == "tool_youtube_video"
+        assert p.kind == "tool"
+
+    def test_extract_video_id_from_url(self) -> None:
+        from extensions.tool_youtube_video import runtime
+
+        assert (
+            runtime.extract_video_id("https://www.youtube.com/watch?v=dQw4w9WgXcQ") == "dQw4w9WgXcQ"
+        )
+        assert runtime.extract_video_id("https://youtu.be/dQw4w9WgXcQ") == "dQw4w9WgXcQ"
+        assert (
+            runtime.extract_video_id("https://www.youtube.com/shorts/dQw4w9WgXcQ") == "dQw4w9WgXcQ"
+        )
+        assert runtime.extract_video_id("https://example.com/") is None
+
+    def test_is_valid_youtube_url(self) -> None:
+        from extensions.tool_youtube_video import runtime
+
+        assert runtime.is_valid_youtube_url("https://www.youtube.com/watch?v=abc")
+        assert runtime.is_valid_youtube_url("https://youtu.be/abc")
+        assert not runtime.is_valid_youtube_url("https://example.com/")
+        assert not runtime.is_valid_youtube_url("")
+
+    @pytest.mark.asyncio
+    async def test_plugin_call_unknown_action(self) -> None:
+        from extensions.tool_youtube_video.plugin import YouTubeVideoPlugin
+        from jarvis_sdk import Err
+
+        p = YouTubeVideoPlugin()
+        result = await p.call("youtube_video", {"action": "not_a_real_action"})
+        assert isinstance(result, Err)
+        assert result.code == "UNKNOWN_ACTION"
+
+    @pytest.mark.asyncio
+    async def test_plugin_call_play_missing_query(self) -> None:
+        from extensions.tool_youtube_video.plugin import YouTubeVideoPlugin
+        from jarvis_sdk import Err
+
+        p = YouTubeVideoPlugin()
+        result = await p.call("youtube_video", {"action": "play"})
+        assert isinstance(result, Err)
+        assert result.code == "MISSING_ARG"
+
+    @pytest.mark.asyncio
+    async def test_plugin_call_get_info_bad_url(self) -> None:
+        from extensions.tool_youtube_video.plugin import YouTubeVideoPlugin
+        from jarvis_sdk import Err
+
+        p = YouTubeVideoPlugin()
+        result = await p.call("youtube_video", {"action": "get_info", "url": "not a url"})
+        assert isinstance(result, Err)
+        assert result.code == "BAD_URL"
+
+
+class TestSlashCommandRouter:
+    """PR 1C: apps/desktop/src/jarvis_desktop/commands.py (the slash-command router).
+
+    Mirrors OpenClaw's command-routing flow. Free text falls through
+    (returns None); `/name` routes to the plugin-registered handler.
+    """
+
+    def test_router_dispatches_to_handler(self) -> None:
+        from jarvis_desktop.commands import CommandRouter
+        from jarvis_sdk import CommandDecl, PluginCommandContext, PluginCommandResult
+
+        async def my_handler(ctx: PluginCommandContext) -> PluginCommandResult:
+            return PluginCommandResult(reply_text=f"hello from {ctx.command_body!r}")
+
+        router = CommandRouter(
+            [CommandDecl(name="hello", description="say hi", handler=my_handler)]
+        )
+        # We can't await in a sync test, so use asyncio.run.
+        import asyncio
+
+        result = asyncio.run(router.dispatch("/hello there"))
+        assert result is not None
+        assert "hello" in result.reply_text
+        assert "/hello there" in result.reply_text
+
+    def test_router_falls_through_on_free_text(self) -> None:
+        from jarvis_desktop.commands import CommandRouter
+        from jarvis_sdk import CommandDecl, PluginCommandContext, PluginCommandResult
+
+        async def my_handler(ctx: PluginCommandContext) -> PluginCommandResult:  # pragma: no cover
+            return PluginCommandResult(reply_text="never called")
+
+        router = CommandRouter([CommandDecl(name="x", description="x", handler=my_handler)])
+        import asyncio
+
+        result = asyncio.run(router.dispatch("free text without slash"))
+        assert result is None
+
+    def test_router_unknown_command_returns_helpful_msg(self) -> None:
+        from jarvis_desktop.commands import CommandRouter
+        from jarvis_sdk import CommandDecl, PluginCommandContext, PluginCommandResult
+
+        async def my_handler(ctx: PluginCommandContext) -> PluginCommandResult:  # pragma: no cover
+            return PluginCommandResult(reply_text="never called")
+
+        router = CommandRouter([CommandDecl(name="known", description="x", handler=my_handler)])
+        import asyncio
+
+        result = asyncio.run(router.dispatch("/unknown"))
+        assert result is not None
+        assert "Unknown command" in result.reply_text
+        assert "/known" in result.reply_text
+
+    def test_router_names_returns_sorted_list(self) -> None:
+        from jarvis_desktop.commands import CommandRouter
+        from jarvis_sdk import CommandDecl, PluginCommandContext, PluginCommandResult
+
+        async def my_handler(ctx: PluginCommandContext) -> PluginCommandResult:  # pragma: no cover
+            return PluginCommandResult(reply_text="x")
+
+        router = CommandRouter(
+            [
+                CommandDecl(name="zeta", description="x", handler=my_handler),
+                CommandDecl(name="alpha", description="x", handler=my_handler),
+                CommandDecl(name="mid", description="x", handler=my_handler),
+            ]
+        )
+        assert router.names() == ["alpha", "mid", "zeta"]
 
 
 class TestCiHelpers:

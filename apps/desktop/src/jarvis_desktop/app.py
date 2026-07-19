@@ -36,23 +36,26 @@ from memory.memory_manager import (
 
 from actions.file_processor import file_processor
 from actions.flight_finder import flight_finder
-from actions.open_app import open_app
 
-# `weather_report` migrated to extensions/tool_weather/ in PR 1A.
-# `reminder` migrated to extensions/tool_reminder/ in PR 1B.
-# Both are now loaded dynamically via `_load_plugins()` from each
-# extension's `openclaw.plugin.json` entry. Remaining 14 actions migrate
-# in Phase 2.
-from actions.send_message import send_message
+# Phase 1C: 6 actions have migrated to `extensions/<id>/` extensions
+# and are now loaded dynamically via `_load_plugins()` from each
+# extension's `openclaw.plugin.json` entry:
+#
+#   - extensions/tool_weather/   (PR 1A)
+#   - extensions/tool_reminder/  (PR 1B)
+#   - extensions/tool_open_app/       (PR 1C)
+#   - extensions/tool_web_search/     (PR 1C)
+#   - extensions/tool_send_message/   (PR 1C)
+#   - extensions/tool_youtube_video/  (PR 1C)
+#
+# The remaining 11 actions in `actions/` migrate in Phase 2.
 from actions.computer_settings import computer_settings
 from actions.screen_processor import screen_process
-from actions.youtube_video import youtube_video
 from actions.desktop import desktop_control
 from actions.browser_control import browser_control
 from actions.file_controller import file_controller
 from actions.code_helper import code_helper
 from actions.dev_agent import dev_agent
-from actions.web_search import web_search as web_search_action
 from actions.computer_control import computer_control
 from actions.game_updater import game_updater
 
@@ -242,85 +245,11 @@ def _unwrap_result(result) -> str:
 
 
 TOOL_DECLARATIONS = [
-    {
-        "name": "open_app",
-        "description": (
-            "Opens any application on the Windows computer. "
-            "Use this whenever the user asks to open, launch, or start any app, "
-            "website, or program. Always call this tool — never just say you opened it."
-        ),
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "app_name": {
-                    "type": "STRING",
-                    "description": "Exact name of the application (e.g. 'WhatsApp', 'Chrome', 'Spotify')",
-                }
-            },
-            "required": ["app_name"],
-        },
-    },
-    {
-        "name": "web_search",
-        "description": "Searches the web for any information.",
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "query": {"type": "STRING", "description": "Search query"},
-                "mode": {"type": "STRING", "description": "search (default) or compare"},
-                "items": {
-                    "type": "ARRAY",
-                    "items": {"type": "STRING"},
-                    "description": "Items to compare",
-                },
-                "aspect": {"type": "STRING", "description": "price | specs | reviews"},
-            },
-            "required": ["query"],
-        },
-    },
-    # `weather_report` removed in PR 1A — now loaded dynamically from
-    # extensions/tool_weather/openclaw.plugin.json via `_load_plugins()`.
-    # `reminder` removed in PR 1B — same path, extensions/tool_reminder/.
-    {
-        "name": "send_message",
-        "description": "Sends a text message via WhatsApp, Telegram, or other messaging platform.",
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "receiver": {"type": "STRING", "description": "Recipient contact name"},
-                "message_text": {"type": "STRING", "description": "The message to send"},
-                "platform": {"type": "STRING", "description": "Platform: WhatsApp, Telegram, etc."},
-            },
-            "required": ["receiver", "message_text", "platform"],
-        },
-    },
-    {
-        "name": "youtube_video",
-        "description": (
-            "Controls YouTube. Use for: playing videos, summarizing a video's content, "
-            "getting video info, or showing trending videos."
-        ),
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "action": {
-                    "type": "STRING",
-                    "description": "play | summarize | get_info | trending (default: play)",
-                },
-                "query": {"type": "STRING", "description": "Search query for play action"},
-                "save": {
-                    "type": "BOOLEAN",
-                    "description": "Save summary to Notepad (summarize only)",
-                },
-                "region": {
-                    "type": "STRING",
-                    "description": "Country code for trending e.g. TR, US",
-                },
-                "url": {"type": "STRING", "description": "Video URL for get_info action"},
-            },
-            "required": [],
-        },
-    },
+    # Phase 1A + 1B + 1C: 6 tools (weather_report, reminder, open_app,
+    # web_search, send_message, youtube_video) are no longer in this
+    # hardcoded list — they're loaded dynamically by `_load_plugins()`
+    # from each extension's `openclaw.plugin.json` entry. The remaining
+    # 11 entries below are the actions still in `actions/` (Phase 2).
     {
         "name": "screen_process",
         "description": (
@@ -780,10 +709,34 @@ class JarvisLive:
     def _on_text_command(self, text: str):
         if not self._loop or not self.session:
             return
+        # Phase 1C: route slash commands to plugin-registered handlers
+        # BEFORE the LLM. Free text falls through unchanged.
+        if text.lstrip().startswith("/"):
+            asyncio.run_coroutine_threadsafe(self._handle_slash_command(text), self._loop)
+            return
         asyncio.run_coroutine_threadsafe(
             self.session.send_client_content(turns={"parts": [{"text": text}]}, turn_complete=True),
             self._loop,
         )
+
+    async def _handle_slash_command(self, text: str) -> None:
+        """Dispatch a slash command via the ``CommandRouter``.
+
+        Phase 1C: a plugin command's ``reply_text`` is spoken via
+        ``self.speak(...)`` and logged; we do NOT loop back to the LLM
+        (which would re-trigger tool calls). ``suppress_reply`` from
+        the handler is honored.
+        """
+        from .commands import CommandRouter
+
+        router = CommandRouter(_PLUGIN_COMMANDS, ui=self.ui)
+        result = await router.dispatch(text)
+        if result is None:
+            return  # router decided not to handle; not expected for "/"
+        if result.reply_text and not self.ui.muted:
+            self.speak(result.reply_text)
+        if not self.ui.muted:
+            self.ui.set_state("LISTENING")
 
     def set_speaking(self, value: bool):
         with self._speaking_lock:
@@ -896,13 +849,7 @@ class JarvisLive:
             )
 
         try:
-            if name == "open_app":
-                r = await loop.run_in_executor(
-                    None, lambda: open_app(parameters=args, response=None, player=self.ui)
-                )
-                result = r or f"Opened {args.get('app_name')}."
-
-            elif name == "browser_control":
+            if name == "browser_control":
                 r = await loop.run_in_executor(
                     None, lambda: browser_control(parameters=args, player=self.ui)
                 )
@@ -914,20 +861,6 @@ class JarvisLive:
                 )
                 result = r or "Done."
 
-            elif name == "send_message":
-                r = await loop.run_in_executor(
-                    None,
-                    lambda: send_message(
-                        parameters=args, response=None, player=self.ui, session_memory=None
-                    ),
-                )
-                result = r or f"Message sent to {args.get('receiver')}."
-
-            elif name == "youtube_video":
-                r = await loop.run_in_executor(
-                    None, lambda: youtube_video(parameters=args, response=None, player=self.ui)
-                )
-                result = r or "Done."
             elif name == "file_processor":
                 if not args.get("file_path") and self.ui.current_file:
                     args["file_path"] = self.ui.current_file
@@ -988,12 +921,6 @@ class JarvisLive:
                     goal=args.get("goal", ""), priority=priority, speak=self.speak
                 )
                 result = f"Task started (ID: {task_id})."
-
-            elif name == "web_search":
-                r = await loop.run_in_executor(
-                    None, lambda: web_search_action(parameters=args, player=self.ui)
-                )
-                result = r or "Done."
 
             elif name == "computer_control":
                 r = await loop.run_in_executor(

@@ -1,0 +1,20 @@
+{
+  "id": "tool_send_message",
+  "activation": "on_startup",
+  "kind": "tool",
+  "contracts": {
+    "tools": ["send_message"]
+  },
+  "permissions": ["os:exec", "ui:input-simulation", "network:outbound"],
+  "tools": [
+    {
+      "name": "send_message",
+      "description": "Sends a message to a contact via WhatsApp, Instagram, Telegram, or any other app that supports Ctrl+F search.",
+      "parameters": [
+        { "name": "receiver", "type": "string", "required": true, "description": "Contact name to send to." },
+        { "name": "message_text", "type": "string", "required": true, "description": "The message content." },
+        { "name": "platform", "type": "string", "required": false, "description": "whatsapp | instagram | telegram | <any app name>. Default: whatsapp." }
+      ]
+    }
+  ]
+}

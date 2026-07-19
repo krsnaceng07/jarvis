@@ -1,0 +1,22 @@
+{
+  "id": "tool_youtube_video",
+  "activation": "on_startup",
+  "kind": "tool",
+  "contracts": {
+    "tools": ["youtube_video"]
+  },
+  "permissions": ["network:outbound", "fs:write:desktop"],
+  "tools": [
+    {
+      "name": "youtube_video",
+      "description": "Controls YouTube. Use for: playing videos, summarizing a video's content, getting video info, or showing trending videos.",
+      "parameters": [
+        { "name": "action", "type": "string", "required": false, "description": "play | summarize | get_info | trending (default: play)" },
+        { "name": "query", "type": "string", "required": false, "description": "Search query (for action=play)." },
+        { "name": "url", "type": "string", "required": false, "description": "YouTube URL (for action=summarize or get_info)." },
+        { "name": "region", "type": "string", "required": false, "description": "Region code for trending (default: TR)." },
+        { "name": "save", "type": "boolean", "required": false, "description": "Save the summary to Desktop (for action=summarize)." }
+      ]
+    }
+  ]
+}

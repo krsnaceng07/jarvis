@@ -1,70 +1,118 @@
-"""JARVIS Plugin SDK — the contract all extensions import from.
+"""jarvis_sdk — the JARVIS plugin contract.
 
-Mirrors OpenClaw's `src/plugin-sdk/` re-export facade. Real implementations
-of each capability (agent loop, LLM, memory host) live in their own
-`packages/<feature>/` directory; this SDK is the stable seam.
+Mirrors OpenClaw's ``src/plugin-sdk/`` boundary. Every plugin in
+``extensions/`` imports only from this package. The host (``apps/desktop``)
+imports from here too, to wire the registered capabilities.
 
-Usage (matches OpenClaw's `definePluginEntry`):
+Public API (organized like OpenClaw):
 
-    from jarvis_sdk import define_plugin_entry, Ok, Err, Result, ToolDecl
+- **Result** — ``Ok`` / ``Err`` / ``Result`` discriminated union.
+- **Manifest** — ``ToolDecl``, ``ToolParam``, ``PluginManifestSummary``,
+  ``PluginKind``, ``PluginActivation``.
+- **Contract** — ``Plugin``, ``ToolPlugin``, ``ChannelPlugin``,
+  ``ProviderPlugin``, ``MemoryHostPlugin``, ``ToolCallable``.
+- **Context** — ``PluginContext`` (passed to ``init()``).
+- **Command** — ``PluginCommandContext``, ``PluginCommandResult``,
+  ``CommandDecl``.
+- **CLI** — ``CliContext``, ``CliDescriptor``, ``CliRegistrar``.
+- **API** — ``PluginApi``, ``PluginSessionApi``, ``PluginAgentApi``,
+  ``PluginRunContextApi``, ``PluginLifecycleApi``.
+- **Entry** — ``define_plugin_entry``, ``PluginEntry``.
 
-    def register(api):
-        api.register_tool(
-            MyTool(),
-            names=["my_tool"],
-        )
+All public types are re-exported here so plugins and hosts can do
+``from jarvis_sdk import ToolPlugin, PluginApi, Ok, Err``.
 
-    entry = define_plugin_entry(
-        id="my_tool",
-        kind="tool",
-        name="My Tool",
-        description="...",
-        register=register,
-    )
+stdlib-only deps; pydantic and httpx are deferred to Phase 2+.
 """
 
 from __future__ import annotations
 
-from .api import CliDescriptor, CommandDecl, PluginApi
+# API (the registration surface)
+from .api import (
+    CliDescriptor as ApiCliDescriptor,  # re-export for compatibility
+    CommandDecl,
+    PluginAgentApi,
+    PluginApi,
+    PluginLifecycleApi,
+    PluginRunContextApi,
+    PluginSessionApi,
+)
+
+# CLI types
+from .cli import CliContext, CliDescriptor, CliRegistrar
+
+# Command types
+from .command import (
+    PluginCommandContext,
+    PluginCommandHandler,
+    PluginCommandResult,
+)
+
+# Context (runtime handle)
 from .context import PluginContext
+
+# Contract (base classes)
 from .contract import (
     ChannelPlugin,
     MemoryHostPlugin,
     Plugin,
     ProviderPlugin,
+    ToolCallable,
     ToolPlugin,
 )
+
+# Entry (define_plugin_entry helper)
 from .entry import PluginEntry, define_plugin_entry
+
+# Manifest types
 from .manifest import (
     PluginActivation,
     PluginKind,
+    PluginManifestSummary,
     ToolDecl,
     ToolParam,
 )
-from .result import Err, Ok, Result
+
+# Result type (Ok / Err / Result)
+from .result import Err, Ok, Result, ResultNone
 
 __all__ = [
-    # Result type
+    # Result
     "Err",
     "Ok",
     "Result",
-    # Manifest types
+    "ResultNone",
+    # Manifest
     "PluginActivation",
     "PluginKind",
+    "PluginManifestSummary",
     "ToolDecl",
     "ToolParam",
-    # Context
-    "PluginContext",
-    # Base classes
+    # Contract
     "ChannelPlugin",
     "MemoryHostPlugin",
     "Plugin",
     "ProviderPlugin",
+    "ToolCallable",
     "ToolPlugin",
-    # API
-    "CliDescriptor",
+    # Context
+    "PluginContext",
+    # Command
     "CommandDecl",
+    "PluginCommandContext",
+    "PluginCommandHandler",
+    "PluginCommandResult",
+    # CLI
+    "ApiCliDescriptor",
+    "CliContext",
+    "CliDescriptor",
+    "CliRegistrar",
+    # API
+    "PluginAgentApi",
     "PluginApi",
+    "PluginLifecycleApi",
+    "PluginRunContextApi",
+    "PluginSessionApi",
     # Entry
     "PluginEntry",
     "define_plugin_entry",

@@ -29,7 +29,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent.parent
 EXTENSIONS = ROOT / "extensions"
 
-REQUIRED = {"id", "kind", "version", "description"}
+# Phase 1C: relaxed to match OpenClaw's actual manifest shape.
+# OpenClaw's `openclaw.plugin.json` only requires `id` (must match the
+# directory name). `kind` / `version` / `description` live in the
+# entry module's `definePluginEntry(...)` call, not the manifest.
+# See openclaw-main/extensions/memory-core/openclaw.plugin.json for
+# the canonical shape.
+REQUIRED = {"id"}
 ALLOWED_KINDS = {"channel", "provider", "tool", "memory", "skill", "infra", "migration"}
 ALLOWED_ACTIVATION = {"always", "on_startup", "on_demand"}
 SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$")

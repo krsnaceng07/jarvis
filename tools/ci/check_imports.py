@@ -26,10 +26,18 @@ PACKAGES = ROOT / "packages"
 FORBIDDEN_TOP_LEVEL = {
     "main",  # current monolithic main.py
     "ui",  # current monolithic ui.py
-    "or_client",  # current or_client.py (becomes packages/llm_client)
     "actions",  # current flat actions/ (becomes extensions/tool_*)
     "agent",  # current agent/ (becomes packages/agent_runtime)
     "memory",  # current memory/ (becomes extensions/memory_core)
+}
+
+# ── Allowed legacy imports (Phase 1C exception; migrate in Phase 2) ─
+# These are top-level modules extensions may use today. They will be
+# replaced by proper `packages/*` modules in Phase 2 — at that point
+# this allowlist shrinks and the import-boundary rule tightens.
+LEGACY_ALLOWED_FOR_EXTENSIONS = {
+    "or_client",  # becomes packages/llm_client (Phase 2)
+    "config",  # becomes packages/jarvis_config (Phase 2)
 }
 
 # ── Allowed SDK imports (anything else in jarvis_* is suspicious in extensions) ──
@@ -71,7 +79,7 @@ def find_violations() -> list[str]:
             top = mod.split(".", 1)[0]
             line_no = text[: m.start()].count("\n") + 1
 
-            if top in FORBIDDEN_TOP_LEVEL:
+            if top in FORBIDDEN_TOP_LEVEL and top not in LEGACY_ALLOWED_FOR_EXTENSIONS:
                 violations.append(
                     f"{rel}:{line_no}: imports legacy module `{top}` "
                     f"(being migrated per OPENCLAW_MIGRATION_PLAN.md)"
