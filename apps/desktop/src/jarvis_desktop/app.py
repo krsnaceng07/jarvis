@@ -141,7 +141,7 @@ def _load_plugins() -> (
     tuple[
         "list[dict]",
         "dict[str, tuple]",
-        "list[Any]",
+        "list",  # list[CommandDecl]
         "list[tuple]",
     ]
 ):
@@ -169,7 +169,7 @@ def _load_plugins() -> (
 
     tool_decls: "list[dict]" = []
     plugin_dispatch: "dict[str, tuple]" = {}
-    commands: "list[Any]" = []
+    commands: list = []  # list[CommandDecl]
     cli_handlers: "list[tuple]" = []
 
     for manifest_path in sorted(extensions_dir.glob("*/openclaw.plugin.json")):
@@ -229,7 +229,7 @@ def _load_plugins() -> (
     return tool_decls, plugin_dispatch, commands, cli_handlers
 
 
-def _unwrap_result(result: Any) -> str:
+def _unwrap_result(result) -> str:
     """Convert a plugin's Result return to a string for the LLM."""
     from jarvis_sdk import Err, Ok
 
@@ -847,6 +847,11 @@ class JarvisLive:
         print(f"[JARVIS] 🔧 {name}  {args}")
         self.ui.set_state("THINKING")
 
+        # Event loop handle, used by both the plugin dispatch (below)
+        # and the legacy hardcoded if/elif branches further down.
+        loop = asyncio.get_event_loop()
+        result = "Done."
+
         # ── Plugin dispatch (PR 1B) ─────────────────────────────────
         # Plugin-loaded tools route through this dispatch map. The
         # plugin returns a `Result` (Ok/Err) which we unwrap to a
@@ -889,9 +894,6 @@ class JarvisLive:
             return types.FunctionResponse(
                 id=fc.id, name=name, response={"result": "ok", "silent": True}
             )
-
-        loop = asyncio.get_event_loop()
-        result = "Done."
 
         try:
             if name == "open_app":

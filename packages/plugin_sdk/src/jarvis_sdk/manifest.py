@@ -4,20 +4,21 @@ Mirrors parts of OpenClaw's `openclaw.plugin.json` schema. These are plain
 dataclasses for now; Phase 1C may move to pydantic for full JSON-Schema
 emission (mirroring OpenClaw's use of TypeBox).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Literal, Union
+from typing import Literal
 
 # ── Plugin kinds ─────────────────────────────────────────────────────
 PluginKind = Literal[
-    "channel",   # messaging surface (Telegram, Discord, ...)
+    "channel",  # messaging surface (Telegram, Discord, ...)
     "provider",  # LLM / model provider (openai, anthropic, ...)
-    "tool",      # exposes one or more tools to the LLM
-    "memory",    # memory host (single-active-slot pattern)
-    "skill",     # declarative skill (markdown only, not code)
-    "infra",     # infrastructure (cron, webhooks, ...)
-    "migration", # one-shot legacy-data migrator (doctor contract)
+    "tool",  # exposes one or more tools to the LLM
+    "memory",  # memory host (single-active-slot pattern)
+    "skill",  # declarative skill (markdown only, not code)
+    "infra",  # infrastructure (cron, webhooks, ...)
+    "migration",  # one-shot legacy-data migrator (doctor contract)
 ]
 
 #: When the host should activate the plugin.
@@ -37,8 +38,8 @@ class ToolParam:
     description: str
     required: bool = False
     enum: list[str] | None = None
-    items: list["ToolParam"] | None = None
-    properties: list["ToolParam"] | None = None
+    items: list[ToolParam] | None = None
+    properties: list[ToolParam] | None = None
 
 
 @dataclass(frozen=True, slots=True)

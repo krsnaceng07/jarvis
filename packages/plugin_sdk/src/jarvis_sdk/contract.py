@@ -9,13 +9,15 @@ For lightweight plugins (a single tool, a simple channel), it's also
 acceptable to skip the subclass and just register a plain object via
 ``api.register_tool(instance, names=[...])`` — the ``PluginApi`` adapts.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Generic, Protocol, TypeVar, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
-from .manifest import ToolDecl
-from .result import Result
+if TYPE_CHECKING:
+    from .manifest import ToolDecl
+    from .result import Result
 
 T = TypeVar("T")
 
@@ -44,6 +46,7 @@ class Plugin(ABC):
     async def shutdown(self) -> None:
         """Optional async cleanup. Default is no-op. Called when the
         host stops. Must not raise."""
+        return  # explicit no-op default; subclasses override
 
 
 class ToolPlugin(Plugin):

@@ -13,13 +13,16 @@ Adding a new registration point:
    its own subsystems.
 5. Mirror the change in the host's loader (``apps/desktop/src/jarvis_desktop/app.py``).
 """
+
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Callable
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
-from .context import PluginContext
-from .manifest import ToolDecl
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from .context import PluginContext
 
 
 @dataclass

@@ -22,15 +22,10 @@ Usage (matches OpenClaw's `definePluginEntry`):
         register=register,
     )
 """
+
 from __future__ import annotations
 
-from .result import Err, Ok, Result
-from .manifest import (
-    PluginActivation,
-    PluginKind,
-    ToolDecl,
-    ToolParam,
-)
+from .api import CliDescriptor, CommandDecl, PluginApi
 from .context import PluginContext
 from .contract import (
     ChannelPlugin,
@@ -39,8 +34,14 @@ from .contract import (
     ProviderPlugin,
     ToolPlugin,
 )
-from .api import CliDescriptor, CommandDecl, PluginApi
 from .entry import PluginEntry, define_plugin_entry
+from .manifest import (
+    PluginActivation,
+    PluginKind,
+    ToolDecl,
+    ToolParam,
+)
+from .result import Err, Ok, Result
 
 __all__ = [
     # Result type

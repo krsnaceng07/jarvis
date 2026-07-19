@@ -10,6 +10,7 @@ this with: ``__init__.py`` (entry) + ``plugin.py`` (impl) +
 ``runtime.py`` (helpers) + ``doctor.py`` (migration contract) +
 ``api.py`` (public API) + ``openclaw.plugin.json`` (manifest).
 """
+
 from __future__ import annotations
 
 from jarvis_sdk import (

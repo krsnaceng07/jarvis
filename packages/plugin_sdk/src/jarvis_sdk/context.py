@@ -11,11 +11,15 @@ For Phase 1B, this is a minimal shape. Phase 1C adds:
 - secret resolver
 - event bus emit
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 @dataclass
@@ -43,9 +47,7 @@ class PluginContext:
     # ── Capability accessors (None in 1B; filled in 1C) ──────────────
     http: Any = None  # SSRF-checked HTTP client
     fs: Any = None  # path-containment filesystem
-    emit_event: Callable[[str, dict], None] = field(
-        default_factory=lambda: (lambda *_: None)
-    )
+    emit_event: Callable[[str, dict], None] = field(default_factory=lambda: (lambda *_: None))
 
     def log(self, msg: str, *, level: str = "info") -> None:
         """Best-effort log; falls back to print if no logger is wired."""

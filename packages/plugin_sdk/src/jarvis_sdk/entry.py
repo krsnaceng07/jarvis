@@ -22,13 +22,17 @@ The ``register(api)`` callback is where the plugin does all its work:
 calls ``api.register_tool(...)``, ``api.register_command(...)``, etc.
 The host invokes ``register`` exactly once during activation.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Callable
+from typing import TYPE_CHECKING
 
-from .api import PluginApi
-from .manifest import PluginActivation, PluginKind
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from .api import PluginApi
+    from .manifest import PluginActivation, PluginKind
 
 
 @dataclass

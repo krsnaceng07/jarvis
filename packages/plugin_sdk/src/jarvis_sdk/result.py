@@ -17,10 +17,11 @@ Example:
         case Ok(value):   print(value)
         case Err(error):  print(f"failed: {error}")
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Generic, TypeVar, Union
+from typing import Generic, TypeVar
 
 T = TypeVar("T")
 
@@ -62,6 +63,6 @@ class Err(Generic[T]):
 
 
 #: A result is either an ``Ok`` wrapping a value or an ``Err`` wrapping a failure.
-Result = Union[Ok[T], Err[T]]
+Result = Ok[T] | Err[T]
 
 __all__ = ["Err", "Ok", "Result"]

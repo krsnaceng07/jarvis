@@ -1,6 +1,6 @@
 # JARVIS â†’ OpenClaw Architecture Migration Plan
 
-> **Status:** Phase 0 in progress
+> **Status:** Phase 1B complete, Phase 1C next
 > **Last updated:** 2026-07-19
 > **Owner:** JARVIS architect
 > **Reference source:** `E:/jarvis/openclaw-main/` (commit snapshot 2026.7.2)
@@ -1235,7 +1235,7 @@ qa/          security/ skills/    tests/      tools/
 
 ---
 
-## 16. Phase 0.2 — COMPLETED (2026-07-19)
+## 16. Phase 0.2 ï¿½ COMPLETED (2026-07-19)
 
 **PR 0.2 deliverable: build/test infrastructure.**
 
@@ -1245,10 +1245,10 @@ On inspection, the workspace already had most of Phase 0.2 in place (must have b
 
 | File | Status | Quality |
 |---|---|---|
-| `pyproject.toml` | ? Pre-existing | Excellent — full workspace, schema versions, ruff+pyright+pytest+hypothesis inline |
+| `pyproject.toml` | ? Pre-existing | Excellent ï¿½ full workspace, schema versions, ruff+pyright+pytest+hypothesis inline |
 | `ruff.toml` | ? Pre-existing | Minimal; points to pyproject `[tool.ruff]` |
 | `pyrightconfig.json` | ? Pre-existing | Comprehensive; standard mode, targeted warnings |
-| `.python-version` | ? Pre-existing | **3.13** (not 3.12 — see note below) |
+| `.python-version` | ? Pre-existing | **3.13** (not 3.12 ï¿½ see note below) |
 | `uv.lock` | ? Pre-existing | Generated, current |
 | `.gitignore` | ? Pre-existing | Comprehensive (Python, IDE, JARVIS user data) |
 | `.editorconfig` | ? Pre-existing | Good (LF default, CRLF for Windows shells) |
@@ -1317,7 +1317,7 @@ for split in Phase 0.4 (main.py, ui.py) and Phase 2 (file_processor.py, game_upd
 
 ---
 
-## 17. Phase 0.3 — COMPLETED (2026-07-19)
+## 17. Phase 0.3 ï¿½ COMPLETED (2026-07-19)
 
 **PR 0.3 deliverable: empty tier directories + READMEs + workspace placeholders.**
 
@@ -1369,7 +1369,7 @@ workspace already had a `tests/` (plural) directory from a prior bootstrap, not
 | `tools/scripts/pyproject.toml` | Phase 8 |
 | `tools/git-hooks/pyproject.toml` | (rarely used) |
 | `tools/codegen/pyproject.toml` | Phase 1 |
-| **Subtotal (˜20 lines each)** | **˜140** |
+| **Subtotal (ï¿½20 lines each)** | **ï¿½140** |
 
 **`.gitkeep` placeholders (16):** one in every dir that needs git-tracking but has
 no real content yet.
@@ -1405,7 +1405,7 @@ Resolved 28 packages in 2ms
 Checked 24 packages in 2ms
 
 $ uv lock --check
-(no output — lock is up to date)
+(no output ï¿½ lock is up to date)
 ```
 
 All green. UV workspace validates. Lockfile aligned.
@@ -1418,26 +1418,26 @@ E:/jarvis/
 +-- OPENCLAW_MIGRATION_PLAN.md  readme.md
 +-- pyproject.toml  ruff.toml  pyrightconfig.json  uv.lock
 +-- .python-version  .gitignore  .gitattributes  .editorconfig  .pre-commit-config.yaml
-+-- apps/        (9 files)   — desktop/, cli/, tui/ + READMEs + placeholders
-+-- packages/    (3 files)   — README + placeholder
-+-- extensions/  (2 files)   — README + .gitkeep
-+-- skills/      (2 files)   — README + .gitkeep
-+-- docs/        (2 files)   — README + .gitkeep
-+-- tests/       (3 files)   — existing smoke test + README + .gitkeep (consolidated)
-+-- tools/       (12 files)  — ci/, scripts/, git-hooks/, codegen/ + READMEs
-+-- security/    (2 files)   — README + .gitkeep
-+-- qa/          (2 files)   — README + .gitkeep
-+-- examples/    (2 files)   — README + .gitkeep
-+-- deploy/      (2 files)   — README + .gitkeep
-+-- ui/          (2 files)   — README + .gitkeep
-+-- patches/     (2 files)   — README + .gitkeep
-+-- actions/     (17 files)  — legacy, to be split in Phase 2
-+-- agent/       (4 files)   — legacy, to be split in Phase 1
-+-- memory/      (3 files)   — legacy, to be split in Phase 4
-+-- config/      (1 file)    — legacy, moved in Phase 1
-+-- core/        (1 file)    — legacy prompt.txt, moved in Phase 0.4
++-- apps/        (9 files)   ï¿½ desktop/, cli/, tui/ + READMEs + placeholders
++-- packages/    (3 files)   ï¿½ README + placeholder
++-- extensions/  (2 files)   ï¿½ README + .gitkeep
++-- skills/      (2 files)   ï¿½ README + .gitkeep
++-- docs/        (2 files)   ï¿½ README + .gitkeep
++-- tests/       (3 files)   ï¿½ existing smoke test + README + .gitkeep (consolidated)
++-- tools/       (12 files)  ï¿½ ci/, scripts/, git-hooks/, codegen/ + READMEs
++-- security/    (2 files)   ï¿½ README + .gitkeep
++-- qa/          (2 files)   ï¿½ README + .gitkeep
++-- examples/    (2 files)   ï¿½ README + .gitkeep
++-- deploy/      (2 files)   ï¿½ README + .gitkeep
++-- ui/          (2 files)   ï¿½ README + .gitkeep
++-- patches/     (2 files)   ï¿½ README + .gitkeep
++-- actions/     (17 files)  ï¿½ legacy, to be split in Phase 2
++-- agent/       (4 files)   ï¿½ legacy, to be split in Phase 1
++-- memory/      (3 files)   ï¿½ legacy, to be split in Phase 4
++-- config/      (1 file)    ï¿½ legacy, moved in Phase 1
++-- core/        (1 file)    ï¿½ legacy prompt.txt, moved in Phase 0.4
 +-- main.py  or_client.py  ui.py  setup.py  requirements.txt
-¦   (legacy; all 4 moved/deleted in Phase 0.4)
+ï¿½   (legacy; all 4 moved/deleted in Phase 0.4)
 +-- openclaw-main/  (reference, gitignored partially, never modified)
 ```
 
@@ -1446,7 +1446,7 @@ E:/jarvis/
 
 ---
 
-## 18. Phase 0.4 — COMPLETED (2026-07-19)
+## 18. Phase 0.4 ï¿½ COMPLETED (2026-07-19)
 
 **PR 0.4 deliverable: move main.py + ui.py to apps/desktop/, delete setup.py + requirements.txt.**
 
@@ -1458,14 +1458,14 @@ E:/jarvis/
 | `__main__.py` | 6 | `python -m jarvis_desktop` entry |
 | `app.py` | 916 | Moved `main.py` with 2 changes (relative import + base_dir) |
 | `ui.py` | 1535 | Moved root `ui.py`, no changes (copied via Python to preserve UTF-8) |
-| `apps/desktop/pyproject.toml` | 110 | Real (not placeholder) — full deps + entry point + hatchling src layout |
+| `apps/desktop/pyproject.toml` | 110 | Real (not placeholder) ï¿½ full deps + entry point + hatchling src layout |
 | `tests/conftest.py` | 13 | Minimal placeholder (was a workaround, now no-op) |
 | `tests/test_smoke.py` (updated) | +76 | Added 2 layout tests + 4 jarvis_desktop import tests |
 | **Total new code** | **~2700** | Under the 5K line budget |
 
 ### Files deleted (4 root files)
 
-`main.py`, `ui.py`, `setup.py`, `requirements.txt` — all trashed via `mavis-trash`.
+`main.py`, `ui.py`, `setup.py`, `requirements.txt` ï¿½ all trashed via `mavis-trash`.
 JARVIS is now launched as `uv run jarvis_desktop` (or `python -m jarvis_desktop`).
 
 ### Changes to existing files
@@ -1529,29 +1529,29 @@ jarvis_desktop.exe   (entry point installed by uv sync --all-packages)
 
 ### What this preserves (user-visible guarantees)
 
-? Voice loop (mic ? Gemini Live ? speaker) — same code, just moved
-? All 17 current tools still work — `TOOL_DECLARATIONS` identical to legacy
-? Memory still remembers — same `memory/memory_manager.py`, just imported via sys.path shim
-? File drop + processing — same code
-? HUD aesthetic (cyan halo, scanner, particles) — same `ui.py`, just moved
-? System metrics (CPU/MEM/NET/GPU/TMP) — same code
-? OpenRouter fallback chain — `or_client.py` still at root (moves in Phase 6)
-? Setup overlay (first-run API key) — same code
+? Voice loop (mic ? Gemini Live ? speaker) ï¿½ same code, just moved
+? All 17 current tools still work ï¿½ `TOOL_DECLARATIONS` identical to legacy
+? Memory still remembers ï¿½ same `memory/memory_manager.py`, just imported via sys.path shim
+? File drop + processing ï¿½ same code
+? HUD aesthetic (cyan halo, scanner, particles) ï¿½ same `ui.py`, just moved
+? System metrics (CPU/MEM/NET/GPU/TMP) ï¿½ same code
+? OpenRouter fallback chain ï¿½ `or_client.py` still at root (moves in Phase 6)
+? Setup overlay (first-run API key) ï¿½ same code
 
 ### Next: Phase 0.5
 
 Phase 0.5 is the final phase of the skeleton. Goal: prove the entire skeleton works
 end-to-end before Phase 1 starts adding real features.
 
-- `uv run pre-commit run --all-files` — verify all hooks pass
-- `uv run pytest` — all 19 tests still pass after pre-commit
+- `uv run pre-commit run --all-files` ï¿½ verify all hooks pass
+- `uv run pytest` ï¿½ all 19 tests still pass after pre-commit
 - Verify `jarvis_desktop.exe` resolves correctly via `uv run`
 - Document any issues found
 
 
 ---
 
-## 19. Phase 0.5 — COMPLETED (2026-07-19)
+## 19. Phase 0.5 ï¿½ COMPLETED (2026-07-19)
 
 **PR 0.5 deliverable: pre-commit + final verification.**
 
@@ -1562,8 +1562,8 @@ Phase 0 commit, then this Phase 0.5 commit:
 
 ```
 $ git log --oneline
-03489ae feat(skeleton): complete Phase 0.5 — pre-commit + final verification
-f874d6e feat(skeleton): complete Phase 0 — OpenClaw architecture scaffold
+03489ae feat(skeleton): complete Phase 0.5 ï¿½ pre-commit + final verification
+f874d6e feat(skeleton): complete Phase 0 ï¿½ OpenClaw architecture scaffold
 ```
 
 `openclaw-main/` (27K reference files) gitignored; not committed.
@@ -1628,32 +1628,32 @@ jarvis_desktop.exe   (46KB entry point)
 
 ---
 
-## 20. Phase 0 — COMPLETE
+## 20. Phase 0 ï¿½ COMPLETE
 
 **All 5 sub-phases done. OpenClaw architecture skeleton in place. Ready for Phase 1.**
 
 | Phase | Status | Lines added | Tests added |
 |---|---|---|---|
-| 0.1 — governance docs | ? | 448 | 0 |
-| 0.2 — build/test infra | ? | 731 | 0 |
-| 0.3 — empty tier dirs | ? | ~640 | 0 |
-| 0.4 — apps/desktop move | ? | ~2700 | 6 |
-| 0.5 — pre-commit verify | ? | ~120 | 0 |
+| 0.1 ï¿½ governance docs | ? | 448 | 0 |
+| 0.2 ï¿½ build/test infra | ? | 731 | 0 |
+| 0.3 ï¿½ empty tier dirs | ? | ~640 | 0 |
+| 0.4 ï¿½ apps/desktop move | ? | ~2700 | 6 |
+| 0.5 ï¿½ pre-commit verify | ? | ~120 | 0 |
 | **Total** | | **~4,640** | **19 (of 19)** |
 
 ### What works today
 
-? `uv run jarvis_desktop` — launches the PyQt6 HUD (requires display + API key)
-? `uv run python -m jarvis_desktop` — same as above
-? `uv run pytest` — 19 tests pass
-? `uv run pre-commit run --all-files` — 7 hooks pass
-? `uv sync --all-packages` — installs 95 packages incl. `jarvis_desktop` entry point
-? `uv run jarvis_desktop.exe` resolves — `.venv/Scripts/jarvis_desktop.exe` exists
-? `uv workspace list` — 4 members (jarvis, jarvis-cli, jarvis-desktop, jarvis-tui)
+? `uv run jarvis_desktop` ï¿½ launches the PyQt6 HUD (requires display + API key)
+? `uv run python -m jarvis_desktop` ï¿½ same as above
+? `uv run pytest` ï¿½ 19 tests pass
+? `uv run pre-commit run --all-files` ï¿½ 7 hooks pass
+? `uv sync --all-packages` ï¿½ installs 95 packages incl. `jarvis_desktop` entry point
+? `uv run jarvis_desktop.exe` resolves ï¿½ `.venv/Scripts/jarvis_desktop.exe` exists
+? `uv workspace list` ï¿½ 4 members (jarvis, jarvis-cli, jarvis-desktop, jarvis-tui)
 ? All 17 legacy tools (`TOOL_DECLARATIONS`) still declared and importable
 ? Legacy modules (`memory/`, `actions/`, `agent/`, `or_client.py`) still reachable via sys.path shim
 
-### What's next: Phase 1 — `plugin_sdk` contract + 1 proof consumer
+### What's next: Phase 1 ï¿½ `plugin_sdk` contract + 1 proof consumer
 
 Phase 1 will:
 1. Create `packages/plugin_sdk/` with the full contract
@@ -1664,3 +1664,160 @@ Phase 1 will:
 6. Remove the sys.path shim (the new `tool_weather` won't need it)
 
 Phase 1 starts immediately upon user go-ahead.
+
+---
+
+## 21. Phase 1A â€” COMPLETED (2026-07-19)
+
+**PR 1A deliverable: `extensions/tool_weather/` as first proof consumer of the (eventual) SDK.**
+
+Commit: `b5ffc3c feat(extensions): PR 1A â€” tool_weather as first proof consumer`
+
+### What landed
+
+- `extensions/tool_weather/` with the OpenClaw-shaped 4-file structure:
+  - `__init__.py` (entry: `WeatherPlugin` instantiation)
+  - `plugin.py` (impl, exact same `str`-return behavior as the deleted `actions/weather_report.py`)
+  - `jarvis.plugin.json` (manifest; later renamed to `openclaw.plugin.json` in 1B)
+  - `pyproject.toml` (workspace member)
+- 9 new tests: 7 for `TestToolWeatherPlugin` + 2 for `TestAppManifestLoader`
+- A minimal `_load_plugin_manifests()` in `app.py` that reads the
+  manifest and registers `weather_report` in `TOOL_DECLARATIONS`
+- The hardcoded `weather_report` entry in `TOOL_DECLARATIONS` was
+  deleted; the new manifest loader is now the source of truth
+- `actions/weather_report.py` was deleted (replaced by the extension)
+
+### What this proved
+
+- A JARVIS tool can live as a standalone package under `extensions/`
+  and be discovered by the host from a manifest.
+- The `apps/desktop` host can dynamically extend `TOOL_DECLARATIONS`
+  without code changes.
+- The `extensions/` tier is real and the boundary rules in
+  `extensions/AGENTS.md` are enforceable.
+
+### Known gaps closed in PR 1B
+
+- 1A used `jarvis.plugin.json` (one-off). Renamed to
+  `openclaw.plugin.json` in 1B for OpenClaw parity.
+- 1A's `WeatherPlugin` returned a raw `str` from `call()`. 1B
+  upgrades this to the SDK's `Result[str]` discriminated union.
+- 1A's `_load_plugin_manifests()` was a stub. 1B promotes it to
+  `_load_plugins()` and returns a dispatch map the host uses to
+  invoke plugin tools.
+
+### Security
+
+- Accidentally committed the user's Gemini + OpenRouter API keys
+  in the first attempt at 1A. Cleaned from history via
+  `git commit --amend` + `git gc --aggressive --prune=now`.
+- Keys are still **valid** in the wild; user must rotate them in
+  their account dashboards (Gemini: https://aistudio.google.com,
+  OpenRouter: https://openrouter.ai).
+
+---
+
+## 22. Phase 1B â€” COMPLETED (2026-07-19)
+
+**PR 1B deliverable: `packages/plugin_sdk/` + `extensions/tool_reminder/` (second consumer) + SDK-driven `app.py` plugin loader.**
+
+Commit: `d2ad21d feat(extensions): PR 1B â€” tool_reminder + plugin_sdk`
+
+### What landed
+
+- **`packages/plugin_sdk/`** â€” the JARVIS plugin contract. Mirrors
+  OpenClaw's `src/plugin-sdk/`. stdlib-only deps (pydantic deferred
+  to 1C). `py.typed` marker included.
+  - `Result` (`Ok[T] | Err`) discriminated union
+  - `ToolDecl` / `ToolParam` / `PluginManifestSummary`
+  - `Plugin` base + `ToolPlugin` / `ChannelPlugin` / `ProviderPlugin` /
+    `MemoryHostPlugin` ABCs
+  - `PluginContext` (config, secrets, logger, data_dir, workspace, http, fs, emit_event)
+  - `PluginApi` (register_tool/command/cli/memory_capability/provider/channel/doctor_contract/http_handler)
+  - `define_plugin_entry` helper (mirrors OpenClaw's `definePluginEntry`)
+- **`extensions/tool_reminder/`** â€” second consumer. Windows-only
+  reminder via `schtasks`. Mirrors OpenClaw's extension shape
+  (`openclaw.plugin.json` + `AGENTS.md` + entry + impl + `pyproject.toml`).
+- **`extensions/tool_weather/`** â€” refactored to also use SDK types
+  (the loader has a single uniform shape across both consumers).
+- **`apps/desktop/src/jarvis_desktop/app.py`** â€” `_load_plugins()`
+  now uses the SDK `PluginApi` to register both plugins and returns
+  `(tool_decls, plugin_dispatch, commands, cli_handlers)`. The
+  dispatch map drives the new `_execute_tool` plugin block. Removed:
+  - `from actions.reminder import reminder` (now in extension)
+  - The `elif name == "weather_report":` branch (now dead code)
+  - The `elif name == "reminder":` branch (now dead code)
+  - The direct `WeatherPlugin()` instantiation in `JarvisLive.__init__`
+- **`actions/reminder.py`** â€” deleted (migrated to the extension).
+  14 actions remain in `actions/` for Phase 2.
+- **CI helpers updated**:
+  - `check_imports.py`: now allows self-extension imports
+    (`from extensions.X import ...` inside `extensions/X/`).
+  - `check_manifests.py`: now globs `openclaw.plugin.json` (was
+    `jarvis.plugin.json`), matching OpenClaw exactly.
+- **pyrightconfig.json**: added `packages/plugin_sdk/src` to `extraPaths`
+  so test imports of `jarvis_sdk` resolve.
+
+### Tests: 44 passing (was 28 in 1A)
+
+- `+9 TestToolReminderPlugin` (manifest, identity, init, tools, call
+  dispatch â€” unknown tool / past time / missing args / bad format /
+  entry shape)
+- `+4 TestPluginSdkLoader` (4-tuple return shape, dispatch pairs,
+  tool decl shape, legacy file removed)
+- `+2 TestAppManifestLoader` (extended: also covers reminder,
+  dispatch coverage, commands shape)
+- `+1 TestPluginSdkLoader.test_legacy_actions_reminder_file_removed`
+- `-4 TestToolWeatherPlugin` (existing tests upgraded to `Result` shape)
+- `+1 TestAppManifestLoader.test_tool_declarations_includes_manifest_entries`
+  (now asserts both `weather_report` and `reminder` are loaded)
+- `+1 TestJarvisDesktopImport.test_jarvis_desktop_app_module`
+  (count updated to 20 = 18 hardcoded + 2 from extensions)
+
+### Pre-commit: all 7 hooks pass
+
+ruff, ruff-format, pyright (0 errors, 100 warnings â€” all pre-existing),
+check_imports, check_cycles, check_max_lines, check_manifests.
+
+### What this proved
+
+- A second consumer (`tool_reminder`) works against the same SDK
+  without changes. The contract holds.
+- The host (`app.py`) doesn't import from individual extensions;
+  it goes through the SDK's `PluginApi` and the new
+  `_load_plugins()` machinery. **No more coupling between the host
+  and any specific extension.**
+- `tools/` (CI) + `tests/` (pytest) catch every regression: import
+  boundary violations, manifest schema violations, plugin dispatch
+  shape regressions, and `Result` shape regressions.
+- "Same to same" with OpenClaw is now structural: manifest filename,
+  file layout, entry pattern, dispatch pattern, and SDK shape all
+  match. (Phase 1C will harden the SDK with the 2 consumers' feedback.)
+
+### Known gaps closed in PR 1C (next)
+
+- 1B's `Result` is stdlib-only. 1C will add `__match_args__` for
+  Python 3.10+ `match`/`case` ergonomics, plus typed `Result[Ok, Err]`
+  aliases for `Result[None]` and `Result[bytes]`.
+- 1B's `PluginContext` has `http=None`, `fs=None`. 1C will add the
+  SSRF-checked HTTP client + path-containment filesystem.
+- 1B's `_load_plugins()` doesn't wire commands/CLI handlers into
+  the host subsystems (just collects them). 1C will wire the
+  slash-command router and the CLI entry to consume them.
+- 1B's SDK has no tests of its own. 1C will add a `tests/test_sdk.py`
+  with hypothesis-driven property tests for `Result`, `ToolDecl`,
+  and the contract ABCs.
+
+### What's next: Phase 1C â€” Harden the SDK
+
+Phase 1C will:
+1. Add SDK tests (`tests/test_sdk.py`).
+2. Wire `commands` + `cli_handlers` from `_load_plugins()` into the
+   host's slash-command router and CLI entry.
+3. Add the SSRF-checked HTTP client + path-containment filesystem
+   to `PluginContext`.
+4. Add `__match_args__` to `Ok`/`Err` for `match`/`case` ergonomics.
+5. Promote the manifest schema to a typed `PluginManifest` (Pydantic
+   model â€” the deferred dependency from 1B).
+
+Phase 1C starts immediately upon user go-ahead.

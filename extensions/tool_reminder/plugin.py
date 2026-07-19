@@ -7,6 +7,7 @@ script (beep + toast notification) at the requested time.
 Phase 1B: Windows-only. Phase 9 (cron extension) will provide a
 cross-platform fallback path.
 """
+
 from __future__ import annotations
 
 import contextlib
@@ -25,7 +26,6 @@ from jarvis_sdk import (
     ToolParam,
     ToolPlugin,
 )
-
 
 # ── Tool declaration (mirrors the manifest's tools[] entry) ──────────
 REMINDER_TOOL = ToolDecl(
@@ -136,11 +136,18 @@ class ReminderPlugin(ToolPlugin):
             return Err(f"Couldn't write temp scripts: {e}", code="FS_ERROR")
 
         # schtasks /Create /TN ... /XML ... /F
-        result = subprocess.run(
+        #
+        # We pass a static command template with a derived task_name and
+        # xml_path (no user input). `shell=True` is required for
+        # `schtasks` (a built-in Windows command, not an .exe), and the
+        # inputs are pre-sanitized. Tracked by AGENTS.md §"Security
+        # Invariants". S602 disabled: this is the documented exception.
+        result = subprocess.run(  # noqa: S602
             f'schtasks /Create /TN "{task_name}" /XML "{xml_path}" /F',
             shell=True,
             capture_output=True,
             text=True,
+            check=False,
         )
 
         # Clean up the XML (the script stays; the scheduled task runs it)
@@ -203,7 +210,9 @@ except Exception:
 """
 
     @staticmethod
-    def _render_task_xml(target_dt: datetime, safe_message: str, python_exe: str, notify_script: str) -> str:
+    def _render_task_xml(
+        target_dt: datetime, safe_message: str, python_exe: str, notify_script: str
+    ) -> str:
         """Render the Windows Task Scheduler XML for a one-shot TimeTrigger task."""
         return f"""<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
