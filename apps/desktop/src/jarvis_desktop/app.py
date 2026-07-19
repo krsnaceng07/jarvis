@@ -38,11 +38,12 @@ from actions.file_processor import file_processor
 from actions.flight_finder import flight_finder
 from actions.open_app import open_app
 
-# `weather_report` migrated to extensions/tool_weather/ in PR 1A. Loaded
-# dynamically from the manifest; see `_load_plugin_manifests()` and
-# `JarvisLive.__init__`. Remaining 15 actions migrate in Phase 2.
+# `weather_report` migrated to extensions/tool_weather/ in PR 1A.
+# `reminder` migrated to extensions/tool_reminder/ in PR 1B.
+# Both are now loaded dynamically via `_load_plugins()` from each
+# extension's `openclaw.plugin.json` entry. Remaining 14 actions migrate
+# in Phase 2.
 from actions.send_message import send_message
-from actions.reminder import reminder
 from actions.computer_settings import computer_settings
 from actions.screen_processor import screen_process
 from actions.youtube_video import youtube_video
@@ -128,50 +129,116 @@ def _update_memory_async(user_text: str, jarvis_text: str) -> None:
 
 
 # ─────────────────────────────────────────────────────────────────────
-# Plugin manifest loader (PR 1A — minimal; full SDK lands in Phase 1C)
+# Plugin manifest loader (PR 1B — full SDK-driven plugin loader)
 #
-# Reads every `extensions/*/jarvis.plugin.json` and returns the tool
+# Reads every `extensions/*/openclaw.plugin.json` and returns the tool
 # declarations declared in each manifest. Used to extend TOOL_DECLARATIONS
-# below. Phase 1C will move this into `packages/plugin_sdk/` with a
-# proper `PluginManifest` / `ToolDecl` typed contract, a real loader
-# that imports plugin classes via `entrypoint`, lifecycle hooks, and
-# a `Result` discriminated union for plugin call responses.
+# below. Mirrors OpenClaw's `src/plugins/loader.ts`. Phase 1C hardens
+# the SDK with two-consumer feedback (tool_weather + tool_reminder) and
+# promotes the contract to a strict `PluginManifest` typed schema.
 # ─────────────────────────────────────────────────────────────────────
-def _load_plugin_manifests() -> list[dict]:
-    """Return tool declarations from every `extensions/*/jarvis.plugin.json`.
+def _load_plugins() -> (
+    tuple[
+        "list[dict]",
+        "dict[str, tuple]",
+        "list[Any]",
+        "list[tuple]",
+    ]
+):
+    """Discover + register every extension's plugin entry via the SDK.
 
-    The manifest is the public contract (see `extensions/README.md`). For PR 1A
-    we only consume the `tools` field; plugin classes are still imported
-    directly via `from extensions.<id>.plugin import ...`. Phase 1C will
-    switch the plugin class lookup to use the manifest's `entrypoint`.
+    Mirrors OpenClaw's `src/plugins/loader.ts` pattern. For each
+    ``extensions/<id>/openclaw.plugin.json``:
+      1. dynamically import ``extensions.<id>``
+      2. call ``entry.register(api)`` with a real ``PluginApi``
+      3. collect tool decls (→ TOOL_DECLARATIONS) + a dispatch map
+         (→ _execute_tool) + commands + CLI handlers (→ Phase 8+)
+
+    Returns ``(tool_decls, plugin_dispatch, commands, cli_handlers)``.
     """
     import json as _json
+    import importlib
     from pathlib import Path as _Path
+
+    from jarvis_sdk import PluginApi, PluginContext, Result  # noqa: F401
 
     workspace = _Path(__file__).resolve().parents[4]  # jarvis_desktop/src/jarvis_desktop/app.py
     extensions_dir = workspace / "extensions"
     if not extensions_dir.exists():
-        return []
+        return [], {}, [], []
 
-    declarations: list[dict] = []
-    for manifest_path in sorted(extensions_dir.glob("*/jarvis.plugin.json")):
+    tool_decls: "list[dict]" = []
+    plugin_dispatch: "dict[str, tuple]" = {}
+    commands: "list[Any]" = []
+    cli_handlers: "list[tuple]" = []
+
+    for manifest_path in sorted(extensions_dir.glob("*/openclaw.plugin.json")):
+        ext_name = manifest_path.parent.name
         try:
-            manifest = _json.loads(manifest_path.read_text(encoding="utf-8"))
+            _json.loads(manifest_path.read_text(encoding="utf-8"))
         except (OSError, _json.JSONDecodeError) as e:
             print(f"[WARN] Could not read manifest {manifest_path}: {e}")
             continue
-        for tool in manifest.get("tools", []):
-            if "name" not in tool or "description" not in tool:
-                print(f"[WARN] {manifest_path}: tool missing name/description, skipping")
-                continue
-            declarations.append(
-                {
-                    "name": tool["name"],
-                    "description": tool["description"],
-                    "parameters": tool.get("parameters", {"type": "OBJECT", "properties": {}}),
+
+        try:
+            entry_module = importlib.import_module(f"extensions.{ext_name}")
+            entry = entry_module.entry
+        except (ImportError, AttributeError) as e:
+            print(f"[WARN] Could not load extensions.{ext_name} entry: {e}")
+            continue
+
+        ctx = PluginContext(
+            plugin_id=entry.id,
+            plugin_kind=entry.kind,
+            data_dir=_Path.home() / ".jarvis" / "extensions" / ext_name,
+            workspace=workspace,
+        )
+        api = PluginApi(ctx)
+        try:
+            entry.register(api)
+        except Exception as e:
+            print(f"[WARN] {ext_name}.register() failed: {e}")
+            continue
+
+        for tool_inst in api.tool_instances:
+            for tool_decl in tool_inst.tools:
+                params: dict = {
+                    "type": "OBJECT",
+                    "properties": {},
+                    "required": [],
                 }
-            )
-    return declarations
+                for p in tool_decl.parameters:
+                    params["properties"][p.name] = {
+                        "type": p.type.upper(),
+                        "description": p.description,
+                    }
+                    if p.required:
+                        params["required"].append(p.name)
+                tool_decls.append(
+                    {
+                        "name": tool_decl.name,
+                        "description": tool_decl.description,
+                        "parameters": params,
+                    }
+                )
+                plugin_dispatch[tool_decl.name] = (tool_inst, tool_decl.name)
+
+        commands.extend(api.commands)
+        cli_handlers.extend(api.cli_handlers)
+
+    return tool_decls, plugin_dispatch, commands, cli_handlers
+
+
+def _unwrap_result(result: Any) -> str:
+    """Convert a plugin's Result return to a string for the LLM."""
+    from jarvis_sdk import Err, Ok
+
+    if isinstance(result, Ok):
+        v = result.value
+        return v if isinstance(v, str) else str(v)
+    if isinstance(result, Err):
+        return f"Error: {result.error}"
+    return str(result)
 
 
 TOOL_DECLARATIONS = [
@@ -212,7 +279,8 @@ TOOL_DECLARATIONS = [
         },
     },
     # `weather_report` removed in PR 1A — now loaded dynamically from
-    # extensions/tool_weather/jarvis.plugin.json via `_load_plugin_manifests()`.
+    # extensions/tool_weather/openclaw.plugin.json via `_load_plugins()`.
+    # `reminder` removed in PR 1B — same path, extensions/tool_reminder/.
     {
         "name": "send_message",
         "description": "Sends a text message via WhatsApp, Telegram, or other messaging platform.",
@@ -224,19 +292,6 @@ TOOL_DECLARATIONS = [
                 "platform": {"type": "STRING", "description": "Platform: WhatsApp, Telegram, etc."},
             },
             "required": ["receiver", "message_text", "platform"],
-        },
-    },
-    {
-        "name": "reminder",
-        "description": "Sets a timed reminder using Windows Task Scheduler.",
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "date": {"type": "STRING", "description": "Date in YYYY-MM-DD format"},
-                "time": {"type": "STRING", "description": "Time in HH:MM format (24h)"},
-                "message": {"type": "STRING", "description": "Reminder message text"},
-            },
-            "required": ["date", "time", "message"],
         },
     },
     {
@@ -697,11 +752,12 @@ TOOL_DECLARATIONS = [
 
 
 # ── Extend TOOL_DECLARATIONS with plugin-loaded tools ──────────────
-# PR 1A: just `weather_report` (from extensions/tool_weather/manifest).
-# Phase 2+ adds the rest of the 15 actions as they migrate.
-# We extend the list at module load time so the Gemini Live config
-# (line 754 in the next refresh) sees the full set.
-TOOL_DECLARATIONS.extend(_load_plugin_manifests())
+# PR 1B: SDK-driven plugin loader. Discovers extensions, imports each
+# entry, calls register(api), collects tool declarations and a dispatch
+# map. Phase 2+ migrates the remaining 15 actions to extensions; the
+# hardcoded list below shrinks as that happens.
+_PLUGIN_TOOL_DECLS, _PLUGIN_DISPATCH, _PLUGIN_COMMANDS, _PLUGIN_CLI = _load_plugins()
+TOOL_DECLARATIONS.extend(_PLUGIN_TOOL_DECLS)
 
 
 class JarvisLive:
@@ -715,14 +771,11 @@ class JarvisLive:
         self._speaking_lock = threading.Lock()
         self.ui.on_text_command = self._on_text_command
 
-        # ── Plugin initialization (PR 1A) ──────────────────────────
-        # Plugins are direct-imported here. Phase 1C will switch to a
-        # generic loader driven by `jarvis.plugin.json` `entrypoint`.
-        # Each plugin is initialized with the UI handle for log/speak.
-        from extensions.tool_weather.plugin import WeatherPlugin
-
-        self._weather_plugin = WeatherPlugin()
-        self._weather_plugin.init(self.ui)
+        # ── Plugin initialization ──────────────────────────
+        # Plugin dispatch is built once at import time by `_load_plugins()`
+        # (PR 1B). The UI handle is passed to each plugin lazily inside
+        # `_execute_tool` via `PluginContext`, so no eager init is needed
+        # here. PR 1A's direct WeatherPlugin import was removed in 1B.
 
     def _on_text_command(self, text: str):
         if not self._loop or not self.session:
@@ -793,6 +846,37 @@ class JarvisLive:
 
         print(f"[JARVIS] 🔧 {name}  {args}")
         self.ui.set_state("THINKING")
+
+        # ── Plugin dispatch (PR 1B) ─────────────────────────────────
+        # Plugin-loaded tools route through this dispatch map. The
+        # plugin returns a `Result` (Ok/Err) which we unwrap to a
+        # string for the LLM.
+        if name in _PLUGIN_DISPATCH:
+            plugin_inst, call_name = _PLUGIN_DISPATCH[name]
+            try:
+                # Plugins are async-call but the underlying tool may be
+                # sync; we use run_in_executor to keep the audio loop alive.
+                plugin_result = await loop.run_in_executor(
+                    None,
+                    lambda inst=plugin_inst, cn=call_name, a=args: inst.call(cn, a),
+                )
+                # `call` may be sync (returns Result directly) or async
+                # (returns awaitable). Handle both.
+                if hasattr(plugin_result, "__await__"):
+                    plugin_result = await plugin_result
+                result = _unwrap_result(plugin_result) or f"{name} delivered."
+                print(f"[JARVIS] 📤 {name} → {str(result)[:80]}")
+                if not self.ui.muted:
+                    self.ui.set_state("LISTENING")
+                return types.FunctionResponse(id=fc.id, name=name, response={"result": result})
+            except Exception as e:
+                err_msg = f"Plugin '{name}' failed: {e}"
+                print(f"[JARVIS] {err_msg}")
+                traceback.print_exc()
+                if not self.ui.muted:
+                    self.ui.set_state("LISTENING")
+                return types.FunctionResponse(id=fc.id, name=name, response={"result": err_msg})
+
         if name == "save_memory":
             category = args.get("category", "notes")
             key = args.get("key", "")
@@ -816,13 +900,6 @@ class JarvisLive:
                 )
                 result = r or f"Opened {args.get('app_name')}."
 
-            elif name == "weather_report":
-                # PR 1A: dispatched via the extensions/tool_weather/ plugin.
-                r = await loop.run_in_executor(
-                    None, lambda: self._weather_plugin.call("weather_report", args)
-                )
-                result = r or "Weather delivered."
-
             elif name == "browser_control":
                 r = await loop.run_in_executor(
                     None, lambda: browser_control(parameters=args, player=self.ui)
@@ -843,12 +920,6 @@ class JarvisLive:
                     ),
                 )
                 result = r or f"Message sent to {args.get('receiver')}."
-
-            elif name == "reminder":
-                r = await loop.run_in_executor(
-                    None, lambda: reminder(parameters=args, response=None, player=self.ui)
-                )
-                result = r or "Reminder set."
 
             elif name == "youtube_video":
                 r = await loop.run_in_executor(

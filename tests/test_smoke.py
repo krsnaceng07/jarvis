@@ -125,8 +125,8 @@ class TestJarvisDesktopImport:
         """`from jarvis_desktop.app import main, JarvisLive, TOOL_DECLARATIONS` works."""
         from jarvis_desktop.app import TOOL_DECLARATIONS, JarvisLive, main
 
-        # 20 tools: 19 hardcoded + 1 from extensions/tool_weather manifest.
-        # Phase 2 will replace the hardcoded set with extensions too.
+        # 20 tools: 18 hardcoded + 2 from extensions/*/openclaw.plugin.json
+        # (tool_weather + tool_reminder). Phase 2 will replace the rest.
         assert len(TOOL_DECLARATIONS) == 20
         assert callable(main)
         assert JarvisLive.__name__ == "JarvisLive"
@@ -143,18 +143,18 @@ class TestJarvisDesktopImport:
 
 
 class TestToolWeatherPlugin:
-    """PR 1A: extensions/tool_weather/ — first proof consumer.
+    """PR 1A+1B: extensions/tool_weather/ — first proof consumer (now SDK-driven).
 
     The plugin's shape is the contract that Phase 1C formalizes into
     `packages/plugin_sdk/`. These tests pin the contract for the weather
-    tool; Phase 1B (tool_reminder) will use the same shape.
+    tool; ``TestToolReminderPlugin`` (PR 1B) uses the same shape.
     """
 
     def test_manifest_file_exists(self) -> None:
-        """extensions/tool_weather/jarvis.plugin.json is present and well-formed."""
+        """extensions/tool_weather/openclaw.plugin.json is present and well-formed."""
         import json
 
-        path = REPO_ROOT / "extensions" / "tool_weather" / "jarvis.plugin.json"
+        path = REPO_ROOT / "extensions" / "tool_weather" / "openclaw.plugin.json"
         assert path.is_file()
         manifest = json.loads(path.read_text(encoding="utf-8"))
         assert manifest["id"] == "tool_weather"
@@ -190,35 +190,44 @@ class TestToolWeatherPlugin:
         assert p._player is player
 
     def test_plugin_tools_declaration(self) -> None:
-        """`plugin.tools` returns the LLM-facing tool declaration list."""
+        """`plugin.tools` returns a list of SDK `ToolDecl`."""
         from extensions.tool_weather.plugin import WeatherPlugin
+        from jarvis_sdk import ToolDecl
 
         p = WeatherPlugin()
         tools = p.tools
         assert len(tools) == 1
         tool = tools[0]
-        assert tool["name"] == "weather_report"
-        assert "description" in tool
-        assert "city" in tool["parameters"]["properties"]
-        assert tool["parameters"]["required"] == ["city"]
+        assert isinstance(tool, ToolDecl)
+        assert tool.name == "weather_report"
+        param_names = [pp.name for pp in tool.parameters]
+        assert "city" in param_names
+        # `city` is required; `time` is not.
+        required = [pp.name for pp in tool.parameters if pp.required]
+        assert required == ["city"]
 
-    def test_plugin_call_unknown_tool(self) -> None:
-        """`call('foo', {})` returns a clear error message (not an exception)."""
+    @pytest.mark.asyncio
+    async def test_plugin_call_unknown_tool(self) -> None:
+        """`call('foo', {})` returns `Err('Unknown tool: foo', code='UNKNOWN_TOOL')`."""
         from extensions.tool_weather.plugin import WeatherPlugin
+        from jarvis_sdk import Err
 
         p = WeatherPlugin()
-        result = p.call("not_a_real_tool", {})
-        assert "Unknown tool" in result
+        result = await p.call("not_a_real_tool", {})
+        assert isinstance(result, Err)
+        assert "Unknown tool" in result.error
+        assert result.code == "UNKNOWN_TOOL"
 
-    def test_plugin_call_weather_opens_browser(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """`call('weather_report', {city: 'London'})` calls `webbrowser.open` once.
+    @pytest.mark.asyncio
+    async def test_plugin_call_weather_opens_browser(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """`call('weather_report', {city: 'London'})` opens the browser once.
 
-        Uses pytest's `monkeypatch` to stub out `webbrowser.open` so the test
-        doesn't actually open a browser window. The plugin's `_player.write_log`
-        is also stubbed via the `init` path.
+        Returns ``Ok(...)`` with a "Showing the weather" message. The
+        plugin's ``_player.write_log`` is also stubbed via ``init``.
         """
         from extensions.tool_weather import plugin as weather_plugin_module
         from extensions.tool_weather.plugin import WeatherPlugin
+        from jarvis_sdk import Ok
 
         opened_urls: list[str] = []
         monkeypatch.setattr(
@@ -235,19 +244,22 @@ class TestToolWeatherPlugin:
 
         p = WeatherPlugin()
         p.init(_FakePlayer())
-        result = p.call("weather_report", {"city": "London", "time": "tomorrow"})
+        result = await p.call("weather_report", {"city": "London", "time": "tomorrow"})
 
+        assert isinstance(result, Ok)
         assert len(opened_urls) == 1
         assert "London" in opened_urls[0]
         assert "tomorrow" in opened_urls[0]
-        assert "Showing the weather" in result
+        assert "Showing the weather" in result.value
         assert len(logged) == 1
         assert "London" in logged[0]
 
-    def test_plugin_call_weather_missing_city(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Missing city returns a clear error without opening a browser."""
+    @pytest.mark.asyncio
+    async def test_plugin_call_weather_missing_city(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Missing city returns ``Err(..., code='MISSING_ARG')`` without opening a browser."""
         from extensions.tool_weather import plugin as weather_plugin_module
         from extensions.tool_weather.plugin import WeatherPlugin
+        from jarvis_sdk import Err
 
         opened: list[str] = []
         monkeypatch.setattr(
@@ -255,21 +267,233 @@ class TestToolWeatherPlugin:
         )
 
         p = WeatherPlugin()
-        result = p.call("weather_report", {"city": ""})
+        result = await p.call("weather_report", {"city": ""})
         assert opened == []
-        assert "city is missing" in result.lower()
+        assert isinstance(result, Err)
+        assert result.code == "MISSING_ARG"
+        assert "city is missing" in result.error.lower()
+
+
+class TestToolReminderPlugin:
+    """PR 1B: extensions/tool_reminder/ — second consumer.
+
+    This mirrors the shape pinned by ``TestToolWeatherPlugin`` and
+    validates the SDK-driven plugin loader contract: manifest +
+    ``entry`` + ``Plugin`` subclass + ``Result`` returns.
+    """
+
+    def test_manifest_file_exists(self) -> None:
+        """extensions/tool_reminder/openclaw.plugin.json is present + well-formed."""
+        import json
+
+        path = REPO_ROOT / "extensions" / "tool_reminder" / "openclaw.plugin.json"
+        assert path.is_file()
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        assert manifest["id"] == "tool_reminder"
+        assert manifest["kind"] == "tool"
+        assert manifest["version"] == "0.1.0"
+        assert "tools" in manifest
+        assert len(manifest["tools"]) == 1
+        assert manifest["tools"][0]["name"] == "reminder"
+
+    def test_plugin_instantiates_and_has_identity(self) -> None:
+        """`from extensions.tool_reminder.plugin import ReminderPlugin` works."""
+        from extensions.tool_reminder.plugin import ReminderPlugin
+
+        p = ReminderPlugin()
+        assert p.id == "tool_reminder"
+        assert p.kind == "tool"
+        assert p.version == "0.1.0"
+
+    def test_plugin_init_is_noop(self) -> None:
+        """`init(ctx)` is a no-op for reminder (no persistent state)."""
+        from extensions.tool_reminder.plugin import ReminderPlugin
+
+        p = ReminderPlugin()
+        # Should not raise.
+        p.init({"any": "ctx"})
+
+    def test_plugin_tools_declaration(self) -> None:
+        """`plugin.tools` returns the LLM-facing tool declaration list."""
+        from extensions.tool_reminder.plugin import ReminderPlugin
+
+        p = ReminderPlugin()
+        tools = p.tools
+        assert len(tools) == 1
+        tool = tools[0]
+        assert tool.name == "reminder"
+        assert "date" in [pp.name for pp in tool.parameters]
+        assert "time" in [pp.name for pp in tool.parameters]
+
+    @pytest.mark.asyncio
+    async def test_plugin_call_unknown_tool_returns_err(self) -> None:
+        """`call('foo', {})` returns ``Err('Unknown tool: foo', code='UNKNOWN_TOOL')``."""
+        from extensions.tool_reminder.plugin import ReminderPlugin
+        from jarvis_sdk import Err
+
+        p = ReminderPlugin()
+        result = await p.call("not_a_real_tool", {})
+        assert isinstance(result, Err)
+        assert result.is_err is True
+        assert "Unknown tool" in result.error
+        assert result.code == "UNKNOWN_TOOL"
+
+    @pytest.mark.asyncio
+    async def test_plugin_call_reminder_past_time(self) -> None:
+        """`call('reminder', {date: yesterday, time: 00:00})` returns Err TIME_IN_PAST."""
+        from extensions.tool_reminder.plugin import ReminderPlugin
+        from jarvis_sdk import Err
+
+        p = ReminderPlugin()
+        result = await p.call(
+            "reminder",
+            {"date": "2020-01-01", "time": "00:00", "message": "test"},
+        )
+        assert isinstance(result, Err)
+        assert result.is_err is True
+        assert result.code == "TIME_IN_PAST"
+        assert "past" in result.error.lower()
+
+    @pytest.mark.asyncio
+    async def test_plugin_call_reminder_missing_args(self) -> None:
+        """`call('reminder', {})` returns Err MISSING_ARG (no date/time)."""
+        from extensions.tool_reminder.plugin import ReminderPlugin
+        from jarvis_sdk import Err
+
+        p = ReminderPlugin()
+        result = await p.call("reminder", {})
+        assert isinstance(result, Err)
+        assert result.is_err is True
+        assert result.code == "MISSING_ARG"
+
+    @pytest.mark.asyncio
+    async def test_plugin_call_reminder_bad_format(self) -> None:
+        """Malformed date returns Err BAD_FORMAT (not a crash)."""
+        from extensions.tool_reminder.plugin import ReminderPlugin
+        from jarvis_sdk import Err
+
+        p = ReminderPlugin()
+        result = await p.call(
+            "reminder", {"date": "not-a-date", "time": "99:99", "message": "test"}
+        )
+        assert isinstance(result, Err)
+        assert result.is_err is True
+        assert result.code == "BAD_FORMAT"
+
+    def test_entry_module_exposes_entry(self) -> None:
+        """`from extensions.tool_reminder import entry` works and has .register()."""
+        from extensions import tool_reminder
+
+        assert hasattr(tool_reminder, "entry")
+        assert hasattr(tool_reminder.entry, "register")
+        assert hasattr(tool_reminder.entry, "id")
+        assert tool_reminder.entry.id == "tool_reminder"
+        assert tool_reminder.entry.kind == "tool"
+
+
+class TestPluginSdkLoader:
+    """PR 1B: the SDK-driven plugin loader (app.py::_load_plugins).
+
+    Verifies that the loader wires the new ``jarvis_sdk`` boundary
+    correctly: it returns four parallel collections (tool_decls,
+    plugin_dispatch, commands, cli_handlers) and never reaches into
+    extensions directly.
+    """
+
+    def test_load_plugins_returns_four_collections(self) -> None:
+        """_load_plugins returns a 4-tuple of (decls, dispatch, commands, cli)."""
+        from jarvis_desktop.app import _load_plugins
+
+        result = _load_plugins()
+        assert isinstance(result, tuple)
+        assert len(result) == 4
+        tool_decls, dispatch, commands, cli = result
+        assert isinstance(tool_decls, list)
+        assert isinstance(dispatch, dict)
+        assert isinstance(commands, list)
+        assert isinstance(cli, list)
+
+    def test_load_plugins_dispatch_values_are_pairs(self) -> None:
+        """Each dispatch entry is (plugin_instance, call_name)."""
+        from jarvis_desktop.app import _load_plugins
+
+        _decls, dispatch, _commands, _cli = _load_plugins()
+        for tool_name, value in dispatch.items():
+            assert isinstance(value, tuple)
+            assert len(value) == 2
+            _plugin_inst, call_name = value
+            assert isinstance(call_name, str)
+            assert call_name == tool_name  # dispatch key matches call name
+
+    def test_load_plugins_tool_decls_have_required_fields(self) -> None:
+        """Each tool decl has name + description + parameters OBJECT schema."""
+        from jarvis_desktop.app import _load_plugins
+
+        tool_decls, _dispatch, _commands, _cli = _load_plugins()
+        for d in tool_decls:
+            assert "name" in d
+            assert "description" in d
+            assert "parameters" in d
+            params = d["parameters"]
+            assert params["type"] == "OBJECT"
+            assert "properties" in params
+            assert "required" in params
+            assert isinstance(params["required"], list)
+
+    def test_legacy_actions_reminder_file_removed(self) -> None:
+        """``actions/reminder.py`` is gone (migrated to extensions/tool_reminder/)."""
+        legacy = REPO_ROOT / "actions" / "reminder.py"
+        assert not legacy.exists(), (
+            f"Legacy file still present: {legacy}. "
+            "Reminder tool has fully migrated to extensions/tool_reminder/."
+        )
 
 
 class TestAppManifestLoader:
-    """PR 1A: `apps/desktop` reads tool decls from extensions/*/jarvis.plugin.json."""
+    """PR 1A+1B: `apps/desktop` reads tool decls from extensions/*/openclaw.plugin.json.
 
-    def test_load_plugin_manifests_returns_weather(self) -> None:
-        """The manifest loader finds extensions/tool_weather/jarvis.plugin.json."""
-        from jarvis_desktop.app import _load_plugin_manifests
+    The loader was renamed from `_load_plugin_manifests` (PR 1A) to
+    `_load_plugins` (PR 1B) and now also returns a dispatch map, a
+    commands list, and a CLI handler list.
+    """
 
-        decls = _load_plugin_manifests()
-        names = [d["name"] for d in decls]
+    def test_load_plugins_returns_weather(self) -> None:
+        """The plugin loader finds extensions/tool_weather/openclaw.plugin.json."""
+        from jarvis_desktop.app import _load_plugins
+
+        tool_decls, _dispatch, _commands, _cli = _load_plugins()
+        names = [d["name"] for d in tool_decls]
         assert "weather_report" in names
+
+    def test_load_plugins_returns_reminder(self) -> None:
+        """The plugin loader finds extensions/tool_reminder/openclaw.plugin.json."""
+        from jarvis_desktop.app import _load_plugins
+
+        tool_decls, _dispatch, _commands, _cli = _load_plugins()
+        names = [d["name"] for d in tool_decls]
+        assert "reminder" in names
+
+    def test_load_plugins_dispatch_maps_known_tools(self) -> None:
+        """The dispatch map covers every tool declared by every loaded plugin."""
+        from jarvis_desktop.app import _load_plugins
+
+        tool_decls, dispatch, _commands, _cli = _load_plugins()
+        for d in tool_decls:
+            assert d["name"] in dispatch, f"missing dispatch for {d['name']!r}"
+
+    def test_load_plugins_commands_have_required_keys(self) -> None:
+        """Each registered command carries `name` and `description`."""
+        from jarvis_desktop.app import _load_plugins
+        from jarvis_sdk import CommandDecl
+
+        _tool_decls, _dispatch, commands, _cli = _load_plugins()
+        assert len(commands) >= 1, "at least the reminders command must be registered"
+        for c in commands:
+            assert isinstance(c, CommandDecl)
+            assert c.name
+            assert c.description
+        # The reminders command from tool_reminder.
+        assert any(c.name == "reminders" for c in commands)
 
     def test_tool_declarations_includes_manifest_entries(self) -> None:
         """`TOOL_DECLARATIONS` is the union of hardcoded + manifest-loaded tools."""
@@ -277,6 +501,7 @@ class TestAppManifestLoader:
 
         names = [d["name"] for d in TOOL_DECLARATIONS]
         assert "weather_report" in names
+        assert "reminder" in names
         # No duplicates.
         assert len(names) == len(set(names))
 

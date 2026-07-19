@@ -1,0 +1,19 @@
+{
+  "id": "tool_reminder",
+  "kind": "tool",
+  "version": "0.1.0",
+  "description": "Set timed reminders via Windows Task Scheduler (Phase 1B: Windows-only).",
+  "activation": "on_startup",
+  "tools": [
+    {
+      "name": "reminder",
+      "description": "Sets a timed reminder using Windows Task Scheduler.",
+      "parameters": [
+        { "name": "date", "type": "string", "required": true, "description": "Date in YYYY-MM-DD format" },
+        { "name": "time", "type": "string", "required": true, "description": "Time in HH:MM format (24h)" },
+        { "name": "message", "type": "string", "required": false, "description": "Reminder text" }
+      ]
+    }
+  ],
+  "permissions": ["os:scheduler", "fs:write:temp"]
+}

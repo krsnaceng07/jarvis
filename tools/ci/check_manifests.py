@@ -41,17 +41,21 @@ ID_RE = re.compile(r"^[a-z][a-z0-9_-]*[a-z0-9]$")
 
 def validate_manifest(ext_dir: Path) -> list[str]:
     errors: list[str] = []
-    manifest_path = ext_dir / "jarvis.plugin.json"
+    # Canonical manifest name is ``openclaw.plugin.json`` (matches
+    # OpenClaw's `extensions/<id>/openclaw.plugin.json`). Python's
+    # identifier rules force the directory name to be snake_case, but
+    # the manifest file name follows OpenClaw exactly.
+    manifest_path = ext_dir / "openclaw.plugin.json"
     if not manifest_path.exists():
-        return [f"{ext_dir.name}: jarvis.plugin.json not found"]
+        return [f"{ext_dir.name}: openclaw.plugin.json not found"]
 
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as e:
-        return [f"{ext_dir.name}/jarvis.plugin.json: invalid JSON: {e}"]
+        return [f"{ext_dir.name}/openclaw.plugin.json: invalid JSON: {e}"]
 
     if not isinstance(manifest, dict):
-        return [f"{ext_dir.name}/jarvis.plugin.json: must be a JSON object"]
+        return [f"{ext_dir.name}/openclaw.plugin.json: must be a JSON object"]
 
     # Required fields
     missing = REQUIRED - manifest.keys()

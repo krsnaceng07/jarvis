@@ -11,6 +11,8 @@ members = [
     "jarvis",
     "jarvis-cli",
     "jarvis-desktop",
+    "jarvis-plugin-sdk",
+    "jarvis-tool-reminder",
     "jarvis-tool-weather",
     "jarvis-tui",
 ]
@@ -861,6 +863,16 @@ requires-dist = [
     { name = "youtube-transcript-api", specifier = ">=0.6.0" },
 ]
 provides-extras = ["windows", "macos", "linux", "all"]
+
+[[package]]
+name = "jarvis-plugin-sdk"
+version = "0.1.0rc1"
+source = { editable = "packages/plugin_sdk" }
+
+[[package]]
+name = "jarvis-tool-reminder"
+version = "0.1.0"
+source = { virtual = "extensions/tool_reminder" }
 
 [[package]]
 name = "jarvis-tool-weather"

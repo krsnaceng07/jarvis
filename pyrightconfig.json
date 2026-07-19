@@ -8,7 +8,8 @@
     "examples"
   ],
   "extraPaths": [
-    "apps/desktop/src"
+    "apps/desktop/src",
+    "packages/plugin_sdk/src"
   ],
   "exclude": [
     "**/legacy_*",

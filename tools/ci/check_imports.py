@@ -57,6 +57,13 @@ def find_violations() -> list[str]:
             continue
 
         rel = py_file.relative_to(ROOT)
+        # Identify this file's own extension id (the directory directly
+        # under ``extensions/``). Self-imports like
+        # ``from extensions.tool_weather.plugin import WeatherPlugin``
+        # are allowed; cross-extension imports are not.
+        parts = rel.parts
+        self_ext = parts[1] if len(parts) >= 2 and parts[0] == "extensions" else None
+
         for m in IMPORT_RE.finditer(text):
             mod = m.group(1) or m.group(2)
             if not mod:
@@ -69,13 +76,16 @@ def find_violations() -> list[str]:
                     f"{rel}:{line_no}: imports legacy module `{top}` "
                     f"(being migrated per OPENCLAW_MIGRATION_PLAN.md)"
                 )
-            # Cross-extension: `from extensions.X import ...` or
-            # `from X.Y import ...` where X is a sibling extension dir
-            if mod.startswith("extensions."):
-                violations.append(
-                    f"{rel}:{line_no}: cross-extension import `{mod}` "
-                    f"(extensions may only import from `jarvis_sdk.*` and self)"
-                )
+            # Cross-extension: `from extensions.<other> import ...`
+            # (imports of self are permitted).
+            if mod.startswith("extensions.") and self_ext is not None:
+                # `extensions.tool_weather.plugin` lives in `tool_weather/`.
+                ext_name = mod.split(".", 2)[1] if mod.count(".") >= 2 else ""
+                if ext_name and ext_name != self_ext:
+                    violations.append(
+                        f"{rel}:{line_no}: cross-extension import `{mod}` "
+                        f"(extensions may only import from `jarvis_sdk.*` and self)"
+                    )
 
     return violations
 
