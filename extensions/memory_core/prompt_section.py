@@ -19,7 +19,7 @@ def build(config: dict[str, Any] | None = None, ctx: dict[str, Any] | None = Non
     """
     ctx = ctx or {}
     config = config or {}
-    cfg = config.get("memory", {}) if isinstance(config, dict) else {}
+    cfg: dict[str, Any] = config.get("memory", {}) if isinstance(config, dict) else {}
     if cfg.get("enabled") is False:
         return ""
 

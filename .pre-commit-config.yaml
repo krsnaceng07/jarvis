@@ -18,13 +18,17 @@ repos:
       - id: pyright
         # Pass pyrightconfig.json as the config so the workspace's
         # exclude list (legacy code being migrated) is honored.
-        # Also list dependencies so pyright can resolve `pytest` and
-        # the workspace member `jarvis_desktop`.
+        # Also list dependencies so pyright can resolve `pytest`,
+        # the workspace member `jarvis_desktop`, and `httpx`
+        # (used by the telegram channel extension).
+        # `--level error` makes the hook fail on errors only, not
+        # on warnings — warnings are tracked in the regular CI run.
         additional_dependencies:
           - pytest>=8.3.0
           - pytest-asyncio>=0.24.0
           - hypothesis>=6.100.0
-        args: ["--project", "pyrightconfig.json"]
+          - httpx>=0.27.0
+        args: ["--project", "pyrightconfig.json", "--level", "error"]
 
   - repo: local
     hooks:

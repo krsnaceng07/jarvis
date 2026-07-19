@@ -1,12 +1,15 @@
 """TelegramChannel — send + listen for the Telegram channel."""
+
 from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, cast
 
-from .runtime import TelegramState
+from .runtime import TelegramState  # noqa: TCH001
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 _log = logging.getLogger("jarvis.telegram")
 
@@ -23,7 +26,7 @@ class TelegramChannel:
     def __init__(self, state: TelegramState) -> None:
         self.state = state
 
-    def send(self, target: str, message: Any) -> dict:
+    def send(self, target: str, message: Any) -> dict[str, Any]:
         """Send a message to ``target`` (a chat_id string).
 
         Mirrors OpenClaw's ``ChannelPlugin.send``. Returns a dict with
@@ -33,8 +36,11 @@ class TelegramChannel:
         """
         if not self.state.bot_token:
             return {"ok": False, "error": "no bot_token configured"}
+        text = ""
         if isinstance(message, dict):
-            text = message.get("text", "")
+            text_value = cast("dict[str, object]", message).get("text", "")
+            if text_value is not None:
+                text = str(text_value)
         else:
             text = str(message)
         if not text:
@@ -55,11 +61,11 @@ class TelegramChannel:
             if data.get("ok"):
                 return {"ok": True, "message_id": data["result"]["message_id"]}
             return {"ok": False, "error": str(data.get("description", "unknown"))}
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             _log.warning("telegram.send failed: %s", e)
             return {"ok": False, "error": str(e)}
 
-    def listen(self, callback: Callable[[dict], None]) -> None:
+    def listen(self, callback: Callable[[dict[str, Any]], None]) -> None:
         """Long-poll Telegram's getUpdates. On each message, call
         ``callback({chat_id, text, message_id, from_id})``.
 
@@ -87,7 +93,7 @@ class TelegramChannel:
                     timeout=30.0,
                 )
                 data = r.json()
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 _log.warning("telegram.getUpdates failed: %s", e)
                 time.sleep(interval * 5)
                 continue

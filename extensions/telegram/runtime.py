@@ -10,6 +10,7 @@ Phase 3. Holds:
 The state persists to ``~/.jarvis/telegram.json`` (cross-session
 operator identity).
 """
+
 from __future__ import annotations
 
 import json
@@ -28,7 +29,7 @@ class TelegramState:
     (or ``~/.jarvis/telegram.json``).
     """
 
-    _default: "TelegramState | None" = None
+    _default: TelegramState | None = None
     _lock = threading.Lock()
 
     def __init__(self, store_path: Path | None = None) -> None:
@@ -47,13 +48,10 @@ class TelegramState:
                 self.bot_token = env_token
 
     @classmethod
-    def default(cls) -> "TelegramState":
+    def default(cls) -> TelegramState:
         with cls._lock:
             if cls._default is None:
-                data_dir = Path(
-                    os.environ.get("JARVIS_DATA_DIR")
-                    or (Path.home() / ".jarvis")
-                )
+                data_dir = Path(os.environ.get("JARVIS_DATA_DIR") or (Path.home() / ".jarvis"))
                 cls._default = cls(data_dir / "telegram.json")
             return cls._default
 
@@ -92,6 +90,8 @@ class TelegramState:
         )
 
     def _load(self) -> None:
+        if self._store_path is None:
+            return
         try:
             data = json.loads(self._store_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):

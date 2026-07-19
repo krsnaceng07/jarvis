@@ -155,7 +155,7 @@ class DoctorRunner:
 
         for cid, contract in self._contracts.items():
             try:
-                contract_findings = contract.detect(state_dir, cfg) or []
+                contract_findings: list[DoctorFinding] = list(contract.detect(state_dir, cfg) or [])
             except Exception as e:
                 _log.warning("doctor: contract %s raised: %s", cid, e)
                 contract_errors[cid] = str(e)

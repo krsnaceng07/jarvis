@@ -174,7 +174,7 @@ def _is_pristine(path: Path) -> bool:
 
 def _seed_config(path: Path) -> None:
     """Write the default ``config/jarvis.json`` (idempotent — only called on first run)."""
-    cfg = {
+    cfg: dict[str, object] = {
         "$schema": "./jarvis.schema.json",
         "_comment": (
             "JARVIS runtime config. Seeded by jarvis.bootstrap on "

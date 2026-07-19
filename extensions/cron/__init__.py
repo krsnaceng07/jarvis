@@ -16,7 +16,6 @@ thin and lets the extension be replaced/swapped without touching
 from __future__ import annotations
 
 from jarvis_sdk import (
-    CronDecl,
     PluginApi,
     PluginCommandContext,
     PluginCommandResult,

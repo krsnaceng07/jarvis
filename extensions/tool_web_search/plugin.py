@@ -6,7 +6,7 @@ into the OpenClaw 8-file shape.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from jarvis_sdk import (
     Err,
@@ -85,13 +85,16 @@ class WebSearchPlugin(ToolPlugin):
     def _search(self, args: dict[str, Any]) -> Result[str]:
         query = (args.get("query") or "").strip()
         mode = (args.get("mode") or "search").lower().strip()
-        items_raw = args.get("items") or []
+        items_raw: object = args.get("items") or []
         aspect = (args.get("aspect") or "general").strip() or "general"
 
         # `items` may be a list or a comma-separated string; normalize.
         items: list[str] = []
         if isinstance(items_raw, list):
-            items = [str(x).strip() for x in items_raw if str(x).strip()]
+            for entry in cast("list[object]", items_raw):
+                s = str(entry).strip()
+                if s:
+                    items.append(s)
         elif isinstance(items_raw, str):
             items = [s.strip() for s in items_raw.split(",") if s.strip()]
 

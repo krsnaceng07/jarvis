@@ -27,7 +27,7 @@ def detect_legacy(state_dir: Path, config: dict[str, Any]) -> list[DoctorFinding
     if not legacy.exists():
         return []
     try:
-        data = json.loads(legacy.read_text(encoding="utf-8"))
+        data: dict[str, object] = json.loads(legacy.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return [
             DoctorFinding(

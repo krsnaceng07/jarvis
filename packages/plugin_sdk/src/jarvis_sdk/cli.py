@@ -51,7 +51,7 @@ class CliContext:
 
     program: Any  # argparse.ArgumentParser (or compatible)
     parent_path: list[str] = field(default_factory=list)
-    config: dict = field(default_factory=dict)
+    config: dict[str, object] = field(default_factory=dict)
     workspace_dir: str | None = None
     logger: Any = None
 

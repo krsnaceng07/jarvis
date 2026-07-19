@@ -46,7 +46,7 @@ def detect_reminder_legacy(state_dir: Path, config: dict[str, Any]) -> list[Doct
     try:
         import json
 
-        data = json.loads(legacy.read_text(encoding="utf-8"))
+        data: dict[str, object] = json.loads(legacy.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return [
             DoctorFinding(

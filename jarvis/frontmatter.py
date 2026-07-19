@@ -64,7 +64,7 @@ def parse_frontmatter(text: str) -> tuple[dict[str, Any], str]:
 
     if _HAS_YAML and yaml is not None:
         try:
-            fm = yaml.safe_load(fm_raw) or {}
+            fm: dict[str, object] = yaml.safe_load(fm_raw) or {}
         except yaml.YAMLError:
             fm = _inline_parse(fm_raw)
     else:

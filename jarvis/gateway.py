@@ -3,8 +3,8 @@
 Phase 3. The gateway is a small stdlib HTTP server that:
   - Listens on a configurable host:port (default ``127.0.0.1:7433`` —
     matches the JARVIS lock-in from the migration plan).
-  - Retries on EADDRINUSE (20 × 500ms — same as OpenClaw's
-    ``EADDRINUSE_MAX_RETRIES`` × ``EADDRINUSE_RETRY_INTERVAL_MS``).
+  - Retries on EADDRINUSE (20 x 500ms — same as OpenClaw's
+    ``EADDRINUSE_MAX_RETRIES`` x ``EADDRINUSE_RETRY_INTERVAL_MS``).
   - Raises ``GatewayLockError`` when the port is held by another
     process (the OpenClaw diagnostic that powers
     ``jarvis doctor``).
@@ -18,6 +18,7 @@ keep the surface small (no websockets, no admin UI, no plugin
 reload) and let plugins register their own HTTP routes for
 LLM-facing endpoints.
 """
+
 from __future__ import annotations
 
 import errno
@@ -29,9 +30,11 @@ import time
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urlparse
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 _log = logging.getLogger("jarvis.gateway")
 
@@ -95,9 +98,7 @@ class Gateway:
     ) -> None:
         self.host = host
         self.port = port
-        self._token_path = token_path or (
-            Path.home() / ".jarvis" / "gateway.token"
-        )
+        self._token_path = token_path or (Path.home() / ".jarvis" / "gateway.token")
         self._routes: list[HttpRoute] = []
         self._server: ThreadingHTTPServer | None = None
         self._thread: threading.Thread | None = None
@@ -175,15 +176,12 @@ class Gateway:
                         e,
                     ) from e
                 raise GatewayLockError(
-                    f"failed to bind gateway socket on "
-                    f"http://{self.host}:{self.port}: {e}",
+                    f"failed to bind gateway socket on " f"http://{self.host}:{self.port}: {e}",
                     e,
                 ) from e
         if self._server is None:
             # Exhausted retries without raising — should not happen.
-            raise GatewayLockError(
-                f"could not bind gateway on {self.host}:{self.port}: {last_err}"
-            )
+            raise GatewayLockError(f"could not bind gateway on {self.host}:{self.port}: {last_err}")
         self._thread = threading.Thread(
             target=self._server.serve_forever,
             name="jarvis-gateway",
@@ -203,7 +201,9 @@ class Gateway:
             self._thread = None
         _log.info("gateway: stopped")
 
-    def handle_request(self, method: str, path: str, body: bytes, headers: dict[str, str]) -> tuple[int, dict[str, Any] | str]:
+    def handle_request(
+        self, method: str, path: str, body: bytes, headers: dict[str, str]
+    ) -> tuple[int, dict[str, Any] | str]:
         """Route a single request through the registered plugins.
 
         Returns ``(status, payload)``. Used by tests and by the
@@ -223,9 +223,7 @@ class Gateway:
         auth_header = norm_headers.get("authorization", "")
         if not auth_header.startswith("Bearer "):
             return 401, {"error": "missing bearer token"}
-        if not secrets.compare_digest(
-            auth_header[len("Bearer ") :].strip(), self.token
-        ):
+        if not secrets.compare_digest(auth_header[len("Bearer ") :].strip(), self.token):
             return 403, {"error": "invalid token"}
 
         # Plugin routes
@@ -233,11 +231,13 @@ class Gateway:
         if route is None:
             return 404, {"error": "no route", "path": path}
         try:
-            payload = route.handler(method, path, body, headers)
-            if not isinstance(payload, (dict, list, str)):
-                payload = {"result": payload}
+            raw_payload: Any = route.handler(method, path, body, headers)
+            if not isinstance(raw_payload, dict | list | str):
+                payload: dict[str, Any] | str = {"result": raw_payload}
+            else:
+                payload = cast("dict[str, Any] | str", raw_payload)
             return 200, payload
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             _log.warning("gateway: route %s raised: %s", route.path, e)
             return 500, {"error": str(e)}
 
@@ -284,7 +284,7 @@ class _GatewayRequestHandler(BaseHTTPRequestHandler):
     """One HTTP request → one call to ``Gateway.handle_request``."""
 
     # Quieter BaseHTTPRequestHandler — no per-request log line.
-    def log_message(self, format: str, *args: Any) -> None:  # noqa: A002
+    def log_message(self, format: str, *args: Any) -> None:
         return
 
     def _read_body(self) -> bytes:
@@ -309,18 +309,19 @@ class _GatewayRequestHandler(BaseHTTPRequestHandler):
 
     def _handle(self, method: str) -> None:
         # server is bound on the gateway attr by _ThreadedGatewayServer.
-        gw: Gateway = self.server.gateway  # type: ignore[attr-defined]
-        path = urlparse(self.path).path
+        gw: Gateway = cast("Gateway", self.server.gateway)  # type: ignore[attr-defined]
         body = self._read_body()
         try:
-            status, payload = gw.handle_request(
+            status_int: int
+            response_payload: dict[str, Any] | str
+            status_int, response_payload = gw.handle_request(
                 method, self.path, body, dict(self.headers.items())
             )
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             _log.warning("gateway: handler crashed: %s", e)
             self._respond(500, {"error": str(e)})
             return
-        self._respond(status, payload)
+        self._respond(status_int, response_payload)
 
     def do_GET(self) -> None:  # noqa: N802
         self._handle("GET")

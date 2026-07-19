@@ -50,12 +50,13 @@ def _load_cli_plugins(workspace: Path) -> dict[str, Any]:
     if not extensions_dir.exists():
         return _empty_collections()
 
-    ctx_template = lambda ext: PluginContext(  # noqa: E731
-        plugin_id=ext,
-        plugin_kind="tool",
-        data_dir=workspace / ".jarvis" / "extensions" / ext,
-        workspace=workspace,
-    )
+    def ctx_template(ext: str) -> PluginContext:
+        return PluginContext(
+            plugin_id=ext,
+            plugin_kind="tool",
+            data_dir=workspace / ".jarvis" / "extensions" / ext,
+            workspace=workspace,
+        )
 
     out = _empty_collections()
     for manifest_path in sorted(extensions_dir.glob("*/openclaw.plugin.json")):
@@ -81,7 +82,7 @@ def _load_cli_plugins(workspace: Path) -> dict[str, Any]:
     return out
 
 
-def _empty_collections() -> dict[str, list]:
+def _empty_collections() -> dict[str, list[Any]]:
     return {
         "tool_decls": [],
         "commands": [],

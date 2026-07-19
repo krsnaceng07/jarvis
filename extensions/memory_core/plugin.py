@@ -6,7 +6,7 @@ lands in Phase 2.5.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from jarvis_sdk import (
     Err,
@@ -16,6 +16,9 @@ from jarvis_sdk import (
     ToolParam,
     ToolPlugin,
 )
+
+if TYPE_CHECKING:
+    from .runtime import MemoryRuntime
 
 MEMORY_SEARCH_TOOL = ToolDecl(
     name="memory_search",
@@ -89,7 +92,7 @@ class MemoryCorePlugin(ToolPlugin):
             return self._get(args, MemoryRuntime.default())
         return Err(f"Unknown tool: {name}", code="UNKNOWN_TOOL")
 
-    def _search(self, args: dict[str, Any], runtime) -> Result[str]:
+    def _search(self, args: dict[str, Any], runtime: MemoryRuntime) -> Result[str]:
         query = (args.get("query") or "").strip()
         if not query:
             return Err("memory_search needs a non-empty query, sir.", code="MISSING_ARG")
@@ -100,7 +103,7 @@ class MemoryCorePlugin(ToolPlugin):
         body = "\n".join(f"  - {r['key']}: {r['value']}" for r in rows)
         return Ok(f"Memory matches for {query!r}:\n{body}")
 
-    def _get(self, args: dict[str, Any], runtime) -> Result[str]:
+    def _get(self, args: dict[str, Any], runtime: MemoryRuntime) -> Result[str]:
         key = (args.get("key") or "").strip()
         if not key:
             return Err("memory_get needs a non-empty key, sir.", code="MISSING_ARG")

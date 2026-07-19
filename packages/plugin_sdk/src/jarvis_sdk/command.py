@@ -56,7 +56,7 @@ class PluginCommandContext:
     sender_is_owner: bool = True
     args: str | None = None
     command_body: str = ""
-    config: dict = field(default_factory=dict)
+    config: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True, slots=True)

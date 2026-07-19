@@ -104,13 +104,13 @@ class PluginAgentApi:
 class PluginRunContextApi:
     """Grouped facade for run-scoped scratch state. Stubs in 1C."""
 
-    def set_run_context(self, patch: dict) -> bool:
+    def set_run_context(self, patch: dict[str, object]) -> bool:
         return False
 
-    def get_run_context(self, params: dict) -> Any:
+    def get_run_context(self, params: dict[str, object]) -> Any:
         return None
 
-    def clear_run_context(self, params: dict) -> None:
+    def clear_run_context(self, params: dict[str, object]) -> None:
         return None
 
 
@@ -118,7 +118,7 @@ class PluginRunContextApi:
 class PluginLifecycleApi:
     """Grouped facade for runtime cleanup hooks. Stubs in 1C."""
 
-    def register_runtime_lifecycle(self, lifecycle: dict) -> None:
+    def register_runtime_lifecycle(self, lifecycle: dict[str, object]) -> None:
         return None
 
 
@@ -182,7 +182,7 @@ class PluginApi:
 
     def register_command(
         self,
-        command: CommandDecl | dict,
+        command: CommandDecl | dict[str, Any],
     ) -> None:
         """Register a slash command. ``handler`` is required.
 
@@ -204,7 +204,7 @@ class PluginApi:
         self,
         register_fn: Callable[..., Any],
         *,
-        descriptors: list[CliDescriptor | dict] | None = None,
+        descriptors: list[CliDescriptor | dict[str, object]] | None = None,
     ) -> None:
         """Register a CLI subcommand.
 
@@ -215,8 +215,20 @@ class PluginApi:
         """
         norm_descriptors: list[CliDescriptor] = []
         for d in descriptors or []:
-            if isinstance(d, dict):
-                norm_descriptors.append(CliDescriptor(**d))
+            if isinstance(d, CliDescriptor):
+                norm_descriptors.append(d)
+            elif isinstance(d, dict):
+                d_typed: dict[str, object] = d
+                name_value: str = str(d_typed.get("name", ""))
+                desc_value: str = str(d_typed.get("description", ""))
+                has_sub_value: bool = bool(d_typed.get("has_subcommands", False))
+                norm_descriptors.append(
+                    CliDescriptor(
+                        name=name_value,
+                        description=desc_value,
+                        has_subcommands=has_sub_value,
+                    )
+                )
             else:
                 norm_descriptors.append(d)
         self._cli_handlers.append((register_fn, norm_descriptors))

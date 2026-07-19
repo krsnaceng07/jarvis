@@ -12,6 +12,7 @@ identical, so the extension can grow without breaking compatibility.
 Slash command: ``/jarvis <text>`` → forwards to the host's slash
 command router (the same one ``jarvis_desktop`` uses for the HUD).
 """
+
 from __future__ import annotations
 
 from jarvis_sdk import PluginApi, define_plugin_entry
@@ -23,13 +24,14 @@ from .runtime import TelegramState
 def _register(api: PluginApi) -> None:
     """Register the Telegram channel surface with the host's PluginApi."""
     state = TelegramState.default()
+    channel = TelegramChannel(state)
 
     # Channel capability (single-active-slot pattern from OpenClaw).
     api.register_channel(
         {
             "id": "telegram",
-            "send": TelegramChannel(state).send,
-            "listen": TelegramChannel(state).listen,
+            "send": channel.send,
+            "listen": channel.listen,
             "config_schema": {
                 "type": "object",
                 "properties": {

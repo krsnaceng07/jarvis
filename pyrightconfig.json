@@ -9,6 +9,7 @@
   ],
   "extraPaths": [
     "apps/desktop/src",
+    "apps/cli/src",
     "packages/plugin_sdk/src"
   ],
   "exclude": [

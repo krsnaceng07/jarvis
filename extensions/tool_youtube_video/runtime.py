@@ -18,7 +18,6 @@ Mirrors OpenClaw's per-extension ``runtime.ts`` pattern.
 #   fallback is "try manual, then generated, then any".
 # - SIM105: same; `contextlib.suppress` would change behavior (we
 #   need the inner block's success/failure to drive the next block).
-
 from __future__ import annotations
 
 import re
@@ -28,6 +27,7 @@ import tkinter as tk
 from datetime import datetime
 from pathlib import Path
 from tkinter import simpledialog
+from typing import Any, cast
 from urllib.parse import quote_plus
 
 import requests  # type: ignore[import-not-found]
@@ -76,7 +76,7 @@ def _ask_for_url(prompt_text: str = "YouTube video URL:") -> str | None:
         if root is None:
             root = tk.Tk()
             root.withdraw()
-        url = simpledialog.askstring("J.A.R.V.I.S", prompt_text, parent=root)
+        url = simpledialog.askstring("J.A.R.V.I.S", prompt_text, parent=cast("Any", root))
         return url.strip() if url else None
     except Exception as e:
         print(f"[YouTube] URL dialog failed: {e}")
@@ -110,12 +110,12 @@ def scrape_first_video_url(query: str) -> str | None:
     return None
 
 
-def scrape_video_info(video_id: str) -> dict:
+def scrape_video_info(video_id: str) -> dict[str, object]:
     url = f"https://www.youtube.com/watch?v={video_id}"
     try:
         r = requests.get(url, headers=HEADERS, timeout=12)
         html = r.text
-        info: dict = {}
+        info: dict[str, object] = {}
         for key, pattern in [
             ("title", r'"title":\{"runs":\[\{"text":"([^"]+)"'),
             ("channel", r'"ownerChannelName":"([^"]+)"'),
@@ -137,24 +137,29 @@ def scrape_video_info(video_id: str) -> dict:
         return info
     except Exception as e:
         print(f"[YouTube] info scrape failed: {e}")
-        return {}
+        return cast("dict[str, object]", {})
 
 
-def scrape_trending(region: str = "TR", max_results: int = 8) -> list[dict]:
+def scrape_trending(region: str = "TR", max_results: int = 8) -> list[dict[str, object]]:
     url = f"https://www.youtube.com/feed/trending?gl={region.upper()}"
     try:
         r = requests.get(url, headers=HEADERS, timeout=12)
         html = r.text
         titles = re.findall(r'"title":\{"runs":\[\{"text":"([^"]+)"\}\]', html)
         channels = re.findall(r'"ownerText":\{"runs":\[\{"text":"([^"]+)"', html)
-        results: list[dict] = []
+        results: list[dict[str, object]] = []
         seen: set[str] = set()
         for i, title in enumerate(titles):
             if title in seen or len(title) < 5:
                 continue
             seen.add(title)
             channel = channels[i] if i < len(channels) else "Unknown"
-            results.append({"rank": len(results) + 1, "title": title, "channel": channel})
+            entry: dict[str, object] = {
+                "rank": len(results) + 1,
+                "title": title,
+                "channel": channel,
+            }
+            results.append(entry)
             if len(results) >= max_results:
                 break
         return results
@@ -172,8 +177,9 @@ def get_transcript(video_id: str) -> str | None:
     except ImportError:
         return None
     try:
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
-        transcript = None
+        api: Any = YouTubeTranscriptApi
+        transcript_list: Any = api.list_transcripts(video_id)
+        transcript: Any = None
         lang_priority = [
             "en",
             "tr",
@@ -201,8 +207,8 @@ def get_transcript(video_id: str) -> str | None:
                     break
         if transcript is None:
             return None
-        fetched = transcript.fetch()
-        return " ".join(entry["text"] for entry in fetched)
+        fetched: Any = transcript.fetch()
+        return " ".join(str(entry["text"]) for entry in fetched)
     except Exception as e:
         print(f"[YouTube] transcript fetch failed: {e}")
         return None

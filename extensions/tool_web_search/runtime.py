@@ -13,6 +13,10 @@ from __future__ import annotations
 import json
 import sys
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 def _get_base_dir() -> Path:
@@ -45,27 +49,30 @@ def openrouter_chat(query: str) -> str:
     )
 
 
-def ddg_search(query: str, max_results: int = 6) -> list[dict]:
+def ddg_search(query: str, max_results: int = 6) -> list[dict[str, str]]:
     """DuckDuckGo text search. Returns ``[{"title", "snippet", "url"}]``."""
     try:
         from ddgs import DDGS  # type: ignore[import-not-found]
     except ImportError:
         from duckduckgo_search import DDGS  # type: ignore[no-redef,import-not-found]
 
-    results: list[dict] = []
+    results: list[dict[str, str]] = []
     with DDGS() as ddgs:  # type: ignore[no-redef]
-        for r in ddgs.text(query, max_results=max_results):
-            results.append(
-                {
-                    "title": r.get("title", ""),
-                    "snippet": r.get("body", ""),
-                    "url": r.get("href", ""),
-                }
-            )
+        ddgs_obj: Any = ddgs
+        text_fn: Callable[..., Any] = ddgs_obj.text
+        for r in text_fn(query, max_results=max_results):
+            r_obj: Any = r
+            r_dict: dict[str, object] = dict(r_obj)  # type: ignore[arg-type]
+            row: dict[str, str] = {
+                "title": str(r_dict.get("title", "") or ""),
+                "snippet": str(r_dict.get("body", "") or ""),
+                "url": str(r_dict.get("href", "") or ""),
+            }
+            results.append(row)
     return results
 
 
-def format_ddg(query: str, results: list[dict]) -> str:
+def format_ddg(query: str, results: list[dict[str, str]]) -> str:
     """Render DDG results as a human-readable text block."""
     if not results:
         return f"No results found for: {query}"

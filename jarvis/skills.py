@@ -22,7 +22,7 @@ OpenClaw's canonical example is ``skills/weather/SKILL.md``::
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -77,12 +77,19 @@ def parse_skill(skill_md: Path) -> SkillDecl | None:
         _log.warning("skills: %s missing name/description", skill_md)
         return None
 
-    metadata = fm.get("metadata") or {}
-    openclaw_meta = metadata.get("openclaw", {}) if isinstance(metadata, dict) else {}
-    requires = openclaw_meta.get("requires", {}) if isinstance(openclaw_meta, dict) else {}
-    bins = requires.get("bins", []) if isinstance(requires, dict) else []
-    if not isinstance(bins, list):
-        bins = []
+    metadata: dict[str, object] = cast("dict[str, object]", fm.get("metadata") or {})
+    openclaw_meta: dict[str, object] = (
+        cast("dict[str, object]", metadata.get("openclaw", {}))
+        if isinstance(metadata, dict)
+        else {}
+    )
+    requires: dict[str, object] = (
+        cast("dict[str, object]", openclaw_meta.get("requires", {}))
+        if isinstance(openclaw_meta, dict)
+        else {}
+    )
+    bins_raw: object = requires.get("bins", []) if isinstance(requires, dict) else []
+    bins: list[object] = list(cast("list[object]", bins_raw)) if isinstance(bins_raw, list) else []
     emoji = str(openclaw_meta.get("emoji", "")).strip() if isinstance(openclaw_meta, dict) else ""
 
     return SkillDecl(

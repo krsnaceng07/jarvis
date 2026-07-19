@@ -20,12 +20,9 @@ Full OpenClaw parity is a Phase 3.5+ follow-up.
 
 from __future__ import annotations
 
-import io
 import json
 import socket
 import tempfile
-import threading
-import time
 from http.client import HTTPConnection
 from pathlib import Path
 from unittest.mock import patch
@@ -59,10 +56,12 @@ class TestHttpRoute:
         assert r.match == "prefix"
 
     def test_frozen_dataclass(self) -> None:
+        from dataclasses import FrozenInstanceError
+
         from jarvis.gateway import HttpRoute
 
         r = HttpRoute(path="/x", handler=lambda *a, **k: {})
-        with pytest.raises(Exception):  # FrozenInstanceError
+        with pytest.raises(FrozenInstanceError):
             r.path = "/y"  # type: ignore[misc]
 
 
@@ -77,21 +76,15 @@ class TestGatewayRouteDispatch:
         return gw, []
 
     def test_health_endpoint(self) -> None:
-        from jarvis.gateway import HttpRoute
-
         gw, _ = self._setup()
         # No token needed for /health.
-        status, payload = gw.handle_request(
-            "GET", "/health", b"", {"authorization": ""}
-        )
+        status, payload = gw.handle_request("GET", "/health", b"", {"authorization": ""})
         assert status == 200
         assert payload == {"status": "ok"}
 
     def test_missing_token_is_401(self) -> None:
         gw, _ = self._setup()
-        status, payload = gw.handle_request(
-            "POST", "/v1/x", b"{}", {"authorization": ""}
-        )
+        status, payload = gw.handle_request("POST", "/v1/x", b"{}", {"authorization": ""})
         assert status == 401
         assert "bearer" in payload["error"].lower()
 
@@ -188,9 +181,9 @@ class TestGatewayRouteDispatch:
 
     def test_add_raw_validates_keys(self) -> None:
         gw, _ = self._setup()
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="missing path/handler"):
             gw.add_raw({"path": "/v1/x"})  # missing handler
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="missing path/handler"):
             gw.add_raw({"handler": lambda *a, **k: {}})  # missing path
 
     def test_add_raw_normalises(self) -> None:
@@ -280,7 +273,7 @@ class TestGatewayBindAndRetry:
             blocker.close()
 
     def test_retry_constants_match_openclaw(self) -> None:
-        """OpenClaw's gateway uses 20 × 500ms retries on EADDRINUSE.
+        """OpenClaw's gateway uses 20 x 500ms retries on EADDRINUSE.
 
         We don't drive a full release-then-rebind here because
         Windows TIME_WAIT keeps the port busy for ~30s after the
@@ -321,8 +314,6 @@ class TestGatewayLiveServer:
         gw.start()
         # Find the actual port the server bound to (we passed 0 to let
         # the OS pick a free port for the test).
-        server: socket.socket = gw._server.server_address  # type: ignore[union-attr]
-        # server.server_address is the bind tuple (host, port).
         port = gw._server.server_address[1]  # type: ignore[union-attr]
         return gw, port
 
@@ -377,28 +368,34 @@ class TestTelegramState:
     def test_default_persists_to_home(self, tmp_path: Path, monkeypatch) -> None:
         from extensions.telegram import runtime
 
+        # Use a placeholder-shaped token. The literal is a test
+        # fixture, not a real credential — the S105 check is
+        # over-zealous for our test-only bot tokens.
+        _dummy = "test:token-123"
+
         monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
         # Reset cached default.
         runtime.TelegramState._default = None
         state = runtime.TelegramState.default()
         assert state.bot_token == ""
         assert state.paired_chat_id == ""
-        state.set_bot_token("123:abc")
+        state.set_bot_token(_dummy)
         state.set_paired_chat_id("999")
         # Reload
         runtime.TelegramState._default = None
         again = runtime.TelegramState.default()
-        assert again.bot_token == "123:abc"
+        assert again.bot_token == _dummy
         assert again.paired_chat_id == "999"
 
     def test_env_token_overrides(self, tmp_path: Path, monkeypatch) -> None:
         from extensions.telegram import runtime
 
+        _env_token = "env-fixture-token"  # noqa: S105 (test fixture)
         monkeypatch.setenv("JARVIS_DATA_DIR", str(tmp_path))
-        monkeypatch.setenv("JARVIS_TELEGRAM_BOT_TOKEN", "envtoken")
+        monkeypatch.setenv("JARVIS_TELEGRAM_BOT_TOKEN", _env_token)
         runtime.TelegramState._default = None
         state = runtime.TelegramState.default()
-        assert state.bot_token == "envtoken"
+        assert state.bot_token == _env_token
 
     def test_set_polling_interval_min_1(self, tmp_path: Path, monkeypatch) -> None:
         from extensions.telegram import runtime
@@ -447,9 +444,7 @@ class TestTelegramChannelSend:
             captured["url"] = url
             captured["json"] = json
             captured["timeout"] = timeout
-            return FakeResponse(
-                {"ok": True, "result": {"message_id": 42}}
-            )
+            return FakeResponse({"ok": True, "result": {"message_id": 42}})
 
         import httpx
 
@@ -600,9 +595,8 @@ class TestTelegramPluginEntry:
         assert "network:outbound" in entry.permissions
 
     def test_register_adds_channel_and_doctor(self) -> None:
+        from extensions.telegram import _register
         from jarvis_sdk import PluginApi, PluginContext
-
-        from extensions.telegram import _register, entry
 
         ctx = PluginContext(
             plugin_id="telegram",
@@ -628,9 +622,7 @@ class TestCliPhase3Commands:
         from jarvis_cli.main import _build_parser_v2
 
         parser = _build_parser_v2()
-        args = parser.parse_args(
-            ["gateway", "start", "--host", "127.0.0.1", "--port", "7433"]
-        )
+        args = parser.parse_args(["gateway", "start", "--host", "127.0.0.1", "--port", "7433"])
         assert args.command == "gateway"
         assert args.subcommand == "start"
         assert args.host == "127.0.0.1"
@@ -647,11 +639,12 @@ class TestCliPhase3Commands:
     def test_parser_accepts_telegram_setup_with_token(self) -> None:
         from jarvis_cli.main import _build_parser_v2
 
+        _token = "test:parser-fixture"  # noqa: S105 (test fixture)
         parser = _build_parser_v2()
-        args = parser.parse_args(["telegram", "setup", "--token", "123:abc"])
+        args = parser.parse_args(["telegram", "setup", "--token", _token])
         assert args.command == "telegram"
         assert args.subcommand == "setup"
-        assert args.token == "123:abc"
+        assert args.token == _token
         assert args.reset is False
 
     def test_parser_accepts_telegram_setup_reset(self) -> None:
@@ -687,6 +680,8 @@ class TestCliPhase3Commands:
 
 class TestCliGatewayStatus:
     def test_status_reports_free_port(self, tmp_path: Path, monkeypatch) -> None:
+        from argparse import Namespace
+
         from jarvis_cli.main import _cmd_gateway_status
 
         # Pick a free port.
@@ -695,8 +690,7 @@ class TestCliGatewayStatus:
         port = s.getsockname()[1]
         s.close()
         monkeypatch.setattr("jarvis.gateway.DEFAULT_PORT", port)
-        args = type("A", (), {})()  # empty Namespace-like
         # Even with no running gateway, the status check should NOT
         # return 0 if the port is free.
-        rc = _cmd_gateway_status(args, tmp_path)
+        rc = _cmd_gateway_status(Namespace(), tmp_path)
         assert rc == 1

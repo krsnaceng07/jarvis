@@ -103,7 +103,7 @@ class CronTable:
         if self._store_path is None:
             return
         self._store_path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {
+        payload: dict[str, dict[str, object]] = {
             jid: {
                 "id": j.id,
                 "schedule": j.schedule,

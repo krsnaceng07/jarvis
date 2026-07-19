@@ -13,7 +13,7 @@ Free-text (no leading ``/``) falls through to the LLM as before.
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from jarvis_sdk import CommandDecl, PluginCommandContext, PluginCommandResult
 
@@ -42,7 +42,7 @@ class CommandRouter:
         commands: list[CommandDecl],
         *,
         ui: JarvisUI | None = None,
-        config: dict | None = None,
+        config: dict[str, Any] | None = None,
     ) -> None:
         # Index by name for O(1) lookup. Last-write-wins on collisions.
         self._by_name: dict[str, CommandDecl] = {c.name: c for c in commands}

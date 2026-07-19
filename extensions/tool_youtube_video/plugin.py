@@ -178,14 +178,17 @@ class YouTubeVideoPlugin(ToolPlugin):
 
     def _trending(self, args: dict[str, Any]) -> Result[str]:
         region = (args.get("region") or "TR").upper()
-        trending = runtime.scrape_trending(region=region, max_results=8)
+        trending: list[dict[str, object]] = runtime.scrape_trending(region=region, max_results=8)
         if not trending:
             return Err(
                 f"Could not fetch trending videos for region {region}, sir.",
                 code="SCRAPE_FAILED",
             )
         lines = [f"Top trending videos in {region}:"]
-        lines += [f"{v['rank']}. {v['title']} — {v['channel']}" for v in trending]
+        lines += [
+            f"{v.get('rank', '?')}. {v.get('title', '?')} — {v.get('channel', '?')}"
+            for v in trending
+        ]
         return Ok("\n".join(lines))
 
 

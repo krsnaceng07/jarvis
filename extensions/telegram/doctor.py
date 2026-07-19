@@ -2,16 +2,16 @@
 
 Mirrors the pattern in ``extensions/memory_core/doctor.py``.
 """
+
 from __future__ import annotations
 
 import os
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from jarvis.doctor import DoctorFinding
 
 if TYPE_CHECKING:
-    pass
+    from pathlib import Path
 
 
 def detect_telegram_credentials(state_dir: Path, config: dict[str, Any]) -> list[DoctorFinding]:
