@@ -125,9 +125,11 @@ class TestJarvisDesktopImport:
         """`from jarvis_desktop.app import main, JarvisLive, TOOL_DECLARATIONS` works."""
         from jarvis_desktop.app import TOOL_DECLARATIONS, JarvisLive, main
 
-        # 20 tools: 18 hardcoded + 2 from extensions/*/openclaw.plugin.json
-        # (tool_weather + tool_reminder). Phase 2 will replace the rest.
-        assert len(TOOL_DECLARATIONS) == 20
+        # Phase 2: 3 hardcoded (agent_task, shutdown_jarvis, save_memory)
+        # + 11 from extensions (weather, reminder, open_app, web_search,
+        # send_message, youtube_video, memory_search, memory_get,
+        # cron_schedule, cron_list, cron_cancel) = 14 total.
+        assert len(TOOL_DECLARATIONS) == 14
         assert callable(main)
         assert JarvisLive.__name__ == "JarvisLive"
 
@@ -400,24 +402,38 @@ class TestPluginSdkLoader:
     extensions directly.
     """
 
-    def test_load_plugins_returns_four_collections(self) -> None:
-        """_load_plugins returns a 4-tuple of (decls, dispatch, commands, cli)."""
+    def test_load_plugins_returns_eight_collections(self) -> None:
+        """_load_plugins returns the 8-tuple
+        ``(decls, dispatch, commands, cli, skills, hooks, cron, doctor)``."""
         from jarvis_desktop.app import _load_plugins
 
         result = _load_plugins()
         assert isinstance(result, tuple)
-        assert len(result) == 4
-        tool_decls, dispatch, commands, cli = result
+        assert len(result) == 8
+        (
+            tool_decls,
+            dispatch,
+            commands,
+            cli,
+            skills,
+            hooks,
+            cron_jobs,
+            doctor_contracts,
+        ) = result
         assert isinstance(tool_decls, list)
         assert isinstance(dispatch, dict)
         assert isinstance(commands, list)
         assert isinstance(cli, list)
+        assert isinstance(skills, list)
+        assert isinstance(hooks, list)
+        assert isinstance(cron_jobs, list)
+        assert isinstance(doctor_contracts, list)
 
     def test_load_plugins_dispatch_values_are_pairs(self) -> None:
         """Each dispatch entry is (plugin_instance, call_name)."""
         from jarvis_desktop.app import _load_plugins
 
-        _decls, dispatch, _commands, _cli = _load_plugins()
+        _decls, dispatch, _commands, _cli, _skills, _hooks, _cron, _doctor = _load_plugins()
         for tool_name, value in dispatch.items():
             assert isinstance(value, tuple)
             assert len(value) == 2
@@ -429,7 +445,7 @@ class TestPluginSdkLoader:
         """Each tool decl has name + description + parameters OBJECT schema."""
         from jarvis_desktop.app import _load_plugins
 
-        tool_decls, _dispatch, _commands, _cli = _load_plugins()
+        tool_decls, _dispatch, _commands, _cli, _skills, _hooks, _cron, _doctor = _load_plugins()
         for d in tool_decls:
             assert "name" in d
             assert "description" in d
@@ -461,7 +477,7 @@ class TestAppManifestLoader:
         """The plugin loader finds extensions/tool_weather/openclaw.plugin.json."""
         from jarvis_desktop.app import _load_plugins
 
-        tool_decls, _dispatch, _commands, _cli = _load_plugins()
+        tool_decls, _dispatch, _commands, _cli, _skills, _hooks, _cron, _doctor = _load_plugins()
         names = [d["name"] for d in tool_decls]
         assert "weather_report" in names
 
@@ -469,7 +485,7 @@ class TestAppManifestLoader:
         """The plugin loader finds extensions/tool_reminder/openclaw.plugin.json."""
         from jarvis_desktop.app import _load_plugins
 
-        tool_decls, _dispatch, _commands, _cli = _load_plugins()
+        tool_decls, _dispatch, _commands, _cli, _skills, _hooks, _cron, _doctor = _load_plugins()
         names = [d["name"] for d in tool_decls]
         assert "reminder" in names
 
@@ -477,7 +493,7 @@ class TestAppManifestLoader:
         """The dispatch map covers every tool declared by every loaded plugin."""
         from jarvis_desktop.app import _load_plugins
 
-        tool_decls, dispatch, _commands, _cli = _load_plugins()
+        tool_decls, dispatch, _commands, _cli, _skills, _hooks, _cron, _doctor = _load_plugins()
         for d in tool_decls:
             assert d["name"] in dispatch, f"missing dispatch for {d['name']!r}"
 
@@ -486,7 +502,7 @@ class TestAppManifestLoader:
         from jarvis_desktop.app import _load_plugins
         from jarvis_sdk import CommandDecl
 
-        _tool_decls, _dispatch, commands, _cli = _load_plugins()
+        _tool_decls, _dispatch, commands, _cli, _skills, _hooks, _cron, _doctor = _load_plugins()
         assert len(commands) >= 1, "at least the reminders command must be registered"
         for c in commands:
             assert isinstance(c, CommandDecl)
@@ -502,14 +518,19 @@ class TestAppManifestLoader:
         from jarvis_desktop.app import TOOL_DECLARATIONS
 
         names = [d["name"] for d in TOOL_DECLARATIONS]
-        # 6 tools loaded from extensions (PR 1A + 1B + 1C):
+        # 11 tools loaded from extensions (PR 1A + 1B + 1C + Phase 2):
         for expected in (
-            "weather_report",
-            "reminder",
-            "open_app",
-            "web_search",
-            "send_message",
-            "youtube_video",
+            "weather_report",  # 1A
+            "reminder",  # 1B
+            "open_app",  # 1C
+            "web_search",  # 1C
+            "send_message",  # 1C
+            "youtube_video",  # 1C
+            "memory_search",  # Phase 2 (memory_core)
+            "memory_get",  # Phase 2 (memory_core)
+            "cron_schedule",  # Phase 2 (cron)
+            "cron_list",  # Phase 2 (cron)
+            "cron_cancel",  # Phase 2 (cron)
         ):
             assert expected in names, f"missing tool {expected!r} in TOOL_DECLARATIONS"
         # No duplicates.

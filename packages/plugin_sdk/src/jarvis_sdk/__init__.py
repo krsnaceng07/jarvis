@@ -61,8 +61,14 @@ from .contract import (
     ToolPlugin,
 )
 
+# Cron types
+from .cron import CronDecl
+
 # Entry (define_plugin_entry helper)
 from .entry import PluginEntry, define_plugin_entry
+
+# Hook types
+from .hook import HookHandler, HookName, HookRegistration
 
 # Manifest types
 from .manifest import (
@@ -75,6 +81,9 @@ from .manifest import (
 
 # Result type (Ok / Err / Result)
 from .result import Err, Ok, Result, ResultNone
+
+# Skill types
+from .skill import SkillDecl
 
 __all__ = [
     # Result
@@ -107,6 +116,14 @@ __all__ = [
     "CliContext",
     "CliDescriptor",
     "CliRegistrar",
+    # Cron
+    "CronDecl",
+    # Hooks
+    "HookHandler",
+    "HookName",
+    "HookRegistration",
+    # Skills
+    "SkillDecl",
     # API
     "PluginAgentApi",
     "PluginApi",

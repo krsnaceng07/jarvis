@@ -10,7 +10,9 @@ resolution-markers = [
 members = [
     "jarvis",
     "jarvis-cli",
+    "jarvis-cron",
     "jarvis-desktop",
+    "jarvis-memory-core",
     "jarvis-plugin-sdk",
     "jarvis-tool-open-app",
     "jarvis-tool-reminder",
@@ -912,8 +914,19 @@ dev = [
 
 [[package]]
 name = "jarvis-cli"
-version = "0.0.1"
-source = { virtual = "apps/cli" }
+version = "0.1.0"
+source = { editable = "apps/cli" }
+dependencies = [
+    { name = "jarvis-plugin-sdk" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" }]
+
+[[package]]
+name = "jarvis-cron"
+version = "0.1.0"
+source = { virtual = "extensions/cron" }
 
 [[package]]
 name = "jarvis-desktop"
@@ -984,6 +997,11 @@ requires-dist = [
     { name = "youtube-transcript-api", specifier = ">=0.6.0" },
 ]
 provides-extras = ["windows", "macos", "linux", "all"]
+
+[[package]]
+name = "jarvis-memory-core"
+version = "0.1.0"
+source = { virtual = "extensions/memory_core" }
 
 [[package]]
 name = "jarvis-plugin-sdk"

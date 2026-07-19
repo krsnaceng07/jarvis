@@ -58,6 +58,10 @@ members = [
     "extensions/*",
 ]
 
+[tool.uv.sources]
+jarvis-plugin-sdk = { workspace = true }
+jarvis = { workspace = true }
+
 # Modern dependency groups (PEP 735). Replaces deprecated [tool.uv.dev-dependencies].
 [dependency-groups]
 dev = [

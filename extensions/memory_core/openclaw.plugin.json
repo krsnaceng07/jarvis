@@ -1,0 +1,27 @@
+{
+  "id": "memory_core",
+  "activation": "on_startup",
+  "kind": "memory",
+  "contracts": {
+    "tools": ["memory_search", "memory_get"],
+    "memory_capability": true
+  },
+  "permissions": ["fs:read:core", "fs:write:core"],
+  "tools": [
+    {
+      "name": "memory_search",
+      "description": "Searches JARVIS's long-term memory by substring.",
+      "parameters": [
+        { "name": "query", "type": "string", "required": true, "description": "Substring to search for." },
+        { "name": "limit", "type": "integer", "required": false, "description": "Max results (default: 20)." }
+      ]
+    },
+    {
+      "name": "memory_get",
+      "description": "Reads a single memory entry by key.",
+      "parameters": [
+        { "name": "key", "type": "string", "required": true, "description": "The memory key to read." }
+      ]
+    }
+  ]
+}

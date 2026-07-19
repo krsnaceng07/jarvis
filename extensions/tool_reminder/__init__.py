@@ -71,13 +71,19 @@ def _register(api: PluginApi) -> None:
         }
     )
 
-    # Doctor / migration contract for legacy data.
+    # Doctor / migration contract for legacy data. The runner
+    # (jarvis/doctor.py) calls detect(state_dir, config) to find
+    # legacy data; we ship a real closure here so the contract is
+    # actually runnable.
+    from .doctor import detect_reminder_legacy
+
     api.register_doctor_contract(
         {
             "id": "tool_reminder.legacy_xxxix_oras",
             "version": 1,
             "detect_label": "Legacy MARK XXXIX-OR reminders",
             "detect_path": "core/reminders.json",
+            "detect": detect_reminder_legacy,
         }
     )
 

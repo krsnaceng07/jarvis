@@ -1,0 +1,9 @@
+[project]
+name = "jarvis-memory-core"
+version = "0.1.0"
+description = "JARVIS long-term memory extension (Phase 2 mirror of OpenClaw's memory-core)."
+requires-python = ">=3.13"
+dependencies = []
+
+[tool.uv]
+package = false

@@ -31,6 +31,9 @@ if TYPE_CHECKING:
     from .context import PluginContext
 
 from .cli import CliDescriptor  # used at runtime in register_cli()
+from .cron import CronDecl  # noqa: TCH001  (used in instance annotations below)
+from .hook import HookRegistration
+from .skill import SkillDecl  # noqa: TCH001
 
 # ── Command + CLI registration descriptors ──────────────────────────
 
@@ -144,6 +147,9 @@ class PluginApi:
         self._channel: dict[str, Any] | None = None
         self._doctor_contracts: list[dict[str, Any]] = []
         self._http_handlers: list[dict[str, Any]] = []
+        self._skills: list[SkillDecl] = []
+        self._hooks: list[HookRegistration] = []
+        self._cron_jobs: list[CronDecl] = []
 
         # ── Grouped facades (mirror OpenClaw) ───────────────────────
         self.session = PluginSessionApi()
@@ -256,6 +262,56 @@ class PluginApi:
         handler["_owner_id"] = self._ctx.plugin_id
         self._http_handlers.append(handler)
 
+    def register_skill(self, skill: SkillDecl) -> None:
+        """Register a declarative skill (markdown frontmatter + body).
+
+        Mirrors OpenClaw's ``skills/<name>/SKILL.md`` pattern. The host
+        injects the skill's body into the system prompt and uses the
+        description to drive tool-selection hints.
+        """
+        if not skill.name or not skill.description:
+            raise ValueError(
+                f"SkillDecl must have non-empty name and description; "
+                f"got name={skill.name!r}, description={skill.description!r}"
+            )
+        self._skills.append(skill)
+
+    def register_hook(
+        self,
+        name: str,
+        handler: Callable[..., Any],
+        *,
+        priority: int = 0,
+        timeout_ms: int | None = None,
+    ) -> None:
+        """Register a hook handler for the named event.
+
+        Mirrors OpenClaw's ``api.on(hookName, handler, opts)``. The
+        host fires events at well-defined points in the agent loop
+        and dispatches to every subscriber in priority order.
+        """
+        if not callable(handler):
+            raise TypeError(
+                f"Hook handler for {name!r} must be callable; " f"got {type(handler).__name__}"
+            )
+        self._hooks.append(
+            HookRegistration(
+                name=name,
+                handler=handler,
+                priority=priority,
+                timeout_ms=timeout_ms,
+            )
+        )
+
+    def register_cron(self, job: CronDecl) -> None:
+        """Register a scheduled job (cron expression or one-shot)."""
+        if not job.id or not job.schedule or not callable(job.handler):
+            raise ValueError(
+                f"CronDecl must have id, schedule, and callable handler; "
+                f"got id={job.id!r}, schedule={job.schedule!r}"
+            )
+        self._cron_jobs.append(job)
+
     # ── Read-back accessors (host uses these) ─────────────────────────
 
     @property
@@ -293,6 +349,18 @@ class PluginApi:
     @property
     def http_handlers(self) -> list[dict[str, Any]]:
         return list(self._http_handlers)
+
+    @property
+    def skills(self) -> list[SkillDecl]:
+        return list(self._skills)
+
+    @property
+    def hooks(self) -> list[HookRegistration]:
+        return list(self._hooks)
+
+    @property
+    def cron_jobs(self) -> list[CronDecl]:
+        return list(self._cron_jobs)
 
 
 __all__ = [
