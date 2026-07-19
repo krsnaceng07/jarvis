@@ -1,0 +1,241 @@
+[project]
+name = "jarvis"
+version = "0.1.0-rc1"
+description = "Personal AI assistant, OpenClaw architecture (Python port)"
+readme = "readme.md"
+license = { text = "MIT" }
+authors = [{ name = "JARVIS architect" }]
+requires-python = ">=3.12"
+keywords = ["ai", "assistant", "jarvis", "openclaw", "plugin-sdk", "agent"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+# Runtime deps live in member apps/packages/extensions. Root has none.
+dependencies = []
+
+[project.urls]
+Homepage = "https://github.com/jarvis-ai/jarvis"
+Documentation = "https://github.com/jarvis-ai/jarvis/tree/main/docs"
+Repository = "https://github.com/jarvis-ai/jarvis.git"
+Issues = "https://github.com/jarvis-ai/jarvis/issues"
+
+# ─────────────────────────────────────────────────────────────────────
+# OpenClaw-style schema versioning (single source of truth)
+# Bump rules: state/agent/config/memory only when older readers cannot tolerate.
+# ─────────────────────────────────────────────────────────────────────
+[tool.jarvis]
+# Schema versions — bump when older readers cannot tolerate new shape.
+schema_state = 1
+schema_agent = 1
+schema_config = 1
+schema_memory = 1
+# Entrypoints per app (jarvis_desktop.app:main, jarvis_cli.app:main).
+entrypoint_desktop = "jarvis_desktop.app:main"
+entrypoint_cli = "jarvis_cli.app:main"
+default_gateway_port = 7433
+
+# ─────────────────────────────────────────────────────────────────────
+# uv workspace — apps/, packages/, extensions/ are all workspace members.
+# OpenClaw uses pnpm-workspace; this is the Python/uv equivalent.
+# ─────────────────────────────────────────────────────────────────────
+[tool.uv]
+managed = true
+
+[tool.uv.workspace]
+members = [
+    "apps/*",
+    "packages/*",
+    "extensions/*",
+]
+
+# Modern dependency groups (PEP 735). Replaces deprecated [tool.uv.dev-dependencies].
+[dependency-groups]
+dev = [
+    "ruff>=0.6.0",
+    "pyright>=1.1.370",
+    "pytest>=8.3.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=5.0.0",
+    "hypothesis>=6.110.0",
+    "pre-commit>=4.0.0",
+]
+
+# ─────────────────────────────────────────────────────────────────────
+# Ruff — replaces ESLint+oxlint from OpenClaw. Lint + format in one tool.
+# Rules calibrated for the JARVIS codebase: strict on correctness,
+# lenient on style (formatter handles it).
+# ─────────────────────────────────────────────────────────────────────
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = [
+    ".venv",
+    "build",
+    "dist",
+    "openclaw-main",     # upstream reference, do not lint
+    "**/legacy_*",       # transitional code, removed per migration plan
+]
+
+[tool.ruff.lint]
+# Selected rule families (mirrors OpenClaw's oxlint rule selection but for Python).
+select = [
+    "E", "W",   # pycodestyle errors + warnings
+    "F",        # pyflakes
+    "I",        # isort (imports)
+    "N",        # pep8-naming
+    "UP",       # pyupgrade
+    "B",        # flake8-bugbear
+    "C4",       # flake8-comprehensions
+    "SIM",      # flake8-simplify
+    "RUF",      # ruff-specific
+    "ASYNC",    # flake8-async
+    "S",        # flake8-bandit (security)
+    "TCH",      # flake8-type-checking
+    "PIE",      # flake8-pie
+    "PT",       # flake8-pytest-style
+    "RET",      # flake8-return
+    "PL",       # pylint
+    "TID",      # flake8-tidy-imports
+]
+ignore = [
+    "E501",     # line length — handled by formatter
+    "PLR0913",  # too many arguments — common in dataclasses
+    "PLR2004",  # magic value — useful in tests
+    "S101",     # assert — required for pytest
+    "B008",     # function call in default argument — required for pydantic
+    "N818",     # exception name ending in Error — keep our naming
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["S101", "S106", "PLR2004", "N802"]
+"**/legacy_*/*.py" = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "PL"]  # frozen legacy
+"**/__init__.py" = ["F401"]  # re-exports allowed
+"tools/**/*.py" = ["T201"]   # print allowed in scripts
+
+[tool.ruff.lint.isort]
+known-first-party = ["jarvis_sdk", "jarvis_desktop", "jarvis_cli"]
+combine-as-imports = true
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+
+# ─────────────────────────────────────────────────────────────────────
+# Pyright — Python equivalent of OpenClaw's `tsgo` strict mode.
+# ─────────────────────────────────────────────────────────────────────
+[tool.pyright]
+include = [
+    "apps",
+    "packages",
+    "extensions",
+    "tools",
+    "tests",
+    "examples",
+]
+exclude = [
+    "**/legacy_*",
+    "openclaw-main",
+    ".venv",
+    "build",
+    "dist",
+]
+pythonVersion = "3.12"
+typeCheckingMode = "standard"
+useLibraryCodeForTypes = true
+reportMissingImports = "error"
+reportMissingTypeStubs = "false"
+reportUnusedImport = "warning"
+reportUnusedVariable = "warning"
+reportUnknownMemberType = "warning"
+reportUnknownArgumentType = "warning"
+reportUnknownVariableType = "warning"
+reportUnknownParameterType = "warning"
+reportMissingParameterType = "warning"
+reportMissingTypeArgument = "warning"
+reportAttributeAccessIssue = "warning"
+reportTypedDictNotRequiredAccess = "warning"
+
+# ─────────────────────────────────────────────────────────────────────
+# Pytest — equivalent of OpenClaw's vitest. hypothesis for property tests.
+# ─────────────────────────────────────────────────────────────────────
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["apps", "packages", "extensions", "tools", "tests"]
+pythonpath = ["."]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--showlocals",
+    "--tb=short",
+]
+filterwarnings = [
+    # Catch-all: any other warning is an error.
+    "error",
+    "ignore::DeprecationWarning:pytest_asyncio",
+    "ignore::DeprecationWarning:hypothesis",
+    # TRANSITIONAL (PR 0.4): legacy actions/file_processor.py still imports
+    # the deprecated `google.generativeai` package, which raises
+    # FutureWarning at import time. The demotion filter MUST be the last
+    # entry in this list because warnings.filterwarnings() inserts each
+    # filter at the FRONT of Python's filter list, so the last entry here
+    # is the first to match. Demote FutureWarning globally to default
+    # until Phase 2 refactors file_processor. Removed in Phase 2.
+    "default::FutureWarning",
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration (require external services)",
+    "e2e: marks tests as end-to-end (full system)",
+    "contract: marks tests as plugin contract tests",
+]
+
+# ─────────────────────────────────────────────────────────────────────
+# Coverage — replaced OpenClaw's vitest coverage; same thresholds.
+# ─────────────────────────────────────────────────────────────────────
+[tool.coverage.run]
+branch = true
+source = ["apps", "packages", "extensions"]
+omit = [
+    "**/legacy_*",
+    "**/__init__.py",
+    "**/test_*",
+    "openclaw-main/*",
+]
+
+[tool.coverage.report]
+precision = 1
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+    "\\.\\.\\.",
+]
+
+# ─────────────────────────────────────────────────────────────────────
+# Hypothesis — property-based testing (Python's vitest-quickcheck equivalent).
+# ─────────────────────────────────────────────────────────────────────
+[tool.hypothesis]
+max_examples = 100
+derandomize = true
+print_blob = false
+# `deadline` intentionally unset: defaults are fine. Override per-test with
+# `@settings(deadline=...)` when needed.

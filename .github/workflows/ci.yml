@@ -1,0 +1,137 @@
+name: CI
+
+# CI for JARVIS — Python translation of OpenClaw's pnpm-based CI.
+# Mirrors the validation tier in AGENTS.md "Validation" section.
+# PRs that fail this workflow cannot merge to main.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.13"
+  UV_VERSION: "0.11.26"
+
+jobs:
+  # ── Tier 1: install + smoke ─────────────────────────────────────────
+  install:
+    name: Install + smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install ${{ env.PYTHON_VERSION }}
+
+      - name: Sync workspace
+        run: uv sync --frozen
+
+      - name: Verify pyproject.toml parses
+        run: uv run python -c "import tomllib; tomllib.load(open('pyproject.toml','rb'))"
+
+      - name: Verify toolchain
+        run: |
+          uv run ruff --version
+          uv run pyright --version
+          uv run pytest --version
+
+  # ── Tier 2: lint + format ───────────────────────────────────────────
+  lint:
+    name: Lint (ruff)
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+      - run: uv sync --frozen
+
+      - name: Ruff lint
+        run: uv run ruff check .
+
+      - name: Ruff format check
+        run: uv run ruff format --check .
+
+  # ── Tier 3: type check ──────────────────────────────────────────────
+  typecheck:
+    name: Type check (pyright)
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+      - run: uv sync --frozen
+
+      - name: Pyright
+        run: uv run pyright
+
+  # ── Tier 4: tests ───────────────────────────────────────────────────
+  test:
+    name: Tests (pytest)
+    needs: install
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+      - run: uv sync --frozen
+
+      - name: Pytest
+        run: uv run pytest --cov=apps --cov=packages --cov=extensions --cov-report=xml --cov-report=term
+
+      - name: Upload coverage
+        if: matrix.python-version == '3.13'
+        uses: codecov/codecov-action@v4
+        with:
+          file: coverage.xml
+          fail_ci_if_error: false
+
+  # ── Tier 5: workspace CI helpers ────────────────────────────────────
+  ci-helpers:
+    name: CI helpers (imports, cycles, max-lines, manifests)
+    needs: install
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v3
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - run: uv python install ${{ env.PYTHON_VERSION }}
+      - run: uv sync --frozen
+
+      - name: check_imports
+        run: uv run python tools/ci/check_imports.py
+      - name: check_cycles
+        run: uv run python tools/ci/check_cycles.py
+      - name: check_max_lines
+        run: uv run python tools/ci/check_max_lines.py
+      - name: check_manifests
+        run: uv run python tools/ci/check_manifests.py

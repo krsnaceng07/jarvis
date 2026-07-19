@@ -1,0 +1,15 @@
+# CODEOWNERS — single-owner repo (JARVIS architect)
+# Format: path_pattern @owner
+# Order matters: last matching rule wins.
+
+# Default owner for everything
+* @jarvis-architect
+
+# Scoped reviewers (future; add when JARVIS gains contributors)
+# /apps/desktop/    @jarvis-architect
+# /extensions/memory-core/   @jarvis-architect
+# /security/                  @jarvis-architect
+# /packages/plugin_sdk/       @jarvis-architect
+
+# CODEOWNERS-managed paths require owner review per AGENTS.md.
+# Maint/refactor/tests paths are auto-approved for the owner.

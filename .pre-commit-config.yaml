@@ -1,0 +1,51 @@
+# Pre-commit hooks for JARVIS. Replaces OpenClaw's `git-hooks/` shell scripts.
+# Install: `uv run pre-commit install`
+# Run all: `uv run pre-commit run --all-files`
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix, --exit-non-zero-on-fix]
+      - id: ruff-format
+
+  - repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.370
+    hooks:
+      - id: pyright
+        additional_dependencies: []
+
+  - repo: local
+    hooks:
+      - id: check-imports
+        name: Check plugin import boundaries
+        entry: uv run python tools/ci/check_imports.py
+        language: system
+        types: [python]
+        pass_filenames: false
+        stages: [pre-commit]
+        require_serial: true
+      - id: check-cycles
+        name: Check for import cycles
+        entry: uv run python tools/ci/check_cycles.py
+        language: system
+        types: [python]
+        pass_filenames: false
+        stages: [pre-commit]
+        require_serial: true
+      - id: check-max-lines
+        name: Check max file length (2000 lines)
+        entry: uv run python tools/ci/check_max_lines.py
+        language: system
+        types: [python]
+        pass_filenames: false
+        stages: [pre-commit]
+        require_serial: true
+      - id: check-manifests
+        name: Validate extension manifests
+        entry: uv run python tools/ci/check_manifests.py
+        language: system
+        types: [json]
+        pass_filenames: false
+        stages: [pre-commit]
+        require_serial: true

@@ -1,0 +1,40 @@
+# Auto-label rules for JARVIS PRs.
+# Mirrors OpenClaw's `.github/labeler.yml` — auto-label by changed-files glob.
+# Add a new rule per tier + per extension so PRs route to the right reviewer.
+
+# ── Tiers (broad labels) ──────────────────────────────────────────────
+apps:
+  - changed-files:
+      - any-glob-to-any-file: ['apps/**']
+packages:
+  - changed-files:
+      - any-glob-to-any-file: ['packages/**']
+extensions:
+  - changed-files:
+      - any-glob-to-any-file: ['extensions/**']
+skills:
+  - changed-files:
+      - any-glob-to-any-file: ['skills/**']
+docs:
+  - changed-files:
+      - any-glob-to-any-file: ['docs/**']
+tests:
+  - changed-files:
+      - any-glob-to-any-file: ['tests/**', '**/test_*.py', '**/*_test.py']
+tools:
+  - changed-files:
+      - any-glob-to-any-file: ['tools/**']
+ci:
+  - changed-files:
+      - any-glob-to-any-file: ['.github/workflows/**', 'pyproject.toml', 'uv.lock']
+
+# ── Specific surfaces (narrow labels) ─────────────────────────────────
+# Uncomment and customize as JARVIS gains specific extensions.
+
+# memory-core:
+#   - changed-files:
+#       - any-glob-to-any-file: ['extensions/memory-core/**', 'packages/memory-host-sdk/**']
+
+# plugin-sdk:
+#   - changed-files:
+#       - any-glob-to-any-file: ['packages/plugin_sdk/**', 'tools/ci/check_imports.py']

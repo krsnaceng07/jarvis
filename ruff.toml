@@ -1,0 +1,12 @@
+# Standalone ruff config for editors that read ruff.toml directly.
+# The canonical config lives in [tool.ruff] inside pyproject.toml.
+# This file just points ruff at the workspace root.
+target-version = "py312"
+line-length = 100
+extend-exclude = [
+    "openclaw-main",
+    "**/legacy_*",
+    ".venv",
+    "build",
+    "dist",
+]

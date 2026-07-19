@@ -1,0 +1,99 @@
+# apps/desktop — JARVIS PyQt6 HUD application
+# Replaces the placeholder created in PR 0.3.
+#
+# The src-layout is used (`src/jarvis_desktop/`) which keeps the workspace root
+# out of sys.path and forces explicit imports. See AGENTS.md "Architecture".
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jarvis-desktop"
+version = "0.1.0-rc1"
+description = "JARVIS PyQt6 HUD — the desktop voice assistant"
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+authors = [{ name = "JARVIS architect" }]
+keywords = ["jarvis", "ai", "assistant", "voice", "hud", "pyqt6"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Multimedia :: Sound/Audio",
+]
+
+# Runtime dependencies (extracted from legacy requirements.txt).
+# Windows-specific deps live in optional extras.
+dependencies = [
+    # Audio / voice
+    "sounddevice>=0.4.7",
+    "google-genai>=0.5.0",         # current Gemini Live + chat SDK
+    # TRANSITIONAL (Phase 0.4): legacy file_processor.py imports the
+    # deprecated `google-generativeai` package. Keep it until Phase 2
+    # refactors file_processor into extensions/media_understanding/.
+    "google-generativeai>=0.8.0",
+    # System
+    "psutil>=5.9.0",
+    "pygetwindow>=0.0.9",
+    "send2trash>=1.8.0",
+    # UI
+    "pyqt6>=6.6.0",
+    "pillow>=10.0.0",
+    # HTTP / web
+    "requests>=2.31.0",
+    "beautifulsoup4>=4.12.0",
+    "duckduckgo-search>=6.0.0",
+    # Browser automation
+    "playwright>=1.40.0",
+    # Desktop automation
+    "pyautogui>=0.9.54",
+    "pyperclip>=1.8.0",
+    "opencv-python>=4.9.0",
+    "numpy>=1.26.0",
+    "mss>=9.0.0",
+    # Media
+    "youtube-transcript-api>=0.6.0",
+]
+
+[project.optional-dependencies]
+# Windows-specific audio / COM / notifications
+windows = [
+    "pycaw>=20230407; sys_platform == 'win32'",
+    "comtypes>=1.2.0; sys_platform == 'win32'",
+    "pywinauto>=0.6.0; sys_platform == 'win32'",
+    "win10toast>=0.9; sys_platform == 'win32'",
+    "pyaudio>=0.2.14; sys_platform == 'win32'",
+]
+# macOS-specific
+macos = []
+# Linux-specific
+linux = []
+# All-platform extras
+all = [
+    "jarvis-desktop[windows,macos,linux]",
+]
+
+[project.scripts]
+# Entry point — `uv run jarvis_desktop` runs this.
+jarvis_desktop = "jarvis_desktop.app:main"
+
+[project.urls]
+Homepage = "https://github.com/jarvis-ai/jarvis"
+Documentation = "https://github.com/jarvis-ai/jarvis/tree/main/apps/desktop"
+Issues = "https://github.com/jarvis-ai/jarvis/issues"
+
+# ─────────────────────────────────────────────────────────────────────
+# Build configuration (hatchling + src layout)
+# ─────────────────────────────────────────────────────────────────────
+[tool.hatch.build.targets.wheel]
+packages = ["src/jarvis_desktop"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/jarvis_desktop", "README.md"]

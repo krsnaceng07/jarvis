@@ -1,0 +1,10 @@
+# apps/cli placeholder — replaced with real config in Phase 0.4 / 1
+# This stub exists only so `uv workspace` validates the empty `apps/*` member.
+[project]
+name = "jarvis-cli"
+version = "0.0.1"
+description = "JARVIS headless gateway CLI. Replaced in Phase 0.4 / 1."
+requires-python = ">=3.13"
+
+[tool.uv]
+package = false

@@ -1,0 +1,32 @@
+{
+  "include": [
+    "apps",
+    "packages",
+    "extensions",
+    "tools",
+    "tests",
+    "examples"
+  ],
+  "exclude": [
+    "**/legacy_*",
+    "openclaw-main",
+    ".venv",
+    "build",
+    "dist"
+  ],
+  "pythonVersion": "3.12",
+  "typeCheckingMode": "standard",
+  "useLibraryCodeForTypes": true,
+  "reportMissingImports": "error",
+  "reportMissingTypeStubs": false,
+  "reportUnusedImport": "warning",
+  "reportUnusedVariable": "warning",
+  "reportUnknownMemberType": "warning",
+  "reportUnknownArgumentType": "warning",
+  "reportUnknownVariableType": "warning",
+  "reportUnknownParameterType": "warning",
+  "reportMissingParameterType": "warning",
+  "reportMissingTypeArgument": "warning",
+  "reportAttributeAccessIssue": "warning",
+  "reportTypedDictNotRequiredAccess": "warning"
+}

@@ -1,0 +1,63 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "JARVIS Desktop (HUD)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "jarvis_desktop.app",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "JARVIS CLI",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "jarvis_cli.app",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "JARVIS Doctor",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "jarvis_cli.doctor",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "cwd": "${workspaceFolder}",
+      "args": ["--verbose"]
+    },
+    {
+      "name": "Pytest: current file",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "cwd": "${workspaceFolder}",
+      "args": ["${file}", "-v", "--tb=short"]
+    },
+    {
+      "name": "Pytest: all",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "cwd": "${workspaceFolder}",
+      "args": ["-ra", "-v", "--tb=short"]
+    },
+    {
+      "name": "Ruff: lint",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "ruff",
+      "console": "integratedTerminal",
+      "justMyCode": true,
+      "cwd": "${workspaceFolder}",
+      "args": ["check", "."]
+    }
+  ]
+}

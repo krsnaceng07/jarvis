@@ -1,0 +1,87 @@
+# ─────────────────────────────────────────────────────────────────────
+# JARVIS .gitignore — OpenClaw-equivalent surface
+# ─────────────────────────────────────────────────────────────────────
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+.eggs/
+build/
+dist/
+.pyc
+
+# Virtual environments
+.venv/
+venv/
+env/
+.python-cache/
+
+# uv
+uv.lock.local
+
+# IDE / editor
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/launch.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Test / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.mypy_cache/
+.pyright_cache/
+.ruff_cache/
+coverage.xml
+*.cover
+
+# Type stubs
+*.pyi
+
+# Distribution
+*.tar.gz
+*.whl
+*.spec
+
+# Logs
+*.log
+logs/
+*.pid
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# OS
+.DS_Store
+desktop.ini
+ehthumbs.db
+Icon?
+$RECYCLE.BIN/
+
+# JARVIS user data (never in repo)
+.jarvis/
+data/
+workspace/
+
+# Build artifacts
+target/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Upstream reference (do not commit changes inside)
+openclaw-main/
