@@ -1,6 +1,6 @@
 # JARVIS → OpenClaw Architecture Migration Plan
 
-> **Status:** Phase 4.1 complete (memory_lancedb port); Phase 4.2 (active_memory) next
+> **Status:** Phase 4.2a complete (active_memory foundation); Phase 4.2b (recall flow) next
 > **Last updated:** 2026-07-20
 > **Owner:** JARVIS architect
 > **Reference source:** `E:/jarvis/openclaw-main/` (commit snapshot 2026.7.2)
@@ -2465,7 +2465,8 @@ extensions/memory_lancedb/
 All three tools are registered via
 pi.register_tool(plugin, names=[...]). The plugin
 also registers a MemoryPluginCapability bundle
-(prompt_builder + lush_plan_resolver + untime +
+(prompt_builder + lush_plan_resolver + 
+untime +
 public_artifacts) so the host can build a prompt
 section, ask for a flush plan, and resolve a
 MemorySearchManager for the active backend.
@@ -2499,8 +2500,10 @@ a top-level CLI descriptor for jarvis ltm --help.
 - pply_migration(state_dir, config) — assign legacy
   rows to the default agent.
 - check_health(state_dir, config) — structured
-  health report (untime_available, db_path,
-  db_exists, legacy_table, ow_count).
+  health report (
+untime_available, db_path,
+  db_exists, legacy_table, 
+ow_count).
 
 **9. Source mapping.**
 
@@ -2508,7 +2511,8 @@ a top-level CLI descriptor for jarvis ltm --help.
 |-----------------------------|--------------------------|
 | lancedb-schema.ts         | lancedb_schema.py      |
 | lancedb-runtime.ts        | lancedb_runtime.py     |
-| lancedb-store.ts          | untime.py (MemoryDB + InMemoryStore + LanceDBStore) |
+| lancedb-store.ts          | 
+untime.py (MemoryDB + InMemoryStore + LanceDBStore) |
 | config.ts                 | config.py              |
 | (index.ts embeddings)       | embeddings.py          |
 | (index.ts envelope)         | envelope_scrubber.py   |
@@ -2530,7 +2534,8 @@ a top-level CLI descriptor for jarvis ltm --help.
 | efore_prompt_build hook     | ✓ identical, hook-tolerance for JARVIS current shape |
 | gent_end hook               | ✓ identical + per-session cursor |
 | session_end hook             | ✓ identical |
-| MemoryPluginCapability       | ✓ prompt_builder + lush_plan_resolver + untime + public_artifacts |
+| MemoryPluginCapability       | ✓ prompt_builder + lush_plan_resolver + 
+untime + public_artifacts |
 | MemoryFlushPlan              | ✓ default should_flush=False |
 | MemoryPromptSectionBuilder   | ✓ empty default; recall wired through runtime |
 | publicArtifacts.listArtifacts| ✓ memory.lancedb artifact |
@@ -2590,7 +2595,8 @@ ormalizeRecallQuery         | ✓ identical (collapse + cap) |
   MemoryEmbeddingProviderAdapter,
   get_memory_embedding_provider, MessageToolDeliveryHints,
   BUNDLED_CHAT_CHANNEL_ENVELOPE_PREFIXES,
-  parse_strict_positive_integer, esolve_timer_timeout_ms,
+  parse_strict_positive_integer, 
+esolve_timer_timeout_ms,
   s_optional_record, 	runcate_utf16_safe.
 
 ### What stayed
@@ -2627,3 +2633,200 @@ ormalizeRecallQuery         | ✓ identical (collapse + cap) |
 - **OPENCLAW_MIGRATION_PLAN.md §28** — log Phase 4.2
   completion.
 
+
+## �28 � Phase 4.2a: extensions/active_memory/ foundation (2026-07-20)
+
+**Commit:** 94debf0 feat(phase4.2a): active_memory foundation + SDK hardening
+
+Phase 4.1 (commit e0ff533) shipped memory_lancedb as the
+production memory backend. Phase 4.2 adds the *router* �
+extensions/active_memory/ � that decides per-session which
+memory backend to use and orchestrates pre-reply recall with
+eligibility, harness-skip, circuit-breaker, and admin-gated
+session toggles.
+
+The user reaffirmed "same to same" with OpenClaw: no
+simplifications, no rewrites. Reproduce the full surface
+(15 source files in OpenClaw, ~180KB total). We split 4.2
+into 4.2a/4.2b/4.2c for reviewable units � this commit is
+**4.2a (foundation)**: types, config normalization, recall
+cache + circuit breaker, session policy + harness skip +
+session toggles. 4.2b is the recall flow itself (recall.ts,
+recall-run.ts, query.ts, prompt.ts, session.ts, 3 transcript
+files). 4.2c is the entry + slash command + doctor wiring.
+
+### What landed
+
+#### extensions/active_memory/ (9 new files)
+
+- __init__.py � define_plugin_entry stub + register hook.
+  Tolerates pi.logger == None (PluginContext default).
+- 	ypes.py � 30+ constant defaults matching OpenClaw
+  exactly (cache TTL, max entries, prompt styles, thinking
+  levels, reserved tools allow list, no-recall values, plugin
+  tag wrapper, etc.) + 15+ type definitions.
+- config.py � 25+ config keys with normalization,
+  clamping, and deprecated-key detection. Includes:
+  - pply_cli_runtime_recall_timeout_default (CLI runtime
+    gets a higher default timeout)
+  - has_deprecated_model_fallback_policy
+  - is_missing_registered_memory_tools_error
+  - 
+esolve_safe_transcript_dir (path-traversal-safe)
+  - 	o_safe_transcript_agent_dir_name
+  - 
+esolve_persistent_transcript_base_dir
+  - Prompt style inference from queryMode + explicit override.
+- 
+ecall_state.py � TTL cache + per-agent/model circuit
+  breaker. uild_cache_key, get/set_cached_result,
+  should_cache_result, uild_circuit_breaker_key,
+  is_circuit_breaker_open (opens after max_timeouts,
+  resets after cooldown_ms), 	o_single_line_log_value
+  (collapsing + truncation for log forensics).
+- session_policy.py � eligibility, chat type resolution
+  (direct/group/channel/explicit/thread-strip/webchat),
+  allow/deny lists, harness-skip (skips if missing key,
+  bad shape, no entry, host error, or model-locked),
+  session toggle store with in-process fallback (host can
+  swap to real keyed store without code change), admin
+  gating (operator.admin scope or owner),
+  update_active_memory_global_enabled_in_config (preserves
+  existing entries), ormat_active_memory_command_help.
+- openclaw.plugin.json � manifest with id/kind/version/
+  description + 25+ config schema entries.
+- AGENTS.md � purpose, source map, security notes.
+- pyproject.toml � workspace member declaration.
+- 	ests/test_active_memory_phase4.py � 64 tests covering
+  types, config (22 tests), recall_state (9), session_policy
+  (16), registration (1), manifest (2), entry shape (1).
+  All passing.
+
+#### SDK extensions (3 new modules, 6 enriched)
+
+- 
+umber_runtime.py � added s_date_timestamp_ms and
+  
+esolve_expires_at_ms_from_duration_ms (OpenClaw's
+  sDateTimestampMs / 
+esolveExpiresAtMsFromDurationMs).
+  Uses math.isnan instead of x != x for clarity; refactored
+  to reduce return-statement count (PLR0911).
+- string_coerce.py � added 
+ormalize_string_entries and
+  
+ormalize_optional_string (OpenClaw's 
+ormalizeStringEntries
+  / 
+ormalizeOptionalString).
+- 
+outing.py � added parse_agent_session_key and
+  parse_thread_session_suffix (OpenClaw's parseAgentSessionKey
+  / parseThreadSessionSuffix).
+- gent_runtime.py � added DEFAULT_PROVIDER,
+  parse_model_ref, 
+esolve_agent_effective_model_primary,
+  
+esolve_default_model_for_agent,
+  
+esolve_remember_across_conversations. Model resolution
+  chain: config.model ? current run's model ? agent default
+  ? config.modelFallback.
+- plugin_config.py � added PluginsConfig,
+  
+ormalize_plugins_config, 
+esolve_plugin_config_object
+  (returns entry.config ?? entry � mirrors OpenClaw's
+  behavior exactly; fixed the bug where SDK was returning the
+  entry itself, causing is_active_memory_globally_enabled
+  to read entry.enabled instead of entry.config.enabled).
+- security_runtime.py (NEW) � is_path_inside (path
+  containment guard for transcript dir safety).
+- session_transcript_runtime.py (NEW) �
+  SessionTranscriptTargetParams, uild_session_transcript_target.
+- memory_host_search.py (NEW) �
+  close_active_memory_search_manager (lifecycle helper for
+  the recall search manager that 4.2b will own).
+
+#### Host runtime namespace additions (api.py)
+
+- pi.runtime.config.{current, mutate_config_file} �
+  live config + atomic mutator surface.
+- pi.runtime.state.{resolve_state_dir, open_keyed_store} �
+  state directory + per-key file-backed store (lease-protected).
+- pi.runtime.agent.session.get_session_entry � read
+  current session entry from host session store.
+
+#### Cleanup (pre-existing issues)
+
+- extensions/memory_core/tests/test_memory_core_phase4.py �
+  added 
+oqa: PT004 on the 
+untime fixture (intentionally
+  side-effect-only; rename would change 14 test call sites).
+- packages/plugin_sdk/src/jarvis_sdk/api.py � restored
+  # noqa: TCH001 on .cron.CronDecl and .skill.SkillDecl
+  imports (used in instance annotations only, not at runtime).
+- packages/plugin_sdk/src/jarvis_sdk/lazy_runtime.py �
+  moved collections.abc.{Awaitable, Callable} to TYPE_CHECKING
+  and converted _T TypeVar to PEP 695 generic syntax (UP047
+  + TCH003 compliance). Pyright + ruff both clean.
+- packages/plugin_sdk/src/jarvis_sdk/expect_runtime.py �
+  removed PEP 695 generic syntax (incompatible with module-level
+  _T TypeVar; now uses TypeVar consistently).
+
+### Test count (Phase 4.2a)
+
+- New: 64 active_memory tests, all green in isolation AND
+  in the full suite.
+- Full suite: 446 passed, 25 pre-existing failures (psutil/
+  httpx/sounddevice not installed; same baseline as P4.0).
+- No regressions; 0 new failures introduced.
+
+### Pre-commit (7 hooks, all green)
+
+- ruff (TCH, UP, PL, PT, S, etc.) � Passed
+- ruff-format � Passed
+- pyright (level=error) � Passed
+- check-imports (plugin boundaries) � Passed
+- check-cycles (import cycles) � Passed
+- check-max-lines (2000 line cap) � Passed
+- check-manifests (11 extensions) � Passed
+
+### Parity matrix (Phase 4.2a vs. OpenClaw)
+
+| OpenClaw file              | Python port                | Status |
+|----------------------------|----------------------------|--------|
+| 	ypes.ts                 | 	ypes.py                 | 100%   |
+| config.ts                | config.py                | 100% (foundation; full recall config comes in 4.2b) |
+| 
+ecall-state.ts          | 
+ecall_state.py          | 100%   |
+| session-policy.ts        | session_policy.py        | 100%   |
+| doctor-contract-api.ts   | (deferred to 4.2c)         | -      |
+| query.ts                 | (deferred to 4.2b)         | -      |
+| prompt.ts                | (deferred to 4.2b)         | -      |
+| 
+ecall.ts + 
+ecall-run.ts | (deferred to 4.2b)      | -      |
+| 	ranscript*.ts (3 files) | (deferred to 4.2b)         | -      |
+| session.ts               | (deferred to 4.2b)         | -      |
+| index.ts                 | (deferred to 4.2c)         | -      |
+
+**Phase 4.2a surface: 4 of 11 OpenClaw files (36%). 4.2b will
+add the recall flow (5 files, the heaviest piece � "blocking
+memory sub-agent"). 4.2c will add entry + slash command + doctor
+(2 files).**
+
+### What's next (Phase 4.2b)
+
+- Port 
+ecall.ts + 
+ecall-run.ts + query.ts + prompt.ts
+  + session.ts + 3 transcript files (~1500 lines). Need to
+  add httpx dep for embedded-run dispatch (OpenClaw
+  
+unEmbeddedPiAgent).
+- Then 4.2c (entry + slash command + doctor) � wires
+  efore_prompt_build hook + /active-memory slash command.
+- Then 4.3 (memory_wiki 45 files) and 4.4 (dreaming phases).
