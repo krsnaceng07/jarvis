@@ -181,4 +181,3 @@ def _coerce_value(v: str) -> Any:
 
 
 __all__ = ["load_skill", "parse_frontmatter", "split_skill_file"]
-

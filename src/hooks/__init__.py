@@ -116,4 +116,3 @@ def fire_sync(bus: HookBus, name: str, payload: Any = None) -> None:
 
 
 __all__ = ["HookBus", "fire_sync"]
-

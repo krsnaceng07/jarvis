@@ -28,7 +28,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
 from jarvis_sdk import SkillDecl
-
 from src.frontmatter import split_skill_file
 
 _log = logging.getLogger("src.skills")
@@ -128,4 +127,3 @@ __all__ = [
     "parse_skill",
     "skills_to_prompt_section",
 ]
-

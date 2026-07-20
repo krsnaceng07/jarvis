@@ -46,7 +46,7 @@ def _runtime() -> MemoryRuntime:
     # same path; we re-resolve so tests can monkeypatch this
     # without touching the runtime's class-level default.
     rt = MemoryRuntime.default()
-    if rt._db_path.parent != data_dir / "core":  # noqa: SLF001
+    if rt._db_path.parent != data_dir / "core":
         rt = MemoryRuntime(data_dir / "core" / "memory.sqlite")
     return rt
 
@@ -63,7 +63,14 @@ def load_memory() -> dict[str, dict[str, dict[str, str]]]:
     try:
         rows = rt.recent(limit=_MAX_PROMPT_ROWS * 4)
     except Exception:
-        return {"identity": {}, "preferences": {}, "projects": {}, "relationships": {}, "wishes": {}, "notes": {}}
+        return {
+            "identity": {},
+            "preferences": {},
+            "projects": {},
+            "relationships": {},
+            "wishes": {},
+            "notes": {},
+        }
     out: dict[str, dict[str, dict[str, str]]] = {
         "identity": {},
         "preferences": {},
@@ -107,7 +114,7 @@ def update_memory(memory_update: dict[str, Any]) -> dict[str, dict[str, dict[str
                 if not val.strip():
                     continue
                 rt.set(str(key), val, category=str(cat))
-    except Exception as e:  # noqa: BLE001
+    except Exception as e:
         print(f"[Memory] bridge update_memory failed: {e}")
     return load_memory()
 
@@ -126,10 +133,7 @@ def format_memory_for_prompt(memory: dict[str, dict[str, dict[str, str]]]) -> st
         if not items:
             continue
         for key, entry in items.items():
-            if isinstance(entry, dict):
-                val = entry.get("value", "")
-            else:
-                val = str(entry)
+            val = entry.get("value", "") if isinstance(entry, dict) else str(entry)
             if not val:
                 continue
             lines.append(f"- {cat}/{key}: {val}")

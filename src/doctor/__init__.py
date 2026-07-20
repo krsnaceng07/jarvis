@@ -195,4 +195,3 @@ __all__ = [
     "DoctorReport",
     "DoctorRunner",
 ]
-

@@ -204,4 +204,3 @@ def _seed_config(path: Path) -> None:
 
 
 __all__ = ["BootstrapResult", "seed_workspace"]
-
