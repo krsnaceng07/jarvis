@@ -2245,3 +2245,121 @@ All 7 hooks pass on the Phase 3 commit:
    inline buttons, threads).
 5. **HTTPS gateway** + bearer-token rotation.
 6. **MCP server** (OpenClaw has one) — out of scope for now.
+
+## 26. Phase 3.5 — OpenClaw structural parity (COMPLETED 2026-07-20)
+
+**Phase 3.5: align JARVIS to OpenClaw's on-disk layout. Drop the
+legacy root-level code that doesn't exist in OpenClaw.**
+
+### Motivation
+
+The user reminded us: "openclaw ma vako matra rakha, same to same".
+We had drifted in two ways:
+
+1. **`jarvis/` directory** (the host core) used a flat file layout
+   (one `.py` per module). OpenClaw's equivalent is `src/`, with one
+   subdirectory per module — `src/bootstrap/`, `src/cron/`, etc.
+2. **Legacy root-level code** (not in OpenClaw):
+   - `agent/` — task-queue / planner / executor (no OpenClaw equivalent)
+   - `memory/` — JSON-file memory store (OpenClaw has `src/memory/` but
+     we use the `extensions/memory_core/` capability instead)
+   - `or_client.py` — OpenRouter LLM client (no LLM client in the host)
+
+### What landed
+
+**1. `jarvis/` → `src/` rename (with subfolder shape).**
+
+```
+src/
+├── __init__.py           # package docstring
+├── bootstrap/            (was jarvis/bootstrap.py)
+├── cron/                 (was jarvis/cron.py)
+├── doctor/               (was jarvis/doctor.py)
+├── frontmatter/          (was jarvis/frontmatter.py)
+├── gateway/              (was jarvis/gateway.py)
+├── hooks/                (was jarvis/hooks.py)
+└── skills/               (was jarvis/skills.py)
+```
+
+Each subdirectory is a proper Python package; the public API lives in
+its `__init__.py`. Logger names updated to `src.<module>` for source
+identification. All `from jarvis.X` imports across the codebase
+rewritten to `from src.<module>` (CLI, desktop host, tests, every
+extension that referenced the old path).
+
+**2. Legacy top-level code removed.**
+
+- **`agent/` deleted** (4 files: error_handler, executor, planner,
+  task_queue). The `agent_task` tool stays in `TOOL_DECLARATIONS`
+  for LLM compatibility but always returns a clear "not available"
+  answer — the legacy queue had no OpenClaw equivalent.
+- **`memory/` deleted** (3 files: __init__, config_manager,
+  memory_manager). The desktop host now uses
+  `extensions/memory_core/runtime.py::MemoryRuntime` via a small
+  bridge module (`apps/desktop/src/jarvis_desktop/memory_bridge.py`).
+  The bridge preserves the legacy `load_memory()` / `update_memory()` /
+  `format_memory_for_prompt()` contract so the host's call sites
+  work without a full rewrite. The legacy LLM-driven background
+  memory extraction is gone — the LLM now uses the `save_memory`
+  tool inline (matches OpenClaw's memory-core flow).
+- **`or_client.py` deleted.** Two tools simplified:
+  - `tool_youtube_video` "summarize" action now returns the first
+    ~1500 chars of the transcript (no LLM in the host). The full
+    transcript is still available via `get_transcript`.
+  - `tool_web_search` now returns raw DDG snippets — the host LLM
+    uses these as material for its own answer.
+
+**3. Config + CI updates.**
+
+- `pyrightconfig.json`: added `src/` to include + extraPaths; removed
+  legacy excludes for `agent/`, `memory/`, `or_client.py`, `actions`.
+- `tools/ci/check_imports.py`: refreshed allowlist. Extensions may
+  import from `jarvis_sdk.*`, `src.*`, and the shared extension
+  capabilities `extensions.{memory_core,cron}.*`. The legacy
+  modules (`or_client`, `agent`, `memory`, `actions`, `main`, `ui`)
+  are forbidden — they no longer exist.
+- `packages/plugin_sdk/src/jarvis_sdk/manifest.py`: stale
+  `jarvis.plugin.json` reference in a docstring → `openclaw.plugin.json`.
+
+**4. What stayed.**
+
+- `core/` (data files: IDENTITY.md, MEMORY.md, prompt.txt, SOUL.md,
+  USER.md, memory.sqlite). These are runtime data, not source code.
+  OpenClaw has analogous runtime data files at the root.
+- The `bootstrap` seed marker updated to `<!-- seeded by src.bootstrap -->`.
+  Existing seeded files (with the old `jarvis.bootstrap` marker) will
+  be re-seeded on next bootstrap; the user's content is preserved by
+  the marker check.
+
+### Tests + checks
+
+- All 149 tests pass (no test count change; existing tests cover the
+  refactored surface).
+- All 7 pre-commit hooks pass: ruff, ruff-format, pyright (--level error),
+  import boundaries, import cycles, file length, manifest validation.
+
+### Commit
+
+- `41c781c` — refactor(phase3.5): jarvis/ → src/ + remove legacy root
+  modules. 34 files changed, 347 insertions, 2075 deletions.
+
+### OpenClaw structural parity (after Phase 3.5)
+
+| OpenClaw surface              | JARVIS surface             | Status      |
+| ----------------------------- | -------------------------- | ----------- |
+| `src/bootstrap/`              | `src/bootstrap/`           | ✓ same      |
+| `src/cron/`                   | `src/cron/`                | ✓ same      |
+| `src/doctor/` (in src/cli)    | `src/doctor/`              | ✓ same      |
+| `src/gateway/server/`         | `src/gateway/`             | ✓ (flat)    |
+| `src/hooks/`                  | `src/hooks/`               | ✓ same      |
+| `src/skills/`                 | `src/skills/`              | ✓ same      |
+| `extensions/<id>/`            | `extensions/<id>/`         | ✓ same      |
+| `skills/<id>/SKILL.md`        | `skills/<id>/SKILL.md`     | ✓ same      |
+| `packages/plugin-sdk/`        | `packages/plugin_sdk/`     | ✓ (kebab)   |
+| `apps/desktop/`               | `apps/desktop/`            | ✓ same      |
+| `apps/cli/` (in apps)         | `apps/cli/`                | ✓ same      |
+| `openclaw.plugin.json`        | `openclaw.plugin.json`     | ✓ same      |
+| `agent/` (legacy)             | (removed)                  | ✓ gone      |
+| `memory/` (legacy)            | `extensions/memory_core/`  | ✓ migrated  |
+| `or_client.py` (legacy)       | (removed)                  | ✓ gone      |
+| `actions/` (legacy)           | `extensions/tool_*/`       | ✓ migrated  |
