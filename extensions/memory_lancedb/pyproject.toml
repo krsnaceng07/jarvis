@@ -1,0 +1,18 @@
+[project]
+name = "jarvis-memory-lancedb"
+version = "0.1.0"
+description = "JARVIS LanceDB-backed long-term memory extension (Phase 4.1 OpenClaw parity)."
+requires-python = ">=3.13"
+# OpenClaw's memory-lancedb package ships lancedb 0.30 + apache-arrow 18.1
+# + openai 6.45 as hard deps. Phase 4.1 marks lancedb as a hard dep so
+# operators get the real backend by default; the in-memory fallback in
+# runtime.py activates automatically when lancedb can't load (e.g. on
+# Windows + Python 3.13 combinations where no native wheel exists).
+dependencies = [
+    "lancedb>=0.20.0",
+    "pyarrow>=15.0.0",
+    "openai>=1.30.0",
+]
+
+[tool.uv]
+package = false
