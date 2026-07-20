@@ -8,43 +8,42 @@ turn.
 
 Phase 4.2 ships the plugin in three sub-phases:
 
-- **Phase 4.2a** (this commit) — foundation:
-  - ``types.py`` — constants, defaults, type aliases.
-  - ``config.py`` — operator-facing config schema
-    (25+ keys) + the CLI-runtime timeout bump.
-  - ``recall_state.py`` — TTL cache + per-agent/model
-    circuit breaker + log helpers.
-  - ``session_policy.py`` — eligibility checks
-    (chat type, allow/deny lists, harness skip,
-    session toggle store) + the ``/active-memory``
-    slash command's eligibility/permission helpers.
-- **Phase 4.2b** (next) — recall flow:
-  ``recall.ts`` + ``recall-run.ts`` + ``query.ts`` +
-  ``prompt.ts`` + ``session.ts`` + ``transcript*.ts``.
-- **Phase 4.2c** (after that) — entry + slash command
-  + doctor: ``index.ts`` + ``doctor-contract-api.ts``.
+- **Phase 4.2a** — foundation: ``types.py``, ``config.py``,
+  ``recall_state.py``, ``session_policy.py``.
+- **Phase 4.2b** — recall flow: ``recall.py`` +
+  ``recall_run.py`` + ``query.py`` + ``prompt.py`` +
+  ``session.py`` + ``transcript*.py``.
+- **Phase 4.2c** — entry + slash command + doctor:
+  ``index.py`` + ``doctor_contract_api.py``.
 
-The 4.2a commit is shippable on its own — the
-eligibility, harness-skip, and config-parse primitives
-are exactly the building blocks the recall flow and
-the slash command will need.
+The 4.2c commit closes the active-memory port: with the
+``register_active_memory`` callback wired to the host's
+hook bus + slash-command router, the plugin is
+feature-complete against OpenClaw's index.
 
 Surface
 -------
-- **Tools:** none in 4.2a (4.2c wires the slash command).
-- **Memory capability:** none — active_memory is a
-  *consumer* of the host's memory slot, not a producer.
-  It reads via ``api.runtime.memory_plugin.get_memory_search_manager()``
-  (Phase 4.2b).
-- **Lifecycle hooks:** none registered in 4.2a (4.2c
-  registers ``before_prompt_build``).
+- **Tools:** none — active_memory is a *consumer* of the
+  host's memory slot, not a producer.
+- **Memory capability:** none — it reads via the host's
+  memory plugin (``memory-core`` or ``memory-lancedb``).
+- **Lifecycle hooks:** ``before_prompt_build`` (preflight
+  + recall race).
+- **Slash command:** ``/active-memory`` (status / on /
+  off / help; ``--global`` for admin-gated operator
+  config mutation).
 
 OpenClaw parity
 ==============
 Every constant, default, and config key in OpenClaw's
 ``types.ts`` and ``config.ts`` has a 1:1 Python counterpart.
 Session policy helpers mirror OpenClaw's regexes,
-fallback shapes, and admin-gating rules.
+fallback shapes, and admin-gating rules. The recall
+orchestration + sub-agent dispatch are ported
+``recall.ts`` + ``recall-run.ts`` line-for-line (with the
+LLM run stubbed to a no-op that returns
+``{ payloads: [] }``; the host overrides the stub to wire
+in the real harness).
 """
 
 from __future__ import annotations
@@ -54,38 +53,25 @@ from typing import Any
 
 from jarvis_sdk import define_plugin_entry
 
+from .doctor_contract_api import state_migrations as _state_migrations
+from .index import register_active_memory
+
 _log = logging.getLogger("extensions.active_memory")
+
+# State migrations exposed to the host's doctor runner.
+# Mirrors OpenClaw's `stateMigrations` export from
+# doctor-contract-api.ts.
+state_migrations = _state_migrations()
 
 
 def _register(api: Any) -> None:
     """Register the active-memory plugin's surface with the host.
 
-    Phase 4.2a registers no tools, hooks, or commands — the
-    entry point exists only so the plugin loader discovers
-    the module. Phase 4.2c wires:
-
-    - The ``/active-memory`` slash command (uses
-      ``is_session_active_memory_disabled`` +
-      ``set_session_active_memory_disabled`` +
-      ``format_active_memory_command_help`` from
-      ``session_policy``).
-    - The ``before_prompt_build`` hook (uses
-      ``is_eligible_interactive_session`` +
-      ``is_allowed_chat_type`` + ``is_allowed_chat_id`` +
-      ``should_skip_active_memory_for_harness_session`` from
-      ``session_policy``).
-
-    The eligibility primitives are ready and unit-tested in
-    4.2a; wiring them into the host's hook bus is 4.2c.
+    Thin wrapper around ``register_active_memory`` so the
+    plugin loader (which expects a ``register(api)`` callable
+    in the entry module) can call us.
     """
-    logger = getattr(api, "logger", None)
-    if logger is not None:
-        info = getattr(logger, "info", None)
-        if callable(info):
-            info(
-                "active-memory: foundation loaded (types + config + "
-                "recall_state + session_policy); recall flow wires in 4.2b/c"
-            )
+    register_active_memory(api)
 
 
 # ── Plugin entry (mirrors OpenClaw's `definePluginEntry`) ───────────
@@ -105,4 +91,4 @@ entry = define_plugin_entry(
 )
 
 
-__all__ = ["entry"]
+__all__ = ["entry", "state_migrations"]
