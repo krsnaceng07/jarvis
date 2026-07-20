@@ -6,6 +6,7 @@ Covers the OpenClaw-parity surface:
   - Memory capability bundle (prompt_builder, flush_plan_resolver, runtime, public_artifacts)
   - Plugin entry (openclaw.plugin.json + plugin.py shape)
 """
+
 from __future__ import annotations
 
 import json
@@ -72,9 +73,8 @@ class TestMemoryCoreEntry:
         assert entry.version == "0.2.0"
 
     def test_register_adds_tools_and_capability(self) -> None:
+        from extensions.memory_core import _register
         from jarvis_sdk import PluginApi, PluginContext
-
-        from extensions.memory_core import _register, entry
 
         ctx = PluginContext(
             plugin_id="memory_core",
@@ -109,7 +109,7 @@ def tempfile_safe() -> str:
 
 class TestMemoryCoreTools:
     @pytest.fixture
-    def runtime(self, tmp_path: Path) -> None:
+    def runtime(self, tmp_path: Path) -> None:  # noqa: PT004
         """Seed the runtime with a few entries."""
         from extensions.memory_core.runtime import MemoryRuntime
 
@@ -121,11 +121,10 @@ class TestMemoryCoreTools:
 
     @pytest.mark.asyncio
     async def test_memory_search_substring(self, tmp_path: Path, runtime) -> None:
-        from extensions.memory_core.runtime import MemoryRuntime
-        from extensions.memory_core.plugin import MemoryCorePlugin
-
         # Override the default runtime.
         from extensions.memory_core import runtime as rt_module
+        from extensions.memory_core.plugin import MemoryCorePlugin
+        from extensions.memory_core.runtime import MemoryRuntime
 
         original_default = rt_module.MemoryRuntime._default
         rt_module.MemoryRuntime._default = MemoryRuntime(tmp_path / "memory.sqlite")
@@ -136,14 +135,14 @@ class TestMemoryCoreTools:
             assert "favorite_food" in result.value
         finally:
             rt_module.MemoryRuntime._default = original_default
-            if rt_module.MemoryRuntime._default is not None: rt_module.MemoryRuntime._default.close()
+            if rt_module.MemoryRuntime._default is not None:
+                rt_module.MemoryRuntime._default.close()
 
     @pytest.mark.asyncio
     async def test_memory_search_unknown_tool(self, tmp_path: Path, runtime) -> None:
-        from extensions.memory_core.runtime import MemoryRuntime
-        from extensions.memory_core.plugin import MemoryCorePlugin
-
         from extensions.memory_core import runtime as rt_module
+        from extensions.memory_core.plugin import MemoryCorePlugin
+        from extensions.memory_core.runtime import MemoryRuntime
 
         original_default = rt_module.MemoryRuntime._default
         rt_module.MemoryRuntime._default = MemoryRuntime(tmp_path / "memory.sqlite")
@@ -151,18 +150,19 @@ class TestMemoryCoreTools:
             plugin = MemoryCorePlugin()
             result = await plugin.call("not_a_tool", {})
             from jarvis_sdk import Err
+
             assert isinstance(result, Err)
             assert result.code == "UNKNOWN_TOOL"
         finally:
             rt_module.MemoryRuntime._default = original_default
-            if rt_module.MemoryRuntime._default is not None: rt_module.MemoryRuntime._default.close()
+            if rt_module.MemoryRuntime._default is not None:
+                rt_module.MemoryRuntime._default.close()
 
     @pytest.mark.asyncio
     async def test_memory_search_empty_query(self, tmp_path: Path, runtime) -> None:
-        from extensions.memory_core.runtime import MemoryRuntime
-        from extensions.memory_core.plugin import MemoryCorePlugin
-
         from extensions.memory_core import runtime as rt_module
+        from extensions.memory_core.plugin import MemoryCorePlugin
+        from extensions.memory_core.runtime import MemoryRuntime
 
         original_default = rt_module.MemoryRuntime._default
         rt_module.MemoryRuntime._default = MemoryRuntime(tmp_path / "memory.sqlite")
@@ -170,18 +170,19 @@ class TestMemoryCoreTools:
             plugin = MemoryCorePlugin()
             result = await plugin.call("memory_search", {"query": ""})
             from jarvis_sdk import Err
+
             assert isinstance(result, Err)
             assert result.code == "MISSING_ARG"
         finally:
             rt_module.MemoryRuntime._default = original_default
-            if rt_module.MemoryRuntime._default is not None: rt_module.MemoryRuntime._default.close()
+            if rt_module.MemoryRuntime._default is not None:
+                rt_module.MemoryRuntime._default.close()
 
     @pytest.mark.asyncio
     async def test_memory_get_existing(self, tmp_path: Path, runtime) -> None:
-        from extensions.memory_core.runtime import MemoryRuntime
-        from extensions.memory_core.plugin import MemoryCorePlugin
-
         from extensions.memory_core import runtime as rt_module
+        from extensions.memory_core.plugin import MemoryCorePlugin
+        from extensions.memory_core.runtime import MemoryRuntime
 
         original_default = rt_module.MemoryRuntime._default
         rt_module.MemoryRuntime._default = MemoryRuntime(tmp_path / "memory.sqlite")
@@ -192,14 +193,14 @@ class TestMemoryCoreTools:
             assert "Fatih" in result.value
         finally:
             rt_module.MemoryRuntime._default = original_default
-            if rt_module.MemoryRuntime._default is not None: rt_module.MemoryRuntime._default.close()
+            if rt_module.MemoryRuntime._default is not None:
+                rt_module.MemoryRuntime._default.close()
 
     @pytest.mark.asyncio
     async def test_memory_get_missing(self, tmp_path: Path, runtime) -> None:
-        from extensions.memory_core.runtime import MemoryRuntime
-        from extensions.memory_core.plugin import MemoryCorePlugin
-
         from extensions.memory_core import runtime as rt_module
+        from extensions.memory_core.plugin import MemoryCorePlugin
+        from extensions.memory_core.runtime import MemoryRuntime
 
         original_default = rt_module.MemoryRuntime._default
         rt_module.MemoryRuntime._default = MemoryRuntime(tmp_path / "memory.sqlite")
@@ -210,15 +211,15 @@ class TestMemoryCoreTools:
             assert "No memory entry" in result.value
         finally:
             rt_module.MemoryRuntime._default = original_default
-            if rt_module.MemoryRuntime._default is not None: rt_module.MemoryRuntime._default.close()
+            if rt_module.MemoryRuntime._default is not None:
+                rt_module.MemoryRuntime._default.close()
 
     @pytest.mark.asyncio
     async def test_memory_get_filters_envelope_sludge(self, tmp_path: Path) -> None:
         """A poisoned long-term memory is filtered at get-time."""
-        from extensions.memory_core.runtime import MemoryRuntime
-        from extensions.memory_core.plugin import MemoryCorePlugin
-
         from extensions.memory_core import runtime as rt_module
+        from extensions.memory_core.plugin import MemoryCorePlugin
+        from extensions.memory_core.runtime import MemoryRuntime
 
         rt = MemoryRuntime(tmp_path / "memory.sqlite")
         # Plant a poisoned entry.
@@ -252,10 +253,8 @@ class TestMemoryCoreTools:
 
 class TestMemoryCapability:
     def test_prompt_section_empty_when_no_entries(self, tmp_path: Path) -> None:
-        from extensions.memory_core import prompt_section
+        from extensions.memory_core import prompt_section, runtime as rt_module
         from extensions.memory_core.runtime import MemoryRuntime
-
-        from extensions.memory_core import runtime as rt_module
 
         original_default = rt_module.MemoryRuntime._default
         rt_module.MemoryRuntime._default = MemoryRuntime(tmp_path / "memory.sqlite")
@@ -263,13 +262,12 @@ class TestMemoryCapability:
             assert prompt_section.build() == ""
         finally:
             rt_module.MemoryRuntime._default = original_default
-            if rt_module.MemoryRuntime._default is not None: rt_module.MemoryRuntime._default.close()
+            if rt_module.MemoryRuntime._default is not None:
+                rt_module.MemoryRuntime._default.close()
 
     def test_prompt_section_renders_entries(self, tmp_path: Path) -> None:
-        from extensions.memory_core import prompt_section
+        from extensions.memory_core import prompt_section, runtime as rt_module
         from extensions.memory_core.runtime import MemoryRuntime
-
-        from extensions.memory_core import runtime as rt_module
 
         rt = MemoryRuntime(tmp_path / "memory.sqlite")
         rt.set("name", "Fatih", category="identity")
@@ -301,6 +299,3 @@ class TestMemoryCapability:
         assert len(artifacts) >= 1
         assert any(a.kind == "store" for a in artifacts)
         assert any(a.id == "memory.sqlite" for a in artifacts)
-
-
-

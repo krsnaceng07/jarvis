@@ -6,6 +6,7 @@ calls ``list_artifacts(params)`` to enumerate the memory
 plugin's published artifacts (used by the doctor runner and
 CLI).
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -23,13 +24,10 @@ async def list_artifacts(
         long-term memory). Listed as ``kind="store"`` so the
         doctor runner can run an integrity check on it.
     """
+    import os
     from pathlib import Path
 
-    import os
-
-    data_dir = Path(
-        os.environ.get("JARVIS_DATA_DIR") or (Path.home() / ".jarvis")
-    )
+    data_dir = Path(os.environ.get("JARVIS_DATA_DIR") or (Path.home() / ".jarvis"))
     db_path = data_dir / "core" / "memory.sqlite"
     return [
         MemoryPluginPublicArtifact(

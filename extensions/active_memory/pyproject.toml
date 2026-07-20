@@ -1,0 +1,14 @@
+[project]
+name = "jarvis-active-memory"
+version = "0.1.0"
+description = "JARVIS active-memory plugin (Phase 4.2 OpenClaw parity, foundation)."
+requires-python = ">=3.13"
+# Phase 4.2a ships the eligibility + config + cache primitives.
+# Phase 4.2b will add the recall sub-agent (which may need
+# `httpx` for the embedded-run dispatch). Phase 4.2a is
+# stdlib-only on purpose so the host can install the plugin
+# without dragging in heavy deps.
+dependencies = []
+
+[tool.uv]
+package = false

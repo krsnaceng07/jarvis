@@ -22,7 +22,7 @@ Adding a new registration point:
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -85,19 +85,112 @@ class CommandDecl:
 
 
 @dataclass
+class PluginRuntimeConfigApi:
+    """``api.runtime.config`` — live config + mutator surface.
+
+    Mirrors OpenClaw's ``api.runtime.config`` namespace. The
+    host wires each method up; the default implementations
+    are no-ops so plugins that only read config still work
+    when the host hasn't wired the live mutator yet.
+    """
+
+    def current(self) -> Any:
+        """Return the most recent config (any mapping) or ``None``."""
+        return None
+
+    def mutate_config_file(self, params: dict[str, Any]) -> Any:
+        """Atomically rewrite the config file with a draft.
+
+        Mirrors OpenClaw's ``api.runtime.config.mutateConfigFile``.
+        ``params`` carries:
+        - ``mutate``: callable ``(draft) -> None`` (mutates in place).
+        - ``afterWrite``: optional ``{"mode": "auto"}``.
+
+        Returns the new config or ``None`` if the host
+        hasn't wired the mutator.
+        """
+        return None
+
+
+@dataclass
+class PluginRuntimeStateApi:
+    """``api.runtime.state`` — host state dir + keyed store surface.
+
+    Mirrors OpenClaw's ``api.runtime.state`` namespace. The
+    host wires each method up; the default implementations
+    are no-ops so plugins still work when the host hasn't
+    wired the state surface yet.
+    """
+
+    def resolve_state_dir(self) -> str:
+        """Return the host's state dir (e.g. ``~/.jarvis``)."""
+        import os
+        from pathlib import Path
+
+        env = os.environ.get("JARVIS_DATA_DIR")
+        if env:
+            return env
+        return str(Path.home() / ".jarvis")
+
+    def open_keyed_store(self, params: dict[str, Any]) -> Any:
+        """Open a per-namespace keyed store.
+
+        Mirrors OpenClaw's ``api.runtime.state.openKeyedStore``.
+        ``params`` carries ``namespace`` (str) and ``maxEntries``
+        (int, optional). Returns ``None`` when the host hasn't
+        wired a store implementation.
+        """
+        return None
+
+
+@dataclass
+class PluginAgentSessionApi:
+    """``api.runtime.agent.session`` — per-agent session registry.
+
+    Mirrors OpenClaw's ``api.runtime.agent.session`` namespace.
+    Phase 4.2 only ships the ``getSessionEntry`` helper used
+    by ``active-memory``'s harness-skip check.
+    """
+
+    def get_session_entry(self, params: dict[str, Any]) -> Any:
+        """Return the session registry entry or ``None`` if missing.
+
+        Mirrors OpenClaw's
+        ``api.runtime.agent.session.getSessionEntry``.
+        Recognized params: ``agentId``, ``sessionKey``,
+        ``sessionId``, ``readConsistency`` (e.g. ``"latest"``).
+        """
+        return None
+
+
+@dataclass
+class PluginAgentApi:
+    """``api.runtime.agent`` — per-agent capability surface.
+
+    Mirrors OpenClaw's ``api.runtime.agent`` namespace. The
+    default implementations are no-ops so plugins that only
+    need a subset still work when the host hasn't wired the
+    rest yet.
+    """
+
+    resolve_agent_dir: Any = None  # set by host on init
+    resolve_agent_workspace_dir: Any = None  # set by host on init
+    resolve_cli_backend_dispatch_eligibility: Any = None
+    session: PluginAgentSessionApi = field(default_factory=PluginAgentSessionApi)
+
+    def __getattr__(self, item: str) -> Any:
+        # Tolerate attribute lookups for properties the host
+        # hasn't wired yet.
+        return None
+
+
+@dataclass
 class PluginSessionApi:
     """Grouped facade for session-state registrations. Stubs in 1C."""
 
     state: Any = None  # registerSessionExtension (Phase 2)
     workflow: Any = None  # enqueueNextTurnInjection (Phase 2)
     controls: Any = None  # registerSessionAction (Phase 2)
-
-
-@dataclass
-class PluginAgentApi:
-    """Grouped facade for agent-event registrations. Stubs in 1C."""
-
-    events: Any = None  # registerAgentEventSubscription (Phase 2)
 
 
 @dataclass
@@ -123,6 +216,35 @@ class PluginLifecycleApi:
 
 
 # ── Main PluginApi ───────────────────────────────────────────────────
+
+
+@dataclass
+class _PluginRuntimeNamespace:
+    """Mirror of OpenClaw's ``api.runtime`` nested namespace.
+
+    Holds the three runtime sub-namespaces (config, state,
+    agent) and forwards attribute access to the
+    ``PluginApi`` instance. The host wires each sub-namespace
+    by setting ``self.runtime._config`` etc. after
+    construction.
+    """
+
+    config: PluginRuntimeConfigApi
+    state: PluginRuntimeStateApi
+    agent: PluginAgentApi
+
+    def __init__(self, owner: PluginApi) -> None:
+        self.config = PluginRuntimeConfigApi()
+        self.state = PluginRuntimeStateApi()
+        self.agent = PluginAgentApi()
+        self._owner = owner
+
+    def __getattr__(self, item: str) -> Any:
+        # Tolerate attribute lookups for runtime sub-namespaces
+        # the host hasn't wired yet (returns None for forward
+        # compatibility — plugins must check for None before
+        # calling).
+        return None
 
 
 class PluginApi:
@@ -152,10 +274,15 @@ class PluginApi:
         self._cron_jobs: list[CronDecl] = []
 
         # ── Grouped facades (mirror OpenClaw) ───────────────────────
+        # Top-level grouped facades (Phase 1C).
         self.session = PluginSessionApi()
         self.agent = PluginAgentApi()
         self.run_context = PluginRunContextApi()
         self.lifecycle = PluginLifecycleApi()
+
+        # Nested runtime facade (Phase 4.2). Mirrors OpenClaw's
+        # `api.runtime.{config, state, agent}` namespace.
+        self.runtime: Any = _PluginRuntimeNamespace(self)
 
     # ── Identity / accessors ──────────────────────────────────────────
     @property

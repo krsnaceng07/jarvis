@@ -1,19 +1,25 @@
 """jarvis_sdk.number_runtime — strict number parsing.
 
 OpenClaw parity: mirrors ``openclaw/plugin-sdk/number-runtime``'s
-``parseStrictPositiveInteger`` and ``resolveTimerTimeoutMs``.
+``parseStrictPositiveInteger``, ``resolveTimerTimeoutMs``,
+``asDateTimestampMs``, and ``resolveExpiresAtMsFromDurationMs``.
 
 Used by ``memory-lancedb`` to parse CLI args and to set the
-embeddings request timeout (capped to a positive integer in
-milliseconds).
+embeddings request timeout, and by ``active-memory`` to build
+the recall cache's expiry timestamp.
 
 Architecture
 ============
 OpenClaw has a single module that wraps the strict-positive-int
-parser and the timer-timeout resolver. The Python equivalent
-is the same: ``parse_strict_positive_integer`` raises on garbage
-input; ``resolve_timer_timeout_ms`` clamps a value to a positive
-integer with a fallback.
+parser, the timer-timeout resolver, and date-timestamp
+helpers. The Python equivalent is the same:
+``parse_strict_positive_integer`` raises on garbage input;
+``resolve_timer_timeout_ms`` clamps a value to a positive
+integer with a fallback; ``as_date_timestamp_ms`` coerces a
+value to a finite millisecond timestamp (or ``None`` for
+unparseable input); ``resolve_expires_at_ms_from_duration_ms``
+adds a duration to a now-ms and returns the resulting
+millisecond timestamp (or ``None`` for unparseable input).
 
 Parity
 ======
@@ -23,9 +29,16 @@ Parity
 - ``resolve_timer_timeout_ms(raw, fallback)`` → ``int``
   (clamped to >= 1). Treats ``None``, ``0``, and negative values
   as "use fallback".
+- ``as_date_timestamp_ms(value)`` → ``int | None`` (finite
+  millisecond timestamp, or ``None`` for ``None``/non-numeric).
+- ``resolve_expires_at_ms_from_duration_ms(duration_ms, now_ms)``
+  → ``int | None`` (``now_ms + duration_ms`` if both finite).
 """
 
 from __future__ import annotations
+
+import math
+import time
 
 
 def parse_strict_positive_integer(value: object) -> int | None:
@@ -71,4 +84,75 @@ def resolve_timer_timeout_ms(raw: int | float | None, fallback: int) -> int:
     return max(1, int(raw))
 
 
-__all__ = ["parse_strict_positive_integer", "resolve_timer_timeout_ms"]
+def as_date_timestamp_ms(value: object) -> int | None:
+    """Coerce ``value`` to a finite millisecond timestamp.
+
+    Mirrors OpenClaw's ``asDateTimestampMs``. Returns ``None``
+    for ``None``, non-numeric strings, NaN, and +/- infinity.
+    Floats are truncated to integer ms (matching OpenClaw's
+    ``Math.trunc``-then-cast behavior).
+    """
+    result: int | None = None
+    if value is None or isinstance(value, bool):
+        result = None
+    elif isinstance(value, int):
+        result = value if -(10**18) <= value <= 10**18 else None
+    elif isinstance(value, float):
+        result = None if math.isnan(value) or value in (float("inf"), float("-inf")) else int(value)
+    elif isinstance(value, str):
+        trimmed = value.strip()
+        if not trimmed:
+            result = None
+        else:
+            try:
+                parsed: float = float(trimmed)
+            except ValueError:
+                result = None
+            else:
+                if math.isnan(parsed) or parsed in (float("inf"), float("-inf")):
+                    result = None
+                else:
+                    result = int(parsed)
+    return result
+
+
+def resolve_expires_at_ms_from_duration_ms(
+    duration_ms: object,
+    options: dict | None = None,
+) -> int | None:
+    """Resolve an expiry timestamp from a duration.
+
+    Mirrors OpenClaw's ``resolveExpiresAtMsFromDurationMs``.
+    The default ``now_ms`` is the current time. Returns
+    ``None`` for non-finite duration or ``now_ms`` values.
+    """
+    if duration_ms is None or isinstance(duration_ms, bool):
+        return None
+    duration_value: float
+    if isinstance(duration_ms, int | float):
+        duration_value = float(duration_ms)
+    elif isinstance(duration_ms, str):
+        try:
+            duration_value = float(duration_ms.strip())
+        except ValueError:
+            return None
+    else:
+        return None
+    if math.isnan(duration_value) or duration_value in (float("inf"), float("-inf")):
+        return None
+    if duration_value < 0:
+        return None
+    now_ms: float | None = None
+    if options and "nowMs" in options:
+        now_ms = as_date_timestamp_ms(options["nowMs"])
+    if now_ms is None:
+        now_ms = float(int(time.time() * 1000))
+    return int(now_ms + duration_value)
+
+
+__all__ = [
+    "as_date_timestamp_ms",
+    "parse_strict_positive_integer",
+    "resolve_expires_at_ms_from_duration_ms",
+    "resolve_timer_timeout_ms",
+]

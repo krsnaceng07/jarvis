@@ -32,15 +32,15 @@ Dependencies
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable  # noqa: TCH003
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any
 
-_T = TypeVar("_T")
+if TYPE_CHECKING:
+    from collections.abc import Awaitable, Callable
 
 
-def create_lazy_runtime_module(
-    load_fn: Callable[[], Awaitable[_T] | _T],
-) -> Callable[[], Awaitable[_T]]:
+def create_lazy_runtime_module[T](
+    load_fn: Callable[[], Awaitable[T] | T],
+) -> Callable[[], Awaitable[T]]:
     """Mirror OpenClaw's ``createLazyRuntimeModule``.
 
     The returned function awaits the loader's result and caches
@@ -53,7 +53,7 @@ def create_lazy_runtime_module(
         A no-argument callable that returns either the module (or
         any object) synchronously, or an awaitable that resolves to
         the same. OpenClaw's signature is ``() => import("./x.js")``;
-        ours is ``Callable[[], Awaitable[_T] | _T]``.
+        ours is ``Callable[[], Awaitable[T] | T]``.
 
     Returns
     -------
@@ -62,7 +62,7 @@ def create_lazy_runtime_module(
     """
     cache: dict[str, Any] = {}
 
-    async def load() -> _T:
+    async def load() -> T:
         if "value" in cache:
             return cache["value"]  # type: ignore[no-any-return]
         try:

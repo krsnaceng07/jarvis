@@ -36,7 +36,7 @@ Example:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -46,7 +46,7 @@ R = TypeVar("R")
 
 
 @dataclass(frozen=True, slots=True)
-class Ok(Generic[T]):
+class Ok[T]:
     """Successful result wrapping a value of type ``T``."""
 
     value: T
@@ -71,7 +71,7 @@ class Ok(Generic[T]):
 
 
 @dataclass(frozen=True, slots=True)
-class Err(Generic[T]):
+class Err[T]:
     """Failed result with a human-readable message and a stable error code.
 
     The ``code`` is a short stable identifier (``"DIV_BY_ZERO"``,

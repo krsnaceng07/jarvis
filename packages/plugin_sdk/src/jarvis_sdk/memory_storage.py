@@ -89,11 +89,11 @@ class MemorySearchManager(ABC):
 
 
 __all__ = [
-    "MemorySearchManager",
-    "MemorySearchResult",
     "SOURCE_ALL",
     "SOURCE_MEMORY",
     "SOURCE_SESSIONS",
     "SOURCE_WIKI",
     "VALID_SOURCES",
+    "MemorySearchManager",
+    "MemorySearchResult",
 ]

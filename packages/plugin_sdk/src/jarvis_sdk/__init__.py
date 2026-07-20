@@ -30,9 +30,14 @@ from __future__ import annotations
 # Phase 4.0 SDK submodules (OpenClaw plugin-sdk parity)
 from .agent_runtime import (
     DEFAULT_AGENT_ID,
+    DEFAULT_PROVIDER,
+    parse_model_ref,
     resolve_agent_dir,
+    resolve_agent_effective_model_primary,
     resolve_agent_workspace_dir,
     resolve_default_agent_id,
+    resolve_default_model_for_agent,
+    resolve_remember_across_conversations,
     resolve_session_agent_id,
 )
 
@@ -97,6 +102,7 @@ from .memory_embeddings import (
     list_registered_memory_embedding_providers,
     register_memory_embedding_provider,
 )
+from .memory_host_search import close_active_memory_search_manager
 from .memory_runtime import (
     MemoryFlushPlan,
     MemoryFlushPlanResolver,
@@ -117,10 +123,17 @@ from .memory_storage import (
 )
 from .message_tool_delivery_hints import MESSAGE_TOOL_DELIVERY_HINTS
 from .number_runtime import (
+    as_date_timestamp_ms,
     parse_strict_positive_integer,
+    resolve_expires_at_ms_from_duration_ms,
     resolve_timer_timeout_ms,
 )
-from .plugin_config import resolve_live_plugin_config_object
+from .plugin_config import (
+    PluginsConfig,
+    normalize_plugins_config,
+    resolve_live_plugin_config_object,
+    resolve_plugin_config_object,
+)
 from .plugin_state import (
     KeyedStore,
     LeaseHeld,
@@ -131,88 +144,69 @@ from .plugin_state import (
 
 # Result type (Ok / Err / Result)
 from .result import Err, Ok, Result, ResultNone
-from .routing import normalize_agent_id
+from .routing import (
+    normalize_agent_id,
+    parse_agent_session_key,
+    parse_thread_session_suffix,
+)
 from .runtime_env import ensure_global_undici_env_proxy_dispatcher
+from .security_runtime import is_path_inside
+from .session_transcript_runtime import (
+    SessionTranscriptTargetParams,
+    build_session_transcript_target,
+)
 
 # Skill types
 from .skill import SkillDecl
 from .string_coerce import (
     as_optional_record,
     normalize_lowercase_string_or_empty,
+    normalize_optional_string,
+    normalize_string_entries,
 )
 from .text_utility import truncate_utf16_safe, utf16_length
 
 __all__ = [
-    # Result
-    "Err",
-    "Ok",
-    "Result",
-    "ResultNone",
-    # Manifest
-    "PluginActivation",
-    "PluginKind",
-    "PluginManifestSummary",
-    "ToolDecl",
-    "ToolParam",
-    # Contract
-    "ChannelPlugin",
-    "MemoryHostPlugin",
-    "Plugin",
-    "ProviderPlugin",
-    "ToolCallable",
-    "ToolPlugin",
-    # Context
-    "PluginContext",
-    # Command
-    "CommandDecl",
-    "PluginCommandContext",
-    "PluginCommandHandler",
-    "PluginCommandResult",
+    # Chat channel ids
+    "BUNDLED_CHAT_CHANNEL_ENVELOPE_PREFIXES",
+    # Phase 4.0: OpenClaw plugin-sdk parity
+    # Agent runtime
+    "DEFAULT_AGENT_ID",
+    "DEFAULT_PROVIDER",
+    # Message tool delivery hints
+    "MESSAGE_TOOL_DELIVERY_HINTS",
+    "SOURCE_ALL",
+    "SOURCE_MEMORY",
+    "SOURCE_SESSIONS",
+    "SOURCE_WIKI",
+    "VALID_SOURCES",
     # CLI
     "ApiCliDescriptor",
+    # Contract
+    "ChannelPlugin",
     "CliContext",
     "CliDescriptor",
     "CliRegistrar",
+    # Command
+    "CommandDecl",
     # Cron
     "CronDecl",
+    # Result
+    "Err",
     # Hooks
     "HookHandler",
     "HookName",
     "HookRegistration",
-    # Skills
-    "SkillDecl",
-    # API
-    "PluginAgentApi",
-    "PluginApi",
-    "PluginLifecycleApi",
-    "PluginRunContextApi",
-    "PluginSessionApi",
-    # Entry
-    "PluginEntry",
-    "define_plugin_entry",
-    # Phase 4.0: OpenClaw plugin-sdk parity
-    # Agent runtime
-    "DEFAULT_AGENT_ID",
-    "resolve_agent_dir",
-    "resolve_agent_workspace_dir",
-    "resolve_default_agent_id",
-    "resolve_session_agent_id",
-    # Chat channel ids
-    "BUNDLED_CHAT_CHANNEL_ENVELOPE_PREFIXES",
-    # Expect runtime
-    "expect_defined",
-    "expect_truthy",
-    # Lazy runtime
-    "create_lazy_runtime_module",
+    # Plugin state
+    "KeyedStore",
+    "LeaseHeld",
     # Memory embeddings
     "MemoryEmbeddingProvider",
     "MemoryEmbeddingProviderAdapter",
-    "get_memory_embedding_provider",
-    "list_registered_memory_embedding_providers",
-    "register_memory_embedding_provider",
     # Memory runtime
     "MemoryFlushPlan",
     "MemoryFlushPlanResolver",
+    "MemoryHostPlugin",
     "MemoryPluginCapability",
     "MemoryPluginPublicArtifact",
     "MemoryPluginPublicArtifactsProvider",
@@ -221,32 +215,83 @@ __all__ = [
     # Memory storage
     "MemorySearchManager",
     "MemorySearchResult",
-    "SOURCE_ALL",
-    "SOURCE_MEMORY",
-    "SOURCE_SESSIONS",
-    "SOURCE_WIKI",
-    "VALID_SOURCES",
-    # Message tool delivery hints
-    "MESSAGE_TOOL_DELIVERY_HINTS",
-    # Number runtime
-    "parse_strict_positive_integer",
-    "resolve_timer_timeout_ms",
-    # Plugin config
-    "resolve_live_plugin_config_object",
-    # Plugin state
-    "KeyedStore",
-    "LeaseHeld",
+    "Ok",
     "OpenKeyedStoreOptions",
-    "open_keyed_store",
-    "with_lease",
-    # Routing
-    "normalize_agent_id",
-    # Runtime env
-    "ensure_global_undici_env_proxy_dispatcher",
+    "Plugin",
+    # Manifest
+    "PluginActivation",
+    # API
+    "PluginAgentApi",
+    "PluginApi",
+    "PluginCommandContext",
+    "PluginCommandHandler",
+    "PluginCommandResult",
+    # Context
+    "PluginContext",
+    # Entry
+    "PluginEntry",
+    "PluginKind",
+    "PluginLifecycleApi",
+    "PluginManifestSummary",
+    "PluginRunContextApi",
+    "PluginSessionApi",
+    # Plugin config
+    "PluginsConfig",
+    "ProviderPlugin",
+    "Result",
+    "ResultNone",
+    # Session transcript runtime
+    "SessionTranscriptTargetParams",
+    # Skills
+    "SkillDecl",
+    "ToolCallable",
+    "ToolDecl",
+    "ToolParam",
+    "ToolPlugin",
+    # Number runtime
+    "as_date_timestamp_ms",
     # String coerce
     "as_optional_record",
+    "build_session_transcript_target",
+    # Memory host search
+    "close_active_memory_search_manager",
+    # Lazy runtime
+    "create_lazy_runtime_module",
+    "define_plugin_entry",
+    # Runtime env
+    "ensure_global_undici_env_proxy_dispatcher",
+    # Expect runtime
+    "expect_defined",
+    "expect_truthy",
+    "get_memory_embedding_provider",
+    # Security runtime
+    "is_path_inside",
+    "list_registered_memory_embedding_providers",
+    # Routing
+    "normalize_agent_id",
     "normalize_lowercase_string_or_empty",
+    "normalize_optional_string",
+    "normalize_plugins_config",
+    "normalize_string_entries",
+    "open_keyed_store",
+    "parse_agent_session_key",
+    "parse_model_ref",
+    "parse_strict_positive_integer",
+    "parse_thread_session_suffix",
+    "register_memory_embedding_provider",
+    "resolve_agent_dir",
+    "resolve_agent_effective_model_primary",
+    "resolve_agent_workspace_dir",
+    "resolve_default_agent_id",
+    "resolve_default_model_for_agent",
+    "resolve_expires_at_ms_from_duration_ms",
+    "resolve_live_plugin_config_object",
+    "resolve_plugin_config_object",
+    "resolve_remember_across_conversations",
+    "resolve_session_agent_id",
+    "resolve_timer_timeout_ms",
     # Text utility
     "truncate_utf16_safe",
     "utf16_length",
+    "with_lease",
 ]

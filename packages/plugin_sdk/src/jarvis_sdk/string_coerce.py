@@ -2,11 +2,13 @@
 
 OpenClaw parity: mirrors
 ``@openclaw/normalization-core/string-coerce``'s
-``asOptionalRecord`` and ``normalizeLowercaseStringOrEmpty``.
+``asOptionalRecord``, ``normalizeLowercaseStringOrEmpty``,
+``normalizeStringEntries``, and ``normalizeOptionalString``.
 
 Used by ``memory-lancedb`` to safely coerce user-supplied
 JSON / message content into the shape the plugin expects
-without raising on bad inputs.
+without raising on bad inputs; used by ``active-memory`` to
+normalize config arrays and probe tool result text.
 
 Architecture
 ============
@@ -26,6 +28,11 @@ Parity
   returns None).
 - ``normalize_lowercase_string_or_empty(value)`` → ``str``
   (lower-cased, with the input as-is if it isn't a string).
+- ``normalize_string_entries(value)`` → ``list[str]``
+  (deduplicated, lower-cased; non-string / empty entries
+  dropped).
+- ``normalize_optional_string(value)`` → ``str | None``
+  (trimmed string or ``None`` for empty / non-string).
 """
 
 from __future__ import annotations
@@ -64,7 +71,43 @@ def normalize_lowercase_string_or_empty(value: object) -> str:
     return ""
 
 
+def normalize_string_entries(value: object) -> list[str]:
+    """Normalize a list of strings, deduplicated, lower-cased.
+
+    Mirrors ``@openclaw/normalization-core/string-coerce``'s
+    ``normalizeStringEntries``. Non-string entries are
+    dropped; empty / whitespace-only entries are dropped.
+    """
+    if not isinstance(value, list | tuple):
+        return []
+    seen: set[str] = set()
+    out: list[str] = []
+    for entry in value:
+        if not isinstance(entry, str):
+            continue
+        normalized = entry.strip().lower()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        out.append(normalized)
+    return out
+
+
+def normalize_optional_string(value: object) -> str | None:
+    """Return a trimmed string, or ``None`` for empty / non-string.
+
+    Mirrors ``@openclaw/normalization-core/string-coerce``'s
+    ``normalizeOptionalString``.
+    """
+    if not isinstance(value, str):
+        return None
+    trimmed = value.strip()
+    return trimmed if trimmed else None
+
+
 __all__ = [
     "as_optional_record",
     "normalize_lowercase_string_or_empty",
+    "normalize_optional_string",
+    "normalize_string_entries",
 ]
