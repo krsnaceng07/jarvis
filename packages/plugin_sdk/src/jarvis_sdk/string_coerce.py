@@ -27,6 +27,7 @@ Parity
 - ``normalize_lowercase_string_or_empty(value)`` → ``str``
   (lower-cased, with the input as-is if it isn't a string).
 """
+
 from __future__ import annotations
 
 from typing import Any

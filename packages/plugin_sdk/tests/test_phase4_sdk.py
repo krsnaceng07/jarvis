@@ -24,18 +24,19 @@ Tests every SDK submodule added in Phase 4.0:
 from __future__ import annotations
 
 import asyncio
-import json
 import os
-import tempfile
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
 from jarvis_sdk import (
     BUNDLED_CHAT_CHANNEL_ENVELOPE_PREFIXES,
-    KeyedStore,
-    LeaseHeld,
     MESSAGE_TOOL_DELIVERY_HINTS,
+    SOURCE_MEMORY,
+    LeaseHeld,
     MemoryFlushPlan,
     MemoryPluginCapability,
     MemoryPluginPublicArtifact,
@@ -44,7 +45,6 @@ from jarvis_sdk import (
     MemorySearchManager,
     MemorySearchResult,
     OpenKeyedStoreOptions,
-    SOURCE_MEMORY,
     as_optional_record,
     create_lazy_runtime_module,
     ensure_global_undici_env_proxy_dispatcher,
@@ -64,9 +64,6 @@ from jarvis_sdk import (
     utf16_length,
     with_lease,
 )
-from jarvis_sdk import memory_embeddings as me_mod
-from jarvis_sdk import memory_runtime as mr_mod
-
 
 # ── lazy_runtime ───────────────────────────────────────────────
 
@@ -74,7 +71,11 @@ from jarvis_sdk import memory_runtime as mr_mod
 class TestLazyRuntime:
     def test_loads_module(self) -> None:
         load = create_lazy_runtime_module(lambda: {"value": 42})
-        result = asyncio.run(load())
+
+        async def runner() -> dict:
+            return await load()
+
+        result = asyncio.run(runner())
         assert result == {"value": 42}
 
     def test_caches_result(self) -> None:
@@ -85,8 +86,12 @@ class TestLazyRuntime:
             return {"count": calls["n"]}
 
         load = create_lazy_runtime_module(loader)
-        asyncio.run(load())
-        asyncio.run(load())
+
+        async def runner() -> dict:
+            return await load()
+
+        asyncio.run(runner())
+        asyncio.run(runner())
         assert calls["n"] == 1
 
     def test_async_loader(self) -> None:
@@ -94,7 +99,11 @@ class TestLazyRuntime:
             return 7
 
         load = create_lazy_runtime_module(loader)
-        assert asyncio.run(load()) == 7
+
+        async def runner() -> int:
+            return await load()
+
+        assert asyncio.run(runner()) == 7
 
     def test_failure_does_not_cache(self) -> None:
         calls = {"n": 0}
@@ -106,10 +115,14 @@ class TestLazyRuntime:
             return 42
 
         load = create_lazy_runtime_module(loader)
+
+        async def runner() -> int:
+            return await load()
+
         with pytest.raises(RuntimeError):
-            asyncio.run(load())
+            asyncio.run(runner())
         # Second call retries.
-        assert asyncio.run(load()) == 42
+        assert asyncio.run(runner()) == 42
         assert calls["n"] == 2
 
 
@@ -151,21 +164,21 @@ class TestNumberRuntime:
     def test_parse_strict_positive_integer_rejects_zero(self) -> None:
         with pytest.raises(ValueError, match="positive integer"):
             parse_strict_positive_integer(0)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="positive integer"):
             parse_strict_positive_integer("0")
 
     def test_parse_strict_positive_integer_rejects_negative(self) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="positive integer"):
             parse_strict_positive_integer(-1)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="positive integer"):
             parse_strict_positive_integer("-5")
 
     def test_parse_strict_positive_integer_rejects_garbage(self) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="positive integer"):
             parse_strict_positive_integer("not a number")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="positive integer"):
             parse_strict_positive_integer(3.14)  # floats rejected
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="positive integer"):
             parse_strict_positive_integer(True)  # bool rejected
 
     def test_resolve_timer_timeout_ms(self) -> None:
@@ -208,7 +221,7 @@ class TestTextUtility:
         assert truncate_utf16_safe("hello", 0) == ""
 
     def test_truncate_max_units_negative_raises(self) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="must be >= 0"):
             truncate_utf16_safe("hello", -1)
 
 
@@ -221,9 +234,9 @@ class TestRouting:
         assert normalize_agent_id("BAR") == "bar"
 
     def test_normalize_rejects_empty(self) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="agent id must not be None|reserved"):
             normalize_agent_id("")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="reserved"):
             normalize_agent_id("   ")
 
     def test_normalize_rejects_reserved(self) -> None:
@@ -232,17 +245,17 @@ class TestRouting:
                 normalize_agent_id(reserved)
 
     def test_normalize_rejects_whitespace(self) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="whitespace"):
             normalize_agent_id("foo\nbar")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="whitespace"):
             normalize_agent_id("foo\tbar")
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="whitespace"):
             normalize_agent_id("foo\0bar")
 
     def test_normalize_rejects_non_string(self) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="agent id must not be None"):
             normalize_agent_id(None)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="must be a string"):
             normalize_agent_id(123)
 
 
@@ -344,10 +357,7 @@ class TestAgentRuntime:
 
     def test_resolve_session_agent_id_agent_prefix(self) -> None:
         # OpenClaw convention: "agent:<id>:<rest>" → agent id = <id>
-        assert (
-            resolve_session_agent_id({}, session_key="agent:mybot:main")
-            == "mybot"
-        )
+        assert resolve_session_agent_id({}, session_key="agent:mybot:main") == "mybot"
 
     def test_resolve_session_agent_id_wildcard(self) -> None:
         # "agent:*" → fall back to default
@@ -364,24 +374,26 @@ class TestPluginConfig:
     def test_resolve_returns_none_when_supplier_raises(self) -> None:
         def broken() -> dict:
             raise RuntimeError("config load failed")
+
         assert resolve_live_plugin_config_object(broken, "x", {"a": 1}) is None
 
     def test_resolve_returns_none_when_plugin_id_missing(self) -> None:
         def cfg() -> dict:
             return {"plugins": {"entries": {"other": {"foo": 1}}}}
+
         assert resolve_live_plugin_config_object(cfg, "x", {"a": 1}) is None
 
     def test_resolve_returns_merged(self) -> None:
         def cfg() -> dict:
             return {"plugins": {"entries": {"x": {"b": 2}}}}
-        merged = resolve_live_plugin_config_object(
-            cfg, "x", {"a": 1, "b": 99}
-        )
+
+        merged = resolve_live_plugin_config_object(cfg, "x", {"a": 1, "b": 99})
         assert merged == {"a": 1, "b": 2}  # live overrides static
 
     def test_resolve_empty_static(self) -> None:
         def cfg() -> dict:
             return {"plugins": {"entries": {"x": {"a": 1}}}}
+
         merged = resolve_live_plugin_config_object(cfg, "x", None)
         assert merged == {"a": 1}
 
@@ -391,32 +403,24 @@ class TestPluginConfig:
 
 class TestPluginState:
     def test_read_returns_none_for_missing_key(self, tmp_path: Path) -> None:
-        store = open_keyed_store(
-            OpenKeyedStoreOptions(root=tmp_path, name="test")
-        )
+        store = open_keyed_store(OpenKeyedStoreOptions(root=tmp_path, name="test"))
         assert store.read("missing") is None
 
     def test_write_and_read(self, tmp_path: Path) -> None:
-        store = open_keyed_store(
-            OpenKeyedStoreOptions(root=tmp_path, name="test")
-        )
+        store = open_keyed_store(OpenKeyedStoreOptions(root=tmp_path, name="test"))
         store.write("k1", {"a": 1, "b": [2, 3]})
         loaded = store.read("k1")
         assert loaded == {"a": 1, "b": [2, 3]}
 
     def test_write_is_atomic(self, tmp_path: Path) -> None:
-        store = open_keyed_store(
-            OpenKeyedStoreOptions(root=tmp_path, name="test")
-        )
+        store = open_keyed_store(OpenKeyedStoreOptions(root=tmp_path, name="test"))
         store.write("k1", {"a": 1})
         # No .tmp files should remain.
         leftover = list(store._root.glob("*.tmp"))
         assert leftover == []
 
     def test_list_keys(self, tmp_path: Path) -> None:
-        store = open_keyed_store(
-            OpenKeyedStoreOptions(root=tmp_path, name="test")
-        )
+        store = open_keyed_store(OpenKeyedStoreOptions(root=tmp_path, name="test"))
         store.write("k1", {"a": 1})
         store.write("k2", {"a": 2})
         store.write("k3", {"a": 3})
@@ -424,26 +428,20 @@ class TestPluginState:
         assert set(keys) == {"k1", "k2", "k3"}
 
     def test_delete(self, tmp_path: Path) -> None:
-        store = open_keyed_store(
-            OpenKeyedStoreOptions(root=tmp_path, name="test")
-        )
+        store = open_keyed_store(OpenKeyedStoreOptions(root=tmp_path, name="test"))
         store.write("k1", {"a": 1})
         assert store.delete("k1") is True
         assert store.read("k1") is None
         assert store.delete("k1") is False  # second delete is no-op
 
     def test_lease_acquire_and_release(self, tmp_path: Path) -> None:
-        store = open_keyed_store(
-            OpenKeyedStoreOptions(root=tmp_path, name="test")
-        )
+        store = open_keyed_store(OpenKeyedStoreOptions(root=tmp_path, name="test"))
         token = store.acquire_lease("k1")
         assert token is not None
         assert store.release_lease("k1", token) is True
 
     def test_lease_blocks_double_acquire(self, tmp_path: Path) -> None:
-        store = open_keyed_store(
-            OpenKeyedStoreOptions(root=tmp_path, name="test", lease_ms=10_000)
-        )
+        store = open_keyed_store(OpenKeyedStoreOptions(root=tmp_path, name="test", lease_ms=10_000))
         token1 = store.acquire_lease("k1")
         assert token1 is not None
         token2 = store.acquire_lease("k1")
@@ -453,21 +451,18 @@ class TestPluginState:
         assert token3 is not None  # freed
 
     def test_lease_steal_after_expiry(self, tmp_path: Path) -> None:
-        store = open_keyed_store(
-            OpenKeyedStoreOptions(root=tmp_path, name="test", lease_ms=10)
-        )
+        store = open_keyed_store(OpenKeyedStoreOptions(root=tmp_path, name="test", lease_ms=10))
         token1 = store.acquire_lease("k1")
         assert token1 is not None
         # Sleep past lease expiry.
         import time
+
         time.sleep(0.05)
         token2 = store.acquire_lease("k1")
         assert token2 is not None  # stole the stale lease
 
     def test_with_lease_runs_body(self, tmp_path: Path) -> None:
-        store = open_keyed_store(
-            OpenKeyedStoreOptions(root=tmp_path, name="test")
-        )
+        store = open_keyed_store(OpenKeyedStoreOptions(root=tmp_path, name="test"))
         with with_lease(store, "k1") as token:
             assert isinstance(token, str)
             assert len(token) > 0
@@ -476,18 +471,13 @@ class TestPluginState:
         assert token_after is not None
 
     def test_with_lease_raises_if_held(self, tmp_path: Path) -> None:
-        store = open_keyed_store(
-            OpenKeyedStoreOptions(root=tmp_path, name="test")
-        )
+        store = open_keyed_store(OpenKeyedStoreOptions(root=tmp_path, name="test"))
         store.acquire_lease("k1")
-        with pytest.raises(LeaseHeld):
-            with with_lease(store, "k1"):
-                pass  # pragma: no cover
+        with pytest.raises(LeaseHeld), with_lease(store, "k1"):
+            pass  # pragma: no cover
 
     def test_invalid_key_rejected(self, tmp_path: Path) -> None:
-        store = open_keyed_store(
-            OpenKeyedStoreOptions(root=tmp_path, name="test")
-        )
+        store = open_keyed_store(OpenKeyedStoreOptions(root=tmp_path, name="test"))
         with pytest.raises(ValueError, match="invalid key"):
             store.read("../etc/passwd")
         with pytest.raises(ValueError, match="invalid key"):
@@ -502,13 +492,16 @@ class TestPluginState:
 class TestMemoryStorage:
     def test_source_constants(self) -> None:
         assert SOURCE_MEMORY == "memory"
-        from jarvis_sdk import SOURCE_WIKI, SOURCE_SESSIONS, SOURCE_ALL, VALID_SOURCES
+        from jarvis_sdk import SOURCE_ALL, SOURCE_SESSIONS, SOURCE_WIKI, VALID_SOURCES
+
         assert SOURCE_WIKI == "wiki"
         assert SOURCE_SESSIONS == "sessions"
         assert SOURCE_ALL == "all"
         assert {SOURCE_MEMORY, SOURCE_WIKI, SOURCE_SESSIONS, SOURCE_ALL} == VALID_SOURCES
 
     def test_memory_search_result_frozen(self) -> None:
+        from dataclasses import FrozenInstanceError
+
         r = MemorySearchResult(
             id="1",
             path="MEMORY.md",
@@ -520,7 +513,7 @@ class TestMemoryStorage:
         )
         assert r.id == "1"
         assert r.score == 0.9
-        with pytest.raises(Exception):  # FrozenInstanceError
+        with pytest.raises(FrozenInstanceError):
             r.id = "2"  # type: ignore[misc]
 
     def test_memory_search_manager_is_abstract(self) -> None:
@@ -535,6 +528,7 @@ class TestMemoryEmbeddings:
     def test_registry_empty_initially(self) -> None:
         # Use a private accessor so the test is independent of other tests.
         from jarvis_sdk.memory_embeddings import _REGISTRY
+
         # Filter out any built-ins that might have been registered by
         # other test files (e.g. memory_lancedb tests).
         keys = sorted(_REGISTRY.keys())
@@ -543,9 +537,9 @@ class TestMemoryEmbeddings:
     def test_register_and_lookup(self) -> None:
         from jarvis_sdk.memory_embeddings import (
             MemoryEmbeddingProviderAdapter,
-            register_memory_embedding_provider,
             get_memory_embedding_provider,
             list_registered_memory_embedding_providers,
+            register_memory_embedding_provider,
         )
 
         class StubAdapter(MemoryEmbeddingProviderAdapter):

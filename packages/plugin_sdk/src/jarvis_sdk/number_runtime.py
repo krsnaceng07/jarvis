@@ -24,6 +24,7 @@ Parity
   (clamped to >= 1). Treats ``None``, ``0``, and negative values
   as "use fallback".
 """
+
 from __future__ import annotations
 
 
@@ -65,7 +66,7 @@ def resolve_timer_timeout_ms(raw: int | float | None, fallback: int) -> int:
     ``>= 1`` ms (a 0ms timer would fire immediately, which is
     never the intent).
     """
-    if raw is None or not isinstance(raw, (int, float)) or raw <= 0:
+    if raw is None or not isinstance(raw, int | float) or raw <= 0:
         return max(1, int(fallback))
     return max(1, int(raw))
 

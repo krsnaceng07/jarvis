@@ -27,10 +27,11 @@ Parity
 - ``get_memory_embedding_provider(id, config)`` returns the
   adapter's ``MemoryEmbeddingProvider`` instance, or None.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, ClassVar
+from typing import Any
 
 
 class MemoryEmbeddingProvider(ABC):
@@ -58,7 +59,7 @@ class MemoryEmbeddingProvider(ABC):
         return [await self.embed_query(c, options) for c in chunks]
 
 
-_REGISTRY: ClassVar[dict[str, "MemoryEmbeddingProviderAdapter"]] = {}
+_REGISTRY: dict[str, MemoryEmbeddingProviderAdapter] = {}
 
 
 class MemoryEmbeddingProviderAdapter(ABC):

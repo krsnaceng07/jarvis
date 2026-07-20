@@ -27,14 +27,15 @@ Parity
 - ``expect_truthy(value, ctx)`` is the same but for falsy
   values (None, empty string, 0, empty list).
 """
+
 from __future__ import annotations
 
-from typing import Any, NoReturn, TypeVar
+from typing import NoReturn, TypeVar
 
 _T = TypeVar("_T")
 
 
-def expect_defined(value: "_T | None", context: str) -> "_T":
+def expect_defined(value: _T | None, context: str) -> _T:
     """Assert value is not None; return it.
 
     Parameters
@@ -56,7 +57,7 @@ def expect_defined(value: "_T | None", context: str) -> "_T":
     return value  # type: ignore[no-any-return]
 
 
-def expect_truthy(value: "_T", context: str) -> "_T":
+def expect_truthy(value: _T, context: str) -> _T:
     """Assert value is truthy; return it."""
     if not value:
         _fail(f"expected {context} to be truthy, got {value!r}")

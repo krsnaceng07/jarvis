@@ -27,10 +27,20 @@ Parity
   (supplier returns None, or no ``plugins.entries.<id>``
   key), returns None. Otherwise returns the merged dict.
 """
+
 from __future__ import annotations
 
-from collections.abc import Callable
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+
+# ruff: noqa: PLR0911
+# Each early return handles a specific failure mode (no
+# supplier, supplier raises, config malformed, plugin id
+# missing, plugin config malformed). The returns make the
+# failure surface explicit in the test suite.
 
 
 def resolve_live_plugin_config_object(
@@ -54,7 +64,7 @@ def resolve_live_plugin_config_object(
         return None
     try:
         live = get_config()
-    except Exception:  # noqa: BLE001
+    except Exception:
         return None
     if not isinstance(live, dict):
         return None

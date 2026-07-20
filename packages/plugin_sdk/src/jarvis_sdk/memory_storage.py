@@ -24,6 +24,7 @@ Parity
   ``citation``.
 - ``MemorySearchManager`` is an abstract base class.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

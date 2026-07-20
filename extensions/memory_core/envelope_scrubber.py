@@ -34,6 +34,7 @@ The Python port is intentionally faithful — the regex set is
 the security contract. If you change a pattern, change the
 adversarial test in the same commit.
 """
+
 from __future__ import annotations
 
 import re
@@ -64,14 +65,12 @@ MEMORY_TRIGGERS: Final[list[re.Pattern[str]]] = [
     ),
     # Japanese: 覚えて, 私の好み, etc.
     re.compile(
-        r"覚えて|記憶して|忘れないで|私は.*(好き|嫌い|必要|欲しい)"
-        r"|好み|いつも|絶対|重要",
+        r"覚えて|記憶して|忘れないで|私は.*(好き|嫌い|必要|欲しい)" r"|好み|いつも|絶対|重要",
         re.IGNORECASE,
     ),
     # Korean: 기억해, 나는, etc.
     re.compile(
-        r"기억해|기억해줘|잊지 마|나는.*(좋아|싫어|원해|필요)"
-        r"|내.*(이야|입니다)|항상|절대|중요",
+        r"기억해|기억해줘|잊지 마|나는.*(좋아|싫어|원해|필요)" r"|내.*(이야|입니다)|항상|절대|중요",
         re.IGNORECASE,
     ),
 ]
@@ -107,7 +106,9 @@ PROMPT_injection_patterns: Final[list[re.Pattern[str]]] = [
     re.compile(r"system prompt", re.IGNORECASE),
     re.compile(r"developer message", re.IGNORECASE),
     # XML-ish system/developer/tool tags
-    re.compile(r"<\s*(system|assistant|developer|tool|function|relevant-memories)\b", re.IGNORECASE),
+    re.compile(
+        r"<\s*(system|assistant|developer|tool|function|relevant-memories)\b", re.IGNORECASE
+    ),
     # "run a tool" / "call a tool" / "invoke a command" — common
     # in prompt-injection payloads.
     re.compile(r"\b(run|execute|call|invoke)\b.{0,40}\b(tool|command)\b", re.IGNORECASE),
@@ -135,9 +136,7 @@ INBOUND_META_SENTINELS: Final[tuple[str, ...]] = (
 
 # Pre-compiled regex: each sentinel as a line-anchored prefix.
 _INBOUND_META_SENTINEL_LINE_RE: Final[re.Pattern[str]] = re.compile(
-    r"^(?:"
-    + "|".join(re.escape(s) for s in INBOUND_META_SENTINELS)
-    + r")[^\n]*$",
+    r"^(?:" + "|".join(re.escape(s) for s in INBOUND_META_SENTINELS) + r")[^\n]*$",
     re.MULTILINE,
 )
 
@@ -232,6 +231,7 @@ _inbound_envelope_prefix_re: Final[re.Pattern[str]] = re.compile(
     r"|\s[A-Za-z]{3}\s\d{4}-\d{2}-\d{2})[^\]\n]{0,200})\]\s"
 )
 
+
 # Marker-free leading envelope: ``[Channel <from-label> ...]``
 # where ``Channel`` is a bundled channel name. The body must
 # follow the formatter contract (``<from-label>: text`` or
@@ -259,9 +259,7 @@ def _build_known_channel_prefix_re() -> re.Pattern[str] | None:
     )
 
 
-_INBOUND_ENVELOPE_KNOWN_CHANNEL_PREFIX_RE: re.Pattern[str] | None = (
-    _build_known_channel_prefix_re()
-)
+_INBOUND_ENVELOPE_KNOWN_CHANNEL_PREFIX_RE: re.Pattern[str] | None = _build_known_channel_prefix_re()
 
 # Non-direct envelope header markers.
 _NON_DIRECT_ENVELOPE_HEADER_RE: Final[re.Pattern[str]] = re.compile(
@@ -285,9 +283,7 @@ _USER_AUTHORED_BODY_LABEL_RE: Final[re.Pattern[str]] = re.compile(
 
 # Bracketed prefix detector (for finding the first ``[`` of an
 # envelope in arbitrary text).
-_BRACKETED_PREFIX_RE: Final[re.Pattern[str]] = re.compile(
-    r"\[[^\]\n]{1,500}\]\s"
-)
+_BRACKETED_PREFIX_RE: Final[re.Pattern[str]] = re.compile(r"\[[^\]\n]{1,500}\]\s")
 
 # Leading "Current message:" line (a current-turn transport
 # context label that appears in some channel envelopes).
@@ -356,6 +352,14 @@ def looks_like_prompt_injection(text: str) -> bool:
     return any(p.search(normalized) for p in PROMPT_injection_patterns)
 
 
+# ruff: noqa: PLR0911
+# Each return is a distinct, ordered predicate — the chain
+# mirrors OpenClaw's `looksLikeEnvelopeSludge` exactly. The
+# 13 returns are intentional (one per check); refactoring to
+# a single boolean OR would lose the test surface and obscure
+# which check fired in the logs.
+
+
 def looks_like_envelope_sludge(text: str) -> bool:
     """Return True if ``text`` looks like OpenClaw-injected transport metadata.
 
@@ -367,10 +371,12 @@ def looks_like_envelope_sludge(text: str) -> bool:
     dropped from the memory capture pipeline (it would be
     useless or actively hostile if stored).
     """
+    # Each return is a distinct, ordered predicate — the chain
+    # mirrors OpenClaw's `looksLikeEnvelopeSludge` exactly. The
+    # 13 returns are intentional (one per check); refactoring to
+    # a single boolean OR would lose the test surface.
     if not text:
         return False
-
-    # Line-anchored sentinels (cheap; check first).
     if _INBOUND_META_SENTINEL_LINE_RE.search(text):
         return True
     if _INBOUND_META_LABEL_RE.search(text):
@@ -379,14 +385,10 @@ def looks_like_envelope_sludge(text: str) -> bool:
         return True
     if _Message_TOOL_DELIVERY_HINT_LINE_RE.search(text):
         return True
-
-    # History + current-message markers (substring match — they're
-    # written whole-line by the host).
     if any(marker in text for marker in _HISTORY_CONTEXT_MARKERS):
         return True
     if any(marker in text for marker in _CURRENT_MESSAGE_MARKERS):
         return True
-
     if _ACTIVE_TURN_RECOVERY_RE.search(text):
         return True
     if _MEDIA_ATTACHED_PATTERN_TEST.search(text):
@@ -395,10 +397,10 @@ def looks_like_envelope_sludge(text: str) -> bool:
         return True
     if _inbound_envelope_prefix_re.search(text):
         return True
-    if _INBOUND_ENVELOPE_KNOWN_CHANNEL_PREFIX_RE is not None and _INBOUND_ENVELOPE_KNOWN_CHANNEL_PREFIX_RE.search(text):
-        return True
-
-    return False
+    return (
+        _INBOUND_ENVELOPE_KNOWN_CHANNEL_PREFIX_RE is not None
+        and _INBOUND_ENVELOPE_KNOWN_CHANNEL_PREFIX_RE.search(text) is not None
+    )
 
 
 def strip_media_attached_annotations(text: str) -> str:
@@ -429,6 +431,15 @@ def escape_memory_for_prompt(text: str) -> str:
         lambda m: _PROMPT_ESCAPE_MAP.get(m.group(0), m.group(0)),
         cleaned,
     )
+
+
+# ruff: noqa: PLR0911, PLR0912, PLR0915
+# This function mirrors OpenClaw's `sanitizeForMemoryCapture` —
+# a 7-step ordered strip pass with ReDoS-mitigation caps. The
+# many branches and statements are intentional and reflect
+# the OpenClaw source 1:1; refactoring to helper functions
+# would obscure the strip order and make the parity audit
+# harder to run.
 
 
 def sanitize_for_memory_capture(text: str) -> str:
@@ -466,8 +477,7 @@ def sanitize_for_memory_capture(text: str) -> str:
     for sentinel in INBOUND_META_SENTINELS:
         sentinel_escaped = re.escape(sentinel)
         block_re = re.compile(
-            sentinel_escaped
-            + r"\s*\n\s*```json\s*\n[\s\S]*?\n\s*```\s*\n?",
+            sentinel_escaped + r"\s*\n\s*```json\s*\n[\s\S]*?\n\s*```\s*\n?",
         )
         cleaned = block_re.sub("", cleaned)
 
@@ -481,7 +491,6 @@ def sanitize_for_memory_capture(text: str) -> str:
         else:
             earliest_index = -1
             earliest_re = None
-            earliest_sentinel = None
             for sentinel in INBOUND_META_SENTINELS:
                 sentinel_escaped = re.escape(sentinel)
                 trailer_re = re.compile(r"^" + sentinel_escaped + r".*$", re.MULTILINE)
@@ -491,7 +500,6 @@ def sanitize_for_memory_capture(text: str) -> str:
                 ):
                     earliest_index = trailer_match.start()
                     earliest_re = re.compile(r"^" + sentinel_escaped + r".*$", re.MULTILINE)
-                    earliest_sentinel = sentinel
         if earliest_re is None:
             break
         before = cleaned[:earliest_index]
@@ -520,15 +528,13 @@ def sanitize_for_memory_capture(text: str) -> str:
     if envelope_match is None and _INBOUND_ENVELOPE_KNOWN_CHANNEL_PREFIX_RE is not None:
         envelope_match = _INBOUND_ENVELOPE_KNOWN_CHANNEL_PREFIX_RE.match(cleaned)
     if envelope_match is not None:
-        cleaned = cleaned[envelope_match.end():]
+        cleaned = cleaned[envelope_match.end() :]
 
     return cleaned.strip()
 
 
 # Re-export the OpenClaw parity surface.
 __all__ = [
-    "ACTIVE_TURN_RECOVERY_RE" if False else "looks_like_envelope_sludge",
-    "BUNDLED_CHAT_CHANNEL_ENVELOPE_PREFIXES" if False else "MEMORY_TRIGGERS",
     "MEMORY_TRIGGERS",
     "escape_memory_for_prompt",
     "looks_like_envelope_sludge",

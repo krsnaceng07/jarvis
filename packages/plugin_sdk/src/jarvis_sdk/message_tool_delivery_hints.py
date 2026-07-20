@@ -24,6 +24,7 @@ Parity
   envelope-scrubber consumes this set as part of its
   line-anchored metadata-strip pass.
 """
+
 from __future__ import annotations
 
 # Hint strings the JARVIS host injects at the head of message

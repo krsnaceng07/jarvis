@@ -19,6 +19,7 @@ Parity
 - The reserved set mirrors OpenClaw's set (pathological inputs
   that should never reach the plugin layer).
 """
+
 from __future__ import annotations
 
 _RESERVED = frozenset(

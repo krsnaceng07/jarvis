@@ -26,6 +26,7 @@ Parity
   dispatcher). We export it as a stable call site so
   extensions can port OpenClaw call sites 1:1.
 """
+
 from __future__ import annotations
 
 import os

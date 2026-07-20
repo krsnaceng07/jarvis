@@ -26,6 +26,7 @@ Parity
 - ``resolve_agent_workspace_dir(config, agent_id)`` → ``str``
 - ``resolve_session_agent_id(...)`` → ``str``
 """
+
 from __future__ import annotations
 
 import os
@@ -109,10 +110,7 @@ def resolve_session_agent_id(
     # OpenClaw convention: "agent:<id>:<rest>" → agent id = <id>
     if session_key.startswith("agent:"):
         tail = session_key[len("agent:") :]
-        if tail and ":" in tail:
-            candidate = tail.split(":", 1)[0]
-        else:
-            candidate = tail
+        candidate = tail.split(":", 1)[0] if tail and ":" in tail else tail
         if candidate and candidate != "*":
             return normalize_agent_id(candidate)
     return resolve_default_agent_id(config)

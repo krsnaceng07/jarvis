@@ -30,6 +30,7 @@ Parity
   we mirror the minimum set that the memory-lancedb
   envelope-scrubber needs today.
 """
+
 from __future__ import annotations
 
 # Bundled channel names that the JARVIS host (and OpenClaw)

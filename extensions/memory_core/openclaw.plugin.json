@@ -6,21 +6,32 @@
     "tools": ["memory_search", "memory_get"],
     "memory_capability": true
   },
+  "toolMetadata": {
+    "memory_get": { "replaySafe": true }
+  },
+  "commandAliases": [
+    { "name": "memory", "kind": "runtime-slash", "cliCommand": "memory" }
+  ],
   "permissions": ["fs:read:core", "fs:write:core"],
   "tools": [
     {
       "name": "memory_search",
-      "description": "Searches JARVIS's long-term memory by substring.",
+      "description": "Substring + memory-trigger search over MEMORY.md + memory/*.md (and any indexed session transcripts). Required recall step before answering questions about prior work, decisions, dates, people, preferences, or todos. `corpus=memory` restricts hits to indexed memory files. Returns the top-K matching entries with paths and excerpt lines.",
       "parameters": [
-        { "name": "query", "type": "string", "required": true, "description": "Substring to search for." },
-        { "name": "limit", "type": "integer", "required": false, "description": "Max results (default: 20)." }
+        { "name": "query", "type": "string", "required": true, "description": "Substring (or memory trigger phrase) to search for." },
+        { "name": "maxResults", "type": "integer", "required": false, "description": "Maximum number of hits (default 4)." },
+        { "name": "minScore", "type": "number", "required": false, "description": "Minimum relevance score in [0, 1] (default 0)." },
+        { "name": "corpus", "type": "string", "required": false, "description": "One of 'memory' | 'wiki' | 'all' | 'sessions'." }
       ]
     },
     {
       "name": "memory_get",
-      "description": "Reads a single memory entry by key.",
+      "description": "Safe exact excerpt read from MEMORY.md or memory/*.md. Returns a bounded excerpt with truncation info when more content exists, and `corpus=wiki` reads from registered compiled-wiki supplements.",
       "parameters": [
-        { "name": "key", "type": "string", "required": true, "description": "The memory key to read." }
+        { "name": "path", "type": "string", "required": true, "description": "Path to the memory file (relative to the workspace)." },
+        { "name": "from", "type": "integer", "required": false, "description": "1-based start line (default 1)." },
+        { "name": "lines", "type": "integer", "required": false, "description": "Number of lines to read (default 20)." },
+        { "name": "corpus", "type": "string", "required": false, "description": "One of 'memory' | 'wiki' | 'all'." }
       ]
     }
   ]

@@ -200,7 +200,12 @@ reportTypedDictNotRequiredAccess = "warning"
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["apps", "packages", "extensions", "tools", "tests"]
-pythonpath = ["."]
+pythonpath = [
+    ".",
+    "packages/plugin_sdk/src",
+    "apps/desktop/src",
+    "apps/cli/src",
+]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]

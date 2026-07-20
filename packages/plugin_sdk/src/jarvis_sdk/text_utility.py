@@ -26,6 +26,7 @@ Parity
   result's UTF-16 length is <= max_units. Never returns a
   string that splits a surrogate pair.
 """
+
 from __future__ import annotations
 
 

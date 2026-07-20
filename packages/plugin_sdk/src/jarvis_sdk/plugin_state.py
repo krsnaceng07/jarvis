@@ -32,16 +32,20 @@ Parity
   inside a lease; raises ``LeaseHeld`` if another writer
   currently holds the lock.
 """
+
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import time
 import uuid
 from contextlib import contextmanager
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 _T = TypeVar("_T")
 
@@ -98,10 +102,8 @@ class KeyedStore:
             tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
             os.replace(tmp, path)
         except Exception:
-            try:
+            with contextlib.suppress(OSError):
                 tmp.unlink()
-            except OSError:
-                pass
             raise
 
     def delete(self, key: str) -> bool:
@@ -123,7 +125,7 @@ class KeyedStore:
         try:
             fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
             try:
-                os.write(fd, f"{token}\n{now_ms}\n".encode("utf-8"))
+                os.write(fd, f"{token}\n{now_ms}\n".encode())
             finally:
                 os.close(fd)
             return token
@@ -141,7 +143,7 @@ class KeyedStore:
                     lock_path.unlink()
                     fd = os.open(lock_path, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
                     try:
-                        os.write(fd, f"{token}\n{now_ms}\n".encode("utf-8"))
+                        os.write(fd, f"{token}\n{now_ms}\n".encode())
                     finally:
                         os.close(fd)
                     return token

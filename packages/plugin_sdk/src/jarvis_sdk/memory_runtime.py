@@ -36,13 +36,15 @@ Parity
 - ``MemoryPluginCapability`` is the bundle a memory extension
   returns from ``register(api)``.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from .memory_storage import MemorySearchManager
+if TYPE_CHECKING:
+    from .memory_storage import MemorySearchManager
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,7 +130,6 @@ __all__ = [
     "MemoryPluginCapability",
     "MemoryPluginPublicArtifact",
     "MemoryPluginPublicArtifactsProvider",
-    "MemoryPluginPromptSectionBuilder" if False else "MemoryPromptSectionBuilder",
     "MemoryPluginRuntime",
     "MemoryPromptSectionBuilder",
 ]

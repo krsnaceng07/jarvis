@@ -29,9 +29,10 @@ Dependencies
 ============
 - ``importlib`` (stdlib) for the actual module loading.
 """
+
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable  # noqa: TCH003
 from typing import Any, TypeVar
 
 _T = TypeVar("_T")
@@ -42,22 +43,22 @@ def create_lazy_runtime_module(
 ) -> Callable[[], Awaitable[_T]]:
     """Mirror OpenClaw's ``createLazyRuntimeModule``.
 
-    The returned async function imports the target module on first
-    call and caches the result. Synchronous returns are wrapped
-    automatically; the caller always awaits.
+    The returned function awaits the loader's result and caches
+    it. Synchronous returns are wrapped in a coroutine; the
+    caller always awaits.
 
     Parameters
     ----------
     load_fn
         A no-argument callable that returns either the module (or
-        any object) synchronously, or a coroutine that resolves to
+        any object) synchronously, or an awaitable that resolves to
         the same. OpenClaw's signature is ``() => import("./x.js")``;
         ours is ``Callable[[], Awaitable[_T] | _T]``.
 
     Returns
     -------
-    An async function that loads the module on first call. Cached
-    on success; failure clears the cache so the next call retries.
+    A callable that returns a coroutine. Cached on success;
+    failure clears the cache so the next call retries.
     """
     cache: dict[str, Any] = {}
 
