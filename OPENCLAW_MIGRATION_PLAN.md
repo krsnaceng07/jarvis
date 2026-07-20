@@ -1,7 +1,7 @@
 # JARVIS → OpenClaw Architecture Migration Plan
 
-> **Status:** Phase 2 complete, Phase 3 next
-> **Last updated:** 2026-07-19
+> **Status:** Phase 4.1 complete (memory_lancedb port); Phase 4.2 (active_memory) next
+> **Last updated:** 2026-07-20
 > **Owner:** JARVIS architect
 > **Reference source:** `E:/jarvis/openclaw-main/` (commit snapshot 2026.7.2)
 
@@ -2363,3 +2363,267 @@ extension that referenced the old path).
 | `memory/` (legacy)            | `extensions/memory_core/`  | ✓ migrated  |
 | `or_client.py` (legacy)       | (removed)                  | ✓ gone      |
 | `actions/` (legacy)           | `extensions/tool_*/`       | ✓ migrated  |
+
+## §27 — Phase 4.1: extensions/memory_lancedb/ OpenClaw port (2026-07-20)
+
+**Commit:** e0ff533 feat(phase4.1): memory_lancedb OpenClaw parity + in-memory fallback
+
+### Why
+
+Phase 4.0 (commit 2a4b2d8) shipped memory_core — a SQLite
+key/value store with substring search, mirroring OpenClaw's
+extensions/memory-core/. Phase 4.1 adds the second memory
+extension: memory_lancedb — the OpenAI-embeddings +
+vector-search backend that OpenClaw ships as
+extensions/memory-lancedb/. After this commit JARVIS has
+both backends, switchable via the host's plugin loader.
+
+### What landed
+
+**1. extensions/memory_lancedb/ — 14 new files.**
+
+`
+extensions/memory_lancedb/
+├── AGENTS.md                      # maintainer guide (Phase 4 invariants)
+├── __init__.py                    # define_plugin_entry + register
+├── plugin.py                      # tools + CLI + lifecycle hooks
+├── runtime.py                     # MemoryDB (LanceDB + in-memory fallback)
+├── embeddings.py                  # OpenAI + provider adapter
+├── config.py                      # MemoryConfig schema + parsing
+├── lancedb_schema.py              # table name + agent predicate
+├── lancedb_runtime.py             # lazy lancedb module loader
+├── envelope_scrubber.py           # capture gate + recall filter
+├── doctor.py                      # health check + state migrations
+├── plugin_globals.py              # module-level CLI state
+├── openclaw.plugin.json           # manifest
+├── pyproject.toml                 # lancedb, pyarrow, openai deps
+└── tests/
+    └── test_memory_lancedb_phase4.py   # 60 tests
+`
+
+**2. Two backends behind one MemoryStore protocol.**
+
+- **LanceDBStore** — production path. Uses the
+  lancedb package via the lazy loader in
+  lancedb_runtime.py. Schema (id, 	ext, ector,
+  importance, category, createdAt, gentId),
+  agent predicate, and store API match OpenClaw's
+  lancedb-store.ts exactly.
+- **InMemoryStore** — test + fallback path. Pure-stdlib
+  (no numpy dep) with a MemoryStore implementation that
+  uses the same agent scoping + per-agent-id vector
+  distance ranking. The MemoryDB facade picks the
+  backend at runtime: LanceDB if available, in-memory
+  otherwise (with a warning logged).
+
+**3. Embeddings: direct OpenAI + provider adapter.**
+
+- **OpenAiCompatibleEmbeddings** — direct
+  POST /embeddings via urllib.request. Bypasses the
+  OpenAI SDK's encoding_format=base64 auto-injection
+  (some compatible providers reject it). Handles
+  dimensions rejection with a local-truncation
+  fallback (mirrors OpenClaw's
+  	runcateEmbeddingVector).
+- **ProviderAdapterEmbeddings** — delegates to the
+  SDK's MemoryEmbeddingProvider registry (Phase 4.0
+  SDK). Lazy provider setup so auth-profile repairs
+  are picked up on the next call.
+- **create_embeddings(cfg)** — factory picks the
+  right strategy based on cfg.embedding.provider and
+  piKey presence.
+
+**4. Security: capture gate + recall filter.**
+
+- should_capture(text, *, custom_triggers, max_chars)
+  rejects envelope sludge, prompt injection, agent
+  summaries, and emoji-heavy content. Mirrors OpenClaw's
+  shouldCapture line-for-line.
+- clean_memory_search_results(results) strips
+  contaminated rows before they reach the LLM. Mirrors
+  OpenClaw's cleanMemorySearchResults.
+- ormat_relevant_memories_context(memories) renders
+  the <relevant-memories> block with the OpenClaw-
+  exact header and the "untrusted historical data"
+  disclaimer. The pre-compaction prompt section is
+  capped at 2,200 chars (matches
+  DEFAULT_QMD_LIMITS.maxInjectedChars).
+- Every persist + recall path runs through
+  looks_like_envelope_sludge and
+  looks_like_prompt_injection from memory_core —
+  the same security layer that closes the
+  long-term-memory poisoning vector.
+
+**5. Tool surface (3 tools, single-active-slot memory capability).**
+
+| Tool             | OpenClaw parity                              |
+|------------------|---------------------------------------------|
+| memory_recall  | vector search + scored hits + recall filter |
+| memory_store   | append + duplicate detection + prompt-injection reject |
+| memory_forget  | delete by id (GDPR) or by search             |
+
+All three tools are registered via
+pi.register_tool(plugin, names=[...]). The plugin
+also registers a MemoryPluginCapability bundle
+(prompt_builder + lush_plan_resolver + untime +
+public_artifacts) so the host can build a prompt
+section, ask for a flush plan, and resolve a
+MemorySearchManager for the active backend.
+
+**6. Lifecycle hooks (OpenClaw names).**
+
+- efore_prompt_build — auto-recall. Embeds the
+  user's text, runs the top-K vector search, filters
+  envelope sludge, caps at 3 hits, returns a
+  prependContext string. Tolerant of both the
+  OpenClaw shape (event.prompt, event.messages) and
+  the JARVIS current shape (event.input,
+  event.output).
+- gent_end — auto-capture. Sanitizes each user
+  message, gates through should_capture, embeds,
+  dedupes via the indCleanDuplicateMemory helper,
+  stores. Per-session cursor so a re-fired event
+  doesn't re-store the same memory.
+- session_end — clears the per-session cursor.
+
+**7. CLI: jarvis ltm list|search|query|stats.**
+
+Mirrors OpenClaw's ltm command group. Phase 4.1 ships
+the operator surface as a slash command (/ltm) plus
+a top-level CLI descriptor for jarvis ltm --help.
+
+**8. Doctor contract: legacy memory.json + LanceDB per-agent-isolation.**
+
+- detect_legacy(state_dir, config) — find the
+  pre-isolation memory table.
+- pply_migration(state_dir, config) — assign legacy
+  rows to the default agent.
+- check_health(state_dir, config) — structured
+  health report (untime_available, db_path,
+  db_exists, legacy_table, ow_count).
+
+**9. Source mapping.**
+
+| OpenClaw file               | Python port              |
+|-----------------------------|--------------------------|
+| lancedb-schema.ts         | lancedb_schema.py      |
+| lancedb-runtime.ts        | lancedb_runtime.py     |
+| lancedb-store.ts          | untime.py (MemoryDB + InMemoryStore + LanceDBStore) |
+| config.ts                 | config.py              |
+| (index.ts embeddings)       | embeddings.py          |
+| (index.ts envelope)         | envelope_scrubber.py   |
+| (index.ts tools/CLI/hooks)  | plugin.py              |
+| (index.ts entry+register)   | __init__.py            |
+| doctor-contract-api.ts    | doctor.py              |
+| openclaw.plugin.json      | openclaw.plugin.json   |
+| package.json              | pyproject.toml         |
+
+### Parity matrix (Phase 4.1 vs. OpenClaw)
+
+| OpenClaw surface               | Phase 4.1 status |
+|--------------------------------|------------------|
+| memory_recall tool           | ✓ identical params + output |
+| memory_store tool            | ✓ identical + duplicate detection + prompt-injection reject |
+| memory_forget tool           | ✓ identical (id + search) |
+| memorySearchManager adapter  | ✓ MemoryLancedbSearchManager |
+| ltm list|search|query|stats  | ✓ identical command surface |
+| efore_prompt_build hook     | ✓ identical, hook-tolerance for JARVIS current shape |
+| gent_end hook               | ✓ identical + per-session cursor |
+| session_end hook             | ✓ identical |
+| MemoryPluginCapability       | ✓ prompt_builder + lush_plan_resolver + untime + public_artifacts |
+| MemoryFlushPlan              | ✓ default should_flush=False |
+| MemoryPromptSectionBuilder   | ✓ empty default; recall wired through runtime |
+| publicArtifacts.listArtifacts| ✓ memory.lancedb artifact |
+| MemoryConfig schema          | ✓ identical (provider, model, apiKey, baseUrl, dimensions, dbPath, autoCapture, autoRecall, captureMaxChars, customTriggers, recallMaxChars, storageOptions) |
+| ${ENV_VAR} expansion        | ✓ identical |
+| MEMORY_CATEGORIES            | ✓ identical (preference, fact, decision, entity, other) |
+| MEMORY_QUERY_COLUMNS         | ✓ identical (id, text, importance, category, createdAt) |
+| MEMORY_TABLE_NAME            | ✓ identical (memories) |
+| MEMORY_AGENT_ID_COLUMN       | ✓ identical (gentId) |
+| ectorDimsForModel           | ✓ identical (text-embedding-3-small: 1536, 3-large: 3072) |
+| shouldCapture regex set      | ✓ identical (11 patterns, 5 languages) |
+| looksLikeEnvelopeSludge      | ✓ re-uses memory_core scrubber |
+| looksLikePromptInjection     | ✓ re-uses memory_core scrubber |
+| sanitizeForMemoryCapture     | ✓ re-uses memory_core scrubber |
+| ormatRelevantMemoriesContext| ✓ identical output format |
+| cleanMemorySearchResults     | ✓ identical behavior |
+| detectCategory               | ✓ identical regex set |
+| escapeMemoryForPrompt        | ✓ re-uses memory_core scrubber |
+| stripMediaAttachedAnnotations| ✓ re-uses memory_core scrubber |
+| 
+ormalizeRecallQuery         | ✓ identical (collapse + cap) |
+| LanceDB lazy loader          | ✓ load_lancedb_module() with graceful fallback |
+| legacyMemorySchemaError      | ✓ identical message |
+| Per-agent isolation migration  | ✓ detect_legacy + pply_migration |
+| envelopeJSONLine             | ✓ re-uses memory_core scrubber |
+| messageToolDeliveryHint      | ✓ re-uses memory_core scrubber |
+
+### Tests + checks
+
+- **60 new tests** in 	ests/test_memory_lancedb_phase4.py:
+  manifest, entry shape, in-memory store (agent scoping,
+  duplicate detection, vector math, list ordering,
+  delete validation, count), MemoryDB facade, config
+  parser (defaults, env-var expansion, bounds, custom
+  triggers, storage options), envelope scrubber
+  (should_capture, detect_category, format, clean
+  filter, normalize), embeddings helpers
+  (normalization, truncation, factory), lancedb runtime
+  loader, tool call behavior (recall, store, store +
+  recall, prompt-injection reject, forget by id, missing
+  args), auto-capture (per-session cursor, per-turn
+  cap, no-recall short-circuit), memory capability
+  (flush plan, prompt builder, runtime, public
+  artifacts), CLI handlers, doctor health, schema
+  helpers (predicate, quote, UUID validation, legacy
+  error).
+- **All 7 pre-commit hooks green** (ruff, ruff-format,
+  pyright, plugin boundaries, import cycles, max file
+  length, manifest validation).
+- **Full pytest:** 25 pre-existing failures
+  (	ests/test_smoke.py — missing httpx, psutil,
+  sounddevice; 	ests/test_phase3.py — same),
+  unchanged from the P4.0 baseline. The new
+  memory_lancedb tests are all green.
+- **All 7 SDK public types** (added in P4.0) consumed
+  correctly: MemoryEmbeddingProvider,
+  MemoryEmbeddingProviderAdapter,
+  get_memory_embedding_provider, MessageToolDeliveryHints,
+  BUNDLED_CHAT_CHANNEL_ENVELOPE_PREFIXES,
+  parse_strict_positive_integer, esolve_timer_timeout_ms,
+  s_optional_record, 	runcate_utf16_safe.
+
+### What stayed
+
+- memory_core (Phase 4.0) — the SQLite fallback is
+  the **default** memory plugin. memory_lancedb is
+  opt-in via the operator's config (embedding.apiKey,
+  etc.). Phase 4.2 (active_memory) introduces a router
+  that picks one or the other per session.
+- The Phase 4.0 envelope scrubber is the single
+  source of truth. memory_lancedb.envelope_scrubber
+  re-uses memory_core.envelope_scrubber's helpers
+  to keep the security contract consistent.
+- The JARVIS host's current gent_end payload
+  ({input, output}) is accepted by the plugin's
+  gent_end hook in addition to the OpenClaw shape
+  ({messages, success}). Phase 4.2's
+  ctive_memory router normalizes the payload
+  before firing the hook.
+
+### What's next (Phase 4.2+)
+
+- **Phase 4.2 — extensions/active_memory/** (15 source
+  files in OpenClaw). Auto-recall router with
+  circuit-breaker + per-session disable + model
+  resolution chain. Picks memory_core or
+  memory_lancedb per session.
+- **Phase 4.3 — extensions/memory_wiki/** (45 source
+  files in OpenClaw). Obsidian-compatible vault.
+- **Phase 4.4 — Full dreaming** (3 phases: light, REM,
+  deep) + REM evidence + shadow trial + qmd backend.
+- **Cleanup pass:** remove any legacy memory code,
+  dead tests, duplicate logic.
+- **OPENCLAW_MIGRATION_PLAN.md §28** — log Phase 4.2
+  completion.
+
