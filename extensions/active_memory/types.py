@@ -2,11 +2,11 @@
 
 OpenClaw parity: mirrors ``extensions/active-memory/types.ts``.
 
-Phase 4.2a ships only the types that don't depend on the recall
-sub-agent (``recall.ts`` / ``recall-run.ts`` / transcript
-helpers). Phase 4.2b will add the recall-flow-specific
-types (sub-agent result, terminal-memory-search watch, partial
-timeout error).
+Phase 4.2a shipped the foundation types (config, cache,
+circuit-breaker, toggles, recent turns, recall results).
+Phase 4.2b adds the recall-flow types (sub-agent result,
+terminal-memory-search watch, partial timeout error,
+conversation recall context, transcript source union).
 
 Surface
 -------
@@ -19,13 +19,17 @@ Surface
   ``ResolvedActiveRecallPluginConfig`` (normalized),
   ``ActiveMemoryChatType``, ``ActiveMemoryFastMode``,
   ``ActiveMemoryPromptStyle``, ``ActiveMemoryQmdSearchMode``,
-  ``ActiveMemoryThinkingLevel``,
+  ``ActiveMemoryThinkingLevel``, ``ActiveMemoryQueryMode``,
+  ``ActiveMemoryModelFallbackPolicy``,
   ``ActiveRecallRecentTurn``, ``PluginDebugEntry``,
-  ``ActiveMemorySearchDebug``, ``ActiveRecallResult`` (5
+  ``ActiveMemorySearchDebug``, ``ActiveRecallResult`` (3
   variants), ``CachedActiveRecallResult``,
   ``CircuitBreakerEntry``, ``ActiveMemoryToggleEntry``,
   ``TranscriptReadLimits``,
-  ``ActiveMemoryTranscriptSource``.
+  ``ActiveMemoryTranscriptSource`` (2 variants),
+  ``RecallSubagentResult``, ``TerminalMemorySearchResult``,
+  ``TerminalMemorySearchWatch``, ``ConversationRecallContext``,
+  ``ActiveMemoryPartialTimeoutError``.
 """
 
 from __future__ import annotations
@@ -55,6 +59,10 @@ DEFAULT_TRANSCRIPT_DIR: Final = "active-memory"
 ACTIVE_MEMORY_RECALL_LANE: Final = "active-memory"
 DEFAULT_CIRCUIT_BREAKER_MAX_TIMEOUTS: Final = 3
 DEFAULT_CIRCUIT_BREAKER_COOLDOWN_MS: Final = 60_000
+
+# Retry delays used when cleaning up the recall sub-agent's
+# session artifacts (ms). The first entry is 0 (no delay).
+ACTIVE_MEMORY_CLEANUP_RETRY_DELAYS_MS: Final[tuple[int, ...]] = (0, 200, 800)
 
 # OpenClaw's per-memory-provider default tools-allow lists.
 # memory-core (built-in) uses memory_search + memory_get;
@@ -349,10 +357,10 @@ class ActiveMemorySearchDebug(TypedDict, total=False):
     error: str
 
 
-# ── Recall result (5 variants — match-by-status) ───────────────────
+# ── Recall result (3 variants — match-by-status) ───────────────────
 
 # The OpenClaw shape is a tagged union by ``status``. The
-# Python port uses five sibling TypedDicts with a shared
+# Python port uses three sibling TypedDicts with a shared
 # ``status`` discriminator. Callers dispatch on
 # ``result["status"]``.
 
@@ -426,7 +434,146 @@ class TranscriptReadLimits(TypedDict, total=False):
     maxBytes: int
 
 
+# Runtime transcript target (from the host's session-transcript
+# runtime). Matches the SessionTranscriptTargetParams shape
+# in jarvis_sdk.session_transcript_runtime.
+class RuntimeTranscriptTarget(TypedDict):
+    agentId: str
+    sessionId: str
+    sessionKey: str
+    storePath: str
+
+
+class ActiveMemoryRuntimeTranscriptSource(TypedDict):
+    """A transcript source backed by the live session-transcript runtime.
+
+    Mirrors OpenClaw's ``{ kind: "runtime", target: ... }``
+    variant. ``target`` matches
+    ``jarvis_sdk.session_transcript_runtime.SessionTranscriptTargetParams``.
+    """
+
+    kind: Literal["runtime"]
+    target: RuntimeTranscriptTarget
+
+
+class ActiveMemoryFileTranscriptSource(TypedDict):
+    """A transcript source backed by a persisted session file.
+
+    Mirrors OpenClaw's ``{ kind: "file", sessionFile: ... }``
+    variant. The plugin merges events from this file
+    alongside runtime sources.
+    """
+
+    kind: Literal["file"]
+    sessionFile: str
+
+
+ActiveMemoryTranscriptSource = (
+    ActiveMemoryRuntimeTranscriptSource | ActiveMemoryFileTranscriptSource
+)
+
+
+# ── Recall sub-agent result (Phase 4.2b) ───────────────────────────
+
+
+class RecallSubagentResult(TypedDict, total=False):
+    """Result returned by ``runRecallSubagent``.
+
+    Mirrors OpenClaw's ``RecallSubagentResult``. All fields
+    are optional; ``rawReply`` is always present after a
+    successful run.
+    """
+
+    rawReply: str
+    resultStatus: Literal["failed", "unavailable"]
+    transcriptPath: str
+    searchDebug: ActiveMemorySearchDebug
+    hasUsableMemoryResult: bool
+    hasUnavailableMemorySearchResult: bool
+
+
+# ── Terminal memory search watch (Phase 4.2b) ──────────────────────
+
+
+class TerminalMemorySearchResult(TypedDict, total=False):
+    """Terminal state read from a memory-search tool result.
+
+    Mirrors OpenClaw's ``TerminalMemorySearchResult``.
+    The race in ``maybeResolveActiveRecall`` uses this to
+    bail out early when a memory tool returned an explicit
+    "unavailable" state.
+    """
+
+    status: Literal["unavailable"]
+    hasUsableMemoryResult: bool
+    searchDebug: ActiveMemorySearchDebug
+
+
+class TerminalMemorySearchWatch(TypedDict):
+    """Polling watcher for terminal memory-search state.
+
+    Mirrors OpenClaw's ``TerminalMemorySearchWatch``. The
+    plugin starts the watch, awaits ``promise`` alongside
+    the sub-agent and timeout, and calls ``stop()`` to
+    release the polling loop.
+    """
+
+    promise: Any  # asyncio.Future | asyncio.Task; kept loose to avoid runtime import
+    stop: Any  # Callable[[], None]
+
+
+# ── Conversation recall context (Phase 4.2b) ───────────────────────
+
+
+class ConversationRecallContext(TypedDict, total=False):
+    """Per-conversation recall context.
+
+    Mirrors OpenClaw's ``ConversationRecallContext`` (from
+    the host's ``OpenClawPluginToolContext``). Used when
+    a turn is being re-evaluated against an existing
+    conversation, so the recall cache must NOT replay a
+    prior summary (eligibility may have changed).
+    """
+
+    conversationId: str
+    senderId: str
+    channelId: str
+    messageProvider: str
+    chatType: ActiveMemoryChatType
+
+
+# ── Partial-timeout error (Phase 4.2b) ─────────────────────────────
+
+
+class ActiveMemoryPartialTimeoutError(Exception):
+    """Exception raised when the recall sub-agent times out.
+
+    Mirrors OpenClaw's ``ActiveMemoryPartialTimeoutError``.
+    Carries the partial reply and search debug from the
+    timed-out run so the caller can surface a "timeout
+    with partial result" state instead of a clean failure.
+
+    The optional fields are set by ``transcript-result.ts``
+    when the recall loop catches an abort that originated
+    from a timeout (vs. an explicit caller abort).
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        partial_reply: str | None = None,
+        search_debug: ActiveMemorySearchDebug | None = None,
+        unavailable_memory_search: bool = False,
+    ) -> None:
+        super().__init__(message)
+        self.active_memory_partial_reply = partial_reply
+        self.active_memory_search_debug = search_debug
+        self.active_memory_unavailable_memory_search = unavailable_memory_search
+
+
 __all__ = [
+    "ACTIVE_MEMORY_CLEANUP_RETRY_DELAYS_MS",
     "ACTIVE_MEMORY_CLOSE_TAG",
     "ACTIVE_MEMORY_DEBUG_PREFIX",
     "ACTIVE_MEMORY_OPEN_TAG",
@@ -473,13 +620,17 @@ __all__ = [
     "TIMEOUT_PARTIAL_DATA_GRACE_MS",
     "ActiveMemoryChatType",
     "ActiveMemoryFastMode",
+    "ActiveMemoryFileTranscriptSource",
     "ActiveMemoryModelFallbackPolicy",
+    "ActiveMemoryPartialTimeoutError",
     "ActiveMemoryPromptStyle",
     "ActiveMemoryQmdSearchMode",
     "ActiveMemoryQueryMode",
+    "ActiveMemoryRuntimeTranscriptSource",
     "ActiveMemorySearchDebug",
     "ActiveMemoryThinkingLevel",
     "ActiveMemoryToggleEntry",
+    "ActiveMemoryTranscriptSource",
     "ActiveRecallEmptyResult",
     "ActiveRecallOkResult",
     "ActiveRecallPluginConfig",
@@ -488,7 +639,12 @@ __all__ = [
     "ActiveRecallTimeoutPartialResult",
     "CachedActiveRecallResult",
     "CircuitBreakerEntry",
+    "ConversationRecallContext",
     "PluginDebugEntry",
+    "RecallSubagentResult",
     "ResolvedActiveRecallPluginConfig",
+    "RuntimeTranscriptTarget",
+    "TerminalMemorySearchResult",
+    "TerminalMemorySearchWatch",
     "TranscriptReadLimits",
 ]
