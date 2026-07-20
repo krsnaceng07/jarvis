@@ -73,7 +73,7 @@ class ReminderPlugin(ToolPlugin):
     persistent state so they're no-ops here.
     """
 
-    # ── Identity (mirrors `jarvis.plugin.json`) ──────────────────────
+    # ── Identity (mirrors `openclaw.plugin.json`) ──────────────────────
     id = "tool_reminder"
     kind = "tool"
     version = "0.1.0"

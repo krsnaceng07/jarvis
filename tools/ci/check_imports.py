@@ -2,14 +2,20 @@
 
 Rules (mirrors OpenClaw's check-extension-import-boundary):
 
-- Extensions may import only from `jarvis_sdk.*` (the plugin SDK) and their own package.
-- No cross-extension imports (`from extensions.X.Y import ...`).
+- Extensions may import only from:
+    * `jarvis_sdk.*` (the plugin SDK)
+    * their own package (self-imports)
+    * `extensions.memory_core.*` (the OpenClaw memory capability)
+    * `extensions.cron.*` (the OpenClaw cron capability)
+    * `src.*` (host core modules — bootstrap, skills, hooks, etc.)
+- No cross-extension imports.
 - No imports from `packages/*/src/**` (except `packages/plugin_sdk/src/jarvis_sdk/`).
-- No imports of bare `main`, `ui`, `or_client` (those modules are being migrated).
+- No imports of bare `main`, `ui`, `or_client`, `agent`, `memory`, `actions`
+  (legacy modules removed in Phase 3.5).
 
-Full rule enforcement is added in Phase 1 (after `plugin_sdk` exists).
-This Phase 0.2 version is a stub that validates the structure and flags
-violations of the rules above that are already enforceable today.
+Phase 3.5: `jarvis.*` imports are gone — extensions use `src.<module>` now.
+The `extensions.memory_core` and `extensions.cron` allowlists are
+intentional (extensions commonly read these capabilities).
 """
 
 from __future__ import annotations
@@ -22,23 +28,20 @@ ROOT = Path(__file__).resolve().parent.parent.parent
 EXTENSIONS = ROOT / "extensions"
 PACKAGES = ROOT / "packages"
 
-# ── Forbidden top-level module names (legacy JARVIS modules being migrated) ──
+# ── Forbidden top-level module names (legacy JARVIS modules removed in Phase 3.5) ──
 FORBIDDEN_TOP_LEVEL = {
-    "main",  # current monolithic main.py
-    "ui",  # current monolithic ui.py
-    "actions",  # current flat actions/ (becomes extensions/tool_*)
-    "agent",  # current agent/ (becomes packages/agent_runtime)
-    "memory",  # current memory/ (becomes extensions/memory_core)
+    "main",
+    "ui",
+    "actions",
+    "agent",
+    "memory",
+    "or_client",
 }
 
-# ── Allowed legacy imports (Phase 1C exception; migrate in Phase 2) ─
-# These are top-level modules extensions may use today. They will be
-# replaced by proper `packages/*` modules in Phase 2 — at that point
-# this allowlist shrinks and the import-boundary rule tightens.
-LEGACY_ALLOWED_FOR_EXTENSIONS = {
-    "or_client",  # becomes packages/llm_client (Phase 2)
-    "config",  # becomes packages/jarvis_config (Phase 2)
-}
+# ── Allowed legacy imports ─
+# (empty in Phase 3.5: no legacy allowed; everything goes through
+# jarvis_sdk, src, or extensions.<memory_core|cron>)
+LEGACY_ALLOWED_FOR_EXTENSIONS: set[str] = set()
 
 # ── Allowed SDK imports (anything else in jarvis_* is suspicious in extensions) ──
 SDK_ROOT = "jarvis_sdk"
@@ -48,6 +51,10 @@ IMPORT_RE = re.compile(
     r"^\s*(?:from\s+([\w.]+)\s+import|import\s+([\w.]+))",
     re.MULTILINE,
 )
+
+# Extensions that other extensions may depend on (the OpenClaw
+# "shared capabilities" pattern). Currently: memory_core, cron.
+EXTENSION_ALLOWLIST = {"memory_core", "cron"}
 
 
 def find_violations() -> list[str]:
@@ -65,10 +72,6 @@ def find_violations() -> list[str]:
             continue
 
         rel = py_file.relative_to(ROOT)
-        # Identify this file's own extension id (the directory directly
-        # under ``extensions/``). Self-imports like
-        # ``from extensions.tool_weather.plugin import WeatherPlugin``
-        # are allowed; cross-extension imports are not.
         parts = rel.parts
         self_ext = parts[1] if len(parts) >= 2 and parts[0] == "extensions" else None
 
@@ -81,18 +84,18 @@ def find_violations() -> list[str]:
 
             if top in FORBIDDEN_TOP_LEVEL and top not in LEGACY_ALLOWED_FOR_EXTENSIONS:
                 violations.append(
-                    f"{rel}:{line_no}: imports legacy module `{top}` "
-                    f"(being migrated per OPENCLAW_MIGRATION_PLAN.md)"
+                    f"{rel}:{line_no}: imports removed/legacy module `{top}` "
+                    f"(Phase 3.5 removed all root-level legacy code)"
                 )
             # Cross-extension: `from extensions.<other> import ...`
-            # (imports of self are permitted).
             if mod.startswith("extensions.") and self_ext is not None:
-                # `extensions.tool_weather.plugin` lives in `tool_weather/`.
                 ext_name = mod.split(".", 2)[1] if mod.count(".") >= 2 else ""
-                if ext_name and ext_name != self_ext:
+                if ext_name and ext_name != self_ext and ext_name not in EXTENSION_ALLOWLIST:
                     violations.append(
                         f"{rel}:{line_no}: cross-extension import `{mod}` "
-                        f"(extensions may only import from `jarvis_sdk.*` and self)"
+                        f"(extensions may only import from `jarvis_sdk.*`, "
+                        f"`src.*`, and the shared capabilities: "
+                        f"{sorted(EXTENSION_ALLOWLIST)})"
                     )
 
     return violations

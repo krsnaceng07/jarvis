@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from pathlib import Path
 
-_log = logging.getLogger("jarvis.doctor")
+_log = logging.getLogger("src.doctor")
 
 
 @dataclass(frozen=True, slots=True)
@@ -195,3 +195,4 @@ __all__ = [
     "DoctorReport",
     "DoctorRunner",
 ]
+

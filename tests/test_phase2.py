@@ -21,7 +21,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 class TestFrontmatter:
     def test_parse_simple(self) -> None:
-        from jarvis.frontmatter import parse_frontmatter
+        from src.frontmatter import parse_frontmatter
 
         text = "---\nname: foo\ndescription: bar\n---\n# body"
         fm, body = parse_frontmatter(text)
@@ -30,7 +30,7 @@ class TestFrontmatter:
         assert "body" in body
 
     def test_parse_with_metadata(self) -> None:
-        from jarvis.frontmatter import parse_frontmatter
+        from src.frontmatter import parse_frontmatter
 
         text = (
             "---\n"
@@ -45,7 +45,7 @@ class TestFrontmatter:
         assert fm["metadata"]["openclaw"]["emoji"] == "🌤️"
 
     def test_parse_no_frontmatter(self) -> None:
-        from jarvis.frontmatter import parse_frontmatter
+        from src.frontmatter import parse_frontmatter
 
         fm, body = parse_frontmatter("just a body, no frontmatter")
         assert fm == {}
@@ -54,7 +54,7 @@ class TestFrontmatter:
 
 class TestSkills:
     def test_discover_skills_finds_both(self) -> None:
-        from jarvis.skills import discover_skills
+        from src.skills import discover_skills
 
         skills = discover_skills(REPO_ROOT / "skills")
         names = {s.name for s in skills}
@@ -62,7 +62,7 @@ class TestSkills:
         assert "summarize" in names
 
     def test_skill_has_required_fields(self) -> None:
-        from jarvis.skills import discover_skills
+        from src.skills import discover_skills
 
         for s in discover_skills(REPO_ROOT / "skills"):
             assert s.name
@@ -70,7 +70,7 @@ class TestSkills:
             assert s.body
 
     def test_skills_to_prompt_section(self) -> None:
-        from jarvis.skills import discover_skills, skills_to_prompt_section
+        from src.skills import discover_skills, skills_to_prompt_section
 
         section = skills_to_prompt_section(discover_skills(REPO_ROOT / "skills"))
         assert "# Skills" in section
@@ -78,7 +78,7 @@ class TestSkills:
         assert "summarize" in section
 
     def test_skill_with_invalid_frontmatter_skipped(self) -> None:
-        from jarvis.skills import parse_skill
+        from src.skills import parse_skill
 
         with tempfile.TemporaryDirectory() as td:
             bad = Path(td) / "SKILL.md"
@@ -92,8 +92,8 @@ class TestSkills:
 
 class TestHooks:
     def test_register_and_count(self) -> None:
-        from jarvis.hooks import HookBus
         from jarvis_sdk import HookRegistration
+        from src.hooks import HookBus
 
         bus = HookBus()
         bus.register(HookRegistration(name="before_agent_start", handler=lambda e: None))
@@ -103,8 +103,8 @@ class TestHooks:
 
     @pytest.mark.asyncio
     async def test_fire_calls_handlers(self) -> None:
-        from jarvis.hooks import HookBus
         from jarvis_sdk import HookRegistration
+        from src.hooks import HookBus
 
         seen: list[str] = []
 
@@ -123,8 +123,8 @@ class TestHooks:
 
     @pytest.mark.asyncio
     async def test_fire_continues_after_handler_error(self) -> None:
-        from jarvis.hooks import HookBus
         from jarvis_sdk import HookRegistration
+        from src.hooks import HookBus
 
         seen: list[str] = []
 
@@ -146,26 +146,26 @@ class TestHooks:
 
 class TestCronEvaluator:
     def test_match_every_minute(self) -> None:
-        from jarvis.cron import _cron_matches
+        from src.cron import _cron_matches
 
         assert _cron_matches("* * * * *", datetime(2026, 7, 20, 9, 30))
         assert _cron_matches("* * * * *", datetime(2026, 7, 20, 0, 0))
 
     def test_match_every_5_minutes(self) -> None:
-        from jarvis.cron import _cron_matches
+        from src.cron import _cron_matches
 
         assert _cron_matches("*/5 * * * *", datetime(2026, 7, 20, 9, 30))
         assert not _cron_matches("*/5 * * * *", datetime(2026, 7, 20, 9, 32))
         assert _cron_matches("*/5 * * * *", datetime(2026, 7, 20, 9, 35))
 
     def test_match_specific_hours(self) -> None:
-        from jarvis.cron import _cron_matches
+        from src.cron import _cron_matches
 
         assert _cron_matches("0 9 * * *", datetime(2026, 7, 20, 9, 0))
         assert not _cron_matches("0 9 * * *", datetime(2026, 7, 20, 10, 0))
 
     def test_match_weekday(self) -> None:
-        from jarvis.cron import _cron_matches
+        from src.cron import _cron_matches
 
         # The runtime uses Python's weekday() (Mon=0, Sun=6) — same
         # convention as datetime.weekday().
@@ -175,8 +175,8 @@ class TestCronEvaluator:
 
 class TestCronRunner:
     def test_add_list(self) -> None:
-        from jarvis.cron import CronRunner
         from jarvis_sdk import CronDecl
+        from src.cron import CronRunner
 
         runner = CronRunner()
         runner.add(
@@ -196,7 +196,7 @@ class TestCronRunner:
 
 class TestBootstrap:
     def test_seed_workspace(self, tmp_path: Path) -> None:
-        from jarvis.bootstrap import seed_workspace
+        from src.bootstrap import seed_workspace
 
         result = seed_workspace(tmp_path)
         # 5 files seeded on first run.
@@ -208,7 +208,7 @@ class TestBootstrap:
         assert (tmp_path / "core" / "USER.md").is_file()
 
     def test_seed_workspace_idempotent(self, tmp_path: Path) -> None:
-        from jarvis.bootstrap import seed_workspace
+        from src.bootstrap import seed_workspace
 
         seed_workspace(tmp_path)  # First call: 5 files seeded.
         # Second call: config is skipped (it already exists), but
@@ -220,13 +220,13 @@ class TestBootstrap:
         assert any("jarvis.json" in p for p in first.skipped)
 
     def test_edited_file_not_overwritten(self, tmp_path: Path) -> None:
-        from jarvis.bootstrap import seed_workspace
+        from src.bootstrap import seed_workspace
 
         seed_workspace(tmp_path)
         # User edits IDENTITY.md (removes the seed marker).
         identity = tmp_path / "core" / "IDENTITY.md"
         edited = identity.read_text(encoding="utf-8").replace(
-            "<!-- seeded by jarvis.bootstrap; edit me -->", ""
+            "<!-- seeded by src.bootstrap; edit me -->", ""
         )
         identity.write_text(edited, encoding="utf-8")
         result = seed_workspace(tmp_path)
@@ -239,7 +239,7 @@ class TestBootstrap:
 
 class TestDoctor:
     def test_run_all_aggregates_findings(self) -> None:
-        from jarvis.doctor import DoctorContract, DoctorFinding, DoctorRunner
+        from src.doctor import DoctorContract, DoctorFinding, DoctorRunner
 
         runner = DoctorRunner()
         runner.add(
@@ -264,7 +264,7 @@ class TestDoctor:
         assert len(report.contracts_run) == 2
 
     def test_run_one(self) -> None:
-        from jarvis.doctor import DoctorContract, DoctorFinding, DoctorRunner
+        from src.doctor import DoctorContract, DoctorFinding, DoctorRunner
 
         runner = DoctorRunner()
         runner.add(
@@ -278,14 +278,14 @@ class TestDoctor:
         assert len(report.findings) == 1
 
     def test_run_one_unknown(self) -> None:
-        from jarvis.doctor import DoctorRunner
+        from src.doctor import DoctorRunner
 
         runner = DoctorRunner()
         report = runner.run_one("does_not_exist", Path("."))
         assert "does_not_exist" in report.contract_errors
 
     def test_add_raws_skips_bad(self) -> None:
-        from jarvis.doctor import DoctorRunner
+        from src.doctor import DoctorRunner
 
         runner = DoctorRunner()
         runner.add_raws(

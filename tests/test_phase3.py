@@ -2,7 +2,7 @@
 
 Covers the Phase 3 deliverables:
 
-  - ``jarvis.gateway`` — stdlib HTTP server, route resolution, bearer
+  - ``src.gateway`` — stdlib HTTP server, route resolution, bearer
     auth, retry on ``EADDRINUSE``, ``GatewayLockError`` after retries
     exhausted, plugin HTTP route registration via ``add_raw`` /
     ``add_route``, and a built-in ``/health`` endpoint.
@@ -37,7 +37,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 
 class TestHttpRoute:
     def test_defaults_are_gateway_exact(self) -> None:
-        from jarvis.gateway import HttpRoute
+        from src.gateway import HttpRoute
 
         def h(*args, **kwargs):  # pragma: no cover - never called
             return {}
@@ -49,7 +49,7 @@ class TestHttpRoute:
         assert r.owner_id == ""
 
     def test_custom_match_and_auth(self) -> None:
-        from jarvis.gateway import HttpRoute
+        from src.gateway import HttpRoute
 
         r = HttpRoute(path="/v1/mem/", handler=lambda *a, **k: {}, auth="plugin", match="prefix")
         assert r.auth == "plugin"
@@ -58,7 +58,7 @@ class TestHttpRoute:
     def test_frozen_dataclass(self) -> None:
         from dataclasses import FrozenInstanceError
 
-        from jarvis.gateway import HttpRoute
+        from src.gateway import HttpRoute
 
         r = HttpRoute(path="/x", handler=lambda *a, **k: {})
         with pytest.raises(FrozenInstanceError):
@@ -70,7 +70,7 @@ class TestGatewayRouteDispatch:
     """Gateway.handle_request — pure dispatch, no socket."""
 
     def _setup(self) -> tuple:
-        from jarvis.gateway import Gateway
+        from src.gateway import Gateway
 
         gw = Gateway(host="127.0.0.1", port=0)  # port 0 = don't bind
         return gw, []
@@ -102,7 +102,7 @@ class TestGatewayRouteDispatch:
         assert "invalid" in payload["error"].lower()
 
     def test_unknown_route_is_404(self) -> None:
-        from jarvis.gateway import HttpRoute
+        from src.gateway import HttpRoute
 
         gw, _ = self._setup()
         gw.add_route(HttpRoute(path="/v1/known", handler=lambda *a, **k: {"ok": True}))
@@ -117,7 +117,7 @@ class TestGatewayRouteDispatch:
         assert payload["path"] == "/v1/unknown"
 
     def test_exact_match_wins(self) -> None:
-        from jarvis.gateway import HttpRoute
+        from src.gateway import HttpRoute
 
         gw, _ = self._setup()
         gw.add_route(HttpRoute(path="/v1/mem", handler=lambda *a, **k: {"which": "exact"}))
@@ -139,7 +139,7 @@ class TestGatewayRouteDispatch:
         assert payload["which"] == "exact"
 
     def test_prefix_match_used_when_no_exact(self) -> None:
-        from jarvis.gateway import HttpRoute
+        from src.gateway import HttpRoute
 
         gw, _ = self._setup()
         gw.add_route(
@@ -160,7 +160,7 @@ class TestGatewayRouteDispatch:
         assert payload["which"] == "prefix"
 
     def test_handler_exception_is_500(self) -> None:
-        from jarvis.gateway import HttpRoute
+        from src.gateway import HttpRoute
 
         gw, _ = self._setup()
         gw.add_route(
@@ -215,7 +215,7 @@ class TestGatewayRouteDispatch:
 @pytest.mark.filterwarnings("ignore::ResourceWarning")
 class TestGatewayToken:
     def test_token_persists_across_instances(self, tmp_path: Path) -> None:
-        from jarvis.gateway import Gateway
+        from src.gateway import Gateway
 
         token_path = tmp_path / "gw.token"
         gw1 = Gateway(host="127.0.0.1", port=0, token_path=token_path)
@@ -228,7 +228,7 @@ class TestGatewayToken:
         assert t1 == t2
 
     def test_token_is_urlsafe(self, tmp_path: Path) -> None:
-        from jarvis.gateway import Gateway
+        from src.gateway import Gateway
 
         gw = Gateway(host="127.0.0.1", port=0, token_path=tmp_path / "t")
         token = gw.token
@@ -242,7 +242,7 @@ class TestGatewayBindAndRetry:
     """EADDRINUSE retry + GatewayLockError path."""
 
     def test_bind_free_port_succeeds(self) -> None:
-        from jarvis.gateway import Gateway
+        from src.gateway import Gateway
 
         # Pick a free port via socket, then close + bind via Gateway.
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -257,7 +257,7 @@ class TestGatewayBindAndRetry:
             gw.stop()
 
     def test_eaddrinuse_raises_lock_error(self) -> None:
-        from jarvis.gateway import Gateway, GatewayLockError
+        from src.gateway import Gateway, GatewayLockError
 
         # Hold a port in another socket.
         blocker = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -281,7 +281,7 @@ class TestGatewayBindAndRetry:
         constants below are what the actual retry loop uses; if
         you change them, change this assertion too.
         """
-        from jarvis.gateway import EADDRINUSE_MAX_RETRIES, EADDRINUSE_RETRY_INTERVAL_MS
+        from src.gateway import EADDRINUSE_MAX_RETRIES, EADDRINUSE_RETRY_INTERVAL_MS
 
         assert EADDRINUSE_MAX_RETRIES == 20
         assert EADDRINUSE_RETRY_INTERVAL_MS == 500
@@ -299,11 +299,11 @@ class TestGatewayLiveServer:
     """Spin up the real ThreadingHTTPServer and hit it with HTTPConnection."""
 
     def _live_gateway(self) -> tuple:
-        from jarvis.gateway import Gateway
+        from src.gateway import Gateway
 
         gw = Gateway(host="127.0.0.1", port=0)
         # /health and an example plugin route
-        from jarvis.gateway import HttpRoute
+        from src.gateway import HttpRoute
 
         gw.add_route(
             HttpRoute(
@@ -689,7 +689,7 @@ class TestCliGatewayStatus:
         s.bind(("127.0.0.1", 0))
         port = s.getsockname()[1]
         s.close()
-        monkeypatch.setattr("jarvis.gateway.DEFAULT_PORT", port)
+        monkeypatch.setattr("src.gateway.DEFAULT_PORT", port)
         # Even with no running gateway, the status check should NOT
         # return 0 if the port is free.
         rc = _cmd_gateway_status(Namespace(), tmp_path)

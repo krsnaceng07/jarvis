@@ -105,7 +105,7 @@ def _cmd_tools_list(args: argparse.Namespace, plugins: dict[str, Any]) -> int:
 
 
 def _cmd_skills_list(args: argparse.Namespace, workspace: Path) -> int:
-    from jarvis.skills import discover_skills
+    from src.skills import discover_skills
 
     print("Loaded skills:")
     for s in discover_skills(workspace / "skills"):
@@ -124,8 +124,8 @@ def _cmd_hooks_list(args: argparse.Namespace, plugins: dict[str, Any]) -> int:
 
 
 def _cmd_doctor(args: argparse.Namespace, plugins: dict[str, Any], workspace: Path) -> int:
-    from jarvis.bootstrap import seed_workspace
-    from jarvis.doctor import DoctorRunner
+    from src.bootstrap import seed_workspace
+    from src.doctor import DoctorRunner
 
     # Bootstrap first (idempotent) so doctor sees a fully-configured
     # workspace. This matches OpenClaw's "doctor runs after bootstrap".
@@ -212,7 +212,7 @@ def _cmd_config_show(args: argparse.Namespace, workspace: Path) -> int:
 
 
 def _cmd_bootstrap(args: argparse.Namespace, workspace: Path) -> int:
-    from jarvis.bootstrap import seed_workspace
+    from src.bootstrap import seed_workspace
 
     result = seed_workspace(workspace)
     print(f"Seeded: {len(result.seeded)}")
@@ -229,7 +229,7 @@ def _cmd_bootstrap(args: argparse.Namespace, workspace: Path) -> int:
 
 def _cmd_gateway_start(args: argparse.Namespace, workspace: Path) -> int:
     """Start the JARVIS gateway (Phase 3)."""
-    from jarvis.gateway import DEFAULT_PORT, Gateway, GatewayLockError
+    from src.gateway import DEFAULT_PORT, Gateway, GatewayLockError
 
     host = args.host or "127.0.0.1"
     port = int(args.port) if args.port else DEFAULT_PORT
@@ -246,7 +246,7 @@ def _cmd_gateway_start(args: argparse.Namespace, workspace: Path) -> int:
 
 def _cmd_gateway_status(args: argparse.Namespace, workspace: Path) -> int:
     """Show the gateway status (Phase 3)."""
-    from jarvis.gateway import DEFAULT_PORT
+    from src.gateway import DEFAULT_PORT
 
     port = DEFAULT_PORT
     try:

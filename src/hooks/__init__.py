@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from jarvis_sdk import HookRegistration
 
-_log = logging.getLogger("jarvis.hooks")
+_log = logging.getLogger("src.hooks")
 
 
 class HookBus:
@@ -116,3 +116,4 @@ def fire_sync(bus: HookBus, name: str, payload: Any = None) -> None:
 
 
 __all__ = ["HookBus", "fire_sync"]
+

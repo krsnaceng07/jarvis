@@ -36,7 +36,7 @@ from urllib.parse import urlparse
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-_log = logging.getLogger("jarvis.gateway")
+_log = logging.getLogger("src.gateway")
 
 # Mirror OpenClaw's retry constants.
 EADDRINUSE_MAX_RETRIES = 20
@@ -343,3 +343,4 @@ __all__ = [
     "GatewayLockError",
     "HttpRoute",
 ]
+

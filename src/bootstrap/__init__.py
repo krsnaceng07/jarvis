@@ -29,10 +29,10 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pathlib import Path
 
-_log = logging.getLogger("jarvis.bootstrap")
+_log = logging.getLogger("src.bootstrap")
 
 # The marker line we look for to know a file is still pristine.
-_SEED_MARKER = "<!-- seeded by jarvis.bootstrap; edit me -->"
+_SEED_MARKER = "<!-- seeded by src.bootstrap; edit me -->"
 
 
 def _seed_with_marker(body: str) -> str:
@@ -52,7 +52,7 @@ person, project, todo). Example:
 - Default browser is Chrome. #preference
 - The 2026-07-20 launch is on track. #project
 
-<!-- seeded by jarvis.bootstrap; edit me -->
+<!-- seeded by src.bootstrap; edit me -->
 """
 
 STARTER_IDENTITY_MD = """# Identity
@@ -66,7 +66,7 @@ default. JARVIS:
 - Calls tools when needed; asks when blocked.
 - Logs every action to the HUD log.
 
-<!-- seeded by jarvis.bootstrap; edit me -->
+<!-- seeded by src.bootstrap; edit me -->
 """
 
 STARTER_SOUL_MD = """# Soul
@@ -81,7 +81,7 @@ JARVIS's voice:
 If you change this file, the operator will hear the new voice in the
 next session.
 
-<!-- seeded by jarvis.bootstrap; edit me -->
+<!-- seeded by src.bootstrap; edit me -->
 """
 
 STARTER_USER_MD = """# User
@@ -91,7 +91,7 @@ Operator's timezone: (auto-detect at first run)
 Operator's preferred language: en
 Operator's notification style: voice (speak) + on-screen log
 
-<!-- seeded by jarvis.bootstrap; edit me -->
+<!-- seeded by src.bootstrap; edit me -->
 """
 
 
@@ -177,7 +177,7 @@ def _seed_config(path: Path) -> None:
     cfg: dict[str, object] = {
         "$schema": "./jarvis.schema.json",
         "_comment": (
-            "JARVIS runtime config. Seeded by jarvis.bootstrap on "
+            "JARVIS runtime config. Seeded by src.bootstrap on "
             f"{datetime.now().isoformat(timespec='seconds')}. "
             "Edit values freely; the host reloads on next launch."
         ),
@@ -204,3 +204,4 @@ def _seed_config(path: Path) -> None:
 
 
 __all__ = ["BootstrapResult", "seed_workspace"]
+

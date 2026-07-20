@@ -215,27 +215,22 @@ def get_transcript(video_id: str) -> str | None:
 
 
 def summarize_with_or(transcript: str, video_url: str) -> str:
-    """Summarize a transcript via the OpenRouter client.
+    """Return the first ~1500 chars of the transcript as a "summary".
 
-    Mirrors the legacy ``_summarize_with_gemini`` but uses the shared
-    OpenRouter client (which has a Gemini model available) instead of
-    calling Gemini directly. Behavior equivalent for the user.
+    Phase 3.5: the legacy OpenRouter-based summarization is gone
+    (no LLM client in the host runtime; OpenClaw doesn't ship
+    one). We return a deterministic first-chars extraction with
+    a truncation marker so the operator can read the start of the
+    transcript. The full transcript is also available via the
+    `get_transcript` action; the LLM in the host can read it
+    directly when it wants a real summary.
     """
-    from or_client import client  # type: ignore[import-not-found]
-
-    max_chars = 80_000
-    truncated = transcript[:max_chars] + ("..." if len(transcript) > max_chars else "")
-    return client.chat(
-        f"Please summarize this YouTube video transcript:\n\n{truncated}",
-        system=(
-            "You are JARVIS, an AI assistant. "
-            "Summarize YouTube video transcripts clearly and concisely. "
-            "Structure: 1-sentence overview, then 3-5 key points. "
-            "Be direct. Address the user as 'sir'. "
-            "Match the language of the transcript."
-        ),
-        max_tokens=2048,
-    )
+    _ = video_url  # kept for signature stability
+    budget = 1500
+    if len(transcript) <= budget:
+        return transcript
+    head = transcript[:budget].rsplit(" ", 1)[0]
+    return f"{head} [...{len(transcript) - budget:,} more chars; use get_transcript for full text]"
 
 
 def save_summary(content: str, video_url: str) -> str:

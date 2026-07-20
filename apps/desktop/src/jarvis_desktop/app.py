@@ -26,12 +26,10 @@ import sounddevice as sd
 from google import genai
 from google.genai import types
 from .ui import JarvisUI
-from memory.memory_manager import (
+from .memory_bridge import (
     load_memory,
     update_memory,
     format_memory_for_prompt,
-    should_extract_memory,
-    extract_memory,
 )
 
 # Phase 2: the legacy `actions/` directory has been removed entirely.
@@ -97,33 +95,15 @@ def _load_system_prompt() -> str:
         )
 
 
-_last_memory_input = ""
-
-
-def _update_memory_async(user_text: str, jarvis_text: str) -> None:
-    global _last_memory_input
-
-    user_text = (user_text or "").strip()
-    jarvis_text = (jarvis_text or "").strip()
-
-    if len(user_text) < 5 or user_text == _last_memory_input:
-        return
-    _last_memory_input = user_text
-
-    try:
-        api_key = _get_api_key()
-        if not should_extract_memory(user_text, jarvis_text, api_key):
-            return
-        data = extract_memory(user_text, jarvis_text, api_key)
-        if data:
-            update_memory(data)
-            print(f"[Memory] ✅ {list(data.keys())}")
-    except Exception as e:
-        if "429" not in str(e):
-            print(f"[Memory] ⚠️ {e}")
-
-
 # ─────────────────────────────────────────────────────────────────────
+# Phase 3.5: background memory extraction is gone. The legacy
+# ``_update_memory_async`` path used a separate LLM call to decide
+# whether a turn was worth remembering; in Phase 3.5 the model is
+# the curator — the ``save_memory`` tool (in TOOL_DECLARATIONS below)
+# is called inline when the model wants to remember something. This
+# matches OpenClaw's memory-core flow and removes the `or_client`
+# dependency from the host.
+#
 # Plugin manifest loader (PR 1B — full SDK-driven plugin loader)
 #
 # Reads every `extensions/*/openclaw.plugin.json` and returns the tool
@@ -367,8 +347,8 @@ TOOL_DECLARATIONS.extend(_PLUGIN_TOOL_DECLS)
 # at agent-loop boundaries (before_agent_start, agent_end, etc.).
 # Cron is started in a background thread by the host on first use;
 # the doctor runner is exposed for the CLI (jarvis doctor).
-from jarvis.hooks import HookBus  # noqa: E402
-from jarvis.doctor import DoctorRunner  # noqa: E402
+from src.hooks import HookBus  # noqa: E402
+from src.doctor import DoctorRunner  # noqa: E402
 
 _PLUGIN_HOOK_BUS = HookBus()
 _PLUGIN_HOOK_BUS.register_all(_PLUGIN_HOOKS)
@@ -382,7 +362,7 @@ _PLUGIN_DOCTOR.add_raws(_PLUGIN_DOCTOR_CONTRACTS)
 # server in a background thread. If the port is busy, we log a
 # warning and skip — the desktop host shouldn't refuse to start
 # just because another JARVIS instance is already running.
-from jarvis.gateway import Gateway, GatewayLockError  # noqa: E402
+from src.gateway import Gateway, GatewayLockError  # noqa: E402
 
 _GATEWAY = Gateway()
 for _raw in _PLUGIN_HTTP_HANDLERS:
@@ -493,7 +473,7 @@ class JarvisLive:
         # the system prompt (e.g. inject a skill, add context) before
         # the LLM session opens. Fire-and-forget — we don't block the
         # build on plugin hooks.
-        from jarvis.hooks import fire_sync
+        from src.hooks import fire_sync
 
         fire_sync(
             _PLUGIN_HOOK_BUS,
@@ -517,7 +497,7 @@ class JarvisLive:
         # Each skill's body becomes a labeled section. This is
         # the same one-shot the OpenClaw host does before
         # ``client.aio.live.connect``.
-        from jarvis.skills import skills_to_prompt_section
+        from src.skills import skills_to_prompt_section
 
         skills_section = skills_to_prompt_section(_PLUGIN_SKILLS)
 
@@ -599,25 +579,19 @@ class JarvisLive:
 
         try:
             if name == "agent_task":
-                # Phase 2: ``agent_task`` is now owned by the
-                # ``agent`` extension (a Phase 2.5 deliverable). For
-                # now we keep a stub here so the LLM's tool surface
-                # is unchanged; the stub returns a clear "not yet
-                # implemented" error.
-                from agent.task_queue import get_queue, TaskPriority
-
-                priority_map = {
-                    "low": TaskPriority.LOW,
-                    "normal": TaskPriority.NORMAL,
-                    "high": TaskPriority.HIGH,
-                }
-                priority = priority_map.get(
-                    args.get("priority", "normal").lower(), TaskPriority.NORMAL
+                # Phase 3.5: the legacy ``agent/task_queue.py`` is
+                # gone (not in OpenClaw). The ``agent_task`` tool
+                # stays in TOOL_DECLARATIONS for LLM compatibility
+                # but always returns a clear "not yet available"
+                # answer; the user-facing answer is what the model
+                # surfaces to the operator.
+                result = (
+                    "The agent_task system has been removed in Phase 3.5. "
+                    "It was a legacy JARVIS feature with no OpenClaw "
+                    "equivalent; use `cron_schedule` for delayed jobs, "
+                    "`reminder` for short-term nudges, or describe the "
+                    "goal as a fresh prompt."
                 )
-                task_id = get_queue().submit(
-                    goal=args.get("goal", ""), priority=priority, speak=self.speak
-                )
-                result = f"Task started (ID: {task_id})."
 
             elif name == "shutdown_jarvis":
                 self.ui.write_log("SYS: Shutdown requested.")
@@ -731,17 +705,15 @@ class JarvisLive:
                                 self.ui.write_log(f"Jarvis: {full_out}")
                             out_buf = []
 
-                            if full_in and len(full_in) > 5:
-                                threading.Thread(
-                                    target=_update_memory_async,
-                                    args=(full_in, full_out),
-                                    daemon=True,
-                                ).start()
+                            # Phase 3.5: background LLM-based memory
+                            # extraction is gone; the model calls
+                            # `save_memory` directly when it wants
+                            # to remember something.
 
                             # Phase 3: fire `agent_end` hook after each
                             # complete turn. Plugins can persist state
                             # (memory flush, metric emission, etc.).
-                            from jarvis.hooks import fire_sync
+                            from src.hooks import fire_sync
 
                             fire_sync(
                                 _PLUGIN_HOOK_BUS,

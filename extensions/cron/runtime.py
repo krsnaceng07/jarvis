@@ -4,7 +4,7 @@ Phase 2: in-memory dict of CronDecl + a JSON file for persistence
 (``$JARVIS_DATA_DIR/core/cron.json``). The host's ``CronRunner``
 reads from this table to build its job list.
 
-This is intentionally separate from ``jarvis.cron.CronRunner``
+This is intentionally separate from ``src.cron.CronRunner``
 (the execution engine) so the data model is testable without
 threads.
 """

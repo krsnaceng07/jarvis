@@ -1,12 +1,12 @@
 """cron — JARVIS cross-platform scheduled jobs (Phase 2).
 
 Mirrors OpenClaw's ``src/cron/`` system. The plugin is a thin
-facade over ``jarvis.cron.CronRunner``: it exposes the cron table
+facade over ``src.cron.CronRunner``: it exposes the cron table
 as LLM-callable tools (``cron_schedule``, ``cron_list``,
 ``cron_cancel``) and registers a slash command for ad-hoc
 management.
 
-Why we ship a cron extension even though ``jarvis.cron.CronRunner``
+Why we ship a cron extension even though ``src.cron.CronRunner``
 exists: the extension is the OpenClaw-shaped consumer; the runner
 is the host-side implementation. Separating them keeps the host
 thin and lets the extension be replaced/swapped without touching

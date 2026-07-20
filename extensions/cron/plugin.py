@@ -5,7 +5,7 @@ Exposes:
   - ``cron_list()`` — list registered jobs
   - ``cron_cancel(id)`` — remove a job
 
-The actual scheduling is done by ``jarvis.cron.CronRunner`` (the
+The actual scheduling is done by ``src.cron.CronRunner`` (the
 host). This plugin is the OpenClaw-shaped consumer that talks to
 ``CronTable.default()`` — a thin alias layer.
 """

@@ -3,6 +3,7 @@
     "apps",
     "packages",
     "extensions",
+    "src",
     "tools",
     "tests",
     "examples"
@@ -10,7 +11,8 @@
   "extraPaths": [
     "apps/desktop/src",
     "apps/cli/src",
-    "packages/plugin_sdk/src"
+    "packages/plugin_sdk/src",
+    "src"
   ],
   "exclude": [
     "**/legacy_*",
@@ -19,13 +21,7 @@
     "build",
     "dist",
     "**/node_modules",
-    "TRANSITIONAL (PR 0.4/0.5): legacy root-level code being migrated to proper packages in Phase 1+. Removed as each module is migrated.",
-    "actions",
-    "agent",
-    "memory",
-    "core",
     "config",
-    "or_client.py",
     "**/jarvis_desktop/app.py",
     "**/jarvis_desktop/ui.py"
   ],

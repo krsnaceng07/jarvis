@@ -29,9 +29,9 @@ if TYPE_CHECKING:
 
 from jarvis_sdk import SkillDecl
 
-from .frontmatter import split_skill_file
+from src.frontmatter import split_skill_file
 
-_log = logging.getLogger("jarvis.skills")
+_log = logging.getLogger("src.skills")
 
 
 def discover_skills(skills_dir: Path) -> list[SkillDecl]:
@@ -128,3 +128,4 @@ __all__ = [
     "parse_skill",
     "skills_to_prompt_section",
 ]
+

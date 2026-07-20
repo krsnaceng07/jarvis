@@ -46,7 +46,7 @@ class ToolParam:
 class ToolDecl:
     """A tool that a plugin exposes to the LLM.
 
-    Mirrors the ``tools[]`` array inside each ``jarvis.plugin.json``.
+    Mirrors the ``tools[]`` array inside each ``openclaw.plugin.json``.
     The host converts this to the LLM provider's tool-call format at
     session start.
     """
@@ -64,12 +64,12 @@ class ToolDecl:
         return [p.name for p in self.parameters if p.required]
 
 
-# ── Plugin manifest (subset; full shape lives in jarvis.plugin.json) ──
+# ── Plugin manifest (subset; full shape lives in openclaw.plugin.json) ──
 @dataclass(frozen=True, slots=True)
 class PluginManifestSummary:
     """The minimum manifest fields the SDK understands in code.
 
-    The full manifest lives in ``extensions/<id>/jarvis.plugin.json``;
+    The full manifest lives in ``extensions/<id>/openclaw.plugin.json``;
     the host reads it directly. This dataclass is for typed code that
     needs a manifest-shaped value (e.g. tests, documentation generators).
     """

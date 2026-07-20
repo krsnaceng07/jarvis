@@ -32,7 +32,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from jarvis_sdk import CronDecl
 
-_log = logging.getLogger("jarvis.cron")
+_log = logging.getLogger("src.cron")
 
 # ISO timestamp pattern (one-shot jobs).
 _ISO_TS_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
@@ -194,3 +194,4 @@ def _field_matches(spec: str, value: int, lo: int, hi: int) -> bool:
 
 
 __all__ = ["CronRunner"]
+

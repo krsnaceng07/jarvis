@@ -36,17 +36,21 @@ def _get_api_key() -> str:
 
 
 def openrouter_chat(query: str) -> str:
-    """Call the OpenRouter client with a web-search-style system prompt.
+    """Return a DDG-backed answer for ``query`` (no LLM in the host).
 
-    Mirrors the legacy `actions/web_search.py` block. Falls back to
-    ``ddg_search`` on any exception.
+    Phase 3.5: the legacy OpenRouter-based "LLM answers the web
+    query" path is gone (no LLM client in the host runtime;
+    OpenClaw doesn't ship one either). We run a DDG search and
+    return the joined snippets so the host LLM has raw material
+    to answer with. The host LLM uses the LLM tools (memory_search,
+    save_memory, etc.) — the web_search extension just fetches
+    source material.
     """
-    from or_client import client
-
-    return client.chat(
-        query,
-        system="You are a web search assistant. Answer factually and concisely.",
-    )
+    rows = ddg_search(query, max_results=6)
+    if not rows:
+        return f"No results for: {query}"
+    body = "\n".join(f"- {r['title']}: {r['snippet']} ({r['url']})" for r in rows)
+    return f"Web results for: {query}\n\n{body}"
 
 
 def ddg_search(query: str, max_results: int = 6) -> list[dict[str, str]]:
