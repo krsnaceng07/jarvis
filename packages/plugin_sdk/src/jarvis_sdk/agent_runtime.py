@@ -110,6 +110,52 @@ def resolve_agent_workspace_dir(config: dict | None, agent_id: str) -> str:
     return str(_data_dir() / "agents" / canonical / "workspace")
 
 
+def resolve_agent_config(config: Any, agent_id: str) -> dict[str, Any] | None:
+    """Return the agent's full config entry from ``config.agents``.
+
+    Mirrors OpenClaw's ``resolveAgentConfig``. Returns the
+    agent entry (``config.agents.<id>`` or
+    ``config.agents.list[i]`` matching the id) or ``None``
+    if the agent is not configured. The returned dict is
+    the live config object — callers should not mutate it.
+    """
+    if not isinstance(config, dict):
+        return None
+    canonical = normalize_agent_id(agent_id)
+    # Direct lookup: config["agents"][id]
+    agents_section = config.get("agents")
+    if isinstance(agents_section, dict):
+        entry = agents_section.get(canonical)
+        if isinstance(entry, dict):
+            return entry
+    # List lookup: config["agents"]["list"][i]
+    if isinstance(agents_section, dict):
+        list_section = agents_section.get("list")
+        if isinstance(list_section, list):
+            for item in list_section:
+                if isinstance(item, dict) and normalize_agent_id(item.get("id")) == canonical:
+                    return item
+    return None
+
+
+def resolve_store_path(
+    configured_store: Any,
+    options: dict[str, Any] | None = None,
+) -> str:
+    """Resolve the session store path.
+
+    Mirrors OpenClaw's ``resolveStorePath``. Returns the
+    configured store path or a default under
+    ``<data_dir>/sessions.json`` when the configured value
+    is empty / unset. ``options.agentId`` is reserved for
+    per-agent overrides (currently unused in the default
+    fallback).
+    """
+    if isinstance(configured_store, str) and configured_store.strip():
+        return configured_store.strip()
+    return str(_data_dir() / "sessions.json")
+
+
 def resolve_session_agent_id(
     config: dict | None,
     session_key: str | None = None,

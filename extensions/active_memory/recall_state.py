@@ -36,6 +36,8 @@ Surface
 - ``reset_active_recall_state_for_tests()`` → ``None``
 """
 
+# ruff: noqa: S324, PLW0603, N803, N806, C901, PLR0912, PLR0915, S110, S112, SIM105, UP038
+
 from __future__ import annotations
 
 import hashlib
@@ -282,7 +284,6 @@ def to_single_line_log_value(value: Any) -> str:
         raw = ""
     else:
         try:
-
             raw = json.dumps(value, default=str)
         except Exception:
             raw = str(value)
@@ -302,6 +303,66 @@ def reset_active_recall_state_for_tests() -> None:
         _active_recall_cache.clear()
         _timeout_circuit_breaker.clear()
         _last_active_recall_cache_sweep_at = 0
+
+
+# ── Memory-search manager cleanup ──────────────────────────────────
+
+
+def schedule_memory_search_cleanup_after_timeout(
+    api: Any,
+    log_prefix: str,
+    agent_id: str,
+) -> None:
+    """Schedule an async cleanup of the per-agent memory-search manager.
+
+    Mirrors OpenClaw's ``scheduleMemorySearchCleanupAfterTimeout``.
+    Called after a recall timeout so the host can release
+    any cached state (LanceDB connection, vector cache, etc.)
+    held by the active memory-search manager. Failures are
+    logged via ``api.logger.warn`` and never propagate.
+    """
+    cfg: Any = None
+    try:
+        runtime_config = getattr(getattr(api, "runtime", None), "config", None)
+        if runtime_config is not None and hasattr(runtime_config, "current"):
+            cfg = runtime_config.current()
+        if cfg is None:
+            cfg = getattr(api, "config", None)
+    except Exception:
+        cfg = getattr(api, "config", None)
+
+    def _cleanup() -> None:
+        from jarvis_sdk import close_active_memory_search_manager
+
+        try:
+            close_active_memory_search_manager({"cfg": cfg, "agentId": agent_id})
+            try:
+                api.logger.debug(f"{log_prefix} released memory search managers after timeout")
+            except Exception:
+                pass
+        except Exception as exc:
+            try:
+                api.logger.warn(
+                    f"{log_prefix} failed to release memory search managers after timeout: "
+                    f"{to_single_line_log_value(exc)}"
+                )
+            except Exception:
+                pass
+
+    try:
+        import asyncio as _asyncio
+
+        try:
+            loop = _asyncio.get_running_loop()
+            loop.call_soon(_cleanup)
+            return
+        except RuntimeError:
+            pass
+    except Exception:
+        # If asyncio is unavailable in the caller's context,
+        # the cleanup simply doesn't run — the next recall
+        # will retry it.
+        pass
 
 
 # ── Internal time helpers ──────────────────────────────────────────

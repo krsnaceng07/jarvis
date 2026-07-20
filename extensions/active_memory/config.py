@@ -33,6 +33,7 @@ mutated only via the ``*_for_tests`` setters).
 
 from __future__ import annotations
 
+import math
 import os
 import re
 from pathlib import Path
@@ -87,19 +88,19 @@ _setup_grace_timeout_ms: int = DEFAULT_SETUP_GRACE_TIMEOUT_MS
 
 def set_minimum_timeout_ms_for_tests(value: int) -> None:
     """Test helper: set the floor for the ``timeoutMs`` clamp."""
-    global _minimum_timeout_ms
+    global _minimum_timeout_ms  # noqa: PLW0603 — test hook
     _minimum_timeout_ms = value
 
 
 def set_setup_grace_timeout_ms_for_tests(value: int) -> None:
     """Test helper: set the default for ``setupGraceTimeoutMs``."""
-    global _setup_grace_timeout_ms
+    global _setup_grace_timeout_ms  # noqa: PLW0603 — test hook
     _setup_grace_timeout_ms = max(0, int(value))
 
 
 def reset_active_memory_config_for_tests() -> None:
     """Test helper: restore the module-level defaults."""
-    global _minimum_timeout_ms, _setup_grace_timeout_ms
+    global _minimum_timeout_ms, _setup_grace_timeout_ms  # noqa: PLW0603 — test hook
     _minimum_timeout_ms = DEFAULT_MIN_TIMEOUT_MS
     _setup_grace_timeout_ms = DEFAULT_SETUP_GRACE_TIMEOUT_MS
 
@@ -118,9 +119,9 @@ def _clamp_int(
 
     Mirrors OpenClaw's ``clampInt`` helper.
     """
-    if value is None or not isinstance(value, (int, float)) or isinstance(value, bool):
+    if value is None or not isinstance(value, int | float) or isinstance(value, bool):
         return fallback
-    if value != value:  # NaN check
+    if math.isnan(value):
         return fallback
     floored = int(value)
     if floored < lo:
@@ -142,7 +143,7 @@ def _parse_optional_positive_int(value: Any, fallback: int) -> int:
     if isinstance(value, int):
         return value if value > 0 else fallback
     if isinstance(value, float):
-        if value != value or value in (float("inf"), float("-inf")):
+        if math.isnan(value) or value in (float("inf"), float("-inf")):
             return fallback
         return int(value) if value > 0 else fallback
     if isinstance(value, str):
@@ -625,11 +626,41 @@ def is_missing_registered_memory_tools_error(
     return runtime_source in source_parts
 
 
+def require_transient_workspace_dir(temp_dir: str | None) -> str:
+    """Return ``temp_dir`` or raise if it's empty / unset.
+
+    Mirrors OpenClaw's ``requireTransientWorkspaceDir``.
+    Used by ``recall_run`` to pick the artifact session file
+    path when ``persistTranscripts`` is disabled. Raises
+    ``RuntimeError`` with a clear message instead of
+    returning an empty path that would later fail the
+    SQLite open.
+    """
+    if isinstance(temp_dir, str) and temp_dir.strip():
+        return temp_dir
+    raise RuntimeError(
+        "active-memory: transient workspace dir is required when " "persistTranscripts is disabled"
+    )
+
+
+def normalize_active_memory_fast_mode(value: Any) -> Any:
+    """Public alias for ``_normalize_active_memory_fast_mode``.
+
+    Mirrors OpenClaw's ``normalizeActiveMemoryFastMode``
+    (a public re-export). Returns the normalized
+    ``ActiveMemoryFastMode`` value (``True`` / ``False`` /
+    ``"auto"``) or ``None`` for unparseable input.
+    """
+    return _normalize_active_memory_fast_mode(value)
+
+
 __all__ = [
     "apply_cli_runtime_recall_timeout_default",
     "has_deprecated_model_fallback_policy",
     "is_missing_registered_memory_tools_error",
+    "normalize_active_memory_fast_mode",
     "normalize_plugin_config",
+    "require_transient_workspace_dir",
     "reset_active_memory_config_for_tests",
     "resolve_persistent_transcript_base_dir",
     "resolve_safe_transcript_dir",

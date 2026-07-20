@@ -169,11 +169,43 @@ def read_session_transcript_raw_delta(
     return TranscriptRawDeltaPage(kind="page", events=[])
 
 
+async def read_session_transcript_events(
+    target: SessionTranscriptTargetParams | dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    """Read the full event list for a session.
+
+    Mirrors OpenClaw's ``readSessionTranscriptEvents``.
+    Returns a list of event dicts (possibly empty). The
+    default implementation returns ``[]`` so the recall
+    sub-agent can boot without a real transcript store;
+    the host overrides this to read from the SQLite
+    session store.
+    """
+    _ = target
+    return []
+
+
+def cleanup_session_lifecycle_artifacts(
+    params: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Default no-op stub for cleaning up a sub-agent's session artifacts.
+
+    Mirrors OpenClaw's ``cleanupSessionLifecycleArtifacts``.
+    Returns a dict with ``removedEntries`` (default ``0``)
+    so the caller can decide whether to retry. The host
+    overrides this with the real session-store cleanup.
+    """
+    _ = params
+    return {"removedEntries": 0, "removedTranscripts": 0}
+
+
 __all__ = [
     "SessionTranscriptTargetParams",
     "SqliteSessionFileMarker",
     "TranscriptRawDeltaPage",
     "build_session_transcript_target",
+    "cleanup_session_lifecycle_artifacts",
     "parse_sqlite_session_file_marker",
+    "read_session_transcript_events",
     "read_session_transcript_raw_delta",
 ]

@@ -32,6 +32,7 @@ from .agent_runtime import (
     DEFAULT_AGENT_ID,
     DEFAULT_PROVIDER,
     parse_model_ref,
+    resolve_agent_config,
     resolve_agent_dir,
     resolve_agent_effective_model_primary,
     resolve_agent_workspace_dir,
@@ -39,6 +40,7 @@ from .agent_runtime import (
     resolve_default_model_for_agent,
     resolve_remember_across_conversations,
     resolve_session_agent_id,
+    resolve_store_path,
 )
 
 # API (the registration surface)
@@ -156,7 +158,9 @@ from .session_transcript_runtime import (
     SqliteSessionFileMarker,
     TranscriptRawDeltaPage,
     build_session_transcript_target,
+    cleanup_session_lifecycle_artifacts,
     parse_sqlite_session_file_marker,
+    read_session_transcript_events,
     read_session_transcript_raw_delta,
 )
 
@@ -258,6 +262,7 @@ __all__ = [
     # String coerce
     "as_optional_record",
     "build_session_transcript_target",
+    "cleanup_session_lifecycle_artifacts",
     "parse_sqlite_session_file_marker",
     # Memory host search
     "close_active_memory_search_manager",
@@ -282,6 +287,7 @@ __all__ = [
     "open_keyed_store",
     "parse_agent_session_key",
     "parse_model_ref",
+    "read_session_transcript_events",
     "parse_strict_positive_integer",
     "parse_thread_session_suffix",
     "read_session_transcript_raw_delta",
@@ -296,6 +302,7 @@ __all__ = [
     "resolve_plugin_config_object",
     "resolve_remember_across_conversations",
     "resolve_session_agent_id",
+    "resolve_store_path",
     "resolve_timer_timeout_ms",
     "SessionTranscriptTargetParams",
     "SqliteSessionFileMarker",
