@@ -3,7 +3,8 @@
 OpenClaw parity: mirrors
 ``@openclaw/normalization-core/string-coerce``'s
 ``asOptionalRecord``, ``normalizeLowercaseStringOrEmpty``,
-``normalizeStringEntries``, and ``normalizeOptionalString``.
+``normalizeStringEntries``, ``normalizeOptionalString``, and
+``uniqueStrings``.
 
 Used by ``memory-lancedb`` to safely coerce user-supplied
 JSON / message content into the shape the plugin expects
@@ -33,6 +34,8 @@ Parity
   dropped).
 - ``normalize_optional_string(value)`` → ``str | None``
   (trimmed string or ``None`` for empty / non-string).
+- ``unique_strings(values)`` → ``list[str]`` (deduplicated,
+  preserves order; non-string entries dropped).
 """
 
 from __future__ import annotations
@@ -105,9 +108,32 @@ def normalize_optional_string(value: object) -> str | None:
     return trimmed if trimmed else None
 
 
+def unique_strings(values: object) -> list[str]:
+    """Deduplicate a list of strings, preserving order.
+
+    Mirrors ``@openclaw/normalization-core/string-coerce``'s
+    ``uniqueStrings``. Non-string entries are dropped. Used
+    by ``active-memory`` to build a stable debug-line summary
+    without repeats.
+    """
+    if not isinstance(values, list | tuple):
+        return []
+    seen: set[str] = set()
+    out: list[str] = []
+    for entry in values:
+        if not isinstance(entry, str):
+            continue
+        if entry in seen:
+            continue
+        seen.add(entry)
+        out.append(entry)
+    return out
+
+
 __all__ = [
     "as_optional_record",
     "normalize_lowercase_string_or_empty",
     "normalize_optional_string",
     "normalize_string_entries",
+    "unique_strings",
 ]

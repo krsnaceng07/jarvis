@@ -153,7 +153,11 @@ from .runtime_env import ensure_global_undici_env_proxy_dispatcher
 from .security_runtime import is_path_inside
 from .session_transcript_runtime import (
     SessionTranscriptTargetParams,
+    SqliteSessionFileMarker,
+    TranscriptRawDeltaPage,
     build_session_transcript_target,
+    parse_sqlite_session_file_marker,
+    read_session_transcript_raw_delta,
 )
 
 # Skill types
@@ -163,6 +167,7 @@ from .string_coerce import (
     normalize_lowercase_string_or_empty,
     normalize_optional_string,
     normalize_string_entries,
+    unique_strings,
 )
 from .text_utility import truncate_utf16_safe, utf16_length
 
@@ -253,6 +258,7 @@ __all__ = [
     # String coerce
     "as_optional_record",
     "build_session_transcript_target",
+    "parse_sqlite_session_file_marker",
     # Memory host search
     "close_active_memory_search_manager",
     # Lazy runtime
@@ -278,6 +284,7 @@ __all__ = [
     "parse_model_ref",
     "parse_strict_positive_integer",
     "parse_thread_session_suffix",
+    "read_session_transcript_raw_delta",
     "register_memory_embedding_provider",
     "resolve_agent_dir",
     "resolve_agent_effective_model_primary",
@@ -290,8 +297,12 @@ __all__ = [
     "resolve_remember_across_conversations",
     "resolve_session_agent_id",
     "resolve_timer_timeout_ms",
+    "SessionTranscriptTargetParams",
+    "SqliteSessionFileMarker",
+    "TranscriptRawDeltaPage",
     # Text utility
     "truncate_utf16_safe",
+    "unique_strings",
     "utf16_length",
     "with_lease",
 ]

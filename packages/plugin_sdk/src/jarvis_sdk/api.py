@@ -148,8 +148,11 @@ class PluginAgentSessionApi:
     """``api.runtime.agent.session`` — per-agent session registry.
 
     Mirrors OpenClaw's ``api.runtime.agent.session`` namespace.
-    Phase 4.2 only ships the ``getSessionEntry`` helper used
-    by ``active-memory``'s harness-skip check.
+    Phase 4.2 ships ``getSessionEntry`` (harness-skip), plus
+    the registry helpers ``listSessionEntries`` and
+    ``patchSessionEntry`` used by the recall-flow
+    status-line persistence and canonical-session-key
+    resolution.
     """
 
     def get_session_entry(self, params: dict[str, Any]) -> Any:
@@ -159,6 +162,33 @@ class PluginAgentSessionApi:
         ``api.runtime.agent.session.getSessionEntry``.
         Recognized params: ``agentId``, ``sessionKey``,
         ``sessionId``, ``readConsistency`` (e.g. ``"latest"``).
+        """
+        return None
+
+    def list_session_entries(self, params: dict[str, Any]) -> list[tuple[str, Any]]:
+        """List the agent's session entries.
+
+        Mirrors OpenClaw's
+        ``api.runtime.agent.session.listSessionEntries``.
+        Returns a list of ``(sessionKey, entry)`` pairs;
+        empty list when the host hasn't wired the registry.
+        Recognized params: ``agentId``, ``limit``,
+        ``readConsistency`` (e.g. ``"latest"``).
+        """
+        return []
+
+    def patch_session_entry(self, params: dict[str, Any]) -> Any:
+        """Atomically patch a session entry.
+
+        Mirrors OpenClaw's
+        ``api.runtime.agent.session.patchSessionEntry``.
+        The ``update`` callback receives the existing entry
+        and returns the patch to apply. Returns the updated
+        entry or ``None`` when the host hasn't wired the
+        registry. Recognized params: ``agentId``,
+        ``sessionKey``, ``update``, ``preserveActivity``,
+        ``skipMaintenance``, ``replaceEntry``,
+        ``fallbackEntry``, ``storePath``.
         """
         return None
 
