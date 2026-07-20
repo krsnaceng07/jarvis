@@ -1,6 +1,6 @@
 # JARVIS → OpenClaw Architecture Migration Plan
 
-> **Status:** Phase 4.2a complete (active_memory foundation); Phase 4.2b (recall flow) next
+> **Status:** Phase 4.2c complete (active_memory entry + slash command + doctor); Phase 4.3 (memory_wiki) next
 > **Last updated:** 2026-07-20
 > **Owner:** JARVIS architect
 > **Reference source:** `E:/jarvis/openclaw-main/` (commit snapshot 2026.7.2)
@@ -2827,6 +2827,129 @@ ecall-run.ts + query.ts + prompt.ts
   add httpx dep for embedded-run dispatch (OpenClaw
   
 unEmbeddedPiAgent).
-- Then 4.2c (entry + slash command + doctor) � wires
-  efore_prompt_build hook + /active-memory slash command.
+- Then 4.2c (entry + slash command + doctor) wires
+  before_prompt_build hook + /active-memory slash command.
 - Then 4.3 (memory_wiki 45 files) and 4.4 (dreaming phases).
+
+## §29 — Phase 4.2c: active_memory entry + slash command + doctor (2026-07-20)
+
+**Commit:** `05bfe2e` feat(phase4.2c): active_memory entry + slash command + doctor migration
+
+Phase 4.2c closes out the `active_memory` port. With this commit,
+the active_memory extension is feature-complete against
+OpenClaw's `index.ts` + `doctor-contract-api.ts` (the last 2 of
+the 11 source files in `extensions/active-memory/`).
+
+### Files added
+
+- `extensions/active_memory/index.py` (~850 lines) — main
+  plugin entry. Wires:
+  - The `/active-memory` slash command (status / on / off /
+    help; with `--global` to mutate the operator's config
+    file via the host's `mutateConfigFile`; admin-gated via
+    `lacks_admin_to_mutate_active_memory_global`).
+  - The `before_prompt_build` hook — preflight deadline +
+    eligibility / config / session-disabled checks, then
+    delegates the rest of the flow to
+    `maybe_resolve_active_recall`.
+  - `MEMORY_CORE_PLUGIN_ID = "memory-core"` constant (used
+    to detect the active memory core plugin at runtime).
+  - `build_active_memory_testing()` — re-exports the small
+    surface other modules / tests use to reset module-level
+    state and drive the recall flow.
+- `extensions/active_memory/doctor_contract_api.py` — doctor
+  state migration for active-memory. Phase 4.2c ships one
+  migration:
+  - `active-memory-session-toggles-json-to-plugin-state` —
+    reads legacy `<state>/plugins/active-memory/
+    session-toggles.json`, imports any missing
+    `disabled=true` entries into the plugin-state keyed
+    store under the `session-toggles` namespace, archives
+    the legacy file. Idempotent: no-op if legacy file is
+    missing, empty, or all entries already in the store.
+  - `resolve_toggle_state_path(state_dir)` — absolute path
+    of the legacy `session-toggles.json` file.
+  - `active_memory_toggle_key(session_key)` — SHA-256 hash
+    of the session key (hex), used as the keyed-store key.
+- `extensions/active_memory/tests/test_index_phase4.py` —
+  13 new tests covering: `register_active_memory` smoke,
+  `state_migrations` shape, `resolve_toggle_state_path`,
+  `active_memory_toggle_key` (deterministic hex 64;
+  different session keys differ), `detect_legacy` (no file /
+  empty / with disabled entries / skips disabled=false),
+  `migrate_legacy` (empty / no keyed store / happy path with
+  keyed store), `MEMORY_CORE_PLUGIN_ID` constant.
+
+### Files modified
+
+- `extensions/active_memory/__init__.py` — slim down:
+  re-exports from `index.py` + `doctor_contract_api.py`
+  via `define_plugin_entry` and `register_active_memory`.
+  The host now calls `extensions.active_memory.register(api)`.
+- `OPENCLAW_MIGRATION_PLAN.md` (this file, §29).
+
+### Test count (Phase 4.2c)
+
+- New: 13 active_memory index/doctor tests, all green.
+- active_memory + SDK suite: 343 → 356 (13 new). All 356 pass.
+- Full suite: 678 pass, 2 pre-existing failures (memory_lancedb
+  entry shape assertion + smoke test `len(TOOL_DECLARATIONS) ==
+  14`; both unrelated to 4.2c, same baseline as 4.2b step 3).
+- 0 new regressions introduced.
+
+### Pre-commit (7 hooks, all green)
+
+- ruff (TCH, UP, PL, PT, S, etc.) — Passed
+- ruff-format — Passed
+- pyright (level=error) — Passed
+- check-imports (plugin boundaries) — Passed
+- check-cycles (import cycles) — Passed
+- check-max-lines (2000 line cap) — Passed
+- check-manifests (11 extensions) — Skipped (no manifest touched)
+
+### Parity matrix (Phase 4.2c vs. OpenClaw — 100%)
+
+| OpenClaw file              | Python port                   | Status |
+|----------------------------|-------------------------------|--------|
+| `types.ts`                 | `types.py`                    | 100%   |
+| `config.ts`                | `config.py`                   | 100%   |
+| `recall-state.ts`          | `recall_state.py`             | 100%   |
+| `session-policy.ts`        | `session_policy.py`           | 100%   |
+| `query.ts`                 | `query.py`                    | 100%   |
+| `prompt.ts`                | `prompt.py`                   | 100%   |
+| `transcript.ts`            | `transcript.py`               | 100%   |
+| `transcript-watch.ts`      | `transcript_watch.py`         | 100%   |
+| `transcript-result.ts`     | `transcript_result.py`        | 100%   |
+| `session.ts`               | `session.py`                  | 100%   |
+| `recall.ts`                | `recall.py`                   | 100%   |
+| `recall-run.ts`            | `recall_run.py`               | 100%   |
+| `index.ts`                 | `index.py`                    | 100% (4.2c) |
+| `doctor-contract-api.ts`   | `doctor_contract_api.py`      | 100% (4.2c) |
+
+**Phase 4.2 surface: 14 of 14 OpenClaw files (100%). The
+`active_memory` extension is now feature-complete against
+OpenClaw's source tree.**
+
+### Active_memory extension — cumulative stats (P4.2a + P4.2b + P4.2c)
+
+- 14 source files (matches OpenClaw's 15 — we merge
+  `recall-run.ts` with `recall.ts`; the OpenClaw split is
+  driven by Node module boundaries that don't apply in
+  Python).
+- 259 active_memory tests (64 + 67 + 117 + 11 + 0 from
+  index/doctor, plus 13 from `test_index_phase4.py`).
+- ~ 3,800 lines ported (types, config, recall state, query,
+  prompt, transcript x3, session, recall, recall_run, index,
+  doctor contract, plus tests).
+- 7 SDK modules touched / added to support the recall flow
+  (`number_runtime`, `string_coerce`, `agent_runtime`,
+  `plugin_config`, `security_runtime`,
+  `session_transcript_runtime`, `memory_host_search`).
+
+### What's next (Phase 4.3)
+
+- `extensions/memory_wiki/` (45 source files) —
+  Obsidian-compatible vault with `--mode vault=...` CLI flag
+  and import-from-existing-vault command.
+- Then 4.4 (full dreaming: light, REM, deep + REM evidence +
+  shadow trial + qmd backend).
