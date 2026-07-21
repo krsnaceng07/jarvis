@@ -20,7 +20,7 @@ from __future__ import annotations
 import os
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from .compile_pipeline import COMPILE_PAGE_DIRECTORIES
 from .markdown import parse_wiki_frontmatter
@@ -322,23 +322,47 @@ def _parse_body_lines(raw: str) -> list[str]:
 def get_memory_wiki_page(
     *,
     config: ResolvedMemoryWikiConfig,
+    app_config: Any = None,
+    agent_id: str | None = None,
+    agent_session_key: str | None = None,
+    sandboxed: bool = False,
     lookup: str,
     from_line: int | None = None,
     line_count: int | None = None,
+    search_backend: str | None = None,
+    search_corpus: str | None = None,
 ) -> WikiGetResult | None:
     """Read a single wiki page (line-range slice).
 
     Mirrors the OpenClaw ``getMemoryWikiPage``
     (wiki-corpus branch only; the shared-memory
-    fallback is added in 4.3f-mr2).
+    fallback is added in 4.3f-mr2.5).
 
     The page is located by ``lookup`` (see
     :func:`resolve_queryable_wiki_page_by_lookup`).
     The body is sliced between ``from_line``
     (1-indexed, default 1) and
     ``from_line + line_count`` (default 200).
+
+    The ``app_config`` / ``agent_id`` /
+    ``agent_session_key`` / ``sandboxed`` /
+    ``search_backend`` / ``search_corpus``
+    kwargs are accepted to match the OpenClaw
+    signature. The wiki-corpus branch ignores
+    them (they're only used by the shared-memory
+    fallback that lands in 4.3f-mr2.5). They
+    are bound here so the call site can use a
+    1:1 kwargs shape with the OpenClaw source.
     """
     from .vault import initialize_memory_wiki_vault
+
+    # Suppress unused-argument warnings (the
+    # wiki-corpus branch does not consume these
+    # yet; they exist for call-shape parity with
+    # the OpenClaw signature so the
+    # corpus-supplement / gateway / tool layers
+    # can call with a uniform kwargs shape).
+    _ = (app_config, agent_id, agent_session_key, sandboxed, search_backend, search_corpus)
 
     initialize_memory_wiki_vault(config)
     if not should_search_wiki(config):
@@ -458,8 +482,14 @@ def _search_snippet(page: QueryableWikiPage, query_lower: str) -> str:
 def search_memory_wiki(
     *,
     config: ResolvedMemoryWikiConfig,
+    app_config: Any = None,
+    agent_id: str | None = None,
+    agent_session_key: str | None = None,
+    sandboxed: bool = False,
     query: str,
     max_results: int | None = None,
+    search_backend: str | None = None,
+    search_corpus: str | None = None,
     mode: str | None = None,
 ) -> list[WikiSearchResult]:
     """Search the wiki corpus for ``query``.
@@ -482,6 +512,15 @@ def search_memory_wiki(
     """
     if not should_search_wiki(config):
         return []
+    # The wiki-corpus branch does not consume
+    # ``app_config`` / ``agent_id`` /
+    # ``agent_session_key`` / ``sandboxed`` /
+    # ``search_backend`` / ``search_corpus`` yet
+    # (those are used by the shared-memory
+    # fallback that lands in 4.3f-mr2.5). They
+    # are bound here so the call site matches
+    # the OpenClaw signature.
+    _ = (app_config, agent_id, agent_session_key, sandboxed, search_backend, search_corpus)
     query_text = query.strip()
     if not query_text:
         return []
