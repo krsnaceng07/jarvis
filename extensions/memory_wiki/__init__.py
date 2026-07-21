@@ -34,11 +34,13 @@ from . import (
     compiled_cache as _compiled_cache,
     config as _config,
     config_compat as _config_compat,
+    corpus_supplement as _corpus_supplement,
     import_runs_state as _import_runs_state,
     log as _log,
     markdown as _markdown,
     markdown_pages as _markdown_pages,
     mutation_coordinator as _mutation_coordinator,
+    prompt_section as _prompt_section,
     query as _query,
     source_path_shared as _source_path_shared,
     source_sync_state as _source_sync_state,
@@ -146,6 +148,28 @@ __all__ = [
     # Mutation coordinator (Phase 4.3d).
     "with_memory_wiki_vault_mutation",
     "resolve_memory_wiki_vault_mutation_key",
+    # Prompt section (Phase 4.3f-mr6).
+    "DIGEST_MAX_CLAIMS_PER_PAGE",
+    "DIGEST_MAX_PAGES",
+    "MemoryPromptSectionBuilder",
+    "MemoryPromptSectionParams",
+    "MemoryPromptSectionPreparer",
+    "build_digest_prompt_section",
+    "build_wiki_tool_guidance",
+    "create_wiki_prompt_section_builder",
+    "create_wiki_prompt_section_preparer",
+    "format_prompt_claim",
+    "rank_prompt_claim_freshness",
+    "rank_prompt_digest_page",
+    "reset_memory_wiki_prompt_section_state_for_tests",
+    "sort_prompt_claims",
+    # Corpus supplement (Phase 4.3f-mr5).
+    "MemoryWikiConfigResolver",
+    "WikiCorpusSupplement",
+    "WikiCorpusSupplementGetInput",
+    "WikiCorpusSupplementSearchInput",
+    "create_wiki_corpus_supplement",
+    "reset_memory_wiki_corpus_supplement_state_for_tests",
     # Claim health (Phase 4.3d-mr2).
     "WIKI_AGING_DAYS",
     "WIKI_STALE_DAYS",
@@ -607,3 +631,31 @@ read_queryable_wiki_pages = _query.read_queryable_wiki_pages
 read_queryable_wiki_pages_by_paths = _query.read_queryable_wiki_pages_by_paths
 resolve_queryable_wiki_page_by_lookup = _query.resolve_queryable_wiki_page_by_lookup
 should_search_wiki = _query.should_search_wiki
+
+# Prompt section (Phase 4.3f-mr6).
+DIGEST_MAX_CLAIMS_PER_PAGE = _prompt_section.DIGEST_MAX_CLAIMS_PER_PAGE
+DIGEST_MAX_PAGES = _prompt_section.DIGEST_MAX_PAGES
+MemoryPromptSectionBuilder = _prompt_section.MemoryPromptSectionBuilder
+MemoryPromptSectionParams = _prompt_section.MemoryPromptSectionParams
+MemoryPromptSectionPreparer = _prompt_section.MemoryPromptSectionPreparer
+build_digest_prompt_section = _prompt_section.build_digest_prompt_section
+build_wiki_tool_guidance = _prompt_section.build_wiki_tool_guidance
+create_wiki_prompt_section_builder = _prompt_section.create_wiki_prompt_section_builder
+create_wiki_prompt_section_preparer = _prompt_section.create_wiki_prompt_section_preparer
+format_prompt_claim = _prompt_section.format_prompt_claim
+rank_prompt_claim_freshness = _prompt_section.rank_prompt_claim_freshness
+rank_prompt_digest_page = _prompt_section.rank_prompt_digest_page
+reset_memory_wiki_prompt_section_state_for_tests = (
+    _prompt_section.reset_memory_wiki_prompt_section_state_for_tests
+)
+sort_prompt_claims = _prompt_section.sort_prompt_claims
+
+# Corpus supplement (Phase 4.3f-mr5).
+MemoryWikiConfigResolver = _corpus_supplement.MemoryWikiConfigResolver
+WikiCorpusSupplement = _corpus_supplement.WikiCorpusSupplement
+WikiCorpusSupplementGetInput = _corpus_supplement.WikiCorpusSupplementGetInput
+WikiCorpusSupplementSearchInput = _corpus_supplement.WikiCorpusSupplementSearchInput
+create_wiki_corpus_supplement = _corpus_supplement.create_wiki_corpus_supplement
+reset_memory_wiki_corpus_supplement_state_for_tests = (
+    _corpus_supplement.reset_memory_wiki_corpus_supplement_state_for_tests
+)

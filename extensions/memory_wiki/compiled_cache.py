@@ -243,7 +243,13 @@ def resolve_memory_wiki_compiled_cache_owner_id(
     """
     if config.vault.scope == "global":
         return "global"
-    agent_id = config.agent_id
+    # ``ResolvedMemoryWikiConfig`` uses camelCase
+    # attribute names (``agentId``). Older test
+    # fixtures may pass a ``SimpleNamespace`` with
+    # snake_case ``agent_id``; accept both.
+    agent_id = getattr(config, "agentId", None)
+    if agent_id is None:
+        agent_id = getattr(config, "agent_id", None)
     if agent_id is None:
         agent_id_str: str | None = None
     else:
