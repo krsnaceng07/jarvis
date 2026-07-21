@@ -29,6 +29,7 @@ from . import (
     compile_pages as _compile_pages,
     compile_pipeline as _compile_pipeline,
     compile_render as _compile_render,
+    compiled_cache as _compiled_cache,
     config as _config,
     config_compat as _config_compat,
     import_runs_state as _import_runs_state,
@@ -224,6 +225,34 @@ __all__ = [
     "reset_memory_wiki_import_run_state_for_tests",
     "resolve_memory_wiki_import_runs_dir",
     "write_memory_wiki_import_run_record",
+    # Compiled cache (Phase 4.3e-mr3).
+    "ActiveVault",
+    "COMPILED_CACHE_MAX_BYTES",
+    "COMPILED_CACHE_MAX_BYTES_PER_ENTRY",
+    "COMPILED_CACHE_MAX_ENTRIES",
+    "COMPILED_CACHE_NAMESPACE",
+    "COMPILED_CACHE_VERSION",
+    "CompiledCacheBlobStore",
+    "CompiledCacheEntry",
+    "CompiledCacheMetadata",
+    "LEGACY_MEMORY_WIKI_COMPILED_CACHE_PATHS",
+    "MemoryWikiCompiledCacheSnapshot",
+    "MemoryWikiCompiledCacheStore",
+    "MemoryWikiCompiledClaim",
+    "MemoryWikiCompiledDigestClaim",
+    "MemoryWikiCompiledDigestPage",
+    "activate_memory_wiki_compiled_cache_owner",
+    "configure_memory_wiki_compiled_cache_store",
+    "create_memory_wiki_compiled_cache_publication_id",
+    "create_memory_wiki_compiled_cache_store",
+    "deactivate_memory_wiki_compiled_cache_owners_except",
+    "invalidate_memory_wiki_compiled_cache",
+    "load_memory_wiki_compiled_cache",
+    "reconcile_memory_wiki_compiled_cache_owner",
+    "reset_memory_wiki_compiled_cache_for_tests",
+    "resolve_memory_wiki_compiled_cache_generation",
+    "resolve_memory_wiki_compiled_cache_owner_id",
+    "write_memory_wiki_compiled_cache",
 ]
 
 
@@ -447,3 +476,48 @@ reset_memory_wiki_import_run_state_for_tests = (
 )
 resolve_memory_wiki_import_runs_dir = _import_runs_state.resolve_memory_wiki_import_runs_dir
 write_memory_wiki_import_run_record = _import_runs_state.write_memory_wiki_import_run_record
+
+# Compiled cache (Phase 4.3e-mr3).
+ActiveVault = _compiled_cache.ActiveVault
+COMPILED_CACHE_MAX_BYTES = _compiled_cache.COMPILED_CACHE_MAX_BYTES
+COMPILED_CACHE_MAX_BYTES_PER_ENTRY = _compiled_cache.COMPILED_CACHE_MAX_BYTES_PER_ENTRY
+COMPILED_CACHE_MAX_ENTRIES = _compiled_cache.COMPILED_CACHE_MAX_ENTRIES
+COMPILED_CACHE_NAMESPACE = _compiled_cache.COMPILED_CACHE_NAMESPACE
+COMPILED_CACHE_VERSION = _compiled_cache.COMPILED_CACHE_VERSION
+CompiledCacheBlobStore = _compiled_cache.CompiledCacheBlobStore
+CompiledCacheEntry = _compiled_cache.CompiledCacheEntry
+CompiledCacheMetadata = _compiled_cache.CompiledCacheMetadata
+LEGACY_MEMORY_WIKI_COMPILED_CACHE_PATHS = _compiled_cache.LEGACY_MEMORY_WIKI_COMPILED_CACHE_PATHS
+MemoryWikiCompiledCacheSnapshot = _compiled_cache.MemoryWikiCompiledCacheSnapshot
+MemoryWikiCompiledCacheStore = _compiled_cache.MemoryWikiCompiledCacheStore
+MemoryWikiCompiledClaim = _compiled_cache.MemoryWikiCompiledClaim
+MemoryWikiCompiledDigestClaim = _compiled_cache.MemoryWikiCompiledDigestClaim
+MemoryWikiCompiledDigestPage = _compiled_cache.MemoryWikiCompiledDigestPage
+activate_memory_wiki_compiled_cache_owner = (
+    _compiled_cache.activate_memory_wiki_compiled_cache_owner
+)
+configure_memory_wiki_compiled_cache_store = (
+    _compiled_cache.configure_memory_wiki_compiled_cache_store
+)
+create_memory_wiki_compiled_cache_publication_id = (
+    _compiled_cache.create_memory_wiki_compiled_cache_publication_id
+)
+create_memory_wiki_compiled_cache_store = _compiled_cache.create_memory_wiki_compiled_cache_store
+deactivate_memory_wiki_compiled_cache_owners_except = (
+    _compiled_cache.deactivate_memory_wiki_compiled_cache_owners_except
+)
+invalidate_memory_wiki_compiled_cache = _compiled_cache.invalidate_memory_wiki_compiled_cache
+load_memory_wiki_compiled_cache = _compiled_cache.load_memory_wiki_compiled_cache
+reconcile_memory_wiki_compiled_cache_owner = (
+    _compiled_cache.reconcile_memory_wiki_compiled_cache_owner
+)
+reset_memory_wiki_compiled_cache_for_tests = (
+    _compiled_cache.reset_memory_wiki_compiled_cache_for_tests
+)
+resolve_memory_wiki_compiled_cache_generation = (
+    _compiled_cache.resolve_memory_wiki_compiled_cache_generation
+)
+resolve_memory_wiki_compiled_cache_owner_id = (
+    _compiled_cache.resolve_memory_wiki_compiled_cache_owner_id
+)
+write_memory_wiki_compiled_cache = _compiled_cache.write_memory_wiki_compiled_cache
