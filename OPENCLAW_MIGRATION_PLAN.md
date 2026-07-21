@@ -1,6 +1,6 @@
 # JARVIS → OpenClaw Architecture Migration Plan
 
-> **Status:** Phase 4.3a complete (memory_wiki foundation + SDK fs-safe hardening); Phase 4.3b (config) next
+> **Status:** Phase 4.3b complete (memory_wiki config + config_compat); Phase 4.3c (vault init + markdown) next
 > **Last updated:** 2026-07-21
 > **Owner:** JARVIS architect
 > **Reference source:** `E:/jarvis/openclaw-main/` (commit snapshot 2026.7.2)
@@ -3060,3 +3060,81 @@ index, and doctor.**
   full schema (vaultMode / vault / obsidian / bridge /
   unsafeLocal / ingest / search / context / render)
   + the per-agent config resolver.
+
+## §31 — Phase 4.3b: memory_wiki config + config_compat (2026-07-21)
+
+**Commit:** `afc35ab` feat(phase4.3b): memory_wiki config + config_compat
+
+Phase 4.3b ships the memory-wiki config layer. The
+plugin can now be configured via the full OpenClaw
+schema (vaultMode / vault / obsidian / bridge /
+unsafeLocal / ingest / search / context / render),
+and legacy configs that use the old
+``bridge.readMemoryCore`` key auto-migrate to the
+canonical ``bridge.readMemoryArtifacts``.
+
+### Files added
+
+- `extensions/memory_wiki/config.py` (~990 lines) --
+  the full plugin config. Mirrors OpenClaw's
+  `extensions/memory-wiki/src/config.ts`. Includes
+  type literals, TypedDict input shapes, Resolved
+  classes (with both snake_case slots and OpenClaw
+  camelCase properties so callers can pick either
+  spelling), `memory_wiki_config_schema` (the
+  callable that mirrors OpenClaw's `safeParse`
+  contract), `resolve_memory_wiki_config`
+  (defaults-merge), `resolve_memory_wiki_configured_agent_ids`,
+  and `resolve_memory_wiki_agent_config` (per-agent
+  resolver with cross-field rule re-assertion).
+- `extensions/memory_wiki/config_compat.py` (~140
+  lines) -- the legacy config compat layer.
+  Mirrors OpenClaw's `config-compat.ts`. Includes
+  `has_legacy_bridge_artifact_toggle`,
+  `migrate_memory_wiki_legacy_config` (rename or
+  drop, idempotent), `normalize_compatibility_config`,
+  and the documented `LEGACY_CONFIG_RULES`.
+- `extensions/memory_wiki/tests/test_config_phase4.py`
+  (24 tests).
+- `extensions/memory_wiki/tests/test_config_compat_phase4.py`
+  (13 tests).
+
+### Files modified
+
+- `extensions/memory_wiki/__init__.py` -- re-exports
+  the new config surface.
+
+### Test count (Phase 4.3b)
+
+- New: 37 memory_wiki tests. All green.
+- memory_wiki + active_memory + SDK suite: 382 → 419
+  (+37). All 419 pass.
+- Pre-commit all 7 hooks green.
+
+### Parity matrix (Phase 4.3b vs. OpenClaw)
+
+| OpenClaw file          | Python port           | Status |
+|------------------------|-----------------------|--------|
+| `src/config.ts`        | `config.py`           | 100%   |
+| `src/config-compat.ts` | `config_compat.py`    | 100%   |
+
+**Phase 4.3b surface: 2 of 2 OpenClaw files (100% of
+the config layer).**
+
+### Cumulative stats (P4.3b)
+
+- 4 new files in memory_wiki (2 prod + 2 test).
+- 1 file modified (`__init__.py` re-exports).
+- ~ 1300 lines ported.
+- 6 cross-field rules + 7 strict-shape rules + 5
+  homedir-expansion paths preserved.
+
+### What's next (Phase 4.3c)
+
+- `vault.py` (~5.5KB) -- vault init (scaffold
+  directories + scaffold files).
+- `markdown.py` (26KB) -- split into
+  `markdown_core.py` (parser: blocks, link graph,
+  backtick fences) + `markdown_render.py`
+  (Obsidian-friendly renderer, managed blocks,
+  frontmatter).
