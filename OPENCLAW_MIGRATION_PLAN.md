@@ -3556,3 +3556,161 @@ prompt-section file (100% parity).**
   `extensions/memory-wiki/src/memory-palace.ts`
   end-to-end, plan, then implement
   same-to-same.
+
+## §35 — Phase 4.3f-mr7: memory_wiki palace layout / scene cards (2026-07-21)
+
+**Commit:** 1bb59c0 feat(phase4.3f-mr7): memory_wiki palace layout / scene cards
+
+Phase 4.3f-mr7 ships the palace layout /
+scene cards. Mirrors OpenClaw's
+`listMemoryWikiPalace` from
+`extensions/memory-wiki/src/memory-palace.ts`.
+
+The host consumes this via the
+`wiki.palace` gateway method (Phase
+4.3f-mr4 stub) and in the per-vault
+dashboard.
+
+### Files added
+
+- `extensions/memory_wiki/memory_palace.py`
+  (~360 lines) — the palace helpers +
+  async `list_memory_wiki_palace`
+  function:
+  - `WikiPageKind` `Literal` alias
+    mirroring the OpenClaw union.
+  - `PALACE_KIND_ORDER` — cluster
+    ordering (synthesis, entity, concept,
+    source, report).
+  - `PRIMARY_PALACE_KINDS` — pages of
+    these kinds are always shown
+    (synthesis, entity, concept).
+  - `PALACE_KIND_LABELS` — display
+    names.
+  - `PALACE_ITEM_TOP_CLAIMS` /
+    `PALACE_ITEM_TOP_QUESTIONS` /
+    `PALACE_ITEM_TOP_CONTRADICTIONS`
+    (all 3) — per-item slice caps.
+  - 4 dataclasses
+    (`MemoryWikiPalaceItem`,
+    `MemoryWikiPalaceCluster`,
+    `MemoryWikiPalacePageCounts`
+    TypedDict,
+    `MemoryWikiPalaceStatus`) — all
+    camelCase to match the OpenClaw JSON
+    shape so the `wiki.palace` gateway
+    response is byte-compatible.
+  - 4 helpers:
+    - `create_empty_palace_page_counts`
+      — all-zero counts dict.
+    - `normalize_timestamp` — string
+      trim; `None` for non-string /
+      empty.
+    - `extract_snippet` — first
+      non-meta line of the body
+      (skips blanks, headings, code
+      fences, HTML comments, list
+      markers).
+    - `compare_palace_items` —
+      `updatedAt` desc, then
+      `claimCount` desc, then
+      `title` asc.
+  - `list_memory_wiki_palace(config)`
+    — async public function. Reads every
+    queryable wiki page, computes per-kind
+    counts + total claims / questions /
+    contradictions, maps each page to a
+    `MemoryWikiPalaceItem` (slicing
+    top 3), filters to primary kinds OR
+    pages with non-empty claim/question/
+    contradiction lists, sorts, groups
+    into clusters in `PALACE_KIND_ORDER`,
+    drops empty clusters, returns the
+    `MemoryWikiPalaceStatus` payload.
+- `extensions/memory_wiki/tests/test_memory_palace_phase4.py`
+  (28 tests):
+  - 4 constants tests
+  - 2 create-empty-counts tests
+  - 4 normalize-timestamp tests
+  - 5 extract-snippet tests
+  - 4 compare-palace-items tests
+  - 8 list-memory-wiki-palace tests
+    (groups pages, empty vault, primary
+    kinds with no claims, non-primary
+    with claims, non-primary without
+    claims, claim slicing to top 3,
+    question/contradiction slicing,
+    cluster ordering)
+  - 1 exports test
+
+### Files modified
+
+- `extensions/memory_wiki/__init__.py`:
+  Re-export the palace surface
+  (constants, dataclasses, helpers,
+  `list_memory_wiki_palace`).
+
+### Test count (Phase 4.3f-mr7)
+
+- New: 28 memory_wiki tests. All green.
+- memory_wiki + active_memory + SDK
+  suite: 757 ? 785 (+28). 2 skipped
+  (Windows symlink privilege).
+  0 regressions.
+- Pre-commit all 7 hooks green (ruff,
+  ruff-format, pyright, check-imports,
+  check-cycles, check-max-lines,
+  check-manifests).
+
+### Parity matrix (Phase 4.3f-mr7 vs. OpenClaw)
+
+| OpenClaw helper                       | Python port                          | Status |
+|--------------------------------------|--------------------------------------|--------|
+| `listMemoryWikiPalace`             | `list_memory_wiki_palace`         | 100%   |
+| `MemoryWikiPalaceItem` type        | `MemoryWikiPalaceItem` dataclass  | 100%   |
+| `MemoryWikiPalaceCluster` type     | `MemoryWikiPalaceCluster`         | 100%   |
+| `MemoryWikiPalaceStatus` type      | `MemoryWikiPalaceStatus`          | 100%   |
+| `MemoryWikiPalacePageCounts` type  | `MemoryWikiPalacePageCounts` TypedDict | 100% |
+| `createEmptyPalacePageCounts`      | `create_empty_palace_page_counts`  | 100%   |
+| `normalizeTimestamp`               | `normalize_timestamp`             | 100%   |
+| `extractSnippet`                   | `extract_snippet`                 | 100%   |
+| `comparePalaceItems`               | `compare_palace_items`            | 100%   |
+| `PALACE_KIND_ORDER` constant       | `PALACE_KIND_ORDER`               | 100%   |
+| `PRIMARY_PALACE_KINDS` constant    | `PRIMARY_PALACE_KINDS`            | 100%   |
+| `PALACE_KIND_LABELS` constant      | `PALACE_KIND_LABELS`              | 100%   |
+
+**Phase 4.3f-mr7 surface: 1 of 1 OpenClaw
+memory-palace file (100% parity).**
+
+### Cumulative stats (P4.3f-mr7)
+
+- 2 new files in memory_wiki (1 prod +
+  1 test).
+- 1 file modified (`__init__.py`
+  re-exports).
+- ~ 360 lines ported.
+- 100% parity with OpenClaw's
+  `memory-palace.ts`.
+
+### What's next (Phase 4.3g)
+
+- CLI + obsidian + unsafe-local +
+  chatgpt-import + index + doctor +
+  ingest + source-sync + import-runs +
+  lint + status + import-insights +
+  source-page-shared + setup-api —
+  the last big surface of the
+  memory-wiki extension. This will be
+  split into:
+  - 4.3g-mr1: CLI + obsidian +
+    status + lint
+  - 4.3g-mr2: ingest + source-sync +
+    source-page-shared
+  - 4.3g-mr3: chatgpt-import +
+    import-runs + import-insights
+  - 4.3g-mr4: unsafe-local + doctor +
+    index + setup-api
+- Pre-step: read OpenClaw's
+  `extensions/memory-wiki/src/` files
+  end-to-end, plan, then implement
+  same-to-same per sub-phase.
