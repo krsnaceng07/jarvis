@@ -172,19 +172,22 @@ def create_wiki_status_tool(
 
     async def _execute(_tool_call_id: str, _raw_params: Any) -> WikiToolResult:
         await sync_imported_sources_if_needed(config, app_config)
-        status: MemoryWikiStatus = resolve_memory_wiki_status(
-            config, caller_agent_id=memory_context.agent_id
+        status: MemoryWikiStatus = await resolve_memory_wiki_status(
+            config,
+            deps={"callerAgentId": memory_context.agent_id, "appConfig": app_config},
         )
         return WikiToolResult(
             content=[WikiToolTextContent(text=render_memory_wiki_status(status))],
             details={
-                "vaultPath": status.vault_path,
-                "vaultMode": status.vault_mode,
-                "renderMode": status.render_mode,
-                "obsidianCliAvailable": status.obsidian_cli_available,
-                "unsafeLocalPath": status.unsafe_local_path,
-                "bridgeEnabled": status.bridge_enabled,
-                "agentIds": status.agent_ids,
+                "vaultPath": status.vaultPath,
+                "vaultMode": status.vaultMode,
+                "renderMode": status.renderMode,
+                "obsidianCliAvailable": status.obsidianCli.available,
+                "unsafeLocalEnabled": status.unsafeLocal.allowPrivateMemoryCoreAccess,
+                "unsafeLocalPathCount": status.unsafeLocal.pathCount,
+                "bridgeEnabled": status.bridge.enabled,
+                "agentId": status.agentId,
+                "warnings": [{"code": w.code, "message": w.message} for w in status.warnings],
             },
         )
 
@@ -325,24 +328,23 @@ def create_wiki_lint_tool(
 
     async def _execute(_tool_call_id: str, _raw_params: Any) -> WikiToolResult:
         await sync_imported_sources_if_needed(config, app_config)
-        result = lint_memory_wiki_vault(config)
-        contradictions = len(result.issues_by_category.get("contradictions", []))
-        open_questions = len(result.issues_by_category.get("open-questions", []))
-        provenance = len(result.issues_by_category.get("provenance", []))
+        result = await lint_memory_wiki_vault(config)
+        contradictions = len(result.issuesByCategory.get("contradictions", []))
+        open_questions = len(result.issuesByCategory.get("open-questions", []))
+        provenance = len(result.issuesByCategory.get("provenance", []))
         errors = sum(1 for issue in result.issues if issue.severity == "error")
         warnings = sum(1 for issue in result.issues if issue.severity == "warning")
         report_path_str = (
-            format_wiki_tool_report_path(config, result.report_path)
-            if result.report_path is not None
+            format_wiki_tool_report_path(config, result.reportPath)
+            if result.reportPath is not None
             else "(not yet implemented in 4.3f-mr3)"
         )
-        if result.issue_count == 0:
+        if result.issueCount == 0:
             summary = "No wiki lint issues."
         else:
             summary = "\n".join(
                 [
-                    f"Issues: {result.issue_count} total "
-                    f"({errors} errors, {warnings} warnings)",
+                    f"Issues: {result.issueCount} total " f"({errors} errors, {warnings} warnings)",
                     f"Contradictions: {contradictions}",
                     f"Open questions: {open_questions}",
                     f"Provenance gaps: {provenance}",
@@ -352,11 +354,11 @@ def create_wiki_lint_tool(
         return WikiToolResult(
             content=[WikiToolTextContent(text=summary)],
             details={
-                "issueCount": result.issue_count,
+                "issueCount": result.issueCount,
                 "issues": [dataclasses.asdict(issue) for issue in result.issues],
                 "issuesByCategory": {
                     key: [dataclasses.asdict(issue) for issue in issues]
-                    for key, issues in result.issues_by_category.items()
+                    for key, issues in result.issuesByCategory.items()
                 },
                 "reportPath": report_path_str,
             },

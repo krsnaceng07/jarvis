@@ -229,7 +229,14 @@ def _wiki_status(req: WikiGatewayRequest) -> WikiGatewayResponse:
     if config is None:
         return _respond_error(ValueError("wiki.status requires a resolved config"))
     _sync_imported_sources_if_needed(config, req.app_config)
-    status = resolve_memory_wiki_status(config, caller_agent_id=req.agent_id)
+    import asyncio
+
+    status = asyncio.run(
+        resolve_memory_wiki_status(
+            config,
+            deps={"callerAgentId": req.agent_id, "appConfig": req.app_config},
+        )
+    )
     return WikiGatewayResponse(ok=True, value=_status_to_dict(status))
 
 
@@ -363,22 +370,24 @@ def _wiki_lint(req: WikiGatewayRequest) -> WikiGatewayResponse:
     config = req.config
     if config is None:
         return _respond_error(ValueError("wiki.lint requires a resolved config"))
-    result = lint_memory_wiki_vault(config)
+    import asyncio
+
+    result = asyncio.run(lint_memory_wiki_vault(config))
     return WikiGatewayResponse(
         ok=True,
         value={
-            "vaultPath": result.vault_path,
-            "issueCount": result.issue_count,
+            "vaultRoot": result.vaultRoot,
+            "issueCount": result.issueCount,
             "issues": [dataclasses.asdict(i) for i in result.issues],
             "issuesByCategory": {
                 key: [dataclasses.asdict(i) for i in issues]
-                for key, issues in result.issues_by_category.items()
+                for key, issues in result.issuesByCategory.items()
             },
-            "reportPath": result.report_path,
+            "reportPath": result.reportPath,
             "rendered": (
                 "No wiki lint issues."
-                if result.issue_count == 0
-                else f"Issues: {result.issue_count}."
+                if result.issueCount == 0
+                else f"Issues: {result.issueCount}."
             ),
         },
     )
@@ -404,15 +413,47 @@ def _not_yet_implemented(req: WikiGatewayRequest) -> WikiGatewayResponse:
 
 
 def _status_to_dict(status: MemoryWikiStatus) -> dict[str, Any]:
-    """Convert a :class:`MemoryWikiStatus` to a JSON-friendly dict."""
+    """Convert a :class:`MemoryWikiStatus` to a JSON-friendly dict.
+
+    Mirrors the OpenClaw
+    ``MemoryWikiStatus`` camelCase shape
+    (Phase 4.3g-mr1 deep port).
+    """
     return {
-        "vaultPath": status.vault_path,
-        "vaultMode": status.vault_mode,
-        "renderMode": status.render_mode,
-        "obsidianCliAvailable": status.obsidian_cli_available,
-        "unsafeLocalPath": status.unsafe_local_path,
-        "bridgeEnabled": status.bridge_enabled,
-        "agentIds": status.agent_ids,
+        "vaultScope": status.vaultScope,
+        "agentId": status.agentId,
+        "vaultMode": status.vaultMode,
+        "renderMode": status.renderMode,
+        "vaultPath": status.vaultPath,
+        "vaultExists": status.vaultExists,
+        "bridge": {
+            "enabled": getattr(status.bridge, "enabled", False),
+            "readMemoryArtifacts": getattr(status.bridge, "readMemoryArtifacts", False),
+            "indexDreamReports": getattr(status.bridge, "indexDreamReports", True),
+            "indexDailyNotes": getattr(status.bridge, "indexDailyNotes", True),
+            "indexMemoryRoot": getattr(status.bridge, "indexMemoryRoot", True),
+            "followMemoryEvents": getattr(status.bridge, "followMemoryEvents", True),
+        },
+        "bridgePublicArtifactCount": status.bridgePublicArtifactCount,
+        "obsidianCli": {
+            "enabled": status.obsidianCli.enabled,
+            "requested": status.obsidianCli.requested,
+            "available": status.obsidianCli.available,
+            "command": status.obsidianCli.command,
+        },
+        "unsafeLocal": {
+            "allowPrivateMemoryCoreAccess": status.unsafeLocal.allowPrivateMemoryCoreAccess,
+            "pathCount": status.unsafeLocal.pathCount,
+        },
+        "pageCounts": dict(status.pageCounts),
+        "sourceCounts": {
+            "native": status.sourceCounts.native,
+            "bridge": status.sourceCounts.bridge,
+            "bridgeEvents": status.sourceCounts.bridgeEvents,
+            "unsafeLocal": status.sourceCounts.unsafeLocal,
+            "other": status.sourceCounts.other,
+        },
+        "warnings": [{"code": w.code, "message": w.message} for w in status.warnings],
         "rendered": render_memory_wiki_status(status),
     }
 

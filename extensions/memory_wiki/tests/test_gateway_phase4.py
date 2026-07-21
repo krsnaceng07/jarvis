@@ -294,14 +294,21 @@ class TestDispatchWikiGateway:
         assert result.ok is False
         assert result.error.code == "not_found"
 
-    def test_wiki_lint_returns_no_issues(self, tmp_path: Path) -> None:
+    def test_wiki_lint_returns_payload(self, tmp_path: Path) -> None:
         _seed_vault(tmp_path)
         config = _config(tmp_path)
         methods = register_wiki_gateway_methods(config=config)
         result = dispatch_wiki_gateway("wiki.lint", config=config, methods=methods)
         assert result.ok is True
-        assert result.value["issueCount"] == 0
-        assert result.value["rendered"] == "No wiki lint issues."
+        # Phase 4.3g-mr1 deep lint finds
+        # real issues in the seeded vault
+        # (missing sourceIds, missing
+        # updatedAt). The payload shape
+        # is what we assert here.
+        assert "issueCount" in result.value
+        assert "reportPath" in result.value
+        assert result.value["reportPath"].endswith("lint.md")
+        assert "issuesByCategory" in result.value
 
     def test_wiki_compile_returns_payload(self, tmp_path: Path) -> None:
         _seed_vault(tmp_path)

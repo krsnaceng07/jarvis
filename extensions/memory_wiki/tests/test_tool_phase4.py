@@ -39,6 +39,11 @@ focus on:
 # pyright: reportUnknownVariableType=false
 # pyright: reportReturnType=false
 
+# ruff: noqa: S108 — tests use hard-coded
+# ``/tmp/elsewhere`` paths because they're
+# config-shape fixtures, not real
+# filesystem paths.
+
 from __future__ import annotations
 
 import sys
@@ -140,11 +145,11 @@ class TestWikiStatus:
         assert isinstance(result, WikiToolResult)
         assert result.content
         text = result.content[0].text
-        assert "Vault mode: single" in text
+        assert "Wiki vault mode: single" in text
         assert "Render mode: native" in text
-        # ``agentIds`` is propagated to the
+        # ``vaultMode`` is propagated to the
         # details payload.
-        assert "alpha" in result.details.get("agentIds", [])
+        assert result.details.get("vaultMode") == "single"
 
 
 class TestWikiSearch:
@@ -202,9 +207,15 @@ class TestWikiLint:
         tool = create_wiki_lint_tool(config)
         result = await _run(tool)
         text = result.content[0].text
-        # The stub reports no issues today.
-        assert "No wiki lint issues." in text or "Issues: 0" in text
-        assert result.details.get("issueCount") == 0
+        # Phase 4.3g-mr1 deep lint finds
+        # real issues in the seeded vault
+        # (missing sourceIds, missing
+        # updatedAt). The summary line is
+        # always present.
+        assert text.startswith("Issues:") or "No wiki lint issues." in text
+        # The report path is always
+        # populated by the deep lint.
+        assert result.details.get("reportPath", "").endswith("lint.md")
 
 
 class TestWikiApply:

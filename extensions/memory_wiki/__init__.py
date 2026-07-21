@@ -36,15 +36,18 @@ from . import (
     config_compat as _config_compat,
     corpus_supplement as _corpus_supplement,
     import_runs_state as _import_runs_state,
+    lint as _lint,
     log as _log,
     markdown as _markdown,
     markdown_pages as _markdown_pages,
     memory_palace as _memory_palace,
     mutation_coordinator as _mutation_coordinator,
+    obsidian as _obsidian,
     prompt_section as _prompt_section,
     query as _query,
     source_path_shared as _source_path_shared,
     source_sync_state as _source_sync_state,
+    status as _status,
     time as _time,
     vault as _vault,
     vault_page_write as _vault_page_write,
@@ -321,6 +324,38 @@ __all__ = [
     "read_queryable_wiki_pages_by_paths",
     "resolve_queryable_wiki_page_by_lookup",
     "should_search_wiki",
+    # Obsidian (Phase 4.3g-mr1).
+    "OBSIDIAN_CLI_TIMEOUT_MS",
+    "ObsidianCliDeps",
+    "ObsidianCliProbe",
+    "ObsidianCliResult",
+    "probe_obsidian_cli",
+    "reset_memory_wiki_obsidian_state_for_tests",
+    "run_obsidian_cli",
+    "run_obsidian_command",
+    "run_obsidian_daily",
+    "run_obsidian_open",
+    "run_obsidian_search",
+    # Status (Phase 4.3g-mr1 — deep).
+    "WIKI_STATUS_WARNING_CODES",
+    "MemoryWikiDoctorFix",
+    "MemoryWikiDoctorReport",
+    "MemoryWikiStatus",
+    "MemoryWikiStatusObsidianCli",
+    "MemoryWikiStatusSourceCounts",
+    "MemoryWikiStatusUnsafeLocal",
+    "MemoryWikiStatusWarning",
+    "build_memory_wiki_doctor_report",
+    "build_warnings",
+    "render_memory_wiki_doctor",
+    "render_memory_wiki_status",
+    "resolve_memory_wiki_status",
+    # Lint (Phase 4.3g-mr1 — deep).
+    "LINT_ISSUE_CATEGORIES",
+    "LINT_ISSUE_CODES",
+    "WikiLintIssue",
+    "WikiLintResult",
+    "lint_memory_wiki_vault",
     # Memory palace (Phase 4.3f-mr7).
     "PALACE_ITEM_TOP_CLAIMS",
     "PALACE_ITEM_TOP_CONTRADICTIONS",
@@ -693,3 +728,40 @@ create_empty_palace_page_counts = _memory_palace.create_empty_palace_page_counts
 extract_snippet = _memory_palace.extract_snippet
 list_memory_wiki_palace = _memory_palace.list_memory_wiki_palace
 normalize_timestamp = _memory_palace.normalize_timestamp
+
+# Obsidian (Phase 4.3g-mr1).
+OBSIDIAN_CLI_TIMEOUT_MS = _obsidian.OBSIDIAN_CLI_TIMEOUT_MS
+ObsidianCliDeps = _obsidian.ObsidianCliDeps
+ObsidianCliProbe = _obsidian.ObsidianCliProbe
+ObsidianCliResult = _obsidian.ObsidianCliResult
+probe_obsidian_cli = _obsidian.probe_obsidian_cli
+reset_memory_wiki_obsidian_state_for_tests = _obsidian.reset_memory_wiki_obsidian_state_for_tests
+run_obsidian_cli = _obsidian.run_obsidian_cli
+run_obsidian_command = _obsidian.run_obsidian_command
+run_obsidian_daily = _obsidian.run_obsidian_daily
+run_obsidian_open = _obsidian.run_obsidian_open
+run_obsidian_search = _obsidian.run_obsidian_search
+
+# Status (Phase 4.3g-mr1 — deep). Replaces the
+# Phase 4.3f-mr3 stub.
+WIKI_STATUS_WARNING_CODES = _status.WIKI_STATUS_WARNING_CODES
+MemoryWikiDoctorFix = _status.MemoryWikiDoctorFix
+MemoryWikiDoctorReport = _status.MemoryWikiDoctorReport
+MemoryWikiStatus = _status.MemoryWikiStatus
+MemoryWikiStatusObsidianCli = _status.MemoryWikiStatusObsidianCli
+MemoryWikiStatusSourceCounts = _status.MemoryWikiStatusSourceCounts
+MemoryWikiStatusUnsafeLocal = _status.MemoryWikiStatusUnsafeLocal
+MemoryWikiStatusWarning = _status.MemoryWikiStatusWarning
+build_memory_wiki_doctor_report = _status.build_memory_wiki_doctor_report
+build_warnings = _status.build_warnings
+render_memory_wiki_doctor = _status.render_memory_wiki_doctor
+render_memory_wiki_status = _status.render_memory_wiki_status
+resolve_memory_wiki_status = _status.resolve_memory_wiki_status
+
+# Lint (Phase 4.3g-mr1 — deep). Replaces the
+# Phase 4.3f-mr3 stub.
+LINT_ISSUE_CATEGORIES = _lint.LINT_ISSUE_CATEGORIES
+LINT_ISSUE_CODES = _lint.LINT_ISSUE_CODES
+WikiLintIssue = _lint.WikiLintIssue
+WikiLintResult = _lint.WikiLintResult
+lint_memory_wiki_vault = _lint.lint_memory_wiki_vault
