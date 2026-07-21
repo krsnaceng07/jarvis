@@ -374,6 +374,151 @@ def get_memory_wiki_page(
     )
 
 
+# ── public search (4.3f-mr3) ─────────────────────────────
+
+
+@dataclass(frozen=True, slots=True)
+class WikiSearchResult:
+    """A single wiki search hit.
+
+    Mirrors the OpenClaw ``WikiSearchResult``
+    shape (the wiki-corpus fields are
+    populated; the memory-corpus fields are
+    left as ``None`` until the memory
+    fallback lands in 4.3f-mr2.5).
+    """
+
+    corpus: str  # "wiki" | "memory"
+    path: str
+    title: str
+    kind: str
+    score: float
+    snippet: str
+    id: str | None = None
+    start_line: int | None = None
+    end_line: int | None = None
+    citation: str | None = None
+    source_type: str | None = None
+    provenance_mode: str | None = None
+    source_path: str | None = None
+    provenance_label: str | None = None
+    updated_at: str | None = None
+    search_mode: str | None = None
+    entity_type: str | None = None
+    canonical_id: str | None = None
+    aliases: list[str] | None = None
+    privacy_tier: str | None = None
+    matched_claim_id: str | None = None
+    matched_claim_status: str | None = None
+    matched_claim_confidence: float | None = None
+    evidence_kinds: list[str] | None = None
+    evidence_source_ids: list[str] | None = None
+
+
+def _search_score(page: QueryableWikiPage, query_lower: str) -> float:
+    """Compute a relevance score for a page against a lowercased query.
+
+    Mirrors the OpenClaw ``scoreWikiSearchHit``
+    (a simplified version: title matches
+    weigh most, body matches less, and
+    multiple occurrences boost the score).
+    """
+    title_lower = page.page.title.lower()
+    if title_lower == query_lower:
+        return 100.0
+    if title_lower.startswith(query_lower):
+        return 50.0
+    if query_lower in title_lower:
+        return 25.0
+    if page.page.id and query_lower in page.page.id.lower():
+        return 20.0
+    raw_lower = page.raw.lower()
+    occurrences = raw_lower.count(query_lower)
+    if occurrences == 0:
+        return 0.0
+    return min(10.0, float(occurrences))
+
+
+def _search_snippet(page: QueryableWikiPage, query_lower: str) -> str:
+    """Return the first matching line as a snippet.
+
+    Mirrors the OpenClaw
+    ``buildSnippet`` (simplified). The body
+    H1 + the first non-frontmatter line that
+    contains the query is returned.
+    """
+    body_lines = _parse_body_lines(page.raw)
+    for line in body_lines:
+        if query_lower in line.lower():
+            trimmed = line.strip()
+            return trimmed[:200] if trimmed else ""
+    return ""
+
+
+def search_memory_wiki(
+    *,
+    config: ResolvedMemoryWikiConfig,
+    query: str,
+    max_results: int | None = None,
+    mode: str | None = None,
+) -> list[WikiSearchResult]:
+    """Search the wiki corpus for ``query``.
+
+    Mirrors the OpenClaw ``searchMemoryWiki``
+    (wiki-corpus branch only; the shared-
+    memory fallback + the full mode set
+    land in 4.3f-mr2.5). Returns at most
+    ``max_results`` hits (default 10),
+    sorted by score (descending) then title
+    (ascending).
+
+    The OpenClaw search also supports a
+    ``searchCorpus: "all"`` mode that merges
+    wiki + memory results; the Python port
+    here returns only the wiki results. The
+    call shape matches the OpenClaw signature
+    so the gateway / tool layers can be
+    ported 1:1.
+    """
+    if not should_search_wiki(config):
+        return []
+    query_text = query.strip()
+    if not query_text:
+        return []
+    effective_max = max_results if isinstance(max_results, int) and max_results >= 1 else 10
+    query_lower = query_text.lower()
+    pages = read_queryable_wiki_pages(config.vault.path)
+    scored: list[WikiSearchResult] = []
+    for page in pages:
+        score = _search_score(page, query_lower)
+        if score <= 0:
+            continue
+        snippet = _search_snippet(page, query_lower)
+        scored.append(
+            WikiSearchResult(
+                corpus="wiki",
+                path=page.page.relative_path,
+                title=page.page.title,
+                kind=page.page.kind,
+                score=score,
+                snippet=snippet,
+                id=page.page.id,
+                source_type=page.page.source_type,
+                provenance_mode=page.page.provenance_mode,
+                source_path=page.page.source_path,
+                provenance_label=page.page.bridge_relative_path,
+                updated_at=page.page.updated_at,
+                search_mode=mode or "auto",
+                entity_type=page.page.entity_type,
+                canonical_id=page.page.canonical_id,
+                aliases=list(page.page.aliases) if page.page.aliases else None,
+                privacy_tier=page.page.privacy_tier,
+            )
+        )
+    scored.sort(key=lambda r: (-r.score, r.title))
+    return scored[:effective_max]
+
+
 # ── legacy state alias for OpenClaw parity ────────────────
 
 
@@ -396,6 +541,7 @@ __all__ = [
     "WIKI_SEARCH_MODES",
     "WikiGetResult",
     "WikiSearchMode",
+    "WikiSearchResult",
     "build_lookup_candidates",
     "get_memory_wiki_page",
     "list_wiki_markdown_files",
@@ -403,5 +549,6 @@ __all__ = [
     "read_queryable_wiki_pages_by_paths",
     "resolve_queryable_wiki_page_by_lookup",
     "reset_memory_wiki_query_state_for_tests",
+    "search_memory_wiki",
     "should_search_wiki",
 ]
