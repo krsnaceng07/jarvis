@@ -25,6 +25,7 @@ from typing import Any
 from jarvis_sdk import PluginApi, define_plugin_entry
 
 from . import (
+    claim_health as _claim_health,
     config as _config,
     config_compat as _config_compat,
     log as _log,
@@ -135,6 +136,21 @@ __all__ = [
     # Mutation coordinator (Phase 4.3d).
     "with_memory_wiki_vault_mutation",
     "resolve_memory_wiki_vault_mutation_key",
+    # Claim health (Phase 4.3d-mr2).
+    "WIKI_AGING_DAYS",
+    "WIKI_STALE_DAYS",
+    "WikiClaimHealth",
+    "WikiClaimContradictionCluster",
+    "WikiPageContradictionCluster",
+    "WikiPageContradictionEntry",
+    "WikiFreshness",
+    "normalize_claim_status",
+    "is_claim_contested_status",
+    "assess_page_freshness",
+    "assess_claim_freshness",
+    "collect_wiki_claim_health",
+    "build_claim_contradiction_clusters",
+    "build_page_contradiction_clusters",
 ]
 
 
@@ -245,3 +261,19 @@ with_memory_wiki_vault_mutation = _mutation_coordinator.with_memory_wiki_vault_m
 resolve_memory_wiki_vault_mutation_key = (
     _mutation_coordinator.resolve_memory_wiki_vault_mutation_key
 )
+
+# Claim health (Phase 4.3d-mr2).
+WIKI_AGING_DAYS = _claim_health.WIKI_AGING_DAYS
+WIKI_STALE_DAYS = _claim_health.WIKI_STALE_DAYS
+WikiClaimHealth = _claim_health.WikiClaimHealth
+WikiClaimContradictionCluster = _claim_health.WikiClaimContradictionCluster
+WikiPageContradictionCluster = _claim_health.WikiPageContradictionCluster
+WikiPageContradictionEntry = _claim_health.WikiPageContradictionEntry
+WikiFreshness = _claim_health.WikiFreshness
+normalize_claim_status = _claim_health.normalize_claim_status
+is_claim_contested_status = _claim_health.is_claim_contested_status
+assess_page_freshness = _claim_health.assess_page_freshness
+assess_claim_freshness = _claim_health.assess_claim_freshness
+collect_wiki_claim_health = _claim_health.collect_wiki_claim_health
+build_claim_contradiction_clusters = _claim_health.build_claim_contradiction_clusters
+build_page_contradiction_clusters = _claim_health.build_page_contradiction_clusters
