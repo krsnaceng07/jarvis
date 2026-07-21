@@ -54,6 +54,7 @@ from . import (
     source_sync as _source_sync,
     source_sync_state as _source_sync_state,
     status as _status,
+    unsafe_local as _unsafe_local,
     time as _time,
     vault as _vault,
     vault_page_write as _vault_page_write,
@@ -386,6 +387,14 @@ __all__ = [
     # ChatGPT import (Phase 4.3g-mr3).
     "ChatGptImportResult",
     "import_chatgpt_export",
+    # Unsafe local import (Phase 4.3g-mr4).
+    "DIRECTORY_TEXT_EXTENSIONS",
+    "UNSAFE_LOCAL_SYNC_CONCURRENCY",
+    "UnsafeLocalArtifact",
+    "UnsafeLocalArtifactCollection",
+    "collect_unsafe_local_artifacts",
+    "detect_fence_language",
+    "sync_unsafe_local_sources",
     # Memory palace (Phase 4.3f-mr7).
     "PALACE_ITEM_TOP_CLAIMS",
     "PALACE_ITEM_TOP_CONTRADICTIONS",
@@ -827,3 +836,12 @@ list_memory_wiki_import_insights = _import_insights.list_memory_wiki_import_insi
 # ChatGPT import (Phase 4.3g-mr3).
 ChatGptImportResult = _chatgpt_import.ChatGptImportResult
 import_chatgpt_export = _chatgpt_import.import_chatgpt_export
+
+# Unsafe local import (Phase 4.3g-mr4).
+DIRECTORY_TEXT_EXTENSIONS = _unsafe_local.DIRECTORY_TEXT_EXTENSIONS
+UNSAFE_LOCAL_SYNC_CONCURRENCY = _unsafe_local.UNSAFE_LOCAL_SYNC_CONCURRENCY
+UnsafeLocalArtifact = _unsafe_local.UnsafeLocalArtifact
+UnsafeLocalArtifactCollection = _unsafe_local.UnsafeLocalArtifactCollection
+collect_unsafe_local_artifacts = _unsafe_local.collect_unsafe_local_artifacts
+detect_fence_language = _unsafe_local.detect_fence_language
+sync_unsafe_local_sources = _unsafe_local.sync_unsafe_local_sources

@@ -33,6 +33,7 @@ from .mutation_coordinator import (
     resolve_memory_wiki_vault_mutation_key,
     with_memory_wiki_vault_mutation,
 )
+from .unsafe_local import sync_unsafe_local_sources
 
 if TYPE_CHECKING:
     from .config import ResolvedMemoryWikiConfig
@@ -104,11 +105,12 @@ async def _sync_once(
         sync_result: BridgeMemoryWikiResult = await sync_memory_wiki_bridge_sources(
             config=config, app_config=app_config
         )
+    elif config.vaultMode == "unsafe-local":
+        sync_result = await sync_unsafe_local_sources(config=config)
     else:
-        # Non-bridge vaultModes: no imported
-        # sources to sync. Return a no-op
-        # result. The unsafe-local path is
-        # wired in Phase 4.3g-mr4.
+        # Non-bridge / non-unsafe-local
+        # vaultModes: no imported sources
+        # to sync. Return a no-op result.
         sync_result = BridgeMemoryWikiResult(
             imported_count=0,
             updated_count=0,

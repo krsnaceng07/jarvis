@@ -628,6 +628,32 @@ def set_imported_source_entry(
     state.entries[sync_key] = entry
 
 
+def is_source_within_configured_path(source_path: str, configured_path: str) -> bool:
+    """Return True iff ``source_path`` is within ``configured_path``.
+
+    Mirrors OpenClaw's ``isSourceWithinConfiguredPath`` helper. The
+    unsafe-local import path uses this to decide which prior
+    source-sync entries to retain when a configured source scope
+    is no longer readable (so the human notes on those pages are
+    preserved until the scope is mounted again or removed from
+    config). The check is "is the relative path from
+    ``configured_path`` to ``source_path`` neither ascending
+    nor absolute?" — so the source must live strictly under the
+    configured root.
+    """
+    try:
+        relative = os.path.relpath(source_path, configured_path)
+    except (OSError, ValueError):
+        return False
+    if relative == ".":
+        return True
+    if relative == "..":
+        return False
+    if relative.startswith(f"..{os.sep}"):
+        return False
+    return not os.path.isabs(relative)
+
+
 def prune_imported_source_entries(
     *,
     vault_root: str,
@@ -697,6 +723,7 @@ __all__ = [
     "configure_memory_wiki_source_sync_state_store",
     "create_memory_fallback_state_store",
     "create_memory_wiki_source_sync_state_store",
+    "is_source_within_configured_path",
     "prune_imported_source_entries",
     "read_legacy_memory_wiki_source_sync_state",
     "read_memory_wiki_source_sync_state",
