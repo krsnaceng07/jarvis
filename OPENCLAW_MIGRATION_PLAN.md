@@ -1,6 +1,6 @@
 # JARVIS → OpenClaw Architecture Migration Plan
 
-> **Status:** Phase 4.3b complete (memory_wiki config + config_compat); Phase 4.3c (vault init + markdown) next
+> **Status:** Phase 4.3d-mr6 complete (memory_wiki compile pages — per-page write loop); Phase 4.3e (state stores: compiled-cache + import-runs + source-sync) next
 > **Last updated:** 2026-07-21
 > **Owner:** JARVIS architect
 > **Reference source:** `E:/jarvis/openclaw-main/` (commit snapshot 2026.7.2)
@@ -3138,3 +3138,128 @@ the config layer).**
   backtick fences) + `markdown_render.py`
   (Obsidian-friendly renderer, managed blocks,
   frontmatter).
+
+## §32 — Phase 4.3d-mr6: memory_wiki compile pages (per-page write loop) (2026-07-21)
+
+**Commit:** `ba67653` feat(phase4.3d-mr6): memory_wiki compile pages (per-page write loop)
+
+Phase 4.3d-mr6 ships the per-page write loop in
+`extensions/memory_wiki/compile_pages.py`. This
+is the write-side counterpart to 4.3d-mr4's
+scan orchestrator and 4.3d-mr5's dashboard
+renderer. Together they implement the OpenClaw
+`compileMemoryWikiPages` /
+`buildManagedRelatedBlock` helpers from
+`extensions/memory-wiki/src/compile.ts`.
+
+### Files added
+
+- `extensions/memory_wiki/compile_pages.py`
+  (~280 lines) -- the per-page compile write
+  loop. Includes:
+  - `PageWriteResult` dataclass (absolute_path,
+    relative_path, written, related_count,
+    error).
+  - `build_related_block(related_pages)` -- the
+    `## Related` managed block builder.
+    Wrapped in `WIKI_RELATED_START_MARKER` /
+    `WIKI_RELATED_END_MARKER` so the link
+    extractor can skip the auto-generated lines.
+    Caps at `MAX_RELATED_PAGES_PER_SECTION = 12`
+    with an `and N more` trailer; truncates long
+    titles to `MAX_RELATED_LINE_LENGTH = 240`.
+  - `_resolve_related_pages` -- classifies each
+    candidate as source / backlink / related
+    using the per-page `linkTargets` +
+    `sourceIds` graph. The page itself is
+    excluded; pages already in the seen set are
+    skipped.
+  - `build_page_body` -- builds the rewritten
+    page body (frontmatter + H1 + managed
+    related block). Uses the
+    `render_wiki_markdown` helper so the
+    frontmatter YAML stays consistent with the
+    write path.
+  - `_write_one_page_async` -- the per-page
+    async worker. Goes through
+    `with_memory_wiki_vault_mutation` so
+    concurrent compile / apply calls on the same
+    vault serialize, then through
+    `write_guarded_vault_page` so the
+    fs-safe-root write path is preserved.
+  - `write_compiled_pages(config, pages)` -- the
+    sync orchestrator. Pre-computes every
+    per-page write spec (`_PendingWrite`)
+    synchronously, then dispatches all writes
+    inside a single `asyncio.run` so the
+    per-vault `asyncio.Lock` lives in a single
+    event loop (avoids "lock attached to a
+    different loop" errors when the caller
+    invokes the sync compile path multiple
+    times). Per-page exceptions are recorded on
+    the spec's `error` field so one bad page
+    doesn't abort the rest of the compile pass.
+- `extensions/memory_wiki/tests/test_compile_pages_phase4.py`
+  (11 tests):
+  - 4 `build_related_block` tests (empty stub,
+    label+link, cap at max, long-title
+    truncation)
+  - 4 `build_page_body` tests (full page,
+    related link, claims, skip-unset
+    optional fields)
+  - 3 `write_compiled_pages` tests (writes to
+    disk, content has related block, per-page
+    error shape)
+
+### Files modified
+
+- `extensions/memory_wiki/__init__.py` --
+  re-exports `PageWriteResult`, the
+  related-block constants (`MAX_RELATED_PAGES_PER_SECTION`,
+  `MAX_RELATED_LINE_LENGTH`, `HUMAN_START_MARKER`,
+  `HUMAN_END_MARKER`), `build_related_block`,
+  `build_page_body`, and `write_compiled_pages`.
+
+### Test count (Phase 4.3d-mr6)
+
+- New: 11 memory_wiki tests. All green.
+- memory_wiki + active_memory + SDK suite: 582 → 593
+  (+11). All 593 pass.
+- Pre-commit all 7 hooks green (ruff, ruff-format,
+  pyright, check-imports, check-cycles,
+  check-max-lines, check-manifests).
+
+### Parity matrix (Phase 4.3d-mr6 vs. OpenClaw)
+
+| OpenClaw helper              | Python port                       | Status |
+|------------------------------|-----------------------------------|--------|
+| `compileMemoryWikiPages`     | `write_compiled_pages`            | 100%   |
+| `buildManagedRelatedBlock`   | `build_related_block`             | 100%   |
+| `buildManagedRelatedBlockLinks` | `_resolve_related_pages`       | 100%   |
+| `replaceManagedMarkdownBlock` | `replace_managed_markdown_block`  | (4.3c) |
+
+**Phase 4.3d-mr6 surface: 1 of 1 OpenClaw
+compile-page helper (100% of the per-page
+write loop).**
+
+### Cumulative stats (P4.3d-mr6)
+
+- 2 new files in memory_wiki (1 prod + 1 test).
+- 1 file modified (`__init__.py` re-exports).
+- ~ 280 lines ported.
+- 100% parity with OpenClaw's
+  `compileMemoryWikiPages` write loop.
+
+### What's next (Phase 4.3e)
+
+- `compiled-cache.ts` -- the immutable
+  compiled-cache publication (digest + claims +
+  causal publication-id chain).
+- `import-runs-state.ts` -- import-runs state
+  store.
+- `source-sync-state.ts` -- source-sync state
+  store (managed imported source page paths).
+- These three state stores close the compile
+  pipeline (write → publish → verify) and
+  unblock Phase 4.3f (read/write paths + tools
+  + bridge + gateway + corpus + prompt).
