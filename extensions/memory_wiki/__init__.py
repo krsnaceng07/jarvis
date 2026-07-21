@@ -31,6 +31,7 @@ from . import (
     compile_render as _compile_render,
     config as _config,
     config_compat as _config_compat,
+    import_runs_state as _import_runs_state,
     log as _log,
     markdown as _markdown,
     markdown_pages as _markdown_pages,
@@ -203,6 +204,26 @@ __all__ = [
     "set_imported_source_entry",
     "should_skip_imported_source_write",
     "write_memory_wiki_source_sync_state",
+    # Import runs state (Phase 4.3e-mr2).
+    "LEGACY_IMPORT_RUN_READ_CONCURRENCY",
+    "MEMORY_WIKI_IMPORT_RUN_STATE_NAMESPACE",
+    "MEMORY_WIKI_IMPORT_RUN_STATE_MAX_ENTRIES",
+    "SUPPORTED_IMPORT_TYPES",
+    "ChatGptImportRunEntry",
+    "ChatGptImportRunRecord",
+    "MemoryWikiImportRunMetaStateRecord",
+    "MemoryWikiImportRunPathStateRecord",
+    "MemoryWikiImportRunStateStore",
+    "configure_memory_wiki_import_run_state_store",
+    "count_memory_wiki_import_run_state_rows",
+    "create_memory_fallback_import_run_store",
+    "create_memory_wiki_import_run_state_store",
+    "list_memory_wiki_import_run_records",
+    "read_legacy_memory_wiki_import_run_records",
+    "read_memory_wiki_import_run_record",
+    "reset_memory_wiki_import_run_state_for_tests",
+    "resolve_memory_wiki_import_runs_dir",
+    "write_memory_wiki_import_run_record",
 ]
 
 
@@ -395,3 +416,34 @@ reset_memory_wiki_source_sync_state_for_tests = (
 set_imported_source_entry = _source_sync_state.set_imported_source_entry
 should_skip_imported_source_write = _source_sync_state.should_skip_imported_source_write
 write_memory_wiki_source_sync_state = _source_sync_state.write_memory_wiki_source_sync_state
+
+# Import runs state (Phase 4.3e-mr2).
+LEGACY_IMPORT_RUN_READ_CONCURRENCY = _import_runs_state.LEGACY_IMPORT_RUN_READ_CONCURRENCY
+MEMORY_WIKI_IMPORT_RUN_STATE_NAMESPACE = _import_runs_state.MEMORY_WIKI_IMPORT_RUN_STATE_NAMESPACE
+MEMORY_WIKI_IMPORT_RUN_STATE_MAX_ENTRIES = (
+    _import_runs_state.MEMORY_WIKI_IMPORT_RUN_STATE_MAX_ENTRIES
+)
+SUPPORTED_IMPORT_TYPES = _import_runs_state.SUPPORTED_IMPORT_TYPES
+ChatGptImportRunEntry = _import_runs_state.ChatGptImportRunEntry
+ChatGptImportRunRecord = _import_runs_state.ChatGptImportRunRecord
+MemoryWikiImportRunMetaStateRecord = _import_runs_state.MemoryWikiImportRunMetaStateRecord
+MemoryWikiImportRunPathStateRecord = _import_runs_state.MemoryWikiImportRunPathStateRecord
+MemoryWikiImportRunStateStore = _import_runs_state.MemoryWikiImportRunStateStore
+configure_memory_wiki_import_run_state_store = (
+    _import_runs_state.configure_memory_wiki_import_run_state_store
+)
+count_memory_wiki_import_run_state_rows = _import_runs_state.count_memory_wiki_import_run_state_rows
+create_memory_fallback_import_run_store = _import_runs_state.create_memory_fallback_import_run_store
+create_memory_wiki_import_run_state_store = (
+    _import_runs_state.create_memory_wiki_import_run_state_store
+)
+list_memory_wiki_import_run_records = _import_runs_state.list_memory_wiki_import_run_records
+read_legacy_memory_wiki_import_run_records = (
+    _import_runs_state.read_legacy_memory_wiki_import_run_records
+)
+read_memory_wiki_import_run_record = _import_runs_state.read_memory_wiki_import_run_record
+reset_memory_wiki_import_run_state_for_tests = (
+    _import_runs_state.reset_memory_wiki_import_run_state_for_tests
+)
+resolve_memory_wiki_import_runs_dir = _import_runs_state.resolve_memory_wiki_import_runs_dir
+write_memory_wiki_import_run_record = _import_runs_state.write_memory_wiki_import_run_record

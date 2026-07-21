@@ -237,6 +237,21 @@ class PluginStateKeyedStore(Generic[_T]):
                 )
             )
 
+    @classmethod
+    def _from_in_memory(cls, store: _InMemoryKeyedStore[_T]) -> PluginStateKeyedStore[_T]:
+        """Build a PluginStateKeyedStore around an existing in-memory store.
+
+        Used by the in-memory singleton
+        registry to share a backing store
+        across multiple ``open_plugin_state_keyed_store``
+        calls.
+        """
+        instance = cls.__new__(cls)
+        instance._options = store._options
+        instance._in_memory = store
+        instance._file_store = None
+        return instance
+
     def _read_entry(self, key: str) -> PluginStateEntry[_T] | None:
         if self._in_memory is not None:
             return self._in_memory._entries.get(key)
@@ -377,18 +392,58 @@ def open_plugin_state_keyed_store(
     ``openKeyedStore``. The store type is
     :class:`PluginStateKeyedStore` and the value
     type is the caller's responsibility.
+
+    When no namespace root is configured, the
+    store is a process-wide singleton keyed by
+    ``(namespace, max_entries, overflow_policy)``
+    so repeated ``open_plugin_state_keyed_store``
+    calls see the same data (matching the
+    OpenClaw in-memory test harness behavior).
     """
+    root = get_plugin_state_namespace_root()
+    if root is None:
+        return _get_or_create_in_memory_singleton(options)
     return PluginStateKeyedStore(options)
+
+
+# Module-level in-memory singleton registry.
+# When no namespace root is configured, the
+# store uses a single :class:`_InMemoryKeyedStore`
+# per (namespace, max_entries, overflow_policy)
+# tuple so that ``open_plugin_state_keyed_store``
+# called twice with the same options returns
+# the same backing store.
+_in_memory_singletons: dict[tuple, _InMemoryKeyedStore[Any]] = {}
+
+
+def _get_or_create_in_memory_singleton(
+    options: OpenKeyedStoreOptions,
+) -> PluginStateKeyedStore[Any]:
+    """Return a process-wide singleton for ``options`` (in-memory only)."""
+    key = (
+        options.namespace,
+        options.max_entries,
+        options.overflow_policy,
+    )
+    existing = _in_memory_singletons.get(key)
+    if existing is not None:
+        return PluginStateKeyedStore._from_in_memory(existing)
+    new_store = _InMemoryKeyedStore(options)
+    _in_memory_singletons[key] = new_store
+    return PluginStateKeyedStore._from_in_memory(new_store)
 
 
 def reset_plugin_state_for_tests() -> None:
     """Reset the namespace root (test-only helper).
 
-    Clears the process-wide namespace root so
-    subsequent tests start from a clean slate.
-    Production code MUST NOT call this.
+    Clears the process-wide namespace root +
+    the in-memory singleton registry so
+    subsequent tests start from a clean
+    slate. Production code MUST NOT call this.
     """
+    global _in_memory_singletons  # noqa: PLW0603 — test-only state
     set_plugin_state_namespace_root(None)
+    _in_memory_singletons = {}
 
 
 __all__ = [
