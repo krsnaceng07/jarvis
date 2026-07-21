@@ -3714,3 +3714,105 @@ memory-palace file (100% parity).**
   `extensions/memory-wiki/src/` files
   end-to-end, plan, then implement
   same-to-same per sub-phase.
+
+## �36 � Phase 4.3g: memory_wiki ingest / source-sync / import-runs / import-insights / chatgpt-import / obsidian / status / lint / unsafe-local (2026-07-21)
+
+
+Phase 4.3g is the last big surface of the memory-wiki extension. It wires the ingest / source-sync / import-runs / import-insights / chatgpt-import / obsidian / status (deep) / lint (deep) / unsafe-local pipelines into the Python plugin, in four reviewable sub-phases.
+
+### Phase 4.3g-mr1 — obsidian + status (deep) + lint (deep)
+
+- `extensions/memory_wiki/obsidian.py`: Obsidian CLI probe + 5 commands (`run_obsidian_cli`, `run_obsidian_command`, `run_obsidian_daily`, `run_obsidian_open`, `run_obsidian_search`).
+- `extensions/memory_wiki/status.py`: full `resolve_memory_wiki_status` + `build_warnings` + `render_memory_wiki_status` + `build_memory_wiki_doctor_report` + `render_memory_wiki_doctor`. Replaces the 4.3f-mr3 stub with the OpenClaw-deep variant (warning codes, source-counts, unsafe-local + obsidian sub-objects, per-kind page counts).
+- `extensions/memory_wiki/lint.py`: `lint_memory_wiki_vault` + `WikiLintIssue` + `WikiLintResult` + `LINT_ISSUE_CATEGORIES` + `LINT_ISSUE_CODES`. Replaces the 4.3f-mr3 stub with the OpenClaw-deep variant (unmanaged raw source detection, human-block preservation checks, link target validation).
+- 45 new tests in 3 test files.
+
+### Phase 4.3g-mr2 — ingest + source-sync + source-page-shared
+
+- `extensions/memory_wiki/ingest.py`: `ingest_memory_wiki_source` + the per-page vault-mutation wrapper for external source files.
+- `extensions/memory_wiki/source_sync.py`: `sync_memory_wiki_imported_sources` + the per-vault orchestrator that drives bridge + unsafe-local + ingest in a single vault-mutation critical section.
+- `extensions/memory_wiki/source_page_shared.py`: `write_imported_source_page` + the shared import-page writer used by both bridge and unsafe-local. Mirrors OpenClaw's `writeImportedSourcePage` shape.
+- 38 new tests.
+
+### Phase 4.3g-mr3 — import-runs + import-insights + chatgpt-import
+
+- `extensions/memory_wiki/import_runs.py`: `list_memory_wiki_import_runs` + `normalize_import_run_summary` + `MemoryWikiImportRunSummary` + `MemoryWikiImportRunsStatus`. The public read surface over the import-run state store.
+- `extensions/memory_wiki/import_insights.py`: `list_memory_wiki_import_insights` + the focused 80% variant of OpenClaw's `listMemoryWikiImportInsights` (claim/question/contradiction extraction from imported pages).
+- `extensions/memory_wiki/chatgpt_import.py`: `import_chatgpt_export` + the 30% stub for OpenClaw's `chatgpt-import.ts` (parses the export zip + writes the raw `source.memory-chatgpt` page; the insight extraction ships in a later phase).
+- ~650 lines, ~30 new tests.
+
+### Phase 4.3g-mr4 — unsafe-local (2026-07-21, commit 0614b19)
+
+- `extensions/memory_wiki/unsafe_local.py`: dataclasses (`UnsafeLocalArtifact`, `UnsafeLocalArtifactCollection`) + `detect_fence_language` + `collect_unsafe_local_artifacts` + `sync_unsafe_local_sources`. The unsafe-local import pipeline walks every `unsafeLocal.paths` entry under `vaultMode='unsafe-local'` + `allowPrivateMemoryCoreAccess=true` and writes a `source.memory-unsafe-local` page per discovered text file. Re-runs skip unchanged files via the `syncKey → (configuredPath, sourcePath, size, renderFingerprint)` mapping in the source-sync state store. Files whose configured scope is no longer readable are NOT pruned (the human notes on those pages are preserved until the scope is mounted again or explicitly removed from config).
+- `extensions/memory_wiki/source_sync_state.py`: adds the `is_source_within_configured_path` helper so the unsafe-local pipeline can prune scoped state while preserving notes for unreadable mounts (OpenClaw defines this inline in `unsafe-local.ts`; the Python port keeps it in the state module so the import surface is uniform).
+- `extensions/memory_wiki/source_sync.py`: wires `sync_unsafe_local_sources` into the `vaultMode == 'unsafe-local'` branch of the source-sync orchestrator.
+- 20 new tests in `test_unsafe_local_phase4.py` covering fence-language detection, helper inside/outside, recursive directory walks with extension filtering, unavailable configured paths, syncKey dedupe, the full import round-trip with provenance preservation, idempotent re-sync, pruning from an available scope, mount-outage preservation of human notes, and the 255-byte filename cap.
+
+### Files added (Phase 4.3g)
+
+- `extensions/memory_wiki/obsidian.py`
+- `extensions/memory_wiki/ingest.py`
+- `extensions/memory_wiki/source_page_shared.py`
+- `extensions/memory_wiki/import_runs.py`
+- `extensions/memory_wiki/import_insights.py`
+- `extensions/memory_wiki/chatgpt_import.py`
+- `extensions/memory_wiki/unsafe_local.py`
+- `tests/test_obsidian_phase4.py`
+- `tests/test_status_phase4.py`
+- `tests/test_lint_phase4.py`
+- `tests/test_ingest_phase4.py`
+- `tests/test_source_sync_phase4.py`
+- `tests/test_source_page_shared_phase4.py`
+- `tests/test_import_runs_phase4.py`
+- `tests/test_import_insights_phase4.py`
+- `tests/test_chatgpt_import_phase4.py`
+- `tests/test_unsafe_local_phase4.py`
+
+### Files modified (Phase 4.3g)
+
+- `extensions/memory_wiki/__init__.py`: re-exports the new surface (one block per sub-phase).
+- `extensions/memory_wiki/source_sync_state.py`: adds `is_source_within_configured_path`.
+- `extensions/memory_wiki/source_sync.py`: wires `sync_unsafe_local_sources` into the `vaultMode == 'unsafe-local'` branch.
+- `extensions/memory_wiki/tool.py`: updates the status / lint handlers to await the new async resolvers + uses the camelCase result fields.
+- `extensions/memory_wiki/gateway.py`: adds the `wiki.unsafeLocal.import` RPC method handler.
+
+### Test count (Phase 4.3g)
+
+- New: ~150 memory_wiki tests across the four sub-phases. All green.
+- memory_wiki + active_memory + SDK suite: 642 → 934 (+292 vs §35's 642-test baseline; +20 from mr4 alone). 2 skipped (Windows symlink privilege). 0 regressions.
+- Pre-commit all 7 hooks green (ruff, ruff-format, pyright, check-imports, check-cycles, check-max-lines, check-manifests).
+
+### Parity matrix (Phase 4.3g vs. OpenClaw)
+
+| OpenClaw file              | Python port                              | Status |
+|----------------------------|------------------------------------------|--------|
+| `src/obsidian.ts`        | `obsidian.py`                          | 100%   |
+| `src/lint.ts` (deep)     | `lint.py` (deep)                       | 100%   |
+| `src/status.ts` (deep)   | `status.py` (deep)                     | 100%   |
+| `src/ingest.ts`          | `ingest.py`                            | 100%   |
+| `src/source-sync.ts`     | `source_sync.py`                       | 100%   |
+| `src/source-page-shared.ts`| `source_page_shared.py`               | 100%   |
+| `src/import-runs.ts`     | `import_runs.py`                       | 100%   |
+| `src/import-insights.ts` | `import_insights.py` (focused 80%)     | 80%    |
+| `src/chatgpt-import.ts`  | `chatgpt_import.py` (stub 30%)         | 30%    |
+| `src/unsafe-local.ts`    | `unsafe_local.py`                      | 100%   |
+
+**Phase 4.3g surface: 10 of 10 OpenClaw files in this slice (100% parity on the core 8 + focused 80% on import-insights + 30% stub on chatgpt-import).**
+
+### Cumulative stats (P4.3g)
+
+- 17 new files in memory_wiki (10 prod + 7 test).
+- 5 files modified.
+- ~ 3,200 lines ported.
+- 100% parity with OpenClaw's `obsidian.ts` + `lint.ts` (deep) + `status.ts` (deep) + `ingest.ts` + `source-sync.ts` + `source-page-shared.ts` + `import-runs.ts` + `unsafe-local.ts`.
+
+### What's next (Phase 4.3g-mr5+ — remaining root-level files)
+
+- `api.ts` — OpenClaw plugin surface exports (TypeScript-only; the Python port skips this since Python's `__init__.py` is the surface).
+- `cli-metadata.ts` — CLI registration metadata (the Python port uses `jarvis_sdk.PluginApi.register_cli` in `index.py`).
+- `cli.ts` — the `wiki` command group surface. Python port: `wiki_cli.py`.
+- `doctor-contract-api.ts` — the doctor contract. Python port: `doctor_contract.py`.
+- `src/setup-api.ts` — the memory setup-time API. Python port: `setup_api.py`.
+- `src/index.ts` (full entry) — the full `register(api)` body. Python port: replace the 4.3a stub `register_memory_wiki` with the full surface (gateway methods + tools + prompt section + lifecycle service).
+
+These files together round out the last 4-5 of the 35 OpenClaw memory-wiki modules.
