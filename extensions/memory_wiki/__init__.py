@@ -30,6 +30,7 @@ from . import (
     log as _log,
     markdown as _markdown,
     markdown_pages as _markdown_pages,
+    mutation_coordinator as _mutation_coordinator,
     source_path_shared as _source_path_shared,
     time as _time,
     vault as _vault,
@@ -131,6 +132,9 @@ __all__ = [
     "render_wiki_markdown",
     "extract_title_from_markdown",
     "extract_wiki_links",
+    # Mutation coordinator (Phase 4.3d).
+    "with_memory_wiki_vault_mutation",
+    "resolve_memory_wiki_vault_mutation_key",
 ]
 
 
@@ -235,3 +239,9 @@ create_wiki_page_filename = _markdown_pages.create_wiki_page_filename
 render_wiki_markdown = _markdown_pages.render_wiki_markdown
 extract_title_from_markdown = _markdown_pages.extract_title_from_markdown
 extract_wiki_links = _markdown_pages.extract_wiki_links
+
+# Mutation coordinator (Phase 4.3d).
+with_memory_wiki_vault_mutation = _mutation_coordinator.with_memory_wiki_vault_mutation
+resolve_memory_wiki_vault_mutation_key = (
+    _mutation_coordinator.resolve_memory_wiki_vault_mutation_key
+)
