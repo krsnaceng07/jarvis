@@ -87,6 +87,12 @@ from .expect_runtime import expect_defined, expect_truthy
 
 # Hook types
 from .hook import HookHandler, HookName, HookRegistration
+from .json_store import (
+    load_json_file,
+    read_json_file_with_fallback,
+    save_json_file,
+    write_json_file_atomically,
+)
 from .lazy_runtime import create_lazy_runtime_module
 
 # Manifest types
@@ -143,6 +149,16 @@ from .plugin_state import (
     OpenKeyedStoreOptions,
     open_keyed_store,
     with_lease,
+)
+from .plugin_state_keyed_store import (
+    OpenKeyedStoreOptions as OpenKeyedStoreOptionsAsync,
+    PluginStateEntry,
+    PluginStateKeyedStore,
+    PluginStateStoreError,
+    get_plugin_state_namespace_root,
+    open_plugin_state_keyed_store,
+    reset_plugin_state_for_tests,
+    set_plugin_state_namespace_root,
 )
 
 # Result type (Ok / Err / Result)

@@ -36,6 +36,7 @@ from . import (
     markdown_pages as _markdown_pages,
     mutation_coordinator as _mutation_coordinator,
     source_path_shared as _source_path_shared,
+    source_sync_state as _source_sync_state,
     time as _time,
     vault as _vault,
     vault_page_write as _vault_page_write,
@@ -182,6 +183,26 @@ __all__ = [
     "build_related_block",
     "build_page_body",
     "write_compiled_pages",
+    # Source sync state (Phase 4.3e-mr1).
+    "MEMORY_WIKI_SOURCE_SYNC_STATE_NAMESPACE",
+    "MEMORY_WIKI_SOURCE_SYNC_STATE_MAX_ENTRIES",
+    "MemoryWikiImportedSourceState",
+    "MemoryWikiImportedSourceStateEntry",
+    "MemoryWikiSourceSyncCapacityError",
+    "MemoryWikiSourceSyncStateStore",
+    "MemoryWikiSourceSyncStateWritePlan",
+    "assert_memory_wiki_source_sync_state_capacity",
+    "configure_memory_wiki_source_sync_state_store",
+    "create_memory_fallback_state_store",
+    "create_memory_wiki_source_sync_state_store",
+    "prune_imported_source_entries",
+    "read_legacy_memory_wiki_source_sync_state",
+    "read_memory_wiki_source_sync_state",
+    "resolve_memory_wiki_source_sync_state_path",
+    "reset_memory_wiki_source_sync_state_for_tests",
+    "set_imported_source_entry",
+    "should_skip_imported_source_write",
+    "write_memory_wiki_source_sync_state",
 ]
 
 
@@ -339,3 +360,38 @@ HUMAN_END_MARKER = _compile_pages.HUMAN_END_MARKER
 build_related_block = _compile_pages.build_related_block
 build_page_body = _compile_pages.build_page_body
 write_compiled_pages = _compile_pages.write_compiled_pages
+
+# Source sync state (Phase 4.3e-mr1).
+MEMORY_WIKI_SOURCE_SYNC_STATE_NAMESPACE = _source_sync_state.MEMORY_WIKI_SOURCE_SYNC_STATE_NAMESPACE
+MEMORY_WIKI_SOURCE_SYNC_STATE_MAX_ENTRIES = (
+    _source_sync_state.MEMORY_WIKI_SOURCE_SYNC_STATE_MAX_ENTRIES
+)
+MemoryWikiImportedSourceState = _source_sync_state.MemoryWikiImportedSourceState
+MemoryWikiImportedSourceStateEntry = _source_sync_state.MemoryWikiImportedSourceStateEntry
+MemoryWikiSourceSyncCapacityError = _source_sync_state.MemoryWikiSourceSyncCapacityError
+MemoryWikiSourceSyncStateStore = _source_sync_state.MemoryWikiSourceSyncStateStore
+MemoryWikiSourceSyncStateWritePlan = _source_sync_state.MemoryWikiSourceSyncStateWritePlan
+assert_memory_wiki_source_sync_state_capacity = (
+    _source_sync_state.assert_memory_wiki_source_sync_state_capacity
+)
+configure_memory_wiki_source_sync_state_store = (
+    _source_sync_state.configure_memory_wiki_source_sync_state_store
+)
+create_memory_fallback_state_store = _source_sync_state.create_memory_fallback_state_store
+create_memory_wiki_source_sync_state_store = (
+    _source_sync_state.create_memory_wiki_source_sync_state_store
+)
+prune_imported_source_entries = _source_sync_state.prune_imported_source_entries
+read_legacy_memory_wiki_source_sync_state = (
+    _source_sync_state.read_legacy_memory_wiki_source_sync_state
+)
+read_memory_wiki_source_sync_state = _source_sync_state.read_memory_wiki_source_sync_state
+resolve_memory_wiki_source_sync_state_path = (
+    _source_sync_state.resolve_memory_wiki_source_sync_state_path
+)
+reset_memory_wiki_source_sync_state_for_tests = (
+    _source_sync_state.reset_memory_wiki_source_sync_state_for_tests
+)
+set_imported_source_entry = _source_sync_state.set_imported_source_entry
+should_skip_imported_source_write = _source_sync_state.should_skip_imported_source_write
+write_memory_wiki_source_sync_state = _source_sync_state.write_memory_wiki_source_sync_state
