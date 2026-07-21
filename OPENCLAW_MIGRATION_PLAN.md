@@ -3263,3 +3263,123 @@ write loop).**
   pipeline (write â†’ publish â†’ verify) and
   unblock Phase 4.3f (read/write paths + tools
   + bridge + gateway + corpus + prompt).
+
+## §33 — Phase 4.3f-mr5: memory_wiki corpus supplement (per-vault wiki corpus) (2026-07-21)
+
+**Commit:** 2e7bd8c feat(phase4.3f-mr5): memory_wiki corpus supplement (per-vault wiki corpus)
+
+Phase 4.3f-mr5 ships the per-vault wiki corpus
+supplement factory. The host's memory-core
+dreaming subsystem consumes this interface to add
+wiki content as a *supplement* to the memory search
+corpus. Mirrors OpenClaw's
+createWikiCorpusSupplement from
+extensions/memory-wiki/src/corpus-supplement.ts.
+
+### Files added
+
+- extensions/memory_wiki/corpus_supplement.py
+  (~190 lines) -- the factory + dataclasses:
+  - MemoryWikiConfigResolver type alias
+    (Callable[[str | None, Any], ResolvedMemoryWikiConfig])
+    matching OpenClaw's
+    (agentId?: string, appConfig?: OpenClawConfig) => ResolvedMemoryWikiConfig
+    contract.
+  - WikiCorpusSupplementSearchInput dataclass
+    mirroring OpenClaw's
+    { query, maxResults, agentId, agentSessionKey, sandboxed }.
+  - WikiCorpusSupplementGetInput dataclass
+    mirroring OpenClaw's
+    { lookup, fromLine, lineCount, agentId, agentSessionKey, sandboxed }.
+  - WikiCorpusSupplement dataclass with search
+    + get callables + the bound
+    esolve_config + get_app_config (for tests).
+  - create_wiki_corpus_supplement factory. The
+    esolve_config callable is invoked as
+    esolve_config(agent_id, app_config) --
+    matching OpenClaw's 2-arg contract. The
+    search / get wrappers delegate to the
+    in-memory query layer
+    (query.search_memory_wiki /
+    query.get_memory_wiki_page) with
+    searchBackend="local" /
+    searchCorpus="wiki" hard-coded so the
+    memory-core path always looks at the wiki
+    side of the corpus.
+- extensions/memory_wiki/tests/test_corpus_supplement_phase4.py
+  (15 tests):
+  - 4 input-dataclass tests (default + all-fields
+    for search and get)
+  - 3 factory-shape tests (returns the supplement
+    dataclass, search_results wrapper,
+    get_result wrapper)
+  - 2 search-delegation tests (forwards to query
+    layer with the right kwargs; resolves per-call
+    config)
+  - 2 get-delegation tests (forwards to query
+    layer; propagates None for missing page)
+  - 2 fail-closed tests (resolver raises before
+    query layer is invoked -- matches the OpenClaw
+    i.mock-not-called assertion)
+  - 1 reset test
+  - 1 exports test
+
+### Files modified
+
+- extensions/memory_wiki/query.py:
+  - Added pp_config, gent_id,
+    gent_session_key, sandboxed,
+    search_backend, search_corpus keyword
+    args to both search_memory_wiki and
+    get_memory_wiki_page to match OpenClaw's
+    signature. The wiki-corpus branch ignores them
+    (they're consumed by the shared-memory
+    fallback in 4.3f-mr2.5); they are bound so the
+    call site matches the OpenClaw signature
+    for 1:1 parity. Imported Any from
+    	yping for the pp_config annotation.
+  - Updated both functions to no-op-suppress the
+    new kwargs with _ = (...) so pyright +
+    ruff are quiet about the unused-arg pattern.
+
+### Test count (Phase 4.3f-mr5)
+
+- New: 15 memory_wiki tests. All green.
+- memory_wiki + active_memory + SDK suite: 714 pass
+  (+15 from 4.3f-mr1 baseline of 679 + bridge/tool/
+  gateway test counts). 2 skipped (Windows symlink
+  privilege). 0 regressions.
+- Pre-commit all 7 hooks green (ruff, ruff-format,
+  pyright, check-imports, check-cycles,
+  check-max-lines, check-manifests).
+
+### Parity matrix (Phase 4.3f-mr5 vs. OpenClaw)
+
+| OpenClaw helper                | Python port                       | Status |
+|--------------------------------|-----------------------------------|--------|
+| createWikiCorpusSupplement   | create_wiki_corpus_supplement   | 100%   |
+| WikiCorpusSupplement.search  | WikiCorpusSupplement.search     | 100%   |
+| WikiCorpusSupplement.get     | WikiCorpusSupplement.get        | 100%   |
+| MemoryWikiConfigResolver     | MemoryWikiConfigResolver (alias)| 100%   |
+
+**Phase 4.3f-mr5 surface: 1 of 1 OpenClaw
+corpus-supplement file (100% parity).**
+
+### Cumulative stats (P4.3f-mr5)
+
+- 2 new files in memory_wiki (1 prod + 1 test).
+- 1 file modified (query.py signature extension).
+- ~ 250 lines ported.
+- 100% parity with OpenClaw's
+  createWikiCorpusSupplement + contract types.
+
+### What's next (Phase 4.3f-mr6)
+
+- prompt-section.ts (~6.7K OpenClaw lines) --
+  per-vault prompt assembly. Registers a
+  egisterMemoryPromptSupplement callback so
+  the host's prompt preparer can inject wiki
+  context into the system prompt.
+- Pre-step: read OpenClaw's
+  extensions/memory-wiki/src/prompt-section.ts
+  end-to-end, plan, then implement same-to-same.
