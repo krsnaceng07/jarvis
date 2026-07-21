@@ -28,8 +28,10 @@ from . import (
     config as _config,
     config_compat as _config_compat,
     log as _log,
+    markdown as _markdown,
     source_path_shared as _source_path_shared,
     time as _time,
+    vault as _vault,
     vault_page_write as _vault_page_write,
 )
 
@@ -99,6 +101,19 @@ __all__ = [
     "resolve_memory_wiki_agent_config",
     "resolve_memory_wiki_configured_agent_ids",
     "normalize_compatibility_config",
+    # Vault init (Phase 4.3c).
+    "initialize_memory_wiki_vault",
+    "InitializeMemoryWikiVaultResult",
+    "WIKI_VAULT_DIRECTORIES",
+    "WIKI_VAULT_SCAFFOLD",
+    # Markdown foundation (Phase 4.3c).
+    "WIKI_PAGE_KINDS",
+    "WIKI_RAW_SOURCE_MARKER",
+    "WIKI_RELATED_START_MARKER",
+    "WIKI_RELATED_END_MARKER",
+    "parse_wiki_frontmatter",
+    "replace_managed_markdown_block",
+    "with_trailing_newline",
 ]
 
 
@@ -165,3 +180,24 @@ def resolve_memory_wiki_configured_agent_ids(app_config: Any) -> list[str]:
 def normalize_compatibility_config(*, cfg: dict[str, Any]) -> dict[str, Any]:
     """Re-export of :func:`.config_compat.normalize_compatibility_config`."""
     return _config_compat.normalize_compatibility_config(cfg=cfg)
+
+
+# Vault init (Phase 4.3c).
+WIKI_VAULT_DIRECTORIES = _vault.WIKI_VAULT_DIRECTORIES
+WIKI_VAULT_SCAFFOLD = _vault.WIKI_VAULT_SCAFFOLD
+InitializeMemoryWikiVaultResult = _vault.InitializeMemoryWikiVaultResult
+
+
+def initialize_memory_wiki_vault(config: Any, **kwargs: Any):
+    """Re-export of :func:`.vault.initialize_memory_wiki_vault`."""
+    return _vault.initialize_memory_wiki_vault(config, **kwargs)
+
+
+# Markdown foundation (Phase 4.3c).
+WIKI_PAGE_KINDS = _markdown.WIKI_PAGE_KINDS
+WIKI_RAW_SOURCE_MARKER = _markdown.WIKI_RAW_SOURCE_MARKER
+WIKI_RELATED_START_MARKER = _markdown.WIKI_RELATED_START_MARKER
+WIKI_RELATED_END_MARKER = _markdown.WIKI_RELATED_END_MARKER
+parse_wiki_frontmatter = _markdown.parse_wiki_frontmatter
+replace_managed_markdown_block = _markdown.replace_managed_markdown_block
+with_trailing_newline = _markdown.with_trailing_newline

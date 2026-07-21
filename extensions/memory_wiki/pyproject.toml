@@ -3,12 +3,17 @@ name = "jarvis-memory-wiki"
 version = "0.1.0"
 description = "JARVIS memory-wiki plugin (Phase 4.3 OpenClaw parity, foundation)."
 requires-python = ">=3.13"
-# Phase 4.3a ships the foundation: types, time, log, source-path
-# helpers, vault-page-write. Subsequent sub-phases will add
-# the config, vault init, markdown, compile, query, tools, and
-# CLI surface. Stdlib only so the host can install the plugin
-# without dragging in heavy deps.
-dependencies = []
+# Phase 4.3a shipped the foundation (types, time, log,
+# source-path, vault-page-write). Phase 4.3b added the
+# config layer. Phase 4.3c adds vault init + markdown
+# frontmatter + managed blocks. ``pyyaml`` is a direct
+# dep (already a transitive dep via pre-commit) so the
+# frontmatter parser has a strict-shape YAML decoder.
+# Subsequent sub-phases will add the compile, query,
+# tools, and CLI surface.
+dependencies = [
+    "pyyaml>=6.0",
+]
 
 [tool.uv]
 package = false
