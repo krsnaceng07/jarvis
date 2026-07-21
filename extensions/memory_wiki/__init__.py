@@ -50,6 +50,7 @@ from . import (
     okf as _okf,
     prompt_section as _prompt_section,
     query as _query,
+    setup_api as _setup_api,
     source_page_shared as _source_page_shared,
     source_path_shared as _source_path_shared,
     source_sync as _source_sync,
@@ -59,6 +60,7 @@ from . import (
     unsafe_local as _unsafe_local,
     vault as _vault,
     vault_page_write as _vault_page_write,
+    wiki_cli as _wiki_cli,
     wiki_page_summary as _wiki_page_summary,
 )
 
@@ -396,6 +398,12 @@ __all__ = [
     "OkfConceptDocument",
     "format_okf_import_summary",
     "import_memory_wiki_okf_bundle",
+    # Setup API (Phase 4.3g-mr6).
+    "register_memory_wiki_setup",
+    # Wiki CLI (Phase 4.3g-mr7).
+    "MemoryWikiCliRegistration",
+    "WikiCommandContext",
+    "register_wiki_cli",
     # Unsafe local import (Phase 4.3g-mr4).
     "DIRECTORY_TEXT_EXTENSIONS",
     "UNSAFE_LOCAL_SYNC_CONCURRENCY",
@@ -854,6 +862,14 @@ OkfBundleMetadata = _okf.OkfBundleMetadata
 OkfConceptDocument = _okf.OkfConceptDocument
 format_okf_import_summary = _okf.format_okf_import_summary
 import_memory_wiki_okf_bundle = _okf.import_memory_wiki_okf_bundle
+
+# Setup API (Phase 4.3g-mr6).
+register_memory_wiki_setup = _setup_api.register_memory_wiki_setup
+
+# Wiki CLI (Phase 4.3g-mr7).
+MemoryWikiCliRegistration = _wiki_cli.MemoryWikiCliRegistration
+WikiCommandContext = _wiki_cli.WikiCommandContext
+register_wiki_cli = _wiki_cli.register_wiki_cli
 
 # Unsafe local import (Phase 4.3g-mr4).
 DIRECTORY_TEXT_EXTENSIONS = _unsafe_local.DIRECTORY_TEXT_EXTENSIONS
