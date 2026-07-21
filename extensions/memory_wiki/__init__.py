@@ -27,6 +27,7 @@ from jarvis_sdk import PluginApi, define_plugin_entry
 from . import (
     apply as _apply,
     bridge as _bridge,
+    chatgpt_import as _chatgpt_import,
     claim_health as _claim_health,
     compile_pages as _compile_pages,
     compile_pipeline as _compile_pipeline,
@@ -35,6 +36,8 @@ from . import (
     config as _config,
     config_compat as _config_compat,
     corpus_supplement as _corpus_supplement,
+    import_insights as _import_insights,
+    import_runs as _import_runs,
     import_runs_state as _import_runs_state,
     ingest as _ingest,
     lint as _lint,
@@ -370,6 +373,19 @@ __all__ = [
     # Source page shared (Phase 4.3g-mr2).
     "WriteImportedSourcePageResult",
     "write_imported_source_page",
+    # Import runs (Phase 4.3g-mr3).
+    "MemoryWikiImportRunSummary",
+    "MemoryWikiImportRunsStatus",
+    "list_memory_wiki_import_runs",
+    "normalize_import_run_summary",
+    # Import insights (Phase 4.3g-mr3).
+    "MemoryWikiImportInsightCluster",
+    "MemoryWikiImportInsightItem",
+    "MemoryWikiImportInsightsStatus",
+    "list_memory_wiki_import_insights",
+    # ChatGPT import (Phase 4.3g-mr3).
+    "ChatGptImportResult",
+    "import_chatgpt_export",
     # Memory palace (Phase 4.3f-mr7).
     "PALACE_ITEM_TOP_CLAIMS",
     "PALACE_ITEM_TOP_CONTRADICTIONS",
@@ -795,3 +811,19 @@ reset_memory_wiki_source_sync_state_for_tests = (
 # Source page shared (Phase 4.3g-mr2).
 WriteImportedSourcePageResult = _source_page_shared.WriteImportedSourcePageResult
 write_imported_source_page = _source_page_shared.write_imported_source_page
+
+# Import runs (Phase 4.3g-mr3).
+MemoryWikiImportRunSummary = _import_runs.MemoryWikiImportRunSummary
+MemoryWikiImportRunsStatus = _import_runs.MemoryWikiImportRunsStatus
+list_memory_wiki_import_runs = _import_runs.list_memory_wiki_import_runs
+normalize_import_run_summary = _import_runs.normalize_import_run_summary
+
+# Import insights (Phase 4.3g-mr3).
+MemoryWikiImportInsightCluster = _import_insights.MemoryWikiImportInsightCluster
+MemoryWikiImportInsightItem = _import_insights.MemoryWikiImportInsightItem
+MemoryWikiImportInsightsStatus = _import_insights.MemoryWikiImportInsightsStatus
+list_memory_wiki_import_insights = _import_insights.list_memory_wiki_import_insights
+
+# ChatGPT import (Phase 4.3g-mr3).
+ChatGptImportResult = _chatgpt_import.ChatGptImportResult
+import_chatgpt_export = _chatgpt_import.import_chatgpt_export
