@@ -27,6 +27,7 @@ from jarvis_sdk import PluginApi, define_plugin_entry
 from . import (
     claim_health as _claim_health,
     compile_pipeline as _compile_pipeline,
+    compile_render as _compile_render,
     config as _config,
     config_compat as _config_compat,
     log as _log,
@@ -161,6 +162,16 @@ __all__ = [
     "CompileWikiVaultResult",
     "compile_wiki_vault",
     "should_skip_page_for_compile",
+    # Compile render (Phase 4.3d-mr5).
+    "DashboardBuild",
+    "DASHBOARD_BUILDERS",
+    "format_wiki_link",
+    "build_open_questions_body",
+    "build_contradictions_body",
+    "build_low_confidence_body",
+    "build_claim_health_body",
+    "build_stale_pages_body",
+    "render_wiki_dashboards",
 ]
 
 
@@ -297,3 +308,14 @@ scan_wiki_page_summary_from_file = _wiki_page_summary.scan_wiki_page_summary_fro
 CompileWikiVaultResult = _compile_pipeline.CompileWikiVaultResult
 compile_wiki_vault = _compile_pipeline.compile_wiki_vault
 should_skip_page_for_compile = _compile_pipeline.should_skip_page_for_compile
+
+# Compile render (Phase 4.3d-mr5).
+DashboardBuild = _compile_render.DashboardBuild
+DASHBOARD_BUILDERS = _compile_render.DASHBOARD_BUILDERS
+format_wiki_link = _compile_render.format_wiki_link
+build_open_questions_body = _compile_render.build_open_questions_body
+build_contradictions_body = _compile_render.build_contradictions_body
+build_low_confidence_body = _compile_render.build_low_confidence_body
+build_claim_health_body = _compile_render.build_claim_health_body
+build_stale_pages_body = _compile_render.build_stale_pages_body
+render_wiki_dashboards = _compile_render.render_wiki_dashboards

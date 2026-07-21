@@ -261,6 +261,28 @@ def _resolve_latest_timestamp(
     return best_value
 
 
+def _read_attr(value: Any, *names: str) -> Any:
+    """Read the first present attribute from ``value`` among ``names``.
+
+    The Python port's dataclasses use snake_case;
+    the OpenClaw ``WikiPageSummary`` /
+    ``WikiClaim`` shapes use camelCase. This
+    helper accepts either so callers can pass
+    either a real ``WikiPageSummary`` /
+    ``WikiClaim`` instance or a ``SimpleNamespace``
+    (test fixture).
+    """
+    # Prefer snake_case first (the Python
+    # dataclass layout); fall back to camelCase
+    # for OpenClaw parity tests.
+    snake_names = [n for n in names if "_" in n]
+    camel_names = [n for n in names if "_" not in n]
+    for name in [*snake_names, *camel_names]:
+        if hasattr(value, name):
+            return getattr(value, name)
+    return None
+
+
 # ── Status normalization ──────────────────────────────────────
 
 
@@ -292,7 +314,10 @@ def assess_page_freshness(
 
     Mirrors OpenClaw's ``assessPageFreshness``.
     """
-    return _build_freshness_from_timestamp(timestamp=page.updatedAt, now=now)
+    return _build_freshness_from_timestamp(
+        timestamp=_read_attr(page, "updatedAt", "updated_at"),
+        now=now,
+    )
 
 
 def assess_claim_freshness(
@@ -311,18 +336,21 @@ def assess_claim_freshness(
     ``updatedAt`` (so a freshly-touched page never
     shows its claims as ``unknown``).
     """
-    has_claim_timestamp = bool(isinstance(claim.updatedAt, str) and claim.updatedAt.strip())
-    latest_timestamp = _resolve_latest_timestamp([claim.updatedAt])
+    claim_updated_at = _read_attr(claim, "updatedAt", "updated_at")
+    page_updated_at = _read_attr(page, "updatedAt", "updated_at")
+    has_claim_timestamp = bool(isinstance(claim_updated_at, str) and claim_updated_at.strip())
+    latest_timestamp = _resolve_latest_timestamp([claim_updated_at])
     latest_ms = _parse_timestamp(latest_timestamp) or -1
     for evidence in claim.evidence:
-        if isinstance(evidence.updatedAt, str) and evidence.updatedAt.strip():
+        evidence_updated_at = _read_attr(evidence, "updatedAt", "updated_at")
+        if isinstance(evidence_updated_at, str) and evidence_updated_at.strip():
             has_claim_timestamp = True
-        evidence_ms = _parse_timestamp(evidence.updatedAt)
-        if evidence_ms is None or not evidence.updatedAt or evidence_ms <= latest_ms:
+        evidence_ms = _parse_timestamp(evidence_updated_at)
+        if evidence_ms is None or not evidence_updated_at or evidence_ms <= latest_ms:
             continue
         latest_ms = evidence_ms
-        latest_timestamp = evidence.updatedAt
-    fallback = None if has_claim_timestamp else page.updatedAt
+        latest_timestamp = evidence_updated_at
+    fallback = None if has_claim_timestamp else page_updated_at
     return _build_freshness_from_timestamp(timestamp=latest_timestamp or fallback, now=now)
 
 
@@ -340,19 +368,25 @@ def _build_wiki_claim_health(
 
     Mirrors OpenClaw's ``buildWikiClaimHealth``.
     """
-    claim_id = claim.id.strip() if isinstance(getattr(claim, "id", None), str) else None
+    raw_claim_id = _read_attr(claim, "id")
+    claim_id = raw_claim_id.strip() if isinstance(raw_claim_id, str) else None
     key_suffix = claim_id or f"claim-{index + 1}"
+    page_path = _read_attr(page, "relativePath", "relative_path") or ""
+    page_title = _read_attr(page, "title") or page_path
+    raw_page_id = _read_attr(page, "id")
+    page_id = raw_page_id if isinstance(raw_page_id, str) else None
+    claim_text = _read_attr(claim, "text") or ""
+    claim_status = _read_attr(claim, "status")
+    claim_confidence = _read_attr(claim, "confidence")
     return WikiClaimHealth(
-        key=f"{page.relativePath}#{key_suffix}",
-        page_path=page.relativePath,
-        page_title=page.title,
-        page_id=page.id if isinstance(getattr(page, "id", None), str) else None,
+        key=f"{page_path}#{key_suffix}",
+        page_path=page_path,
+        page_title=page_title,
+        page_id=page_id,
         claim_id=claim_id,
-        text=claim.text,
-        status=normalize_claim_status(claim.status),
-        confidence=claim.confidence
-        if isinstance(getattr(claim, "confidence", None), (int, float))
-        else None,
+        text=claim_text,
+        status=normalize_claim_status(claim_status),
+        confidence=claim_confidence if isinstance(claim_confidence, (int, float)) else None,
         evidence_count=len(claim.evidence),
         missing_evidence=len(claim.evidence) == 0,
         freshness=assess_claim_freshness(page=page, claim=claim, now=now),
@@ -369,7 +403,8 @@ def collect_wiki_claim_health(
     """
     out: list[WikiClaimHealth] = []
     for page in pages:
-        for index, claim in enumerate(page.claims):
+        claims = _read_attr(page, "claims") or []
+        for index, claim in enumerate(claims):
             out.append(_build_wiki_claim_health(page=page, claim=claim, index=index, now=now))
     return out
 
@@ -431,15 +466,20 @@ def build_page_contradiction_clusters(
     """
     by_note: dict[str, list[WikiPageContradictionEntry]] = {}
     for page in pages:
-        for note in page.contradictions:
+        page_path = _read_attr(page, "relativePath", "relative_path") or ""
+        page_title = _read_attr(page, "title") or page_path
+        raw_page_id = _read_attr(page, "id")
+        page_id = raw_page_id if isinstance(raw_page_id, str) else None
+        contradictions = _read_attr(page, "contradictions") or []
+        for note in contradictions:
             key = _normalize_text_key(note)
             if not key:
                 continue
             by_note.setdefault(key, []).append(
                 WikiPageContradictionEntry(
-                    page_path=page.relativePath,
-                    page_title=page.title,
-                    page_id=page.id if isinstance(getattr(page, "id", None), str) else None,
+                    page_path=page_path,
+                    page_title=page_title,
+                    page_id=page_id,
                     note=note,
                 )
             )
