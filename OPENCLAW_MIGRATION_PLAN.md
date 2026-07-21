@@ -1,7 +1,7 @@
 # JARVIS → OpenClaw Architecture Migration Plan
 
-> **Status:** Phase 4.2c complete (active_memory entry + slash command + doctor); Phase 4.3 (memory_wiki) next
-> **Last updated:** 2026-07-20
+> **Status:** Phase 4.3a complete (memory_wiki foundation + SDK fs-safe hardening); Phase 4.3b (config) next
+> **Last updated:** 2026-07-21
 > **Owner:** JARVIS architect
 > **Reference source:** `E:/jarvis/openclaw-main/` (commit snapshot 2026.7.2)
 
@@ -2953,3 +2953,110 @@ OpenClaw's source tree.**
   and import-from-existing-vault command.
 - Then 4.4 (full dreaming: light, REM, deep + REM evidence +
   shadow trial + qmd backend).
+
+## §30 — Phase 4.3a: memory_wiki foundation + SDK fs-safe hardening (2026-07-21)
+
+**Commit:** `db416c4` feat(phase4.3a): memory_wiki foundation + SDK fs-safe hardening
+
+Phase 4.3a opens the memory_wiki port. This sub-phase
+ships the foundation: types, time, log (vault-generation
++ publication identity), source-path shared helpers,
+vault-page atomic write. With these primitives in place,
+the remaining sub-phases (4.3b config, 4.3c vault init +
+markdown, 4.3d compile, ...) can build on a shared
+surface.
+
+### SDK additions (this commit)
+
+- `packages/plugin_sdk/src/jarvis_sdk/retry_runtime.py` (new
+  module). `retry_async(fn, options)` with bounded attempts
+  + linear backoff + jitter. Mirrors OpenClaw's
+  `openclaw/plugin-sdk/retry-runtime`.
+- `packages/plugin_sdk/src/jarvis_sdk/number_runtime.py` —
+  adds `timestamp_ms_to_iso_string`. Mirrors OpenClaw's
+  `timestampMsToIsoString`.
+- `packages/plugin_sdk/src/jarvis_sdk/string_coerce.py` —
+  adds `lowercase_preserving_whitespace`. Mirrors OpenClaw's
+  `lowercasePreservingWhitespace`.
+- `packages/plugin_sdk/src/jarvis_sdk/security_runtime.py` —
+  adds `FsSafeError`, `path_exists`, `fs_root` / `root`,
+  `append_regular_file`, `is_regular_file_stat`. Mirrors
+  OpenClaw's `@openclaw/fs-safe` public surface (same
+  method names, same error codes: `path-mismatch`,
+  `symlink`, `path-alias`, `already-exists`, `hardlink`,
+  `not-found`, `out-of-root`).
+
+### Files added (`extensions/memory_wiki/`)
+
+- `pyproject.toml` -- workspace member, stdlib only.
+- `AGENTS.md` -- maintainer notes.
+- `openclaw.plugin.json` -- minimal Phase 4.3a manifest
+  (full configSchema lands in 4.3b).
+- `__init__.py` -- `register_memory_wiki` +
+  `define_plugin_entry` scaffold + re-exports.
+- `types.py` -- `MemoryWikiVaultIdentity`,
+  `MemoryWikiLogEntryType` literal.
+- `time.py` -- `resolve_memory_wiki_timestamp` (~40 lines).
+- `source_path_shared.py` -- `resolve_artifact_key`
+  (~30 lines; POSIX realpath, Windows lowercased realpath).
+- `vault_page_write.py` -- `write_guarded_vault_page`
+  (~100 lines; hardlink-break + symlink-reject +
+  transient path-mismatch retry).
+- `log.py` (~340 lines) -- `append_memory_wiki_log` +
+  `load_memory_wiki_vault_identity` (linear walk + causal
+  publication chain) +
+  `resolve_memory_wiki_vault_source_generation` (SHA-256
+  over source tree) +
+  `load_memory_wiki_validated_vault_identity` (drops
+  publication on source divergence) +
+  `ensure_memory_wiki_vault_generation` (idempotent UUID
+  mint with concurrent-init convergence).
+- 4 test files (26 tests + 2 Windows-specific skips).
+
+### Test count (Phase 4.3a)
+
+- New: 26 memory_wiki tests + 0 SDK tests. All green.
+- memory_wiki + active_memory + SDK suite: 356 -> 382
+  (+26). All 382 pass.
+- Pre-commit all 7 hooks green (ruff + ruff-format +
+  pyright + check-imports + check-cycles + check-max-lines
+  + check-manifests).
+
+### Parity matrix (Phase 4.3a vs. OpenClaw)
+
+| OpenClaw file              | Python port                       | Status |
+|----------------------------|-----------------------------------|--------|
+| `api.ts`                   | (Phase 4.3g)                      | -      |
+| `index.ts`                 | `__init__.py` (scaffold only)     | 30% (4.3g adds register body) |
+| `cli-metadata.ts`          | (Phase 4.3g)                      | -      |
+| `doctor-contract-api.ts`   | (Phase 4.3g)                      | -      |
+| `openclaw.plugin.json`     | `openclaw.plugin.json` (minimal)  | 100% manifest scaffold |
+| `src/types.ts`             | `types.py` (basic only)           | 30% (full config + page types land in 4.3b+) |
+| `src/time.ts`              | `time.py`                         | 100%   |
+| `src/source-path-shared.ts`| `source_path_shared.py`           | 100%   |
+| `src/vault-page-write.ts`  | `vault_page_write.py`             | 100%   |
+| `src/log.ts`               | `log.py`                          | 100%   |
+
+**Phase 4.3a surface: 5 of 30+ OpenClaw files (17% of
+the foundation layer). Subsequent sub-phases will add
+config, vault init, markdown, compile, query, tools,
+gateway, CLI, obsidian, unsafe-local, chatgpt-import,
+index, and doctor.**
+
+### Cumulative stats (P4.3a)
+
+- 9 new files in memory_wiki (8 prod + 1 test helpers
+  via `__init__.py` re-exports).
+- 4 SDK modules touched / added to support the
+  foundation (retry_runtime, number_runtime,
+  string_coerce, security_runtime).
+- 7 FsSafeError codes mirrored.
+- ~ 800 lines ported (types, time, log, source-path,
+  vault-page-write, plus tests).
+
+### What's next (Phase 4.3b)
+
+- `config.py` (11KB) + `config_compat.py` (3KB) -- the
+  full schema (vaultMode / vault / obsidian / bridge /
+  unsafeLocal / ingest / search / context / render)
+  + the per-agent config resolver.
