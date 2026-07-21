@@ -109,9 +109,12 @@ class TestWriteGuardedVaultPage:
         assert page.read_text(encoding="utf-8") == "# new\n"
 
     @pytest.mark.asyncio
-    async def test_refuses_symlink_target(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_refuses_symlink_target(self, tmp_path: Path) -> None:
+        # On Windows + Developer Mode, ``os.symlink``
+        # works but pytest's tmp_path cleanup walker
+        # chokes on the symlink. We own the cleanup
+        # here so it runs before pytest's tmp_path
+        # teardown.
         target = tmp_path / "real.md"
         target.write_text("# real", encoding="utf-8")
         link = tmp_path / "syntheses"
@@ -121,19 +124,25 @@ class TestWriteGuardedVaultPage:
             os.symlink(str(target), str(symlink_path))
         except (OSError, NotImplementedError):
             pytest.skip("symlink not supported on this platform")
-        with pytest.raises(RuntimeError, match="through symlink"):
-            await write_guarded_vault_page(
-                vault_root=str(tmp_path),
-                page_path="syntheses/alpha.md",
-                content="# new\n",
-                page_stat=None,
-                page_label="alpha page",
-            )
+        try:
+            with pytest.raises(RuntimeError, match="through symlink"):
+                await write_guarded_vault_page(
+                    vault_root=str(tmp_path),
+                    page_path="syntheses/alpha.md",
+                    content="# new\n",
+                    page_stat=None,
+                    page_label="alpha page",
+                )
+        finally:
+            # Explicit symlink cleanup BEFORE
+            # pytest's tmp_path walker sees it.
+            import contextlib
+
+            with contextlib.suppress(OSError):
+                os.unlink(str(symlink_path))
 
     @pytest.mark.asyncio
-    async def test_breaks_hardlink_before_rewrite(
-        self, tmp_path: Path
-    ) -> None:
+    async def test_breaks_hardlink_before_rewrite(self, tmp_path: Path) -> None:
         # Hardlinks are only supported on the same
         # filesystem; on Windows they require admin /
         # developer-mode and the test skips otherwise.

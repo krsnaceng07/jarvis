@@ -57,19 +57,46 @@ class TestResolveArtifactKey:
             assert out == os.path.realpath(str(f))
 
     def test_dangling_symlink_falls_back(self, tmp_path: Path) -> None:
-        link = tmp_path / "missing-link.md"
+        # On Windows + Developer Mode, ``os.symlink``
+        # works but pytest's tmp_path cleanup walker
+        # chokes on dangling symlinks. Use a
+        # dedicated subdir that we own + clean up
+        # explicitly so the test's cleanup runs
+        # before pytest's tmp_path cleanup.
+        work = tmp_path / "work"
+        work.mkdir()
+        link = work / "missing-link.md"
         try:
-            os.symlink(str(tmp_path / "does-not-exist.md"), str(link))
+            os.symlink(str(work / "does-not-exist.md"), str(link))
         except (OSError, NotImplementedError):
             # Skip on Windows without symlink privilege
             # (e.g. unprivileged CI runners).
             import pytest
 
             pytest.skip("symlink not supported on this platform")
-        # Should not raise even though the target
-        # doesn't exist.
-        out = resolve_artifact_key(str(link))
-        assert out == os.path.abspath(str(link))
+        try:
+            # Should not raise even though the target
+            # doesn't exist. On POSIX, the result
+            # is the lexically-resolved link path
+            # (the realpath can't be resolved since
+            # the target is missing). On Windows,
+            # the result is the lowercased
+            # canonical realpath of the missing
+            # target (case-insensitive FS resolves
+            # the link's lexical target).
+            out = resolve_artifact_key(str(link))
+            if sys.platform == "win32":
+                expected = os.path.realpath(str(link)).lower()
+            else:
+                expected = os.path.abspath(str(link))
+            assert out == expected
+        finally:
+            # Explicit cleanup BEFORE pytest's
+            # tmp_path walker sees the symlink.
+            import contextlib
+
+            with contextlib.suppress(OSError):
+                os.unlink(str(link))
 
     def test_relative_input_uses_lexical_abspath(self, tmp_path: Path) -> None:
         # No realpath mutation needed; the function

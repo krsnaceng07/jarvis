@@ -233,10 +233,28 @@ class _FsSafeRoot:
         follow symlinks; refuses paths that escape the
         root.
         """
+        # Compute the un-resolved candidate first
+        # so we can detect when the page path is
+        # itself a symlink (calling ``_resolve``
+        # would already follow the symlink via
+        # ``os.path.realpath``).
+        if not isinstance(relative_path, str) or not relative_path:
+            raise FsSafeError(
+                "out-of-root",
+                f"relative path must be a non-empty string: {relative_path!r}",
+            )
+        un_resolved = os.path.normpath(os.path.join(self._root, relative_path))
+        if un_resolved.startswith(self._root) and os.path.islink(un_resolved):
+            raise FsSafeError(
+                "symlink",
+                f"refusing to write through symlink: {un_resolved}",
+            )
         absolute = self._resolve(relative_path)
         self._check_no_symlink_parents(absolute)
         os.makedirs(os.path.dirname(absolute), exist_ok=True)
-        # Refuse to write through an existing symlink.
+        # Refuse to write through an existing symlink
+        # (post-realpath check, in case the symlink
+        # appeared in a parent dir).
         if os.path.islink(absolute):
             raise FsSafeError("symlink", f"refusing to write through symlink: {absolute}")
         if isinstance(content, str):
@@ -248,6 +266,19 @@ class _FsSafeRoot:
 
     def read(self, relative_path: str) -> str:
         """Read the file at ``relative_path`` as UTF-8 text."""
+        # Detect symlink at the page path BEFORE
+        # ``_resolve`` follows it via realpath.
+        if not isinstance(relative_path, str) or not relative_path:
+            raise FsSafeError(
+                "out-of-root",
+                f"relative path must be a non-empty string: {relative_path!r}",
+            )
+        un_resolved = os.path.normpath(os.path.join(self._root, relative_path))
+        if un_resolved.startswith(self._root) and os.path.islink(un_resolved):
+            raise FsSafeError(
+                "symlink",
+                f"refusing to read through symlink: {un_resolved}",
+            )
         absolute = self._resolve(relative_path)
         if os.path.islink(absolute):
             raise FsSafeError("symlink", f"refusing to read through symlink: {absolute}")
