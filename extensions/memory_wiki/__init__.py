@@ -24,10 +24,14 @@ from typing import Any
 
 from jarvis_sdk import PluginApi, define_plugin_entry
 
-from . import log as _log
-from . import source_path_shared as _source_path_shared
-from . import time as _time
-from . import vault_page_write as _vault_page_write
+from . import (
+    config as _config,
+    config_compat as _config_compat,
+    log as _log,
+    source_path_shared as _source_path_shared,
+    time as _time,
+    vault_page_write as _vault_page_write,
+)
 
 _LOGGER = logging.getLogger("jarvis.extensions.memory_wiki")
 
@@ -56,7 +60,6 @@ def register_memory_wiki(api: PluginApi) -> None:
     #     (Phase 4.3f)
     #   - register_cli for the ``wiki`` command
     #     (Phase 4.3g)
-    return None
 
 
 # ``define_plugin_entry`` is the SDK helper that
@@ -68,10 +71,7 @@ entry = define_plugin_entry(
     id="memory_wiki",
     kind="memory",
     name="Memory Wiki",
-    description=(
-        "Persistent wiki compiler and Obsidian-friendly "
-        "knowledge vault for JARVIS."
-    ),
+    description=("Persistent wiki compiler and Obsidian-friendly " "knowledge vault for JARVIS."),
     activation="on_startup",
     register=register_memory_wiki,
 )
@@ -93,6 +93,12 @@ __all__ = [
     "load_memory_wiki_validated_vault_identity",
     "resolve_memory_wiki_vault_source_generation",
     "write_guarded_vault_page",
+    # Config surface (Phase 4.3b).
+    "memory_wiki_config_schema",
+    "resolve_memory_wiki_config",
+    "resolve_memory_wiki_agent_config",
+    "resolve_memory_wiki_configured_agent_ids",
+    "normalize_compatibility_config",
 ]
 
 
@@ -134,3 +140,28 @@ def resolve_memory_wiki_vault_source_generation(vault_root: str) -> str:
 async def write_guarded_vault_page(**kwargs: Any) -> None:
     """Re-export of :func:`.vault_page_write.write_guarded_vault_page`."""
     await _vault_page_write.write_guarded_vault_page(**kwargs)
+
+
+# Config re-exports so callers can do
+# ``from extensions.memory_wiki import memory_wiki_config_schema``.
+memory_wiki_config_schema = _config.memory_wiki_config_schema
+
+
+def resolve_memory_wiki_config(config: Any, **kwargs: Any):
+    """Re-export of :func:`.config.resolve_memory_wiki_config`."""
+    return _config.resolve_memory_wiki_config(config, **kwargs)
+
+
+def resolve_memory_wiki_agent_config(**kwargs: Any):
+    """Re-export of :func:`.config.resolve_memory_wiki_agent_config`."""
+    return _config.resolve_memory_wiki_agent_config(**kwargs)
+
+
+def resolve_memory_wiki_configured_agent_ids(app_config: Any) -> list[str]:
+    """Re-export of :func:`.config.resolve_memory_wiki_configured_agent_ids`."""
+    return _config.resolve_memory_wiki_configured_agent_ids(app_config)
+
+
+def normalize_compatibility_config(*, cfg: dict[str, Any]) -> dict[str, Any]:
+    """Re-export of :func:`.config_compat.normalize_compatibility_config`."""
+    return _config_compat.normalize_compatibility_config(cfg=cfg)
