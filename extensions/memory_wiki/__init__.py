@@ -36,6 +36,7 @@ from . import (
     config as _config,
     config_compat as _config_compat,
     corpus_supplement as _corpus_supplement,
+    doctor_contract as _doctor_contract,
     import_insights as _import_insights,
     import_runs as _import_runs,
     import_runs_state as _import_runs_state,
@@ -404,6 +405,9 @@ __all__ = [
     "MemoryWikiCliRegistration",
     "WikiCommandContext",
     "register_wiki_cli",
+    # Doctor contract (Phase 4.3g-mr7).
+    "STATE_MIGRATIONS",
+    "register_memory_wiki_doctor_contracts",
     # Unsafe local import (Phase 4.3g-mr4).
     "DIRECTORY_TEXT_EXTENSIONS",
     "UNSAFE_LOCAL_SYNC_CONCURRENCY",
@@ -870,6 +874,10 @@ register_memory_wiki_setup = _setup_api.register_memory_wiki_setup
 MemoryWikiCliRegistration = _wiki_cli.MemoryWikiCliRegistration
 WikiCommandContext = _wiki_cli.WikiCommandContext
 register_wiki_cli = _wiki_cli.register_wiki_cli
+
+# Doctor contract (Phase 4.3g-mr7).
+STATE_MIGRATIONS = _doctor_contract.STATE_MIGRATIONS
+register_memory_wiki_doctor_contracts = _doctor_contract.register_memory_wiki_doctor_contracts
 
 # Unsafe local import (Phase 4.3g-mr4).
 DIRECTORY_TEXT_EXTENSIONS = _unsafe_local.DIRECTORY_TEXT_EXTENSIONS
