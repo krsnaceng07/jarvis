@@ -36,6 +36,7 @@ from . import (
     config_compat as _config_compat,
     corpus_supplement as _corpus_supplement,
     import_runs_state as _import_runs_state,
+    ingest as _ingest,
     lint as _lint,
     log as _log,
     markdown as _markdown,
@@ -45,7 +46,9 @@ from . import (
     obsidian as _obsidian,
     prompt_section as _prompt_section,
     query as _query,
+    source_page_shared as _source_page_shared,
     source_path_shared as _source_path_shared,
+    source_sync as _source_sync,
     source_sync_state as _source_sync_state,
     status as _status,
     time as _time,
@@ -356,6 +359,17 @@ __all__ = [
     "WikiLintIssue",
     "WikiLintResult",
     "lint_memory_wiki_vault",
+    # Ingest (Phase 4.3g-mr2).
+    "IngestMemoryWikiSourceResult",
+    "ingest_memory_wiki_source",
+    "reset_memory_wiki_ingest_state_for_tests",
+    # Source sync orchestrator (Phase 4.3g-mr2).
+    "MemoryWikiImportedSourceSyncResult",
+    "sync_memory_wiki_imported_sources",
+    "reset_memory_wiki_source_sync_state_for_tests",
+    # Source page shared (Phase 4.3g-mr2).
+    "WriteImportedSourcePageResult",
+    "write_imported_source_page",
     # Memory palace (Phase 4.3f-mr7).
     "PALACE_ITEM_TOP_CLAIMS",
     "PALACE_ITEM_TOP_CONTRADICTIONS",
@@ -765,3 +779,19 @@ LINT_ISSUE_CODES = _lint.LINT_ISSUE_CODES
 WikiLintIssue = _lint.WikiLintIssue
 WikiLintResult = _lint.WikiLintResult
 lint_memory_wiki_vault = _lint.lint_memory_wiki_vault
+
+# Ingest (Phase 4.3g-mr2).
+IngestMemoryWikiSourceResult = _ingest.IngestMemoryWikiSourceResult
+ingest_memory_wiki_source = _ingest.ingest_memory_wiki_source
+reset_memory_wiki_ingest_state_for_tests = _ingest.reset_memory_wiki_ingest_state_for_tests
+
+# Source sync orchestrator (Phase 4.3g-mr2).
+MemoryWikiImportedSourceSyncResult = _source_sync.MemoryWikiImportedSourceSyncResult
+sync_memory_wiki_imported_sources = _source_sync.sync_memory_wiki_imported_sources
+reset_memory_wiki_source_sync_state_for_tests = (
+    _source_sync.reset_memory_wiki_source_sync_state_for_tests
+)
+
+# Source page shared (Phase 4.3g-mr2).
+WriteImportedSourcePageResult = _source_page_shared.WriteImportedSourcePageResult
+write_imported_source_page = _source_page_shared.write_imported_source_page

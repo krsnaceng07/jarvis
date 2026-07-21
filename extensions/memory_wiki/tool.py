@@ -149,7 +149,7 @@ async def sync_imported_sources_if_needed(
     implementation lands in 4.3g; the
     current stub returns a no-op.
     """
-    sync_memory_wiki_imported_sources(config=config, app_config=app_config)
+    await sync_memory_wiki_imported_sources(config=config, app_config=app_config)
 
 
 # ── wiki_status ───────────────────────────────────────────

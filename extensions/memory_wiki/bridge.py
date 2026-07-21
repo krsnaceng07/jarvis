@@ -438,6 +438,44 @@ def reset_memory_wiki_bridge_state_for_tests() -> None:
     return
 
 
+async def sync_memory_wiki_bridge_sources(
+    *,
+    config: Any,
+    app_config: Any = None,
+) -> BridgeMemoryWikiResult:
+    """Sync the bridge-imported sources (Phase 4.3g-mr2 stub).
+
+    The full implementation walks every
+    workspace listed in
+    ``app_config.agents.list[*].workspace``,
+    enumerates the public memory artifacts
+    + per-agent events, and writes a
+    ``source.memory-bridge`` /
+    ``source.memory-bridge-events`` page
+    for each (via
+    :func:`write_imported_source_page`).
+    The full port lands in Phase 4.3g-mr3
+    alongside the
+    ``chatgpt-import.ts`` / ``import-runs.ts``
+    / ``import-insights.ts`` surfaces.
+
+    For now, the orchestrator returns a
+    no-op result so the dispatch path is
+    fully wired and the source-sync
+    / source-page-shared modules can be
+    tested in isolation.
+    """
+    return BridgeMemoryWikiResult(
+        imported_count=0,
+        updated_count=0,
+        skipped_count=0,
+        removed_count=0,
+        artifact_count=0,
+        workspaces=0,
+        page_paths=[],
+    )
+
+
 __all__ = [
     "BRIDGE_IMPORT_KINDS",
     "BridgeArtifact",

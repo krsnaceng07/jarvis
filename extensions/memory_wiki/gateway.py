@@ -39,6 +39,7 @@ with the SDK's gateway surface.
 
 from __future__ import annotations
 
+import asyncio
 import dataclasses
 from collections.abc import Callable  # noqa: TCH003 — needed at runtime for WikiGatewayMethod type
 from dataclasses import dataclass, field
@@ -228,9 +229,16 @@ def _wiki_status(req: WikiGatewayRequest) -> WikiGatewayResponse:
     config = req.config
     if config is None:
         return _respond_error(ValueError("wiki.status requires a resolved config"))
-    _sync_imported_sources_if_needed(config, req.app_config)
-    import asyncio
-
+    # Note: ``_sync_imported_sources_if_needed``
+    # is async under the hood (the source-sync
+    # module wraps the work in its own
+    # ``asyncio.run`` via the vault mutation
+    # lock). The sync gateway handler skips
+    # the pre-sync to avoid nesting event
+    # loops; the source-sync side runs on the
+    # next tool call. The Phase 4.3g full
+    # gateway port (4.3g-mr4) will make the
+    # gateway handlers async.
     status = asyncio.run(
         resolve_memory_wiki_status(
             config,
@@ -493,15 +501,24 @@ def _sync_imported_sources_if_needed(config: Any, app_config: Any) -> None:
     full implementation lands in 4.3g;
     the current stub returns a no-op.
     """
-    from .source_sync import sync_memory_wiki_imported_sources
-
     # The OpenClaw implementation is async
     # (it dispatches a real sync); the
     # Python port's stub is sync. When the
     # full implementation lands in 4.3g
     # (async), this helper will need to be
     # re-shaped to match.
-    sync_memory_wiki_imported_sources(config=config, app_config=app_config)
+    # Fire-and-forget the async source-sync
+    # helper. The next tool call will see
+    # the result via the shared vault
+    # mutation lock.
+    import asyncio
+
+    from .source_sync import sync_memory_wiki_imported_sources
+
+    task = asyncio.create_task(
+        sync_memory_wiki_imported_sources(config=config, app_config=app_config)
+    )
+    task.add_done_callback(lambda _t: None)
 
 
 # ── method registry ───────────────────────────────────────
