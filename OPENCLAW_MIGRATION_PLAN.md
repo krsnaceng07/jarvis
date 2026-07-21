@@ -3383,3 +3383,176 @@ corpus-supplement file (100% parity).**
 - Pre-step: read OpenClaw's
   extensions/memory-wiki/src/prompt-section.ts
   end-to-end, plan, then implement same-to-same.
+
+## §34 — Phase 4.3f-mr6: memory_wiki prompt section (sync builder + async preparer) (2026-07-21)
+
+**Commit:** dbf012a feat(phase4.3f-mr6): memory_wiki prompt section (sync builder + async preparer)
+
+Phase 4.3f-mr6 ships the per-vault prompt
+section that the host injects into the
+system prompt. Mirrors OpenClaw's
+`createWikiPromptSectionBuilder` /
+`createWikiPromptSectionPreparer` from
+`extensions/memory-wiki/src/prompt-section.ts`.
+
+The host needs two hooks per memory-wiki
+plugin: a sync tool-guidance block
+emitted inline during prompt assembly,
+and an async per-vault digest loaded
+once per run during prompt preparation.
+
+### Files added
+
+- `extensions/memory_wiki/prompt_section.py`
+  (~400 lines) — the helpers + factories:
+  - `MemoryPromptSectionParams` dataclass
+    mirroring the OpenClaw
+    `MemoryPromptSectionParams` shape
+    (`availableTools`, `citationsMode`,
+    `agentId`, `agentSessionKey`,
+    `sandboxed`).
+  - `MemoryPromptSectionBuilder` /
+    `MemoryPromptSectionPreparer` type
+    aliases for the sync / async hooks.
+  - `rank_prompt_digest_page` — page
+    score = contradictions × 6 + questions
+    × 4 + min(claimCount, 6) × 2 +
+    min(topClaims.length, 3). Caps claim
+    count at 6 and top-claims at 3 so a
+    single high-volume page can't dominate
+    the digest.
+  - `rank_prompt_claim_freshness` —
+    fresh=3, aging=2, stale=1, default=0.
+  - `sort_prompt_claims` — confidence
+    desc, then freshness desc, then text
+    asc.
+  - `format_prompt_claim` — appends
+    `(status X, confidence Y, freshness Z)`
+    when any qualifier is present.
+  - `build_digest_prompt_section` —
+    renders the "## Compiled Wiki Snapshot"
+    block. Caps at `DIGEST_MAX_PAGES = 4`
+    pages × `DIGEST_MAX_CLAIMS_PER_PAGE =
+    2` claims per page (prompt-cache
+    friendliness).
+  - `build_wiki_tool_guidance` — emits
+    the "## Compiled Wiki" block whose
+    workflow lines depend on which tools
+    are present (`memory_search`,
+    `memory_get`, `wiki_search`,
+    `wiki_get`, `wiki_apply`,
+    `wiki_lint`).
+  - `create_wiki_prompt_section_builder`
+    — sync factory; returns a closure
+    that takes params and returns the
+    tool-guidance lines.
+  - `create_wiki_prompt_section_preparer`
+    — async factory. Returns a closure
+    that:
+      1. Returns `[]` when
+         `vault.scope == "agent"` and no
+         `agent_id` is provided.
+      2. Returns `[]` when the resolved
+         config has
+         `context.includeCompiledDigestPrompt`
+         `False`.
+      3. Otherwise re-resolves the
+         per-agent config, loads the
+         compiled cache snapshot, and
+         renders the digest block.
+- `extensions/memory_wiki/tests/test_prompt_section_phase4.py`
+  (43 tests):
+  - 2 constants tests
+  - 6 ranking-helper tests
+  - 3 sort-claim tests
+  - 3 format-claim tests
+  - 8 build-wiki-tool-guidance tests
+  - 3 create-wiki-prompt-section-builder
+    tests (including the
+    "does-no-file-IO-during-sync" assertion
+    matching the OpenClaw
+    `vi.spyOn(fsSync, "readFileSync")`
+    test)
+  - 5 build-digest-prompt-section tests
+    (empty cases + caps at 4 pages /
+    2 claims + basic render)
+  - 2 preparer-disabled tests
+  - 3 preparer-enabled tests
+    (seeded digest, stable ordering
+    across reversed top-claim input,
+    per-agent digests with
+    cross-isolation assertions)
+  - 1 reset test
+  - 1 exports test
+
+### Files modified
+
+- `extensions/memory_wiki/compiled_cache.py`:
+  Fixed a pre-existing bug in
+  `resolve_memory_wiki_compiled_cache_owner_id`
+  where the function read
+  `config.agent_id` (snake_case) but
+  the real `ResolvedMemoryWikiConfig`
+  exposes the field as `config.agentId`
+  (camelCase). Added a `getattr`
+  fallback so both layouts work. The
+  bug was latent until the per-agent
+  prompt-section test hit it.
+- `extensions/memory_wiki/__init__.py`:
+  Re-export the prompt-section surface
+  (factories, types, helpers,
+  `reset_memory_wiki_prompt_section_state_for_tests`)
+  and the Phase 4.3f-mr5
+  corpus-supplement surface.
+
+### Test count (Phase 4.3f-mr6)
+
+- New: 43 memory_wiki tests. All green.
+- memory_wiki + active_memory + SDK
+  suite: 714 ? 757 (+43). 2 skipped
+  (Windows symlink privilege).
+  0 regressions.
+- Pre-commit all 7 hooks green (ruff,
+  ruff-format, pyright, check-imports,
+  check-cycles, check-max-lines,
+  check-manifests).
+
+### Parity matrix (Phase 4.3f-mr6 vs. OpenClaw)
+
+| OpenClaw helper                       | Python port                          | Status |
+|--------------------------------------|--------------------------------------|--------|
+| `createWikiPromptSectionBuilder`   | `create_wiki_prompt_section_builder`| 100%   |
+| `createWikiPromptSectionPreparer`  | `create_wiki_prompt_section_preparer`| 100%  |
+| `MemoryPromptSectionBuilder` type  | `MemoryPromptSectionBuilder` alias  | 100%   |
+| `MemoryPromptSectionPreparer` type | `MemoryPromptSectionPreparer` alias | 100%   |
+| `MemoryPromptSectionParams` type   | `MemoryPromptSectionParams` dataclass| 100%  |
+| `buildWikiToolGuidance`            | `build_wiki_tool_guidance`         | 100%   |
+| `buildDigestPromptSection`         | `build_digest_prompt_section`      | 100%   |
+| `rankPromptDigestPage`             | `rank_prompt_digest_page`          | 100%   |
+| `rankPromptClaimFreshness`         | `rank_prompt_claim_freshness`      | 100%   |
+| `sortPromptClaims`                 | `sort_prompt_claims`               | 100%   |
+| `formatPromptClaim`                | `format_prompt_claim`              | 100%   |
+
+**Phase 4.3f-mr6 surface: 1 of 1 OpenClaw
+prompt-section file (100% parity).**
+
+### Cumulative stats (P4.3f-mr6)
+
+- 2 new files in memory_wiki (1 prod +
+  1 test).
+- 2 files modified (`compiled_cache.py`
+  bug fix + `__init__.py` re-exports).
+- ~ 400 lines ported.
+- 100% parity with OpenClaw's
+  `prompt-section.ts`.
+
+### What's next (Phase 4.3f-mr7)
+
+- `memory-palace.ts` (~5.4K OpenClaw
+  lines) — memory-palace layout / scene
+  cards. Renders a multi-room
+  Obsidian-friendly memory visualization.
+- Pre-step: read OpenClaw's
+  `extensions/memory-wiki/src/memory-palace.ts`
+  end-to-end, plan, then implement
+  same-to-same.
