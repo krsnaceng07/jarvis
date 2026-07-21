@@ -36,6 +36,7 @@ from . import (
     time as _time,
     vault as _vault,
     vault_page_write as _vault_page_write,
+    wiki_page_summary as _wiki_page_summary,
 )
 
 _LOGGER = logging.getLogger("jarvis.extensions.memory_wiki")
@@ -151,6 +152,10 @@ __all__ = [
     "collect_wiki_claim_health",
     "build_claim_contradiction_clusters",
     "build_page_contradiction_clusters",
+    # Wiki page summary (Phase 4.3d-mr3).
+    "WikiPageSummary",
+    "scan_wiki_page_summary",
+    "scan_wiki_page_summary_from_file",
 ]
 
 
@@ -277,3 +282,8 @@ assess_claim_freshness = _claim_health.assess_claim_freshness
 collect_wiki_claim_health = _claim_health.collect_wiki_claim_health
 build_claim_contradiction_clusters = _claim_health.build_claim_contradiction_clusters
 build_page_contradiction_clusters = _claim_health.build_page_contradiction_clusters
+
+# Wiki page summary (Phase 4.3d-mr3).
+WikiPageSummary = _wiki_page_summary.WikiPageSummary
+scan_wiki_page_summary = _wiki_page_summary.scan_wiki_page_summary
+scan_wiki_page_summary_from_file = _wiki_page_summary.scan_wiki_page_summary_from_file
