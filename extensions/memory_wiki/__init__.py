@@ -58,6 +58,7 @@ from . import (
     source_sync_state as _source_sync_state,
     status as _status,
     time as _time,
+    tool as _tool,
     unsafe_local as _unsafe_local,
     vault as _vault,
     vault_page_write as _vault_page_write,
@@ -68,37 +69,370 @@ from . import (
 _LOGGER = logging.getLogger("jarvis.extensions.memory_wiki")
 
 
-def register_memory_wiki(api: PluginApi) -> None:
+def register_memory_wiki(api: PluginApi) -> None:  # noqa: PLR0915 — mirrors OpenClaw's exhaustive 11-section register body
     """Register the memory-wiki plugin with the host.
 
-    Phase 4.3a ships a minimal registration: log a
-    startup line so operators can see the plugin
-    loaded, and surface the foundation helpers
-    through ``api.runtime`` (so other sub-phases
-    can call them without an import cycle). The
-    full registration (gateway methods, tool
-    registrations, prompt section, lifecycle
-    service) is wired in Phase 4.3g.
+    Phase 4.3g-mr8 ships the **full**
+    OpenClaw ``index.ts`` registration body:
+    config + resolver + state stores +
+    lifecycle service + prompt supplement
+    + corpus supplement + gateway methods
+    + 5 tools + CLI registration. The
+    surface mirrors OpenClaw's
+    ``register(api)`` body line-for-line so
+    ``register_memory_wiki_setup``
+    (Phase 4.3g-mr6) and the
+    ``register_memory_wiki_doctor_contracts``
+    (Phase 4.3g-mr7) become sibling
+    plugin entries the host can load.
+
+    Each ``register_*`` call is wrapped in a
+    ``getattr(api, ...)`` + ``callable``
+    guard so older hosts (that haven't
+    wired every SDK surface) silently skip
+    the missing calls instead of crashing.
     """
     logger = getattr(api, "logger", None)
     log_fn = getattr(logger, "info", None) if logger is not None else None
     if callable(log_fn):
-        log_fn("memory-wiki: phase 4.3a foundation loaded")
-    # Phase 4.3a does not register any service or
-    # tool yet. Subsequent sub-phases will add:
-    #   - register_service for the compiled-cache
-    #     lifecycle (Phase 4.3e)
-    #   - register_tool for the 5 wiki tools
-    #     (Phase 4.3f)
-    #   - register_cli for the ``wiki`` command
-    #     (Phase 4.3g)
+        log_fn("memory-wiki: phase 4.3g-mr8 full entry loaded")
+
+    # ── Config + resolver ─────────────────────────
+    plugin_config = getattr(getattr(api, "ctx", None), "config", None)
+    config = _config.resolve_memory_wiki_config(plugin_config)
+
+    def _get_app_config() -> Any | None:
+        runtime = getattr(api, "runtime", None)
+        runtime_config = getattr(runtime, "config", None) if runtime is not None else None
+        current = getattr(runtime_config, "current", None) if runtime_config else None
+        if callable(current):
+            try:
+                return current()
+            except Exception:
+                return getattr(api, "config", None)
+        return getattr(api, "config", None)
+
+    app_config = _get_app_config()
+
+    def _resolve_config(agent_id: str | None, app_config_arg: Any | None = None) -> Any:
+        return _config.resolve_memory_wiki_agent_config(
+            config=config,
+            app_config=app_config_arg if app_config_arg is not None else app_config,
+            agent_id=agent_id,
+        )
+
+    def _resolve_tool_context(agent_id: str | None) -> dict[str, Any] | None:
+        if config.vault.scope == "agent" and not agent_id:
+            configured_ids = _config.resolve_memory_wiki_configured_agent_ids(app_config)
+            if len(configured_ids) > 1:
+                # Context-free tool discovery
+                # cannot safely choose one
+                # agent's vault.
+                return None
+        return {
+            "appConfig": app_config,
+            "config": _resolve_config(agent_id, app_config),
+        }
+
+    # ── State stores ──────────────────────────────
+    runtime = getattr(api, "runtime", None)
+    state = getattr(runtime, "state", None) if runtime is not None else None
+    open_keyed_store = getattr(state, "openKeyedStore", None) if state else None
+    open_blob_store = getattr(state, "openBlobStore", None) if state else None
+
+    if callable(open_keyed_store):
+        _source_sync_state.configure_memory_wiki_source_sync_state_store(
+            _source_sync_state.create_memory_wiki_source_sync_state_store(open_keyed_store)
+        )
+        _import_runs_state.configure_memory_wiki_import_run_state_store(
+            _import_runs_state.create_memory_wiki_import_run_state_store(open_keyed_store)
+        )
+
+    # ── Lifecycle service (compiled-cache owner
+    #    cleanup) ──────────────────────────────────
+    if callable(open_blob_store):
+        _compiled_cache.configure_memory_wiki_compiled_cache_store(
+            _compiled_cache.create_memory_wiki_compiled_cache_store(
+                open_blob_store,
+            )
+        )
+
+    register_service = getattr(api, "register_service", None)
+    if callable(register_service):
+
+        def _start_compiled_cache_owner_cleanup() -> None:
+            _run_compiled_cache_owner_cleanup(config, app_config)
+
+        register_service(
+            {
+                "id": "memory-wiki-compiled-cache-owner-cleanup",
+                "start": _start_compiled_cache_owner_cleanup,
+            }
+        )
+
+    # ── Prompt supplement + preparation ──────────
+    register_memory_supplement = getattr(api, "register_memory_prompt_supplement", None)
+    if callable(register_memory_supplement):
+        register_memory_supplement(_prompt_section.create_wiki_prompt_section_builder())
+
+    register_memory_preparation = getattr(api, "register_memory_prompt_preparation", None)
+    if callable(register_memory_preparation):
+        register_memory_preparation(
+            _prompt_section.create_wiki_prompt_section_preparer(
+                config=config,
+                resolve_config=_resolve_config,
+            )
+        )
+
+    register_memory_corpus_supplement = getattr(api, "register_memory_corpus_supplement", None)
+    if callable(register_memory_corpus_supplement):
+        register_memory_corpus_supplement(
+            _corpus_supplement.create_wiki_corpus_supplement(
+                resolve_config=_resolve_config,
+                get_app_config=_get_app_config,
+            )
+        )
+
+    # ── Gateway methods ───────────────────────────
+    register_gateway_methods = getattr(api, "register_gateway_methods", None)
+    if callable(register_gateway_methods):
+        register_gateway_methods(
+            {
+                "api": api,
+                "config": config,
+                "appConfig": getattr(api, "config", None),
+                "getAppConfig": _get_app_config,
+                "resolveConfig": _resolve_config,
+            }
+        )
+
+    # ── 5 wiki tools ──────────────────────────────
+    register_tool = getattr(api, "register_tool", None)
+    if callable(register_tool):
+
+        def _status_tool_factory(ctx: Any) -> Any | None:
+            resolved = _resolve_tool_context(getattr(ctx, "agent_id", None))
+            if resolved is None:
+                return None
+            memory_context = _tool.WikiToolMemoryContext(
+                agent_id=resolved["config"].agent_id or getattr(ctx, "agent_id", None),
+                agent_session_key=getattr(ctx, "session_key", None),
+                sandboxed=bool(getattr(ctx, "sandboxed", False)),
+            )
+            return _tool.create_wiki_status_tool(
+                resolved["config"],
+                resolved["appConfig"],
+                memory_context=memory_context,
+            )
+
+        register_tool(_status_tool_factory, {"name": "wiki_status"})
+
+        def _lint_tool_factory(ctx: Any) -> Any | None:
+            resolved = _resolve_tool_context(getattr(ctx, "agent_id", None))
+            if resolved is None:
+                return None
+            return _tool.create_wiki_lint_tool(resolved["config"], resolved["appConfig"])
+
+        register_tool(_lint_tool_factory, {"name": "wiki_lint"})
+
+        def _apply_tool_factory(ctx: Any) -> Any | None:
+            resolved = _resolve_tool_context(getattr(ctx, "agent_id", None))
+            if resolved is None:
+                return None
+            return _tool.create_wiki_apply_tool(resolved["config"], resolved["appConfig"])
+
+        register_tool(_apply_tool_factory, {"name": "wiki_apply"})
+
+        def _search_tool_factory(ctx: Any) -> Any | None:
+            resolved = _resolve_tool_context(getattr(ctx, "agent_id", None))
+            if resolved is None:
+                return None
+            memory_context = _tool.WikiToolMemoryContext(
+                agent_id=resolved["config"].agent_id or getattr(ctx, "agent_id", None),
+                agent_session_key=getattr(ctx, "session_key", None),
+                sandboxed=bool(getattr(ctx, "sandboxed", False)),
+            )
+            return _tool.create_wiki_search_tool(
+                resolved["config"],
+                resolved["appConfig"],
+                memory_context=memory_context,
+            )
+
+        register_tool(_search_tool_factory, {"name": "wiki_search"})
+
+        def _get_tool_factory(ctx: Any) -> Any | None:
+            resolved = _resolve_tool_context(getattr(ctx, "agent_id", None))
+            if resolved is None:
+                return None
+            memory_context = _tool.WikiToolMemoryContext(
+                agent_id=resolved["config"].agent_id or getattr(ctx, "agent_id", None),
+                agent_session_key=getattr(ctx, "session_key", None),
+                sandboxed=bool(getattr(ctx, "sandboxed", False)),
+            )
+            return _tool.create_wiki_get_tool(
+                resolved["config"],
+                resolved["appConfig"],
+                memory_context=memory_context,
+            )
+
+        register_tool(_get_tool_factory, {"name": "wiki_get"})
+
+    # ── CLI registration ──────────────────────────
+    register_cli = getattr(api, "register_cli", None)
+    if callable(register_cli):
+
+        def _register_wiki(program: Any) -> None:
+            _wiki_cli.register_wiki_cli(
+                program,
+                _wiki_cli.MemoryWikiCliRegistration(
+                    config=config,
+                    resolve_config=_resolve_config,
+                    get_app_config=_get_app_config,
+                ),
+            )
+
+        register_cli(
+            _register_wiki,
+            descriptors=[
+                {
+                    "name": "wiki",
+                    "description": "Inspect and initialize the memory wiki vault",
+                    "hasSubcommands": True,
+                }
+            ],
+        )
+
+    # ── Doctor contracts (Phase 4.3g-mr7) ─────────
+    register_memory_wiki_doctor_contracts(api)
+
+    # ── Setup API (Phase 4.3g-mr6) ──────────────────
+    register_memory_wiki_setup(api)
+
+
+def _safe_log_warn(logger: Any, message: str) -> None:
+    """Log a warning through ``logger`` if it
+    exposes a ``warn`` method, otherwise
+    silently drop the message.
+    """
+    if logger is None:
+        return
+    log_fn = getattr(logger, "warn", None)
+    if callable(log_fn):
+        log_fn(message)
+
+
+def _run_compiled_cache_owner_cleanup(config: Any, app_config: Any) -> None:
+    """Reconcile the per-vault compiled-cache
+    owner set on plugin startup.
+
+    Mirrors OpenClaw's
+    ``api.registerService({...})`` ``start``
+    body: every configured vault has its
+    compiled-cache owner activated, then
+    the previous trusted owners are pruned
+    + the keyed / blob stores delete the
+    matching keys.
+
+    The Python port runs the body
+    synchronously (the host's compiled-cache
+    store APIs are sync) and the lifecycle
+    service's ``start`` callback wraps
+    ``asyncio.run`` on the caller's side if
+    it needs an awaitable.
+    """
+    from . import compiled_cache as _cc
+
+    active_configs: list[Any] = []
+    if config.vault.scope == "global":
+        active_configs.append(config)
+    else:
+        for agent_id in _config.resolve_memory_wiki_configured_agent_ids(app_config):
+            active_configs.append(
+                _config.resolve_memory_wiki_agent_config(
+                    config=config, app_config=app_config, agent_id=agent_id
+                )
+            )
+
+    # Clear every previously trusted
+    # owner before fallible vault reads. A
+    # failed lifecycle refresh must leave
+    # prompt preparation closed, not
+    # stale-but-active.
+    _cc.deactivate_memory_wiki_compiled_cache_owners_except(set())
+
+    prepared_owners: list[tuple[Any, dict[str, Any]]] = []
+    for active_config in active_configs:
+        identity = _load_configured_vault_identity(active_config.vault.path)
+        if identity is not None:
+            prepared_owners.append((active_config, identity))
+
+    active_owner_ids: set[str] = set()
+    try:
+        for active_config, identity in prepared_owners:
+            _cc.activate_memory_wiki_compiled_cache_owner(
+                active_config,
+                identity["vaultGeneration"],
+                identity["compiledCachePublicationId"],
+            )
+            _cc.reconcile_memory_wiki_compiled_cache_owner(
+                active_config,
+                lambda active_config=active_config: _load_validated_identity(
+                    active_config.vault.path
+                ),
+            )
+            active_owner_ids.add(_cc.resolve_memory_wiki_compiled_cache_owner_id(active_config))
+    except Exception:
+        _cc.deactivate_memory_wiki_compiled_cache_owners_except(set())
+        raise
+
+    _cc.deactivate_memory_wiki_compiled_cache_owners_except(active_owner_ids)
+    store = getattr(_cc, "_configured_store", None)
+    if store is not None and hasattr(store, "delete_owners_except"):
+        import contextlib
+
+        with contextlib.suppress(Exception):
+            store.delete_owners_except(active_owner_ids)
+
+
+def _load_configured_vault_identity(vault_root: str) -> dict[str, Any] | None:
+    """Load a vault's identity from the
+    log + scaffold files. Mirrors
+    OpenClaw's ``loadConfiguredVaultIdentity``.
+    """
+    from .log import load_memory_wiki_validated_vault_identity
+
+    identity = load_memory_wiki_validated_vault_identity(vault_root)
+    if identity.vault_generation:
+        return {
+            "vaultGeneration": identity.vault_generation,
+            "compiledCachePublicationId": identity.compiled_cache_publication_id,
+        }
+    return None
+
+
+def _load_validated_identity(vault_root: str) -> dict[str, Any]:
+    """Sync wrapper around
+    ``load_memory_wiki_validated_vault_identity``
+    so the compiled-cache owner
+    reconciliation loop can pass it to
+    :func:`reconcile_memory_wiki_compiled_cache_owner`.
+    """
+    from .log import load_memory_wiki_validated_vault_identity
+
+    identity = load_memory_wiki_validated_vault_identity(vault_root)
+    return {
+        "vaultGeneration": identity.vault_generation,
+        "compiledCachePublicationId": identity.compiled_cache_publication_id,
+    }
 
 
 # ``define_plugin_entry`` is the SDK helper that
 # builds the ``.entry`` symbol the host looks for
-# when it imports the extension. The Phase 4.3a
-# entry exposes a minimal registration callback;
-# Phase 4.3g will replace it with the full surface.
+# when it imports the extension. Phase 4.3g-mr8
+# ships the full surface (lifecycle service +
+# prompt supplement + corpus supplement +
+# gateway + 5 tools + CLI + doctor contracts
+# + setup API).
 entry = define_plugin_entry(
     id="memory_wiki",
     kind="memory",
