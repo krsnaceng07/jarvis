@@ -108,6 +108,38 @@ def normalize_optional_string(value: object) -> str | None:
     return trimmed if trimmed else None
 
 
+def normalize_trimmed_string_list(value: object) -> list[str]:
+    """Normalize an array-backed string list, dropping empty / non-string entries.
+
+    Mirrors ``@openclaw/normalization-core/string-coerce``'s
+    ``normalizeTrimmedStringList``. Returns ``[]`` for non-array
+    input; each surviving entry is the trimmed string.
+    """
+    if not isinstance(value, list | tuple):
+        return []
+    out: list[str] = []
+    for entry in value:
+        normalized = normalize_optional_string(entry)
+        if normalized is not None:
+            out.append(normalized)
+    return out
+
+
+def normalize_single_or_trimmed_string_list(value: object) -> list[str]:
+    """Normalize a string-or-list input into a string list.
+
+    Mirrors ``@openclaw/normalization-core/string-coerce``'s
+    ``normalizeSingleOrTrimmedStringList``. A bare string is
+    wrapped into a single-element list; an array is normalized
+    via :func:`normalize_trimmed_string_list`; anything else
+    (including ``None``) returns ``[]``.
+    """
+    if isinstance(value, list | tuple):
+        return normalize_trimmed_string_list(value)
+    normalized = normalize_optional_string(value)
+    return [normalized] if normalized is not None else []
+
+
 def unique_strings(values: object) -> list[str]:
     """Deduplicate a list of strings, preserving order.
 
@@ -152,6 +184,8 @@ __all__ = [
     "lowercase_preserving_whitespace",
     "normalize_lowercase_string_or_empty",
     "normalize_optional_string",
+    "normalize_single_or_trimmed_string_list",
     "normalize_string_entries",
+    "normalize_trimmed_string_list",
     "unique_strings",
 ]

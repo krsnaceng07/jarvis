@@ -47,6 +47,7 @@ from . import (
     memory_palace as _memory_palace,
     mutation_coordinator as _mutation_coordinator,
     obsidian as _obsidian,
+    okf as _okf,
     prompt_section as _prompt_section,
     query as _query,
     source_page_shared as _source_page_shared,
@@ -54,8 +55,8 @@ from . import (
     source_sync as _source_sync,
     source_sync_state as _source_sync_state,
     status as _status,
-    unsafe_local as _unsafe_local,
     time as _time,
+    unsafe_local as _unsafe_local,
     vault as _vault,
     vault_page_write as _vault_page_write,
     wiki_page_summary as _wiki_page_summary,
@@ -387,6 +388,14 @@ __all__ = [
     # ChatGPT import (Phase 4.3g-mr3).
     "ChatGptImportResult",
     "import_chatgpt_export",
+    # OKF import (Phase 4.3g-mr5).
+    "ImportMemoryWikiOkfResult",
+    "ImportMemoryWikiOkfWarning",
+    "OKF_RESERVED_FILENAMES",
+    "OkfBundleMetadata",
+    "OkfConceptDocument",
+    "format_okf_import_summary",
+    "import_memory_wiki_okf_bundle",
     # Unsafe local import (Phase 4.3g-mr4).
     "DIRECTORY_TEXT_EXTENSIONS",
     "UNSAFE_LOCAL_SYNC_CONCURRENCY",
@@ -836,6 +845,15 @@ list_memory_wiki_import_insights = _import_insights.list_memory_wiki_import_insi
 # ChatGPT import (Phase 4.3g-mr3).
 ChatGptImportResult = _chatgpt_import.ChatGptImportResult
 import_chatgpt_export = _chatgpt_import.import_chatgpt_export
+
+# OKF import (Phase 4.3g-mr5).
+ImportMemoryWikiOkfResult = _okf.ImportMemoryWikiOkfResult
+ImportMemoryWikiOkfWarning = _okf.ImportMemoryWikiOkfWarning
+OKF_RESERVED_FILENAMES = _okf.OKF_RESERVED_FILENAMES
+OkfBundleMetadata = _okf.OkfBundleMetadata
+OkfConceptDocument = _okf.OkfConceptDocument
+format_okf_import_summary = _okf.format_okf_import_summary
+import_memory_wiki_okf_bundle = _okf.import_memory_wiki_okf_bundle
 
 # Unsafe local import (Phase 4.3g-mr4).
 DIRECTORY_TEXT_EXTENSIONS = _unsafe_local.DIRECTORY_TEXT_EXTENSIONS

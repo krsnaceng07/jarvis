@@ -197,7 +197,9 @@ from .string_coerce import (
     lowercase_preserving_whitespace,
     normalize_lowercase_string_or_empty,
     normalize_optional_string,
+    normalize_single_or_trimmed_string_list,
     normalize_string_entries,
+    normalize_trimmed_string_list,
     unique_strings,
 )
 from .text_utility import truncate_utf16_safe, utf16_length
@@ -315,6 +317,8 @@ __all__ = [
     "normalize_agent_id",
     "normalize_lowercase_string_or_empty",
     "normalize_optional_string",
+    "normalize_single_or_trimmed_string_list",
+    "normalize_trimmed_string_list",
     "normalize_plugins_config",
     "normalize_string_entries",
     "open_keyed_store",
