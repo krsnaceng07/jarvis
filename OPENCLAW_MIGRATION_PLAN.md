@@ -3816,3 +3816,68 @@ Phase 4.3g is the last big surface of the memory-wiki extension. It wires the in
 - `src/index.ts` (full entry) — the full `register(api)` body. Python port: replace the 4.3a stub `register_memory_wiki` with the full surface (gateway methods + tools + prompt section + lifecycle service).
 
 These files together round out the last 4-5 of the 35 OpenClaw memory-wiki modules.
+
+## §37 — Phase 4.3g (mr6 + mr7 + mr8): memory_wiki root-level files (setup-api + wiki CLI + doctor contract + full entry) (2026-07-22)
+
+Phase 4.3g-mr6..mr8 ports every remaining root-level OpenClaw file in the memory-wiki extension. The full surface is now structurally equivalent to the OpenClaw source.
+
+### Phase 4.3g-mr6 — setup-api + wiki CLI
+
+- `extensions/memory_wiki/setup_api.py` — small `register_memory_wiki_setup` registrar (no-op on hosts that don't expose `register_config_migration`).
+- `extensions/memory_wiki/wiki_cli.py` — 19 handlers + registrar + sanitization + JSON/text format helpers + the `WikiCommandContext` dataclass. Each handler dispatches with the resolved context (mirrors OpenClaw's `commandContext` shape). The 19 commands:
+  - `status` `doctor` `init` `compile` `lint`
+  - `ingest <path>`
+  - `okf import <path>`
+  - `search <query>` `get <lookup>`
+  - `apply synthesis <title>` `apply metadata <lookup>`
+  - `bridge import`
+  - `unsafe-local import`
+  - `chatgpt import --export <path>`
+  - `obsidian status` `obsidian search <query>` `obsidian open <path>` `obsidian command <id>` `obsidian daily`
+- 3 new tests in `test_setup_api_phase4.py` + 24 new tests in `test_wiki_cli_phase4.py`.
+
+### Phase 4.3g-mr7 — doctor contract
+
+- `extensions/memory_wiki/doctor_contract.py` — the three state-migration contracts (`memory-wiki-compiled-cache-file-cleanup`, `memory-wiki-source-sync-json-to-plugin-state`, `memory-wiki-import-runs-json-to-plugin-state`) + the `register_memory_wiki_doctor_contracts` registrar.
+- 8 new tests in `test_doctor_contract_phase4.py`.
+
+### Phase 4.3g-mr8 — full index.ts entry
+
+- `extensions/memory_wiki/__init__.py` — replaces the Phase 4.3a scaffold-only `register_memory_wiki` with the full OpenClaw surface: config + resolver + state stores + lifecycle service + prompt supplement + corpus supplement + gateway methods + 5 tools + CLI registration + doctor contracts + setup API. Each `register_*` call is guarded by `getattr` + `callable` so older hosts silently skip missing surfaces.
+
+### Files added (Phase 4.3g-mr6..mr8)
+
+- `extensions/memory_wiki/setup_api.py`
+- `extensions/memory_wiki/wiki_cli.py`
+- `extensions/memory_wiki/doctor_contract.py`
+- `tests/test_setup_api_phase4.py`
+- `tests/test_wiki_cli_phase4.py`
+- `tests/test_doctor_contract_phase4.py`
+
+### Files modified (Phase 4.3g-mr6..mr8)
+
+- `extensions/memory_wiki/__init__.py` — full entry body + 2 new re-exports.
+- `packages/plugin_sdk/src/jarvis_sdk/string_coerce.py` — `normalize_trimmed_string_list` + `normalize_single_or_trimmed_string_list` (mirrors OpenClaw's `normalizeTrimmedStringList` / `normalizeSingleOrTrimmedStringList`).
+
+### Test count (Phase 4.3g-mr6..mr8)
+
+- New: 35 tests across the 3 sub-phases.
+- memory_wiki + active_memory + SDK suite: 693 → 728 (+35). 2 skipped (Windows symlinks), 0 regressions.
+- Pre-commit all 7 hooks green (ruff, ruff-format, pyright, check-imports, check-cycles, check-max-lines, check-manifests).
+
+### Cumulative stats (Phase 4.3g-mr6..mr8)
+
+- 6 new files in memory_wiki (3 prod + 3 test).
+- 2 files modified.
+- ~ 2,500 lines ported.
+- 100% parity with the OpenClaw root-level surface (`setup-api.ts` + `src/cli.ts` + `doctor-contract-api.ts` + `index.ts`).
+
+### What's next
+
+The memory-wiki extension is now 100% structurally equivalent to OpenClaw. The only files NOT ported are:
+- `api.ts` — TypeScript-only re-exports of the OpenClaw plugin-sdk types; the Python port's `__init__.py` is the public surface instead.
+- `cli-metadata.ts` — the OpenClaw plugin's standalone CLI metadata entry. The Python port wires the CLI registration inside the full entry (`Phase 4.3g-mr8`), so the cli-metadata surface is implicitly covered.
+
+These two files are TypeScript idioms that don't translate to Python; their functionality is fully covered by the `__init__.py` entry.
+
+The next phase (4.4) is the remaining memory plugin surface: the dreaming pipeline (light + REM + deep + REM evidence + shadow trial + qmd backend).
