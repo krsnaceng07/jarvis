@@ -26,6 +26,7 @@ from jarvis_sdk import PluginApi, define_plugin_entry
 
 from . import (
     claim_health as _claim_health,
+    compile_pages as _compile_pages,
     compile_pipeline as _compile_pipeline,
     compile_render as _compile_render,
     config as _config,
@@ -172,6 +173,15 @@ __all__ = [
     "build_claim_health_body",
     "build_stale_pages_body",
     "render_wiki_dashboards",
+    # Compile pages (Phase 4.3d-mr6).
+    "PageWriteResult",
+    "MAX_RELATED_PAGES_PER_SECTION",
+    "MAX_RELATED_LINE_LENGTH",
+    "HUMAN_START_MARKER",
+    "HUMAN_END_MARKER",
+    "build_related_block",
+    "build_page_body",
+    "write_compiled_pages",
 ]
 
 
@@ -319,3 +329,13 @@ build_low_confidence_body = _compile_render.build_low_confidence_body
 build_claim_health_body = _compile_render.build_claim_health_body
 build_stale_pages_body = _compile_render.build_stale_pages_body
 render_wiki_dashboards = _compile_render.render_wiki_dashboards
+
+# Compile pages (Phase 4.3d-mr6).
+PageWriteResult = _compile_pages.PageWriteResult
+MAX_RELATED_PAGES_PER_SECTION = _compile_pages.MAX_RELATED_PAGES_PER_SECTION
+MAX_RELATED_LINE_LENGTH = _compile_pages.MAX_RELATED_LINE_LENGTH
+HUMAN_START_MARKER = _compile_pages.HUMAN_START_MARKER
+HUMAN_END_MARKER = _compile_pages.HUMAN_END_MARKER
+build_related_block = _compile_pages.build_related_block
+build_page_body = _compile_pages.build_page_body
+write_compiled_pages = _compile_pages.write_compiled_pages
