@@ -26,6 +26,7 @@ from jarvis_sdk import PluginApi, define_plugin_entry
 
 from . import (
     claim_health as _claim_health,
+    compile_pipeline as _compile_pipeline,
     config as _config,
     config_compat as _config_compat,
     log as _log,
@@ -156,6 +157,10 @@ __all__ = [
     "WikiPageSummary",
     "scan_wiki_page_summary",
     "scan_wiki_page_summary_from_file",
+    # Compile pipeline (Phase 4.3d-mr4).
+    "CompileWikiVaultResult",
+    "compile_wiki_vault",
+    "should_skip_page_for_compile",
 ]
 
 
@@ -287,3 +292,8 @@ build_page_contradiction_clusters = _claim_health.build_page_contradiction_clust
 WikiPageSummary = _wiki_page_summary.WikiPageSummary
 scan_wiki_page_summary = _wiki_page_summary.scan_wiki_page_summary
 scan_wiki_page_summary_from_file = _wiki_page_summary.scan_wiki_page_summary_from_file
+
+# Compile pipeline (Phase 4.3d-mr4).
+CompileWikiVaultResult = _compile_pipeline.CompileWikiVaultResult
+compile_wiki_vault = _compile_pipeline.compile_wiki_vault
+should_skip_page_for_compile = _compile_pipeline.should_skip_page_for_compile
