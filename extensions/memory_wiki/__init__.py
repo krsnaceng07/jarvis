@@ -25,6 +25,8 @@ from typing import Any
 from jarvis_sdk import PluginApi, define_plugin_entry
 
 from . import (
+    apply as _apply,
+    bridge as _bridge,
     claim_health as _claim_health,
     compile_pages as _compile_pages,
     compile_pipeline as _compile_pipeline,
@@ -37,6 +39,7 @@ from . import (
     markdown as _markdown,
     markdown_pages as _markdown_pages,
     mutation_coordinator as _mutation_coordinator,
+    query as _query,
     source_path_shared as _source_path_shared,
     source_sync_state as _source_sync_state,
     time as _time,
@@ -253,6 +256,46 @@ __all__ = [
     "resolve_memory_wiki_compiled_cache_generation",
     "resolve_memory_wiki_compiled_cache_owner_id",
     "write_memory_wiki_compiled_cache",
+    # Apply (Phase 4.3f-mr2).
+    "GENERATED_END_MARKER",
+    "GENERATED_START_MARKER",
+    "HUMAN_END_MARKER",
+    "HUMAN_START_MARKER",
+    "ApplyMutation",
+    "ApplyMutationResult",
+    "CreateSynthesisMutation",
+    "UpdateMetadataMutation",
+    "apply_memory_wiki_mutation",
+    "normalize_memory_wiki_mutation_input",
+    "reset_memory_wiki_apply_state_for_tests",
+    # Bridge (Phase 4.3f-mr2).
+    "BRIDGE_IMPORT_KINDS",
+    "BridgeArtifact",
+    "BridgeArtifactType",
+    "BridgeMemoryWikiResult",
+    "build_bridge_page_body",
+    "collect_bridge_artifacts",
+    "filter_memory_wiki_bridge_artifacts",
+    "is_path_inside_or_equal",
+    "resolve_bridge_page_path",
+    "resolve_bridge_render_fingerprint",
+    "resolve_bridge_title",
+    "resolve_memory_wiki_vault_agent_id",
+    "should_import_bridge_artifact",
+    "reset_memory_wiki_bridge_state_for_tests",
+    # Query (Phase 4.3f-mr1).
+    "QUERY_DIRS",
+    "QUERY_PAGE_READ_CONCURRENCY",
+    "QueryableWikiPage",
+    "WIKI_SEARCH_MODES",
+    "WikiGetResult",
+    "build_lookup_candidates",
+    "get_memory_wiki_page",
+    "list_wiki_markdown_files",
+    "read_queryable_wiki_pages",
+    "read_queryable_wiki_pages_by_paths",
+    "resolve_queryable_wiki_page_by_lookup",
+    "should_search_wiki",
 ]
 
 
@@ -521,3 +564,46 @@ resolve_memory_wiki_compiled_cache_owner_id = (
     _compiled_cache.resolve_memory_wiki_compiled_cache_owner_id
 )
 write_memory_wiki_compiled_cache = _compiled_cache.write_memory_wiki_compiled_cache
+
+# Apply (Phase 4.3f-mr2).
+GENERATED_END_MARKER = _apply.GENERATED_END_MARKER
+GENERATED_START_MARKER = _apply.GENERATED_START_MARKER
+HUMAN_END_MARKER = _apply.HUMAN_END_MARKER
+HUMAN_START_MARKER = _apply.HUMAN_START_MARKER
+ApplyMutation = _apply.ApplyMutation
+ApplyMutationResult = _apply.ApplyMutationResult
+CreateSynthesisMutation = _apply.CreateSynthesisMutation
+UpdateMetadataMutation = _apply.UpdateMetadataMutation
+apply_memory_wiki_mutation = _apply.apply_memory_wiki_mutation
+normalize_memory_wiki_mutation_input = _apply.normalize_memory_wiki_mutation_input
+reset_memory_wiki_apply_state_for_tests = _apply.reset_memory_wiki_apply_state_for_tests
+
+# Bridge (Phase 4.3f-mr2).
+BRIDGE_IMPORT_KINDS = _bridge.BRIDGE_IMPORT_KINDS
+BridgeArtifact = _bridge.BridgeArtifact
+BridgeArtifactType = _bridge.BridgeArtifactType
+BridgeMemoryWikiResult = _bridge.BridgeMemoryWikiResult
+build_bridge_page_body = _bridge.build_bridge_page_body
+collect_bridge_artifacts = _bridge.collect_bridge_artifacts
+filter_memory_wiki_bridge_artifacts = _bridge.filter_memory_wiki_bridge_artifacts
+is_path_inside_or_equal = _bridge.is_path_inside_or_equal
+resolve_bridge_page_path = _bridge.resolve_bridge_page_path
+resolve_bridge_render_fingerprint = _bridge.resolve_bridge_render_fingerprint
+resolve_bridge_title = _bridge.resolve_bridge_title
+resolve_memory_wiki_vault_agent_id = _bridge.resolve_memory_wiki_vault_agent_id
+should_import_bridge_artifact = _bridge.should_import_bridge_artifact
+reset_memory_wiki_bridge_state_for_tests = _bridge.reset_memory_wiki_bridge_state_for_tests
+
+# Query (Phase 4.3f-mr1).
+QUERY_DIRS = _query.QUERY_DIRS
+QUERY_PAGE_READ_CONCURRENCY = _query.QUERY_PAGE_READ_CONCURRENCY
+QueryableWikiPage = _query.QueryableWikiPage
+WIKI_SEARCH_MODES = _query.WIKI_SEARCH_MODES
+WikiGetResult = _query.WikiGetResult
+build_lookup_candidates = _query.build_lookup_candidates
+get_memory_wiki_page = _query.get_memory_wiki_page
+list_wiki_markdown_files = _query.list_wiki_markdown_files
+read_queryable_wiki_pages = _query.read_queryable_wiki_pages
+read_queryable_wiki_pages_by_paths = _query.read_queryable_wiki_pages_by_paths
+resolve_queryable_wiki_page_by_lookup = _query.resolve_queryable_wiki_page_by_lookup
+should_search_wiki = _query.should_search_wiki
