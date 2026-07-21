@@ -39,6 +39,7 @@ from . import (
     log as _log,
     markdown as _markdown,
     markdown_pages as _markdown_pages,
+    memory_palace as _memory_palace,
     mutation_coordinator as _mutation_coordinator,
     prompt_section as _prompt_section,
     query as _query,
@@ -320,6 +321,22 @@ __all__ = [
     "read_queryable_wiki_pages_by_paths",
     "resolve_queryable_wiki_page_by_lookup",
     "should_search_wiki",
+    # Memory palace (Phase 4.3f-mr7).
+    "PALACE_ITEM_TOP_CLAIMS",
+    "PALACE_ITEM_TOP_CONTRADICTIONS",
+    "PALACE_ITEM_TOP_QUESTIONS",
+    "PALACE_KIND_LABELS",
+    "PALACE_KIND_ORDER",
+    "PRIMARY_PALACE_KINDS",
+    "MemoryWikiPalaceCluster",
+    "MemoryWikiPalaceItem",
+    "MemoryWikiPalacePageCounts",
+    "MemoryWikiPalaceStatus",
+    "compare_palace_items",
+    "create_empty_palace_page_counts",
+    "extract_snippet",
+    "list_memory_wiki_palace",
+    "normalize_timestamp",
 ]
 
 
@@ -659,3 +676,20 @@ create_wiki_corpus_supplement = _corpus_supplement.create_wiki_corpus_supplement
 reset_memory_wiki_corpus_supplement_state_for_tests = (
     _corpus_supplement.reset_memory_wiki_corpus_supplement_state_for_tests
 )
+
+# Memory palace (Phase 4.3f-mr7).
+PALACE_ITEM_TOP_CLAIMS = _memory_palace.PALACE_ITEM_TOP_CLAIMS
+PALACE_ITEM_TOP_CONTRADICTIONS = _memory_palace.PALACE_ITEM_TOP_CONTRADICTIONS
+PALACE_ITEM_TOP_QUESTIONS = _memory_palace.PALACE_ITEM_TOP_QUESTIONS
+PALACE_KIND_LABELS = _memory_palace.PALACE_KIND_LABELS
+PALACE_KIND_ORDER = _memory_palace.PALACE_KIND_ORDER
+PRIMARY_PALACE_KINDS = _memory_palace.PRIMARY_PALACE_KINDS
+MemoryWikiPalaceCluster = _memory_palace.MemoryWikiPalaceCluster
+MemoryWikiPalaceItem = _memory_palace.MemoryWikiPalaceItem
+MemoryWikiPalacePageCounts = _memory_palace.MemoryWikiPalacePageCounts
+MemoryWikiPalaceStatus = _memory_palace.MemoryWikiPalaceStatus
+compare_palace_items = _memory_palace.compare_palace_items
+create_empty_palace_page_counts = _memory_palace.create_empty_palace_page_counts
+extract_snippet = _memory_palace.extract_snippet
+list_memory_wiki_palace = _memory_palace.list_memory_wiki_palace
+normalize_timestamp = _memory_palace.normalize_timestamp
