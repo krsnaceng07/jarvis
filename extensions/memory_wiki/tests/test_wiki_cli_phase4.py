@@ -344,12 +344,12 @@ class TestRegisterWikiCli:
     def test_help_message_lists_wiki(self) -> None:
         p = _make_parser()
         buf = io.StringIO()
-        with pytest.raises(SystemExit):
-            # ``--help`` exits the program.
-            old, sys.stdout = sys.stdout, buf
-            try:
+        # ``--help`` exits the program.
+        old, sys.stdout = sys.stdout, buf
+        try:
+            with pytest.raises(SystemExit):
                 p.parse_args(["--help"])
-            finally:
-                sys.stdout = old
+        finally:
+            sys.stdout = old
         output = buf.getvalue()
         assert "wiki" in output
