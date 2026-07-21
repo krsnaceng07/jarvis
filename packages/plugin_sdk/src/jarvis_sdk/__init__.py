@@ -129,6 +129,7 @@ from .number_runtime import (
     parse_strict_positive_integer,
     resolve_expires_at_ms_from_duration_ms,
     resolve_timer_timeout_ms,
+    timestamp_ms_to_iso_string,
 )
 from .plugin_config import (
     PluginsConfig,
@@ -146,13 +147,22 @@ from .plugin_state import (
 
 # Result type (Ok / Err / Result)
 from .result import Err, Ok, Result, ResultNone
+from .retry_runtime import retry_async
 from .routing import (
     normalize_agent_id,
     parse_agent_session_key,
     parse_thread_session_suffix,
 )
 from .runtime_env import ensure_global_undici_env_proxy_dispatcher
-from .security_runtime import is_path_inside
+from .security_runtime import (
+    FsSafeError,
+    append_regular_file,
+    fs_root,
+    is_path_inside,
+    is_regular_file_stat,
+    path_exists,
+    root,
+)
 from .session_transcript_runtime import (
     SessionTranscriptTargetParams,
     SqliteSessionFileMarker,
@@ -168,6 +178,7 @@ from .session_transcript_runtime import (
 from .skill import SkillDecl
 from .string_coerce import (
     as_optional_record,
+    lowercase_preserving_whitespace,
     normalize_lowercase_string_or_empty,
     normalize_optional_string,
     normalize_string_entries,
@@ -203,6 +214,7 @@ __all__ = [
     # Result
     "Err",
     # Hooks
+    "FsSafeError",
     "HookHandler",
     "HookName",
     "HookRegistration",
@@ -249,6 +261,8 @@ __all__ = [
     "ProviderPlugin",
     "Result",
     "ResultNone",
+    # Retry runtime
+    "retry_async",
     # Session transcript runtime
     "SessionTranscriptTargetParams",
     # Skills
@@ -261,9 +275,9 @@ __all__ = [
     "as_date_timestamp_ms",
     # String coerce
     "as_optional_record",
+    "append_regular_file",
     "build_session_transcript_target",
     "cleanup_session_lifecycle_artifacts",
-    "parse_sqlite_session_file_marker",
     # Memory host search
     "close_active_memory_search_manager",
     # Lazy runtime
@@ -274,11 +288,14 @@ __all__ = [
     # Expect runtime
     "expect_defined",
     "expect_truthy",
+    "fs_root",
     "get_memory_embedding_provider",
     # Security runtime
     "is_path_inside",
+    "is_regular_file_stat",
     "list_registered_memory_embedding_providers",
     # Routing
+    "lowercase_preserving_whitespace",
     "normalize_agent_id",
     "normalize_lowercase_string_or_empty",
     "normalize_optional_string",
@@ -287,6 +304,8 @@ __all__ = [
     "open_keyed_store",
     "parse_agent_session_key",
     "parse_model_ref",
+    "parse_sqlite_session_file_marker",
+    "path_exists",
     "read_session_transcript_events",
     "parse_strict_positive_integer",
     "parse_thread_session_suffix",
@@ -304,8 +323,10 @@ __all__ = [
     "resolve_session_agent_id",
     "resolve_store_path",
     "resolve_timer_timeout_ms",
+    "root",
     "SessionTranscriptTargetParams",
     "SqliteSessionFileMarker",
+    "timestamp_ms_to_iso_string",
     "TranscriptRawDeltaPage",
     # Text utility
     "truncate_utf16_safe",

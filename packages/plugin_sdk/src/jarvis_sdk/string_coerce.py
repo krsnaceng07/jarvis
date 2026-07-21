@@ -130,8 +130,26 @@ def unique_strings(values: object) -> list[str]:
     return out
 
 
+def lowercase_preserving_whitespace(value: object) -> str:
+    """Lowercase ``value`` while preserving internal whitespace.
+
+    Mirrors ``openclaw/plugin-sdk/string-coerce-runtime``'s
+    ``lowercasePreservingWhitespace``. Coerces non-string
+    inputs via ``str(value)``. Used by ``memory-wiki`` to
+    canonicalize Windows paths for the artifact-key resolver
+    (case-insensitive but whitespace-sensitive). Trims
+    leading/trailing whitespace, then lowercases, but
+    preserves runs of internal whitespace.
+    """
+    if value is None:
+        return ""
+    text = value if isinstance(value, str) else str(value)
+    return text.strip().lower()
+
+
 __all__ = [
     "as_optional_record",
+    "lowercase_preserving_whitespace",
     "normalize_lowercase_string_or_empty",
     "normalize_optional_string",
     "normalize_string_entries",

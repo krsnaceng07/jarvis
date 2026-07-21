@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import math
 import time
+from datetime import UTC, datetime
 
 
 def parse_strict_positive_integer(value: object) -> int | None:
@@ -150,9 +151,32 @@ def resolve_expires_at_ms_from_duration_ms(
     return int(now_ms + duration_value)
 
 
+def timestamp_ms_to_iso_string(value: object) -> str | None:
+    """Convert a millisecond timestamp to an ISO 8601 string.
+
+    Mirrors OpenClaw's ``timestampMsToIsoString``. Returns
+    ``None`` for non-finite / out-of-range timestamps, and an
+    ISO 8601 string with millisecond precision (e.g.
+    ``"2026-04-05T12:00:00.000Z"``) otherwise. The returned
+    string is always in UTC.
+    """
+    parsed = as_date_timestamp_ms(value)
+    if parsed is None:
+        return None
+    try:
+        return (
+            datetime.fromtimestamp(parsed / 1000, tz=UTC)
+            .isoformat(timespec="milliseconds")
+            .replace("+00:00", "Z")
+        )
+    except (OverflowError, OSError, ValueError):
+        return None
+
+
 __all__ = [
     "as_date_timestamp_ms",
     "parse_strict_positive_integer",
     "resolve_expires_at_ms_from_duration_ms",
     "resolve_timer_timeout_ms",
+    "timestamp_ms_to_iso_string",
 ]

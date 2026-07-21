@@ -1,0 +1,14 @@
+{
+  "id": "memory_wiki",
+  "activation": "on_startup",
+  "kind": "memory",
+  "name": "Memory Wiki",
+  "description": "Persistent wiki compiler and Obsidian-friendly knowledge vault for JARVIS.",
+  "catalog": { "featured": true, "order": 30 },
+  "commandAliases": [{ "name": "wiki" }],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {}
+  }
+}

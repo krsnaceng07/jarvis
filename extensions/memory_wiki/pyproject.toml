@@ -1,0 +1,14 @@
+[project]
+name = "jarvis-memory-wiki"
+version = "0.1.0"
+description = "JARVIS memory-wiki plugin (Phase 4.3 OpenClaw parity, foundation)."
+requires-python = ">=3.13"
+# Phase 4.3a ships the foundation: types, time, log, source-path
+# helpers, vault-page-write. Subsequent sub-phases will add
+# the config, vault init, markdown, compile, query, tools, and
+# CLI surface. Stdlib only so the host can install the plugin
+# without dragging in heavy deps.
+dependencies = []
+
+[tool.uv]
+package = false
