@@ -29,6 +29,7 @@ from . import (
     config_compat as _config_compat,
     log as _log,
     markdown as _markdown,
+    markdown_pages as _markdown_pages,
     source_path_shared as _source_path_shared,
     time as _time,
     vault as _vault,
@@ -114,6 +115,22 @@ __all__ = [
     "parse_wiki_frontmatter",
     "replace_managed_markdown_block",
     "with_trailing_newline",
+    # Markdown pages (Phase 4.3c-mr2).
+    "WikiClaim",
+    "WikiClaimEvidence",
+    "WikiPersonCard",
+    "WikiRelationship",
+    "WikiPageFrontmatterError",
+    "normalize_wiki_claims",
+    "normalize_wiki_person_card",
+    "normalize_wiki_relationships",
+    "normalize_source_ids",
+    "slugify_wiki_segment",
+    "slugify_wiki_page_stem",
+    "create_wiki_page_filename",
+    "render_wiki_markdown",
+    "extract_title_from_markdown",
+    "extract_wiki_links",
 ]
 
 
@@ -201,3 +218,20 @@ WIKI_RELATED_END_MARKER = _markdown.WIKI_RELATED_END_MARKER
 parse_wiki_frontmatter = _markdown.parse_wiki_frontmatter
 replace_managed_markdown_block = _markdown.replace_managed_markdown_block
 with_trailing_newline = _markdown.with_trailing_newline
+
+# Markdown pages (Phase 4.3c-mr2).
+WikiClaim = _markdown_pages.WikiClaim
+WikiClaimEvidence = _markdown_pages.WikiClaimEvidence
+WikiPersonCard = _markdown_pages.WikiPersonCard
+WikiRelationship = _markdown_pages.WikiRelationship
+WikiPageFrontmatterError = _markdown_pages.WikiPageFrontmatterError
+normalize_wiki_claims = _markdown_pages.normalize_wiki_claims
+normalize_wiki_person_card = _markdown_pages.normalize_wiki_person_card
+normalize_wiki_relationships = _markdown_pages.normalize_wiki_relationships
+normalize_source_ids = _markdown_pages.normalize_source_ids
+slugify_wiki_segment = _markdown_pages.slugify_wiki_segment
+slugify_wiki_page_stem = _markdown_pages.slugify_wiki_page_stem
+create_wiki_page_filename = _markdown_pages.create_wiki_page_filename
+render_wiki_markdown = _markdown_pages.render_wiki_markdown
+extract_title_from_markdown = _markdown_pages.extract_title_from_markdown
+extract_wiki_links = _markdown_pages.extract_wiki_links
