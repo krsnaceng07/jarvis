@@ -39,7 +39,7 @@ class MemoryWikiSourceSyncResult:
     removed_count: int = 0
 
 
-async def sync_memory_wiki_imported_sources(
+def sync_memory_wiki_imported_sources(
     *,
     config: ResolvedMemoryWikiConfig,
     app_config: Any = None,
