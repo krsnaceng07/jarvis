@@ -93,7 +93,7 @@ Common scopes: `desktop`, `cli`, `gateway`, `plugins`, `skills`, `memory`, `tool
 Examples:
 - `feat(skills): add weather SKILL.md`
 - `fix(memory): handle empty query in memory_core.search`
-- `refactor(plugins): split weather_report into extensions/tool_weather/`
+- `refactor(plugins): split weather_report into extensions/tool_weather/` _(historical — `tool_weather` removed Phase 4.3h)_
 
 ## License
 

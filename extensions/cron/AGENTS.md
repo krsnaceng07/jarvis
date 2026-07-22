@@ -7,8 +7,8 @@ Read this before any change under `extensions/cron/`. Also read
 
 - **Phase 2 (shipped).** Cross-platform scheduled jobs via
   `jarvis.cron.CronRunner`. Replaces the Windows-only `schtasks`
-  path that lived in `tool_reminder` (1B/1C). Mirrors OpenClaw's
-  `src/cron/`.
+  path that used to live in the now-removed `tool_reminder`
+  extension. Mirrors OpenClaw's `src/cron/`.
 - **Phase 2.5 (target).** Real cron-expression parsing via
   `croniter` (currently a tiny in-process evaluator).
 - **Phase 3+ (target).** `cron history` (audit log of past fires);

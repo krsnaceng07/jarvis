@@ -39,7 +39,7 @@ REQUIRED = {"id"}
 ALLOWED_KINDS = {"channel", "provider", "tool", "memory", "skill", "infra", "migration"}
 ALLOWED_ACTIVATION = {"always", "on_startup", "on_demand"}
 SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$")
-# Python extensions use snake_case (since `from extensions.tool_weather import X`
+# Python extensions use snake_case (since `from extensions.<id> import X`
 # requires a valid Python identifier). OpenClaw uses kebab-case because Node
 # imports tolerate hyphens. We allow both.
 ID_RE = re.compile(r"^[a-z][a-z0-9_-]*[a-z0-9]$")

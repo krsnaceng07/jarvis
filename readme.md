@@ -85,11 +85,11 @@ architect rules, [`VISION.md`](VISION.md) for the project direction.
 | 0.1 | Governance docs (AGENTS/CLAUDE/VISION/CHANGELOG/LICENSE) | ✅ done |
 | 0.2 | Build/test infra (pyproject, uv, ruff, pyright, pytest, pre-commit) | ✅ done |
 | 0.3 | Empty tier directories + per-tier READMEs + .github/ | ✅ done |
-| 0.4 | Move desktop to `apps/desktop/` + CLI skeleton | ⏳ next |
-| 1.1 | `plugin_sdk` package (the contract) | ⏳ pending |
-| 1.2 | `memory_host_sdk` + `memory_core` (first proof — SQLite + sqlite-vec + FTS5) | ⏳ pending |
-| 1.3 | `extensions/tool_weather/` (second proof) | ⏳ pending |
-| 2.x  | All 17 current tools → extensions | ⏳ pending |
+| 0.4 | Move desktop to `apps/desktop/` + CLI skeleton | ✅ done |
+| 1.1 | `plugin_sdk` package (the contract) | ✅ done |
+| 1.2 | `memory_host_sdk` + `memory_core` (first proof — SQLite + sqlite-vec + FTS5) | ✅ done |
+| 1.3 | (tool_weather was the second proof; **removed Phase 4.3h** per "same to same") | 🗑️ removed |
+| 2.x  | Legacy `actions/` layer → extensions | ✅ done |
 | 3.x  | Skills system (10 essential skills) | ⏳ pending |
 | 4.x  | More memory backends (lancedb, wiki) | ⏳ pending |
 | 5.x  | Channel system (Telegram, Discord first) | ⏳ pending |

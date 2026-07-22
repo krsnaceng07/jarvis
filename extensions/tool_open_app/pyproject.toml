@@ -1,9 +1,0 @@
-[project]
-name = "jarvis-tool-open-app"
-version = "0.1.0"
-description = "JARVIS cross-platform app launcher (Phase 1C migration of actions/open_app.py)."
-requires-python = ">=3.13"
-dependencies = []
-
-[tool.uv]
-package = false

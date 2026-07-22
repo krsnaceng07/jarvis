@@ -15,7 +15,7 @@ media, memory, tools, productivity, voice, infrastructure, migration).
 | **Providers** (LLM/model providers) | 10 | openai, anthropic, google, openrouter, ollama, minimax, mistral, xai, copilot, openai_codex |
 | **Media** (image/video/music/TTS/STT) | 8 | image_generation, video_generation, music_generation, tts_elevenlabs, tts_local, stt_whisper, stt_openai, media_understanding |
 | **Memory** (single active slot) | 3 | memory_core, memory_lancedb, memory_wiki |
-| **Tools** (action modules) | 12 | tool_browser, tool_filesystem, tool_shell, tool_desktop, tool_youtube, tool_flight, tool_reminder, tool_weather, tool_screenshot, tool_clipboard, tool_calendar, tool_code |
+| **Tools** (action modules — all are OpenClaw-parity; JARVIS-original tools removed Phase 4.3h) | 0 | _(none yet; OpenClaw has no general-purpose tool extensions beyond channels/providers/memory)_ |
 | **Productivity** (personal integrations) | 7 | obsidian, notion, github, calendar, tasks, reminders_macos, notes_macos |
 | **Voice / talk** | 3 | talk_voice, voice_wake, voice_call |
 | **Infrastructure / ops** | 5 | webhooks, cron_service, admin_http_rpc, diagnostics_otel, diagnostics_prom |
@@ -28,10 +28,10 @@ Every extension **must** have a `jarvis.plugin.json` at its root. Minimal:
 
 ```json
 {
-  "id": "tool_weather",
-  "kind": "tool",
+  "id": "memory_wiki",
+  "kind": "memory",
   "version": "0.1.0",
-  "description": "Current weather and forecasts via web_fetch with curl fallback."
+  "description": "Persistent wiki compiler and Obsidian-friendly knowledge vault."
 }
 ```
 
@@ -50,13 +50,13 @@ Full schema validated by `tools/ci/check_manifests.py`. See
 
 | Phase | What fills in |
 |---|---|
-| 1 | First proof extension (e.g. `tool_weather`) |
-| 2 | All 17 current actions → extensions |
+| 1 | First proof extension (memory_core) |
+| 2 | (legacy `actions/` layer was fully removed) |
 | 3 | (skills/ are separate, but extensions start to declare tool metadata) |
 | 4 | memory_core, memory_lancedb, memory_wiki |
-| 5 | First 2 channels (telegram, discord) |
-| 6 | First 5 providers (openai, anthropic, google, openrouter, ollama) |
-| 7 | Media extensions |
+| 5 | First channel (telegram) |
+| 6 | Providers ported as needed (OpenClaw has 80+; JARVIS focuses on memory + telegram first) |
+| 7 | Media extensions (none yet — OpenClaw has image_generation-core, video_generation-core, etc.) |
 | 9 | Remaining channels + providers |
 | 10 | cron, webhooks, admin_http_rpc, diagnostics |
 | 12 | test_support, test_e2e_helpers |

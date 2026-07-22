@@ -37,17 +37,13 @@ from .memory_bridge import (
 # or are dropped (Phase 2 deprecates them — see OPENCLAW_MIGRATION_PLAN.md
 # §24 for the new OpenClaw feature roadmap).
 #
-# Current tool surface (6 tools, all loaded dynamically):
-#   - extensions/tool_weather/   (PR 1A)
-#   - extensions/tool_reminder/  (PR 1B)
-#   - extensions/tool_open_app/       (PR 1C)
-#   - extensions/tool_web_search/     (PR 1C)
-#   - extensions/tool_send_message/   (PR 1C)
-#   - extensions/tool_youtube_video/  (PR 1C)
-#
-# Plus Phase 2 plugins:
+# Current tool surface (5 tools from OpenClaw-parity extensions, loaded dynamically):
 #   - extensions/memory_core/   (memory_search, memory_get)
 #   - extensions/cron/          (cron_schedule, cron_list, cron_cancel)
+#
+# Phase 4.3h: removed 6 JARVIS-original tools (tool_weather, tool_reminder,
+# tool_open_app, tool_web_search, tool_send_message, tool_youtube_video)
+# per the "same to same" architect rule — none of these exist in OpenClaw.
 
 
 def get_base_dir() -> Path:
@@ -109,8 +105,9 @@ def _load_system_prompt() -> str:
 # Reads every `extensions/*/openclaw.plugin.json` and returns the tool
 # declarations declared in each manifest. Used to extend TOOL_DECLARATIONS
 # below. Mirrors OpenClaw's `src/plugins/loader.ts`. Phase 1C hardens
-# the SDK with two-consumer feedback (tool_weather + tool_reminder) and
-# promotes the contract to a strict `PluginManifest` typed schema.
+# the SDK with strict `PluginManifest` typed schema (Phase 4.3h
+# removed the original 2 consumer-feedback tools, but the contract
+# itself is unchanged).
 # ─────────────────────────────────────────────────────────────────────
 def _load_plugins() -> (
     tuple[
@@ -613,14 +610,15 @@ class JarvisLive:
                 # flight_finder) have been removed. If the LLM asks
                 # for one, we tell it the tool is gone rather than
                 # throwing — this gives the model a chance to pick
-                # a working alternative (e.g. tool_open_app for
-                # "open browser").
+                # a working alternative from the OpenClaw-parity
+                # extension tools (memory_search, memory_get,
+                # cron_schedule, etc.).
                 result = (
                     f"Tool {name!r} is no longer available in JARVIS. "
                     "It was part of the legacy `actions/` layer that "
-                    "was removed in Phase 2. Use an extension tool "
-                    "instead (e.g. tool_open_app, tool_web_search, "
-                    "tool_send_message, memory_search)."
+                    "was removed in Phase 2. Use an OpenClaw-parity "
+                    "extension tool instead (memory_search, memory_get, "
+                    "cron_schedule, etc.)."
                 )
 
         except Exception as e:
