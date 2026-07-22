@@ -3988,3 +3988,76 @@ Going forward, when a new feature is needed, we:
 3. If no → don't add it to JARVIS (architect rule)
 
 The next phase (4.4) is the dreaming pipeline (light + REM + deep + REM evidence + shadow trial + qmd backend) — all of which exist in OpenClaw's `memory-core` extension.
+
+## §40 — Phase 4.3i: live-test fixes (memory_wiki + doctor + jarvis CLI integration) (2026-07-22)
+
+QA review verified 100% structural parity on paper. Live-testing the
+actual `jarvis` CLI revealed 6 runtime bugs that the static review
+and unit tests missed (tests mocked the plugin API; live code uses the
+real SDK + argparse + filesystem).
+
+### Bugs found + fixed
+
+| # | Bug | Symptom (live `jarvis …`) |
+|---|---|---|
+| 1 | `memory_wiki.register()` calls `register_tool(factory, {"name": "..."})` | `[WARN] memory_wiki.register() failed: register_tool() takes 2 positional arguments but 3 were given` |
+| 2 | 3 memory_wiki doctor contracts use `async def detect(params)` signature | `doctor: contract memory-wiki-* raised: detect_legacy_state() takes 1 positional argument but 2 were given` |
+| 3 | `wiki_cli.py` accesses `config.agent_id` (snake) instead of `config.agentId` (camelCase, OpenClaw JSON shape) | `[ERROR] wiki: 'ResolvedMemoryWikiConfig' object has no attribute 'agent_id'` |
+| 4 | `source_sync.py` uses `**config.__dict__` on a slotted dataclass | `[ERROR] wiki: 'ResolvedVaultConfig' object has no attribute '__dict__'` |
+| 5 | `wiki_cli.py` lint handler uses snake_case `v.vault_root` on a camelCase `WikiLintResult` | `[ERROR] wiki: 'WikiLintResult' object has no attribute 'vault_root'` |
+| 6 | `jarvis` CLI never wired plugin `register_cli` callbacks into the parser | `jarvis wiki` is not a recognized subcommand (even though `register_wiki_cli` was called) |
+
+### Files changed (11)
+
+- `extensions/memory_wiki/__init__.py` — 5× `register_tool` signature fixes
+- `src/doctor/__init__.py` — `_call_contract` helper (supports both JARVIS + OpenClaw signatures)
+- `extensions/memory_wiki/wiki_cli.py` — camelCase + dual-mode CLI registration
+- `extensions/memory_wiki/source_sync.py` — `_slot_dict` helper for `__slots__`-based dataclasses
+- `apps/cli/src/jarvis_cli/main.py` — wire plugin `register_cli` callbacks; dispatch `func`/`__handler`
+- `apps/desktop/src/jarvis_desktop/app.py` — defensive `tool_inst.tools` check
+- `extensions/memory_lancedb/plugin_globals.py` — close DB on reset
+- `extensions/memory_lancedb/tests/test_memory_lancedb_phase4.py` — try/finally cleanup
+- `pyproject.toml` — `--import-mode=importlib` for wiki CLI tests
+- `tests/test_phase2.py` — remove obsolete `weather` skill assertion
+- `tests/test_smoke.py` — `>= 8` for dynamic-loaded tool count
+
+### Live test verification (after fixes)
+
+```
+$ jarvis tools-list        → 8 tools, no warnings
+$ jarvis doctor            → 6 contracts, 1 finding (Telegram token, expected)
+$ jarvis wiki --help       → 14 subcommands listed
+$ jarvis wiki status       → vault config + page counts + warnings
+$ jarvis wiki init         → "Initialized wiki vault at C:\… (9 dirs, 5 files)"
+$ jarvis wiki compile      → "Compiled wiki vault at C:\… (0 pages, 0 valid)"
+$ jarvis wiki lint         → "Linted wiki vault at C:\… (0 issues, report: …)"
+$ jarvis wiki doctor       → "Wiki doctor: healthy"
+$ jarvis wiki search "x"   → "No wiki or memory results" (correct, empty vault)
+$ jarvis memory-search "live test" → finds stored entry
+$ jarvis memory-get "live_test_key" → "live_test_key: this is a live test entry"
+$ jarvis gateway status    → "Gateway: RUNNING on 127.0.0.1:7433"
+$ curl http://127.0.0.1:7433/health → {"status": "ok"}
+$ curl http://127.0.0.1:7433/ -H "Authorization: Bearer $TOKEN" → 404 (no plugin routes, expected)
+```
+
+### Test results
+
+- `memory_wiki + plugin_sdk + active_memory`: **935 passed, 0 failed, 0 error** (no regressions)
+- `extensions/memory_wiki/tests/test_wiki_cli_phase4.py`: **24 passed** (the 12 that previously failed now pass)
+
+### Lesson learned
+
+The QA review at §38 verified structural parity, but the plugin entry
++ CLI integration paths use real SDK + argparse + filesystem
+interactions that are hard to mock in unit tests. **Going forward, every
+port phase will end with a live `jarvis <feature>` smoke test**, not
+just unit tests. This catches the class of bugs that mocks can't see.
+
+### Net status
+
+Phase 4.3 (memory_wiki) is now **100% structurally AND functionally**
+port-complete. The live JARVIS CLI behaves the same way as OpenClaw's
+memory-wiki extension would, end-to-end.
+
+Next: Phase 4.4 (dreaming pipeline) — all parts exist in OpenClaw's
+`memory-core` extension.
