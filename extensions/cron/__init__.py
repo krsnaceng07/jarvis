@@ -74,7 +74,7 @@ def _register(api: PluginApi) -> None:
     # Tools (cron_schedule, cron_list, cron_cancel)
     api.register_tool(
         CronExtensionPlugin(),
-        names=["cron_schedule", "cron_list", "cron_cancel"],
+        {"names": ["cron_schedule", "cron_list", "cron_cancel"]},
     )
 
     # Slash command

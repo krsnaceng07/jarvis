@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import json
 import socket
 import sys
 from pathlib import Path
@@ -67,7 +68,15 @@ def _load_cli_plugins(workspace: Path) -> dict[str, Any]:
         except (ImportError, AttributeError) as e:
             print(f"[WARN] could not load {ext_name}: {e}", file=sys.stderr)
             continue
+        # Load the manifest so the PluginApi can validate ``contracts.tools``.
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except Exception as e:
+            print(f"[WARN] could not parse {manifest_path}: {e}", file=sys.stderr)
+            manifest = {}
         api = PluginApi(ctx_template(ext_name))
+        if hasattr(api, "set_manifest"):
+            api.set_manifest(manifest)
         try:
             entry.register(api)
         except Exception as e:
@@ -311,7 +320,7 @@ def _build_parser_v2() -> argparse.ArgumentParser:
         default=Path.cwd(),
         help="JARVIS workspace root (default: cwd).",
     )
-    sp = p.add_subparsers(dest="command", required=True, metavar="<command>")
+    sp = p.add_subparsers(dest="command", required=False, metavar="<command>")
 
     sp.add_parser("tools-list", help="List every registered tool.")
     sp.add_parser("skills-list", help="List every loaded skill.")
@@ -409,9 +418,31 @@ def main(argv: list[str] | None = None) -> int:
             break
     if subparsers is None:
         subparsers = parser.add_subparsers(dest="command", metavar="<command>")
-    for register_fn, _descriptors in plugins.get("cli_handlers", []):
+    # Wire plugin CLI handlers with the OpenClaw-shaped context dict
+    # ``{program, parentPath, config, workspaceDir, logger}``. Plugins
+    # destructure what they need.
+    #
+    # Note on the host pattern: OpenClaw's host passes the ROOT program as
+    # ``program`` (no pre-existing subparsers). The JARVIS host here has
+    # hardcoded top-level commands (tools-list / doctor / etc.) so we pass
+    # the subparsers container — same destination, different starting
+    # point. The plugin's ``register_wiki_cli`` checks ``hasattr(program,
+    # 'add_parser')`` and uses the subparsers-container path here, or the
+    # root-program path in OpenClaw. Both yield ``wiki`` as a sibling of
+    # the host's other top-level commands.
+    cli_handlers = plugins.get("cli_handlers", [])
+    for entry in cli_handlers:
+        # OpenClaw-aligned 4-tuple shape: (register_fn, descriptors, parent_path, commands).
+        register_fn, _descriptors, parent_path, _commands = entry
+        ctx: dict[str, Any] = {
+            "program": subparsers,
+            "parentPath": parent_path,
+            "config": getattr(workspace, "config", None),
+            "workspaceDir": str(workspace),
+            "logger": None,
+        }
         try:
-            register_fn(subparsers)
+            register_fn(ctx)
         except Exception as e:
             print(f"[WARN] cli handler failed: {e}", file=sys.stderr)
 
@@ -478,7 +509,7 @@ def main(argv: list[str] | None = None) -> int:
             return result
         return 0
     parser.print_help()
-    return 1
+    return 0 if args.command is None else 1
 
 
 if __name__ == "__main__":

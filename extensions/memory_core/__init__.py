@@ -123,7 +123,7 @@ def _register(api: PluginApi) -> None:
     # Tools
     api.register_tool(
         MemoryCorePlugin(),
-        names=["memory_search", "memory_get"],
+        {"names": ["memory_search", "memory_get"]},
     )
 
     # Memory capability (single-active-slot; OpenClaw parity)

@@ -181,7 +181,7 @@ def _register(api: PluginApi) -> None:
     # ── Tools (memory_recall, memory_store, memory_forget) ──────
     api.register_tool(
         plugin,
-        names=["memory_recall", "memory_store", "memory_forget"],
+        {"names": ["memory_recall", "memory_store", "memory_forget"]},
     )
 
     # ── Memory capability (single-active-slot) ─────────────────

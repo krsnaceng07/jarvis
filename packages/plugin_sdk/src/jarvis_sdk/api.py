@@ -22,6 +22,7 @@ Adding a new registration point:
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -33,6 +34,38 @@ if TYPE_CHECKING:
 from .cli import CliDescriptor  # used at runtime in register_cli()
 from .cron import CronDecl  # noqa: TCH001  (used in instance annotations below)
 from .hook import HookRegistration
+
+_log = logging.getLogger("jarvis_sdk.api")
+
+
+def _normalize_plugin_tool_names(names: list[str] | None) -> list[str]:
+    """Mirror OpenClaw's ``normalizePluginToolNames``.
+
+    Trims whitespace, drops empty strings, deduplicates while preserving order.
+    Does not change case or convert kebab→snake.
+    """
+    seen: set[str] = set()
+    out: list[str] = []
+    for raw in names or ():
+        if not isinstance(raw, str):
+            continue
+        trimmed = raw.strip()
+        if not trimmed or trimmed in seen:
+            continue
+        seen.add(trimmed)
+        out.append(trimmed)
+    return out
+
+
+def _find_undeclared_plugin_tool_names(declared: list[str], tool_names: list[str]) -> list[str]:
+    """Mirror OpenClaw's ``findUndeclaredPluginToolNames``.
+
+    Returns the tool names that are NOT in the ``declared`` set.
+    """
+    declared_set = set(declared or ())
+    return [n for n in tool_names if n not in declared_set]
+
+
 from .skill import SkillDecl  # noqa: TCH001
 
 # ── Command + CLI registration descriptors ──────────────────────────
@@ -293,7 +326,9 @@ class PluginApi:
         # ── Accumulators (private) ────────────────────────────────────
         self._tools: list[tuple[Any, list[str] | None]] = []
         self._commands: list[CommandDecl] = []
-        self._cli_handlers: list[tuple[Callable[..., Any], list[CliDescriptor]]] = []
+        self._cli_handlers: list[
+            tuple[Callable[..., Any], list[CliDescriptor], list[str], list[str]]
+        ] = []
         self._memory_capability: dict[str, Any] | None = None
         self._provider: dict[str, Any] | None = None
         self._channel: dict[str, Any] | None = None
@@ -302,6 +337,32 @@ class PluginApi:
         self._skills: list[SkillDecl] = []
         self._hooks: list[HookRegistration] = []
         self._cron_jobs: list[CronDecl] = []
+        # Plugin manifest (for contracts.tools validation). Populated by the
+        # loader via ``set_manifest``; safe default is empty.
+        self._manifest: dict[str, Any] = {}
+
+        # ── Grouped facades (mirror OpenClaw) ───────────────────────
+        # Top-level grouped facades (Phase 1C).
+        self.session = PluginSessionApi()
+        self.agent = PluginAgentApi()
+        self.run_context = PluginRunContextApi()
+        self.lifecycle = PluginLifecycleApi()
+
+        # Nested runtime facade (Phase 4.2). Mirrors OpenClaw's
+        # `api.runtime.{config, state, agent}` namespace.
+        self.runtime: Any = _PluginRuntimeNamespace(self)
+
+    def set_manifest(self, manifest: dict[str, Any]) -> None:
+        """Provide the plugin manifest (used for ``contracts.tools`` validation)."""
+        self._manifest = manifest or {}
+
+    def _declared_tool_names(self) -> list[str]:
+        """Return the tool names declared in ``contracts.tools`` (manifest)."""
+        try:
+            contracts = self._manifest.get("contracts") or {}
+            return _normalize_plugin_tool_names(contracts.get("tools"))
+        except Exception:
+            return []
 
         # ── Grouped facades (mirror OpenClaw) ───────────────────────
         # Top-level grouped facades (Phase 1C).
@@ -328,14 +389,47 @@ class PluginApi:
     def register_tool(
         self,
         tool: Any,
-        *,
-        names: list[str] | None = None,
+        opts: dict[str, Any] | None = None,
     ) -> None:
-        """Register a tool. ``tool`` is any object with ``.tools`` and
-        ``.call`` (matches ``ToolCallable`` protocol, or a
-        ``ToolPlugin`` subclass). ``names`` is the explicit tool-name
-        list; if None, all names from ``tool.tools`` are used."""
-        self._tools.append((tool, names))
+        """Register a tool. Mirrors OpenClaw's ``registerTool``.
+
+        ``opts`` is a dict matching OpenClaw's ``OpenClawPluginToolOptions``:
+          - ``name``: single tool name (str)
+          - ``names``: list of tool names
+          - ``optional``: whether the tool is optional (bool, default False)
+
+        The contract:
+          1. ``name`` and ``names`` get merged into a single normalized
+             names list (trimmed, deduplicated — matches OpenClaw's
+             ``normalizePluginToolNames``).
+          2. If the tool is not a factory (i.e. has its own ``.name``), that
+             name is appended to the merged list.
+          3. If the plugin manifest declared ``contracts.tools``, all
+             registered names must be in that list — otherwise
+             ``findUndeclaredPluginToolNames`` rejects the call (matches
+             OpenClaw's behavior).
+        """
+        opts = opts or {}
+        declared = self._declared_tool_names()
+        merged: list[str] = []
+        if isinstance(opts.get("name"), str):
+            merged.append(opts["name"])
+        if isinstance(opts.get("names"), list):
+            merged.extend(opts["names"])
+        if not callable(tool) and hasattr(tool, "name"):
+            merged.append(tool.name)
+        normalized = _normalize_plugin_tool_names(merged)
+        undeclared = _find_undeclared_plugin_tool_names(declared, normalized)
+        if undeclared:
+            _log.warning(
+                "register_tool: plugin %r declared undeclared tool names: %s "
+                "(declared=%s); skipping",
+                self._ctx.plugin_id,
+                undeclared,
+                declared or "(no contracts.tools declared)",
+            )
+            return
+        self._tools.append((tool, normalized))
 
     def register_command(
         self,
@@ -362,13 +456,29 @@ class PluginApi:
         register_fn: Callable[..., Any],
         *,
         descriptors: list[CliDescriptor | dict[str, object]] | None = None,
+        parent_path: list[str] | None = None,
+        commands: list[str] | None = None,
     ) -> None:
-        """Register a CLI subcommand.
+        """Register a CLI subcommand. Mirrors OpenClaw's ``registerCli``.
 
-        ``register_fn`` mutates ``ctx.program`` (argparse) to add the
-        plugin's subcommands. ``descriptors`` advertises the
-        top-level commands for global help. Mirrors OpenClaw's
-        ``registerCli``.
+        The host invokes the stored registrar with a context dict matching
+        OpenClaw's ``OpenClawPluginCliContext`` shape::
+
+            {
+                "program": argparse.ArgumentParser | subparsers-container,
+                "parentPath": list[str],
+                "config": object,
+                "workspaceDir": str | None,
+                "logger": PluginLogger,
+            }
+
+        Plugins destructure what they need, e.g.
+        ``api.register_cli(({program}) => registerWikiCli(program, ...))``.
+
+        ``descriptors`` advertises the top-level commands for global help.
+        ``parent_path`` is a list of nested command segments (default: empty).
+        ``commands`` is an explicit list of command roots (otherwise derived
+        from the descriptors).
         """
         norm_descriptors: list[CliDescriptor] = []
         for d in descriptors or []:
@@ -388,7 +498,9 @@ class PluginApi:
                 )
             else:
                 norm_descriptors.append(d)
-        self._cli_handlers.append((register_fn, norm_descriptors))
+        norm_parent_path = list(parent_path or [])
+        norm_commands: list[str] = list(commands or [])
+        self._cli_handlers.append((register_fn, norm_descriptors, norm_parent_path, norm_commands))
 
     def register_memory_capability(self, capability: dict[str, Any]) -> None:
         """Register a memory-host capability. Only one plugin per process.
@@ -522,7 +634,15 @@ class PluginApi:
         return list(self._commands)
 
     @property
-    def cli_handlers(self) -> list[tuple[Callable[..., Any], list[CliDescriptor]]]:
+    def cli_handlers(
+        self,
+    ) -> list[tuple[Callable[..., Any], list[CliDescriptor], list[str], list[str]]]:
+        """All registered CLI handlers (OpenClaw 4-tuple shape).
+
+        Each entry is ``(register_fn, descriptors, parent_path, commands)``.
+        The host invokes ``register_fn`` with the OpenClaw context dict
+        ``{program, parentPath, config, workspaceDir, logger}``.
+        """
         return list(self._cli_handlers)
 
     @property
