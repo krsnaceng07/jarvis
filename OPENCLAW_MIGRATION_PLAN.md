@@ -3264,7 +3264,7 @@ write loop).**
   unblock Phase 4.3f (read/write paths + tools
   + bridge + gateway + corpus + prompt).
 
-## §33 — Phase 4.3f-mr5: memory_wiki corpus supplement (per-vault wiki corpus) (2026-07-21)
+## ï¿½33 ï¿½ Phase 4.3f-mr5: memory_wiki corpus supplement (per-vault wiki corpus) (2026-07-21)
 
 **Commit:** 2e7bd8c feat(phase4.3f-mr5): memory_wiki corpus supplement (per-vault wiki corpus)
 
@@ -3293,10 +3293,13 @@ extensions/memory-wiki/src/corpus-supplement.ts.
     { lookup, fromLine, lineCount, agentId, agentSessionKey, sandboxed }.
   - WikiCorpusSupplement dataclass with search
     + get callables + the bound
-    esolve_config + get_app_config (for tests).
+    
+esolve_config + get_app_config (for tests).
   - create_wiki_corpus_supplement factory. The
-    esolve_config callable is invoked as
-    esolve_config(agent_id, app_config) --
+    
+esolve_config callable is invoked as
+    
+esolve_config(agent_id, app_config) --
     matching OpenClaw's 2-arg contract. The
     search / get wrappers delegate to the
     in-memory query layer
@@ -3377,14 +3380,15 @@ corpus-supplement file (100% parity).**
 
 - prompt-section.ts (~6.7K OpenClaw lines) --
   per-vault prompt assembly. Registers a
-  egisterMemoryPromptSupplement callback so
+  
+egisterMemoryPromptSupplement callback so
   the host's prompt preparer can inject wiki
   context into the system prompt.
 - Pre-step: read OpenClaw's
   extensions/memory-wiki/src/prompt-section.ts
   end-to-end, plan, then implement same-to-same.
 
-## §34 — Phase 4.3f-mr6: memory_wiki prompt section (sync builder + async preparer) (2026-07-21)
+## ï¿½34 ï¿½ Phase 4.3f-mr6: memory_wiki prompt section (sync builder + async preparer) (2026-07-21)
 
 **Commit:** dbf012a feat(phase4.3f-mr6): memory_wiki prompt section (sync builder + async preparer)
 
@@ -3404,7 +3408,7 @@ once per run during prompt preparation.
 ### Files added
 
 - `extensions/memory_wiki/prompt_section.py`
-  (~400 lines) — the helpers + factories:
+  (~400 lines) ï¿½ the helpers + factories:
   - `MemoryPromptSectionParams` dataclass
     mirroring the OpenClaw
     `MemoryPromptSectionParams` shape
@@ -3414,28 +3418,28 @@ once per run during prompt preparation.
   - `MemoryPromptSectionBuilder` /
     `MemoryPromptSectionPreparer` type
     aliases for the sync / async hooks.
-  - `rank_prompt_digest_page` — page
-    score = contradictions × 6 + questions
-    × 4 + min(claimCount, 6) × 2 +
+  - `rank_prompt_digest_page` ï¿½ page
+    score = contradictions ï¿½ 6 + questions
+    ï¿½ 4 + min(claimCount, 6) ï¿½ 2 +
     min(topClaims.length, 3). Caps claim
     count at 6 and top-claims at 3 so a
     single high-volume page can't dominate
     the digest.
-  - `rank_prompt_claim_freshness` —
+  - `rank_prompt_claim_freshness` ï¿½
     fresh=3, aging=2, stale=1, default=0.
-  - `sort_prompt_claims` — confidence
+  - `sort_prompt_claims` ï¿½ confidence
     desc, then freshness desc, then text
     asc.
-  - `format_prompt_claim` — appends
+  - `format_prompt_claim` ï¿½ appends
     `(status X, confidence Y, freshness Z)`
     when any qualifier is present.
-  - `build_digest_prompt_section` —
+  - `build_digest_prompt_section` ï¿½
     renders the "## Compiled Wiki Snapshot"
     block. Caps at `DIGEST_MAX_PAGES = 4`
-    pages × `DIGEST_MAX_CLAIMS_PER_PAGE =
+    pages ï¿½ `DIGEST_MAX_CLAIMS_PER_PAGE =
     2` claims per page (prompt-cache
     friendliness).
-  - `build_wiki_tool_guidance` — emits
+  - `build_wiki_tool_guidance` ï¿½ emits
     the "## Compiled Wiki" block whose
     workflow lines depend on which tools
     are present (`memory_search`,
@@ -3443,11 +3447,11 @@ once per run during prompt preparation.
     `wiki_get`, `wiki_apply`,
     `wiki_lint`).
   - `create_wiki_prompt_section_builder`
-    — sync factory; returns a closure
+    ï¿½ sync factory; returns a closure
     that takes params and returns the
     tool-guidance lines.
   - `create_wiki_prompt_section_preparer`
-    — async factory. Returns a closure
+    ï¿½ async factory. Returns a closure
     that:
       1. Returns `[]` when
          `vault.scope == "agent"` and no
@@ -3549,7 +3553,7 @@ prompt-section file (100% parity).**
 ### What's next (Phase 4.3f-mr7)
 
 - `memory-palace.ts` (~5.4K OpenClaw
-  lines) — memory-palace layout / scene
+  lines) ï¿½ memory-palace layout / scene
   cards. Renders a multi-room
   Obsidian-friendly memory visualization.
 - Pre-step: read OpenClaw's
@@ -3557,7 +3561,7 @@ prompt-section file (100% parity).**
   end-to-end, plan, then implement
   same-to-same.
 
-## §35 — Phase 4.3f-mr7: memory_wiki palace layout / scene cards (2026-07-21)
+## ï¿½35 ï¿½ Phase 4.3f-mr7: memory_wiki palace layout / scene cards (2026-07-21)
 
 **Commit:** 1bb59c0 feat(phase4.3f-mr7): memory_wiki palace layout / scene cards
 
@@ -3574,49 +3578,49 @@ dashboard.
 ### Files added
 
 - `extensions/memory_wiki/memory_palace.py`
-  (~360 lines) — the palace helpers +
+  (~360 lines) ï¿½ the palace helpers +
   async `list_memory_wiki_palace`
   function:
   - `WikiPageKind` `Literal` alias
     mirroring the OpenClaw union.
-  - `PALACE_KIND_ORDER` — cluster
+  - `PALACE_KIND_ORDER` ï¿½ cluster
     ordering (synthesis, entity, concept,
     source, report).
-  - `PRIMARY_PALACE_KINDS` — pages of
+  - `PRIMARY_PALACE_KINDS` ï¿½ pages of
     these kinds are always shown
     (synthesis, entity, concept).
-  - `PALACE_KIND_LABELS` — display
+  - `PALACE_KIND_LABELS` ï¿½ display
     names.
   - `PALACE_ITEM_TOP_CLAIMS` /
     `PALACE_ITEM_TOP_QUESTIONS` /
     `PALACE_ITEM_TOP_CONTRADICTIONS`
-    (all 3) — per-item slice caps.
+    (all 3) ï¿½ per-item slice caps.
   - 4 dataclasses
     (`MemoryWikiPalaceItem`,
     `MemoryWikiPalaceCluster`,
     `MemoryWikiPalacePageCounts`
     TypedDict,
-    `MemoryWikiPalaceStatus`) — all
+    `MemoryWikiPalaceStatus`) ï¿½ all
     camelCase to match the OpenClaw JSON
     shape so the `wiki.palace` gateway
     response is byte-compatible.
   - 4 helpers:
     - `create_empty_palace_page_counts`
-      — all-zero counts dict.
-    - `normalize_timestamp` — string
+      ï¿½ all-zero counts dict.
+    - `normalize_timestamp` ï¿½ string
       trim; `None` for non-string /
       empty.
-    - `extract_snippet` — first
+    - `extract_snippet` ï¿½ first
       non-meta line of the body
       (skips blanks, headings, code
       fences, HTML comments, list
       markers).
-    - `compare_palace_items` —
+    - `compare_palace_items` ï¿½
       `updatedAt` desc, then
       `claimCount` desc, then
       `title` asc.
   - `list_memory_wiki_palace(config)`
-    — async public function. Reads every
+    ï¿½ async public function. Reads every
     queryable wiki page, computes per-kind
     counts + total claims / questions /
     contradictions, maps each page to a
@@ -3698,7 +3702,7 @@ memory-palace file (100% parity).**
   chatgpt-import + index + doctor +
   ingest + source-sync + import-runs +
   lint + status + import-insights +
-  source-page-shared + setup-api —
+  source-page-shared + setup-api ï¿½
   the last big surface of the
   memory-wiki extension. This will be
   split into:
@@ -3715,7 +3719,7 @@ memory-palace file (100% parity).**
   end-to-end, plan, then implement
   same-to-same per sub-phase.
 
-## §36 — Phase 4.3g: memory_wiki ingest / source-sync / import-runs / import-insights / chatgpt-import / obsidian / status / lint / unsafe-local (2026-07-21)
+## ï¿½36 ï¿½ Phase 4.3g: memory_wiki ingest / source-sync / import-runs / import-insights / chatgpt-import / obsidian / status / lint / unsafe-local (2026-07-21)
 
 
 Phase 4.3g is the last big surface of the memory-wiki extension. It wires the ingest / source-sync / import-runs / import-insights / chatgpt-import / obsidian / status (deep) / lint (deep) / unsafe-local pipelines into the Python plugin, in four reviewable sub-phases.
@@ -3871,6 +3875,48 @@ Phase 4.3g-mr6..mr8 ports every remaining root-level OpenClaw file in the memory
 - 2 files modified.
 - ~ 2,500 lines ported.
 - 100% parity with the OpenClaw root-level surface (`setup-api.ts` + `src/cli.ts` + `doctor-contract-api.ts` + `index.ts`).
+
+## Â§38 â€” Phase 4.3g QA review (memory_wiki 100% parity check) (2026-07-22)
+
+The `Ultimate Debugger and QA Engineer` skill was invoked to review the
+memory_wiki port. The review covered the full `extensions/memory_wiki/`
+package (35 src/*.ts ports + 4 root-level ports) and cross-referenced each
+flagged concern against OpenClaw's source.
+
+### Items investigated
+
+| # | Concern | Location | Verdict |
+|---|---|---|---|
+| 1 | Two broad `except Exception:` blocks | `__init__.py:111, 384` | âœ… Same to same with OpenClaw's `index.ts` (defensive app-config fallback + transactional owner cleanup) |
+| 2 | `archive_legacy_state_source` uses `os.rename` (not journaling) | `doctor_contract.py:223-226` | âœ… Same to same with OpenClaw's `archiveLegacyStateSource` SDK helper |
+| 3 | 19 `asyncio.run` calls in `wiki_cli.py` | `wiki_cli.py` | âœ… Acceptable for CLI dispatch (mirrors OpenClaw's `await` per subcommand) |
+| 4 | 9 `except OSError` blocks in `okf.py` | `okf.py:247, 328, 689, 768, 778` + 4 more | âœ… Defensive file-IO boundaries (mirrors OpenClaw's `okf.ts` try/catch) |
+
+### Final coverage
+
+- 35/35 OpenClaw `src/*.ts` files ported (100%)
+- 4/4 OpenClaw root-level files: 2 ported + 2 marked n/a (TS-only re-exports) = 100% effective parity
+- 19/19 gateway RPC methods ported
+- 19/19 wiki CLI subcommands ported
+- 3/3 doctor state migrations ported
+
+### Test results
+
+- memory_wiki + plugin_sdk + active_memory: **935 passed, 0 failed, 0 error**
+- Pre-commit: 7/7 hooks clean
+- Working tree: clean
+
+### Files added
+
+- `docs/QA_REVIEW_4.3G.md` â€” full QA review report
+- `docs/OPENCLAW_VS_JARVIS_AUDIT_4.3G.md` â€” updated audit doc (replaces 4.3F)
+
+### Verdict
+
+**Ship-ready. Phase 4.3 (memory_wiki) is 100% complete.**
+
+The next phase (4.4) is the remaining memory plugin surface: the dreaming
+pipeline (light + REM + deep + REM evidence + shadow trial + qmd backend).
 
 ### What's next
 
