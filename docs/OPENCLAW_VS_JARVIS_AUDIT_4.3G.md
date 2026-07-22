@@ -1,23 +1,49 @@
-# OpenClaw ↔ JARVIS Source Audit (post-4.3g)
+# OpenClaw ↔ JARVIS Source Audit (post-4.3h)
 
 **Date:** 2026-07-22
 **Scope:** `extensions/memory-wiki/` (the focus of Phase 4.3) plus the shared SDK.
 **Status:** ✅ **100% structural parity** for `memory-wiki` extension.
+**JARVIS extensions surface:** ✅ **100% aligned with OpenClaw** (post-4.3h).
 
 ## Executive Summary
 
 | Metric | Count | Status |
 |---|---|---|
-| OpenClaw `src/*.ts` (non-test) | 35 | 35/35 ported = **100%** |
-| OpenClaw root-level files (behavior) | 4 | 2 fully ported + 2 n/a (TS-only) = **100% effective** |
-| OpenClaw gateway RPC methods | 19 | 19/19 = **100%** |
-| OpenClaw wiki CLI subcommands | 19 | 19/19 = **100%** |
-| OpenClaw doctor state migrations | 3 | 3/3 = **100%** |
+| OpenClaw `src/*.ts` (non-test) for memory-wiki | 35 | 35/35 ported = **100%** |
+| OpenClaw root-level files (behavior) for memory-wiki | 4 | 2 fully ported + 2 n/a (TS-only) = **100% effective** |
+| OpenClaw gateway RPC methods for memory-wiki | 19 | 19/19 = **100%** |
+| OpenClaw wiki CLI subcommands for memory-wiki | 19 | 19/19 = **100%** |
+| OpenClaw doctor state migrations for memory-wiki | 3 | 3/3 = **100%** |
 | Test suite (memory_wiki + sdk + active_memory) | 935 | **935 passed, 0 failed, 0 error** |
-| Pre-commit hooks | 7 | **all clean** |
+| Pre-commit hooks (on changed files) | 7 | **all clean** |
 | QA review findings (P0-P3) | — | **0 bugs, 0 nits** |
+| JARVIS extensions surface vs OpenClaw | 6/6 = **100%** | (see §"JARVIS extensions surface" below) |
 
 See `docs/QA_REVIEW_4.3G.md` for the full QA review report.
+
+## JARVIS extensions surface (post-4.3h)
+
+Per the strict "same to same" architect rule, JARVIS keeps only the
+extensions that exist in OpenClaw's 148-extension surface:
+
+| JARVIS extension | OpenClaw source | Status |
+|---|---|---|
+| `active_memory` | `active-memory` | ✅ 100% (Phase 4.2) |
+| `memory_core` | `memory-core` | ✅ 100% (Phase 4.0) |
+| `memory_lancedb` | `memory-lancedb` | ✅ 100% (Phase 4.1) |
+| `memory_wiki` | `memory-wiki` | ✅ 100% (Phase 4.3) |
+| `cron` | OpenClaw `src/cron/` core | ✅ (Phase 2) |
+| `telegram` | `telegram` | ✅ 100% (Phase 3) |
+
+**Removed in Phase 4.3h** (JARVIS originals, not in OpenClaw):
+- `tool_weather` — no OpenClaw equivalent
+- `tool_reminder` — no OpenClaw equivalent
+- `tool_open_app` — no OpenClaw equivalent
+- `tool_web_search` — OpenClaw uses `brave`/`duckduckgo`/etc separately
+- `tool_send_message` — OpenClaw uses channel extensions
+- `tool_youtube_video` — no OpenClaw equivalent
+
+Net: **6 extensions kept, 6 removed, ~3,500 lines deleted, 0 added**.
 
 ## Module inventory (final)
 

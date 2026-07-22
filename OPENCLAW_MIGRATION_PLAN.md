@@ -3927,3 +3927,64 @@ The memory-wiki extension is now 100% structurally equivalent to OpenClaw. The o
 These two files are TypeScript idioms that don't translate to Python; their functionality is fully covered by the `__init__.py` entry.
 
 The next phase (4.4) is the remaining memory plugin surface: the dreaming pipeline (light + REM + deep + REM evidence + shadow trial + qmd backend).
+
+## §39 — Phase 4.3h: remove 6 JARVIS-original tool extensions (strict "same to same") (2026-07-22)
+
+The architect rule "openclaw ma vako matra rakha, same to same" was strictly
+enforced. Six JARVIS-original tool extensions were checked against OpenClaw's
+148 extensions and removed because none of them exist in OpenClaw.
+
+### Extensions removed (6 + 1 skill)
+
+| JARVIS extension | OpenClaw equivalent? | Verdict |
+|---|---|---|
+| `tool_weather` | ❌ | No weather tool in OpenClaw |
+| `tool_reminder` | ❌ | No reminder tool in OpenClaw (cron is the only scheduler) |
+| `tool_open_app` | ❌ | No app-launcher tool in OpenClaw |
+| `tool_web_search` | ❌ | OpenClaw has separate `brave`, `duckduckgo`, `searxng`, `tavily`, `firecrawl`, `exa` extensions (not ported) |
+| `tool_send_message` | ❌ | OpenClaw has channel extensions (`discord`, `slack`, `imessage`, etc.) — not a generic send tool |
+| `tool_youtube_video` | ❌ | No YouTube tool in OpenClaw |
+| `skills/weather/SKILL.md` | ❌ | Skill depended on the removed `tool_web_search` |
+
+### Extensions kept (6 — all are OpenClaw-parity)
+
+| JARVIS extension | OpenClaw source |
+|---|---|
+| `active_memory` | `active-memory` |
+| `memory_core` | `memory-core` |
+| `memory_lancedb` | `memory-lancedb` |
+| `memory_wiki` | `memory-wiki` |
+| `cron` | OpenClaw `src/cron/` (built-in core feature, not a separate extension) |
+| `telegram` | `telegram` |
+
+### Files changed
+
+- Deleted: 6 extension directories (45 files, ~3,400 lines) + `skills/weather/`
+- Modified: `tests/test_smoke.py` (removed 6 test classes, updated count 14 → 8)
+- Modified: `apps/desktop/src/jarvis_desktop/app.py` (comments only)
+- Modified: `tools/ci/check_manifests.py` (comment)
+- Modified: `readme.md` (phase 1.3 marked removed)
+- Modified: `extensions/README.md` (tools category updated)
+- Modified: `extensions/cron/AGENTS.md` (tool_reminder reference)
+- Modified: `CONTRIBUTING.md` (commit example annotated)
+- Modified: `uv.lock` (184 lines — workspace sources removed)
+
+### Test results
+
+- memory_wiki + plugin_sdk + active_memory: **935 passed, 0 failed, 0 error**
+- test_smoke.py: 21 passed, 9 pre-existing `sounddevice` import failures (not from this change)
+- Pre-commit (changed files): 7/7 hooks pass
+
+### Net result
+
+JARVIS extensions surface is now **100% aligned with OpenClaw** (excluding the
+6 that were JARVIS originals). Net: 49 insertions, 3,502 deletions.
+
+### What this means for future work
+
+Going forward, when a new feature is needed, we:
+1. First check if OpenClaw has it (in 148 extensions or 80+ src modules)
+2. If yes → port it (same to same)
+3. If no → don't add it to JARVIS (architect rule)
+
+The next phase (4.4) is the dreaming pipeline (light + REM + deep + REM evidence + shadow trial + qmd backend) — all of which exist in OpenClaw's `memory-core` extension.
