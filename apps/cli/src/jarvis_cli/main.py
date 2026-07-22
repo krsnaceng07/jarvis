@@ -79,6 +79,7 @@ def _load_cli_plugins(workspace: Path) -> dict[str, Any]:
         out["hooks"].extend(api.hooks)
         out["cron_jobs"].extend(api.cron_jobs)
         out["doctor_contracts"].extend(api.doctor_contracts)
+        out["cli_handlers"].extend(api.cli_handlers)
     return out
 
 
@@ -90,6 +91,7 @@ def _empty_collections() -> dict[str, list[Any]]:
         "hooks": [],
         "cron_jobs": [],
         "doctor_contracts": [],
+        "cli_handlers": [],
     }
 
 
@@ -368,8 +370,20 @@ def _build_parser_v2() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     parser = _build_parser_v2()
-    args = parser.parse_args(argv)
-    workspace = args.workspace.resolve()
+    workspace_default = Path.cwd()
+    # Always need workspace to load plugins, even for parser build.
+    if argv is None:
+        argv = sys.argv[1:]
+    # Cheap pre-parse to find --workspace without full parser run.
+    workspace = workspace_default
+    for i, a in enumerate(argv):
+        if a == "--workspace" and i + 1 < len(argv):
+            workspace = Path(argv[i + 1])
+            break
+        if a.startswith("--workspace="):
+            workspace = Path(a.split("=", 1)[1])
+            break
+    workspace = workspace.resolve()
 
     # Add workspace to sys.path so ``import extensions.X`` and
     # ``import jarvis.*`` work from any cwd. The desktop host gets
@@ -379,15 +393,29 @@ def main(argv: list[str] | None = None) -> int:
     if ws_str not in sys.path:
         sys.path.insert(0, ws_str)
 
-    # Subcommands that need plugin discovery.
-    plugin_cmds = {
-        "tools-list",
-        "hooks-list",
-        "doctor",
-    }
-    plugins: dict[str, Any] = _empty_collections()
-    if args.command in plugin_cmds:
-        plugins = _load_cli_plugins(workspace)
+    # Always load plugins so their CLI subcommands can be registered
+    # onto the parser. Cheap when no plugins are registered.
+    plugins: dict[str, Any] = _load_cli_plugins(workspace)
+
+    # Wire plugin CLI handlers: each one mutates the subparsers container
+    # to add top-level subcommands (mirrors OpenClaw's registerCli).
+    # The subparsers container is what holds the host's own commands
+    # (``tools-list``, ``doctor``, etc.); plugins add their top-level
+    # commands as siblings of those.
+    subparsers = None
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction):
+            subparsers = action
+            break
+    if subparsers is None:
+        subparsers = parser.add_subparsers(dest="command", metavar="<command>")
+    for register_fn, _descriptors in plugins.get("cli_handlers", []):
+        try:
+            register_fn(subparsers)
+        except Exception as e:
+            print(f"[WARN] cli handler failed: {e}", file=sys.stderr)
+
+    args = parser.parse_args(argv)
 
     if args.command == "tools-list":
         return _cmd_tools_list(args, plugins)
@@ -419,6 +447,36 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_telegram_setup(args, workspace)
         if args.subcommand == "status":
             return _cmd_telegram_status(args, workspace)
+    # Plugin-registered CLI command dispatch (e.g. ``jarvis wiki ...``).
+    # The plugin's ``register_fn`` typically sets ``func`` on the parent
+    # subparser (a dispatcher) and ``__handler`` on the leaf subparser
+    # (the actual handler with the resolved context). Try ``func`` first
+    # (the dispatcher pattern used by ``register_wiki_cli``); fall back
+    # to ``__handler`` for plugins that wire a single-arg handler.
+    func = getattr(args, "func", None)
+    handler = getattr(args, "__handler", None)
+    if callable(func):
+        try:
+            result = func(args)
+        except SystemExit as e:
+            return int(e.code) if e.code is not None else 0
+        except Exception as e:
+            print(f"[ERROR] {args.command}: {e}", file=sys.stderr)
+            return 1
+        if isinstance(result, int):
+            return result
+        return 0
+    if callable(handler):
+        try:
+            result = handler(args)
+        except SystemExit as e:
+            return int(e.code) if e.code is not None else 0
+        except Exception as e:
+            print(f"[ERROR] {args.command}: {e}", file=sys.stderr)
+            return 1
+        if isinstance(result, int):
+            return result
+        return 0
     parser.print_help()
     return 1
 

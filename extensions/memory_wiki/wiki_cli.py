@@ -314,8 +314,9 @@ def _run_wiki_lint(
         result,
         json_flag,
         lambda v: (
-            f"Linted wiki vault at {v.vault_root} "
-            f"({v.issue_count} issues, report: {v.report_path})."
+            # ``WikiLintResult`` uses camelCase fields (matches OpenClaw JSON shape).
+            f"Linted wiki vault at {v.vaultRoot} "
+            f"({v.issueCount} issues, report: {v.reportPath})."
         ),
     )
     _write_output(rendered)
@@ -727,10 +728,24 @@ def register_wiki_cli(
     resolve_config = _build_resolve_config(registration)
     state: dict[str, WikiCommandContext] = {}
 
-    wiki = program.add_subparsers(dest="wiki_command").add_parser(
-        "wiki",
-        help="Inspect and initialize the memory wiki vault",
-    )
+    # Add ``wiki`` to the program's command tree. Two cases:
+    # 1. The host passed a subparsers container (e.g. ``jarvis`` CLI passes
+    #    its ``<command>`` subparsers container so ``wiki`` becomes a sibling
+    #    of ``tools-list``, ``doctor``, etc.).
+    # 2. The host passed a fresh ``ArgumentParser`` (tests do this).
+    #    We need to add a fresh subparsers container first.
+    if hasattr(program, "add_parser"):
+        # Subparsers container path (jarvis CLI).
+        wiki = program.add_parser(
+            "wiki",
+            help="Inspect and initialize the memory wiki vault",
+        )
+    else:
+        # Fresh root parser path (tests + standalone usage).
+        wiki = program.add_subparsers(dest="wiki_command").add_parser(
+            "wiki",
+            help="Inspect and initialize the memory wiki vault",
+        )
     wiki.add_argument(
         "--agent",
         dest="agent",
@@ -753,7 +768,8 @@ def register_wiki_cli(
         requested_agent = opts.agent_id if opts is not None else None
         current_app_config = registration.get_app_config() if registration.get_app_config else None
         config = resolve_config(requested_agent, current_app_config)
-        agent_id = config.agent_id or requested_agent
+        # ``ResolvedMemoryWikiConfig`` uses camelCase fields (matches OpenClaw JSON shape).
+        agent_id = getattr(config, "agentId", None) or requested_agent
         ctx = WikiCommandContext(
             config=config,
             agent_id=agent_id,

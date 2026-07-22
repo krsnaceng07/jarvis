@@ -83,8 +83,20 @@ def _resolve_request_key(
     """
     import json
 
+    # ``ResolvedMemoryWikiConfig`` and ``ResolvedVaultConfig`` use
+    # ``__slots__`` (no ``__dict__``), so we must enumerate the slots
+    # explicitly rather than using ``**obj.__dict__``.
+    def _slot_dict(obj: Any) -> dict[str, Any]:
+        if hasattr(obj, "__dict__"):
+            return dict(obj.__dict__)
+        slots = getattr(obj, "__slots__", ())
+        return {name: getattr(obj, name) for name in slots}
+
     return json.dumps(
-        {**config.__dict__, "vault": {**config.vault.__dict__, "path": vault_key}},
+        {
+            **_slot_dict(config),
+            "vault": {**_slot_dict(config.vault), "path": vault_key},
+        },
         default=str,
         sort_keys=True,
     )

@@ -121,30 +121,31 @@ class TestMemoryLancedbEntry:
             },
         )
         api = PluginApi(ctx)
-        _register(api)
-        # 3 tools.
-        names: set[str] = set()
-        for tool_inst, name_list in api.tools:
-            names.update(name_list or [t.name for t in tool_inst.tools])
-        assert {"memory_recall", "memory_store", "memory_forget"}.issubset(names)
-        # Memory capability registered.
-        assert api._memory_capability is not None
-        cap = api._memory_capability
-        for key in ("prompt_builder", "flush_plan_resolver", "runtime", "public_artifacts"):
-            assert key in cap
-        # Active-slot globals populated.
-        assert plugin_globals.get_active_db() is not None
-        assert plugin_globals.get_active_embeddings() is not None
-        # Doctor contract registered.
-        assert any(c["id"] == "memory_lancedb.legacy_jarvis" for c in api.doctor_contracts)
-        # Slash command registered.
-        assert any(c.name == "ltm" for c in api.commands)
-        # Hooks registered.
-        hook_names = {h.name for h in api.hooks}
-        assert "agent_end" in hook_names
-        assert "session_end" in hook_names
-        # Cleanup.
-        plugin_globals.reset_for_tests()
+        try:
+            _register(api)
+            # 3 tools.
+            names: set[str] = set()
+            for tool_inst, name_list in api.tools:
+                names.update(name_list or [t.name for t in tool_inst.tools])
+            assert {"memory_recall", "memory_store", "memory_forget"}.issubset(names)
+            # Memory capability registered.
+            assert api._memory_capability is not None
+            cap = api._memory_capability
+            for key in ("prompt_builder", "flush_plan_resolver", "runtime", "public_artifacts"):
+                assert key in cap
+            # Active-slot globals populated.
+            assert plugin_globals.get_active_db() is not None
+            assert plugin_globals.get_active_embeddings() is not None
+            # Doctor contract registered.
+            assert any(c["id"] == "memory_lancedb.legacy_jarvis" for c in api.doctor_contracts)
+            # Slash command registered.
+            assert any(c.name == "ltm" for c in api.commands)
+            # Hooks registered.
+            hook_names = {h.name for h in api.hooks}
+            assert "agent_end" in hook_names
+            assert "session_end" in hook_names
+        finally:
+            plugin_globals.reset_for_tests()
 
 
 # ── In-memory store ────────────────────────────────────────

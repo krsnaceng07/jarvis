@@ -225,7 +225,7 @@ def register_memory_wiki(api: PluginApi) -> None:  # noqa: PLR0915 — mirrors O
                 memory_context=memory_context,
             )
 
-        register_tool(_status_tool_factory, {"name": "wiki_status"})
+        register_tool(_status_tool_factory, names=["wiki_status"])
 
         def _lint_tool_factory(ctx: Any) -> Any | None:
             resolved = _resolve_tool_context(getattr(ctx, "agent_id", None))
@@ -233,7 +233,7 @@ def register_memory_wiki(api: PluginApi) -> None:  # noqa: PLR0915 — mirrors O
                 return None
             return _tool.create_wiki_lint_tool(resolved["config"], resolved["appConfig"])
 
-        register_tool(_lint_tool_factory, {"name": "wiki_lint"})
+        register_tool(_lint_tool_factory, names=["wiki_lint"])
 
         def _apply_tool_factory(ctx: Any) -> Any | None:
             resolved = _resolve_tool_context(getattr(ctx, "agent_id", None))
@@ -241,7 +241,7 @@ def register_memory_wiki(api: PluginApi) -> None:  # noqa: PLR0915 — mirrors O
                 return None
             return _tool.create_wiki_apply_tool(resolved["config"], resolved["appConfig"])
 
-        register_tool(_apply_tool_factory, {"name": "wiki_apply"})
+        register_tool(_apply_tool_factory, names=["wiki_apply"])
 
         def _search_tool_factory(ctx: Any) -> Any | None:
             resolved = _resolve_tool_context(getattr(ctx, "agent_id", None))
@@ -258,7 +258,7 @@ def register_memory_wiki(api: PluginApi) -> None:  # noqa: PLR0915 — mirrors O
                 memory_context=memory_context,
             )
 
-        register_tool(_search_tool_factory, {"name": "wiki_search"})
+        register_tool(_search_tool_factory, names=["wiki_search"])
 
         def _get_tool_factory(ctx: Any) -> Any | None:
             resolved = _resolve_tool_context(getattr(ctx, "agent_id", None))
@@ -275,7 +275,7 @@ def register_memory_wiki(api: PluginApi) -> None:  # noqa: PLR0915 — mirrors O
                 memory_context=memory_context,
             )
 
-        register_tool(_get_tool_factory, {"name": "wiki_get"})
+        register_tool(_get_tool_factory, names=["wiki_get"])
 
     # ── CLI registration ──────────────────────────
     register_cli = getattr(api, "register_cli", None)

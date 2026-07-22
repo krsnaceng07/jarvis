@@ -59,6 +59,11 @@ def reset_for_tests() -> None:
     """Clear all module state. Tests call this between cases."""
     global _active_db, _active_embeddings
     with _lock:
+        if _active_db is not None and hasattr(_active_db, "close"):
+            try:
+                _active_db.close()
+            except Exception:
+                pass
         _active_db = None
         _active_embeddings = None
 

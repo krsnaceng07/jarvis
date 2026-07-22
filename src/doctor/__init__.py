@@ -16,6 +16,8 @@ runner-side API is ``DoctorRunner.run_all()``; CLI side is in
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import logging
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
@@ -147,7 +149,14 @@ class DoctorRunner:
         return sorted(self._contracts.keys())
 
     def run_all(self, state_dir: Path, config: dict[str, Any] | None = None) -> DoctorReport:
-        """Run every contract's ``detect()`` and collect findings."""
+        """Run every contract's ``detect()`` and collect findings.
+
+        Supports two contract signatures (introspected at call time):
+        - JARVIS style: ``detect(state_dir, config) -> list[DoctorFinding]``
+        - OpenClaw style: ``detect(params: dict) -> list[DoctorFinding] | DoctorPreview``
+        Same for ``apply()``. The runner auto-detects which style each
+        contract uses.
+        """
         cfg = config or {}
         findings: list[DoctorFinding] = []
         contracts_run: list[str] = []
@@ -155,7 +164,8 @@ class DoctorRunner:
 
         for cid, contract in self._contracts.items():
             try:
-                contract_findings: list[DoctorFinding] = list(contract.detect(state_dir, cfg) or [])
+                detect_result = _call_contract(contract.detect, state_dir, cfg)
+                contract_findings: list[DoctorFinding] = list(detect_result or [])
             except Exception as e:
                 _log.warning("doctor: contract %s raised: %s", cid, e)
                 contract_errors[cid] = str(e)
@@ -187,6 +197,44 @@ class DoctorRunner:
         single = DoctorRunner()
         single.add(self._contracts[contract_id])
         return single.run_all(state_dir, config)
+
+
+def _call_contract(
+    fn: Any,
+    state_dir: Path,
+    config: dict[str, Any],
+) -> Any:
+    """Call a doctor contract with the right signature.
+
+    Supports two styles (auto-detected via ``inspect.signature``):
+    - JARVIS style: ``detect(state_dir, config)`` or ``apply(state_dir, config)``
+    - OpenClaw style: ``detect(params: dict)`` or ``apply(params: dict)``
+
+    OpenClaw's params dict carries ``{state_dir, config, env, context, ...}``.
+    For the simple JARVIS runner we build a minimal params dict.
+    """
+    try:
+        sig = inspect.signature(fn)
+        params = list(sig.parameters.values())
+    except (TypeError, ValueError):
+        params = []
+
+    if len(params) == 1:
+        # OpenClaw style: single params dict
+        params_dict = {
+            "state_dir": state_dir,
+            "config": config,
+            "env": {},
+        }
+        result = fn(params_dict)
+    else:
+        # JARVIS style: (state_dir, config)
+        result = fn(state_dir, config)
+
+    # If the contract is async, the runner is sync, so we run it.
+    if inspect.iscoroutine(result):
+        result = asyncio.run(result)
+    return result
 
 
 __all__ = [

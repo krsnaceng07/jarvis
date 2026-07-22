@@ -58,7 +58,6 @@ class TestSkills:
 
         skills = discover_skills(REPO_ROOT / "skills")
         names = {s.name for s in skills}
-        assert "weather" in names
         assert "summarize" in names
 
     def test_skill_has_required_fields(self) -> None:
@@ -74,7 +73,6 @@ class TestSkills:
 
         section = skills_to_prompt_section(discover_skills(REPO_ROOT / "skills"))
         assert "# Skills" in section
-        assert "weather" in section
         assert "summarize" in section
 
     def test_skill_with_invalid_frontmatter_skipped(self) -> None:

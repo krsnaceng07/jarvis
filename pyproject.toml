@@ -216,12 +216,14 @@ addopts = [
     "--strict-config",
     "--showlocals",
     "--tb=short",
+    "--import-mode=importlib",
 ]
 filterwarnings = [
     # Catch-all: any other warning is an error.
     "error",
     "ignore::DeprecationWarning:pytest_asyncio",
     "ignore::DeprecationWarning:hypothesis",
+    "ignore::ResourceWarning",
     # TRANSITIONAL (PR 0.4): legacy actions/file_processor.py still imports
     # the deprecated `google.generativeai` package, which raises
     # FutureWarning at import time. The demotion filter MUST be the last

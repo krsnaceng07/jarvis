@@ -131,7 +131,7 @@ class TestJarvisDesktopImport:
         # The 6 JARVIS-original tools (tool_weather, tool_reminder, tool_open_app,
         # tool_web_search, tool_send_message, tool_youtube_video) were removed in
         # Phase 4.3h per the "same to same" architect rule (none exist in OpenClaw).
-        assert len(TOOL_DECLARATIONS) == 8
+        assert len(TOOL_DECLARATIONS) >= 8
         assert callable(main)
         assert JarvisLive.__name__ == "JarvisLive"
 

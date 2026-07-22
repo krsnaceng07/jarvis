@@ -188,23 +188,26 @@ def _load_plugins() -> (
             continue
 
         for tool_inst in api.tool_instances:
-            for tool_decl in tool_inst.tools:
+            decls = getattr(tool_inst, "tools", [tool_inst] if hasattr(tool_inst, "name") else [])
+            for tool_decl in decls:
+                if not hasattr(tool_decl, "name") or not hasattr(tool_decl, "parameters"):
+                    continue
                 params: dict = {
                     "type": "OBJECT",
                     "properties": {},
                     "required": [],
                 }
-                for p in tool_decl.parameters:
+                for p in getattr(tool_decl, "parameters", []):
                     params["properties"][p.name] = {
-                        "type": p.type.upper(),
-                        "description": p.description,
+                        "type": getattr(p, "type", "string").upper(),
+                        "description": getattr(p, "description", ""),
                     }
-                    if p.required:
+                    if getattr(p, "required", False):
                         params["required"].append(p.name)
                 tool_decls.append(
                     {
                         "name": tool_decl.name,
-                        "description": tool_decl.description,
+                        "description": getattr(tool_decl, "description", ""),
                         "parameters": params,
                     }
                 )
