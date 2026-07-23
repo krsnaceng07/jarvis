@@ -4097,5 +4097,5 @@ PR is needed.
 
 **Verification:** `docs/OPENCLAW_VERIFICATION_4.4.md` (full report).
 
-Next: cleanup pass (remove legacy dreaming code if any) or
-LLM-subagent / cron-extension port to fill in the stubs.
+Next: Phase 5 (Brain Core) — see `docs/OPENCLAW_FULL_BRAIN_PORT_PLAN.md`
+for the phased plan. Phase 5.1 = memory-host-sdk port.
