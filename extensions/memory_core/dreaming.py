@@ -38,11 +38,10 @@ Key port decisions:
 - The trigger detection (``run_short_term_dreaming_promotion_if_triggered``)
   is stubbed for the same reason.
 """
+
 from __future__ import annotations
 
-import asyncio
 from typing import Any, Literal, TypedDict
-
 
 # ── Cron constants (inlined from OpenClaw) ───────────────────────────
 
@@ -73,7 +72,10 @@ DEFAULT_MEMORY_DREAMING_RECENCY_HALF_LIFE_DAYS = 14
 # ── Types ─────────────────────────────────────────────────────────────
 
 
-CronSchedule = TypedDict("CronSchedule", {"kind": str, "expr": str, "tz": str}, total=False)
+class CronSchedule(TypedDict, total=False):
+    kind: str
+    expr: str
+    tz: str
 
 
 class CronPayloadSystemEvent(TypedDict, total=False):
@@ -130,14 +132,9 @@ class ShortTermPromotionDreamingConfig(TypedDict, total=False):
     execution: dict
 
 
-ReconcileResult = TypedDict(
-    "ReconcileResult",
-    {
-        "status": Literal["unavailable", "disabled", "added", "updated", "noop"],
-        "removed": int,
-    },
-    total=False,
-)
+class ReconcileResult(TypedDict, total=False):
+    status: Literal["unavailable", "disabled", "added", "updated", "noop"]
+    removed: int
 
 
 # ── Cron job builders ────────────────────────────────────────────────
@@ -241,9 +238,7 @@ def is_managed_dreaming_job(job: ManagedCronJobLike) -> bool:
     description = job.get("description")
     if isinstance(name, str) and name.strip() == MANAGED_DREAMING_CRON_NAME:
         return True
-    if isinstance(description, str) and MANAGED_DREAMING_CRON_TAG in description:
-        return True
-    return False
+    return bool(isinstance(description, str) and MANAGED_DREAMING_CRON_TAG in description)
 
 
 def is_legacy_phase_dreaming_job(job: ManagedCronJobLike) -> bool:
@@ -274,24 +269,22 @@ def compare_optional_strings(a: str | None, b: str | None) -> bool:
 
 def resolve_short_term_promotion_dreaming_config(
     plugin_config: dict | None = None, cfg: Any = None
-) -> ShortTermPromotionDreamingConfig:
+) -> dict:  # type: ignore[type-arg]
     """Resolve the dreaming config from the plugin's config dict.
 
     Mirrors OpenClaw's ``resolveShortTermPromotionDreamingConfig``.
     Reads ``plugin_config.deep`` (and ``plugin_config.dreaming``)
     and returns a fully-populated ``ShortTermPromotionDreamingConfig``.
     """
-    plugin_config = plugin_config if isinstance(plugin_config, dict) else {}
-    deep = plugin_config.get("deep") if isinstance(plugin_config.get("deep"), dict) else {}
-    dreaming = (
-        plugin_config.get("dreaming") if isinstance(plugin_config.get("dreaming"), dict) else {}
-    )
-    storage = (
-        dreaming.get("storage") if isinstance(dreaming.get("storage"), dict) else None
-    )
-    execution = (
-        dreaming.get("execution") if isinstance(dreaming.get("execution"), dict) else None
-    )
+    plugin_config_dict: dict = plugin_config if isinstance(plugin_config, dict) else {}
+    deep_raw = plugin_config_dict.get("deep")
+    deep: dict = deep_raw if isinstance(deep_raw, dict) else {}
+    dreaming_raw = plugin_config_dict.get("dreaming")
+    dreaming: dict = dreaming_raw if isinstance(dreaming_raw, dict) else {}
+    storage_raw = dreaming.get("storage")
+    storage: dict | None = storage_raw if isinstance(storage_raw, dict) else None
+    execution_raw = dreaming.get("execution")
+    execution: dict | None = execution_raw if isinstance(execution_raw, dict) else None
     enabled = bool(dreaming.get("enabled", deep.get("enabled", False)))
     return {
         "enabled": enabled,
@@ -341,7 +334,7 @@ def _resolve_cron_service_from_candidate(candidate: Any) -> Any | None:
         if callable(fn):
             try:
                 resolved = fn()
-            except Exception:  # noqa: BLE001
+            except Exception:
                 return None
             if resolved is not None and hasattr(resolved, "list"):
                 return resolved
@@ -359,7 +352,7 @@ def _resolve_cron_service_from_gateway_context(context: Any) -> Any | None:
     if callable(getter):
         try:
             return getter()
-        except Exception:  # noqa: BLE001
+        except Exception:
             return None
     return None
 

@@ -41,21 +41,20 @@ Key port decisions:
   ``tokenize.ts``), but Jaccard is a reasonable placeholder and is
   documented as such.
 """
+
 from __future__ import annotations
 
+# ruff: noqa: S324, PLR0912, C416, N803
 import hashlib
 import os
 import re
-from typing import Any, Callable, Literal, TypedDict
+from datetime import UTC
+from typing import Any, Literal, TypedDict
 
 # ── Path constants ────────────────────────────────────────────────────
 
-DAILY_INGESTION_STATE_RELATIVE_PATH = os.path.join(
-    "memory", ".dreams", "daily-ingestion.json"
-)
-SESSION_INGESTION_STATE_RELATIVE_PATH = os.path.join(
-    "memory", ".dreams", "session-ingestion.json"
-)
+DAILY_INGESTION_STATE_RELATIVE_PATH = os.path.join("memory", ".dreams", "daily-ingestion.json")
+SESSION_INGESTION_STATE_RELATIVE_PATH = os.path.join("memory", ".dreams", "session-ingestion.json")
 SESSION_CORPUS_RELATIVE_DIR = os.path.join("memory", ".dreams", "session-corpus")
 
 # ── Ingestion scoring + size constants ────────────────────────────────
@@ -83,9 +82,7 @@ LIGHT_DIARY_SNIPPET_SIMILARITY_THRESHOLD = 0.35
 
 MEMORY_DAY_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 DAILY_MEMORY_FILENAME_RE = re.compile(r"^(\d{4}-\d{2}-\d{2})(?:-[^/]+)?\.md$", re.IGNORECASE)
-SESSION_CHECKPOINT_TRANSCRIPT_FILENAME_RE = re.compile(
-    r"\.checkpoint\..+\.jsonl$", re.IGNORECASE
-)
+SESSION_CHECKPOINT_TRANSCRIPT_FILENAME_RE = re.compile(r"\.checkpoint\..+\.jsonl$", re.IGNORECASE)
 _GENERIC_DAY_HEADING_RE = re.compile(
     r"^(?:(?:mon|monday|tue|tues|tuesday|wed|wednesday|thu|thur|thursday|fri|friday|sat|saturday|sun|sunday)(?:,\s+)?)?"
     r"(?:(?:jan|january|feb|february|mar|march|apr|april|may|jun|june|jul|july|aug|august|sep|sept|september|oct|october|nov|november|dec|december)"
@@ -182,11 +179,11 @@ def _is_day_within_lookback(day: str, cutoff_ms: int) -> bool:
     """
     # The "T23:59:59.999Z" suffix is preserved verbatim from OpenClaw
     # so timezone semantics match: any time during the day qualifies.
-    from datetime import datetime, timezone
+    from datetime import datetime
 
     try:
         day_dt = datetime.strptime(f"{day}T23:59:59.999Z", "%Y-%m-%dT%H:%M:%S.%fZ").replace(
-            tzinfo=timezone.utc
+            tzinfo=UTC
         )
     except ValueError:
         return False
@@ -286,7 +283,9 @@ def _normalize_daily_heading(line: str) -> str | None:
     heading = _normalize_daily_list_marker(inner)
     if not heading or DAILY_MEMORY_FILENAME_RE.match(heading) or _is_generic_daily_heading(heading):
         return None
-    return _truncate_utf16_safe(heading, DAILY_INGESTION_MAX_SNIPPET_CHARS).replace("  ", " ").strip()
+    return (
+        _truncate_utf16_safe(heading, DAILY_INGESTION_MAX_SNIPPET_CHARS).replace("  ", " ").strip()
+    )
 
 
 def _normalize_daily_snippet(line: str) -> str | None:
@@ -297,14 +296,16 @@ def _normalize_daily_snippet(line: str) -> str | None:
     ``DAILY_INGESTION_MIN_SNIPPET_CHARS``.
     """
     trimmed = line.strip()
-    if not trimmed or trimmed.startswith("#") or trimmed.startswith("<!--"):
+    if not trimmed or trimmed.startswith(("#", "<!--")):
         return None
     without_marker = _normalize_daily_list_marker(trimmed)
     if len(without_marker) < DAILY_INGESTION_MIN_SNIPPET_CHARS:
         return None
-    return _truncate_utf16_safe(without_marker, DAILY_INGESTION_MAX_SNIPPET_CHARS).replace(
-        "  ", " "
-    ).strip()
+    return (
+        _truncate_utf16_safe(without_marker, DAILY_INGESTION_MAX_SNIPPET_CHARS)
+        .replace("  ", " ")
+        .strip()
+    )
 
 
 def _build_daily_chunk_snippet(
@@ -321,12 +322,12 @@ def _build_daily_chunk_snippet(
     joiner = "; " if chunk_kind == "list" else " "
     body = joiner.join(chunk_lines).strip()
     prefixed = f"{heading}: {body}" if heading else body
-    return _truncate_utf16_safe(prefixed, DAILY_INGESTION_MAX_SNIPPET_CHARS).replace("  ", " ").strip()
+    return (
+        _truncate_utf16_safe(prefixed, DAILY_INGESTION_MAX_SNIPPET_CHARS).replace("  ", " ").strip()
+    )
 
 
-def build_daily_snippet_chunks(
-    lines: list[str], limit: int
-) -> list[DailySnippetChunk]:
+def build_daily_snippet_chunks(lines: list[str], limit: int) -> list[DailySnippetChunk]:
     """Walk ``lines`` (1-indexed) and group them into headed chunks.
 
     Mirrors OpenClaw's ``buildDailySnippetChunks``. Each chunk has
@@ -382,7 +383,7 @@ def build_daily_snippet_chunks(
         next_kind: Literal["list", "paragraph"] = (
             "list" if re.match(r"^([-*+]\s+|\d+\.\s+)", trimmed) else "paragraph"
         )
-        next_chunk_lines = [snippet] if not chunk_lines else chunk_lines + [snippet]
+        next_chunk_lines = [snippet] if not chunk_lines else [*chunk_lines, snippet]
         candidate = _build_daily_chunk_snippet(active_heading, next_chunk_lines, next_kind)
         should_split = chunk_lines and (
             chunk_kind != next_kind
@@ -424,9 +425,7 @@ def _parse_daily_memory_file_name(file_name: str) -> DailyMemoryFile | None:
     }
 
 
-def _compare_daily_memory_files_by_newest_day(
-    left: DailyMemoryFile, right: DailyMemoryFile
-) -> int:
+def _compare_daily_memory_files_by_newest_day(left: DailyMemoryFile, right: DailyMemoryFile) -> int:
     """Compare two daily memory files; newest day first, then canonical.
 
     Mirrors OpenClaw's ``compareDailyMemoryFilesByNewestDay``.
@@ -484,9 +483,7 @@ def _strip_managed_daily_dreaming_lines(lines: list[str]) -> list[str]:
         if strip_until < index:
             index += 1
             continue
-        heading_index = _find_managed_daily_dreaming_heading_index(
-            lines, index, block["heading"]
-        )
+        heading_index = _find_managed_daily_dreaming_heading_index(lines, index, block["heading"])
         start_index = heading_index if heading_index is not None else index
         for c in range(start_index, strip_until + 1):
             sanitized[c] = ""
@@ -537,7 +534,7 @@ def _entry_average_score(entry: ShortTermRecallEntry) -> float:
     the entry has no score field.
     """
     score = entry.get("score")
-    if isinstance(score, (int, float)):
+    if isinstance(score, int | float):
         return float(score)
     return 0.0
 
@@ -575,9 +572,7 @@ def normalize_diary_coverage_text(text: str) -> str:
     return " ".join(re.sub(r"[^a-z0-9\s]", "", text.lower()).split())
 
 
-def is_entry_covered_by_recent_diary(
-    snippet: str, recent_diary_entries: list[str]
-) -> bool:
+def is_entry_covered_by_recent_diary(snippet: str, recent_diary_entries: list[str]) -> bool:
     """Return ``True`` if any recent diary entry is similar to ``snippet``.
 
     Mirrors OpenClaw's ``isEntryCoveredByRecentDiary``. Uses
@@ -610,12 +605,8 @@ def prioritize_light_entries_by_diary_coverage(
             covered.append(entry)
         else:
             uncovered.append(entry)
-    uncovered.sort(
-        key=lambda e: (-_entry_average_score(e), -(len(e.get("snippet") or "")))
-    )
-    covered.sort(
-        key=lambda e: (-_entry_average_score(e), -(len(e.get("snippet") or "")))
-    )
+    uncovered.sort(key=lambda e: (-_entry_average_score(e), -(len(e.get("snippet") or ""))))
+    covered.sort(key=lambda e: (-_entry_average_score(e), -(len(e.get("snippet") or ""))))
     return uncovered + covered
 
 
@@ -655,8 +646,8 @@ def normalize_daily_ingestion_state(raw: Any) -> DailyIngestionState:
             if not file_rec:
                 continue
             try:
-                mtime_ms = float(file_rec.get("mtimeMs"))
-                size = float(file_rec.get("size"))
+                mtime_ms = float(file_rec.get("mtimeMs", 0))  # type: ignore[arg-type]
+                size = float(file_rec.get("size", 0))  # type: ignore[arg-type]
             except (TypeError, ValueError):
                 continue
             if not (mtime_ms >= 0 and size >= 0):
@@ -689,8 +680,8 @@ def normalize_session_ingestion_state(raw: Any) -> SessionIngestionState:
             if not file_rec:
                 continue
             try:
-                mtime_ms = float(file_rec.get("mtimeMs"))
-                size = float(file_rec.get("size"))
+                mtime_ms = float(file_rec.get("mtimeMs", 0))  # type: ignore[arg-type]
+                size = float(file_rec.get("size", 0))  # type: ignore[arg-type]
             except (TypeError, ValueError):
                 continue
             if not (mtime_ms >= 0 and size >= 0):
@@ -761,9 +752,7 @@ def _read_daily_ingestion_state(workspace_dir: str) -> DailyIngestionState:
     )
 
 
-def _write_daily_ingestion_state(
-    workspace_dir: str, state: DailyIngestionState
-) -> None:
+def _write_daily_ingestion_state(workspace_dir: str, state: DailyIngestionState) -> None:
     """Write the daily ingestion state to the SQLite plugin store.
 
     Mirrors OpenClaw's ``writeDailyIngestionState``.
@@ -776,7 +765,7 @@ def _write_daily_ingestion_state(
     write_memory_core_workspace_entries(
         namespace=DREAMING_DAILY_INGESTION_NAMESPACE,
         workspace_dir=workspace_dir,
-        entries=[{"key": key, "value": value} for key, value in (state.get("files") or {}).items()],
+        entries=[(key, value) for key, value in (state.get("files") or {}).items()],  # type: ignore[arg-type]
     )
 
 
@@ -790,7 +779,6 @@ def _read_session_ingestion_state(workspace_dir: str) -> SessionIngestionState:
     from .dreaming_state import (
         DREAMING_SESSION_INGESTION_FILES_NAMESPACE,
         DREAMING_SESSION_INGESTION_SEEN_NAMESPACE,
-        SESSION_SEEN_HASHES_PER_CHUNK,
         read_memory_core_workspace_entries,
     )
 
@@ -812,7 +800,9 @@ def _read_session_ingestion_state(workspace_dir: str) -> SessionIngestionState:
         hashes = (entry[1] or {}).get("hashes") or []
         if not isinstance(hashes, list):
             continue
-        chunks_by_scope.setdefault(scope, []).append((idx, [h for h in hashes if isinstance(h, str)]))
+        chunks_by_scope.setdefault(scope, []).append(
+            (idx, [h for h in hashes if isinstance(h, str)])
+        )
     for scope, chunks in chunks_by_scope.items():
         chunks.sort(key=lambda c: c[0])
         seen_messages[scope] = [h for _, hs in chunks for h in hs]
@@ -825,9 +815,7 @@ def _read_session_ingestion_state(workspace_dir: str) -> SessionIngestionState:
     )
 
 
-def _write_session_ingestion_state(
-    workspace_dir: str, state: SessionIngestionState
-) -> None:
+def _write_session_ingestion_state(workspace_dir: str, state: SessionIngestionState) -> None:
     """Write the session ingestion state (files + seenMessages) to SQLite.
 
     Mirrors OpenClaw's ``writeSessionIngestionState``. Splits the
@@ -841,12 +829,22 @@ def _write_session_ingestion_state(
         write_memory_core_workspace_entries,
     )
 
-    seen_entries: list[dict[str, Any]] = []
+    seen_entries: list[tuple[str, Any]] = []
     for scope, hashes in (state.get("seenMessages") or {}).items():
-        for index in range(0, max(1, (len(hashes) + SESSION_SEEN_HASHES_PER_CHUNK - 1) // SESSION_SEEN_HASHES_PER_CHUNK)):
-            chunk = hashes[index * SESSION_SEEN_HASHES_PER_CHUNK:(index + 1) * SESSION_SEEN_HASHES_PER_CHUNK]
+        for index in range(
+            max(
+                1,
+                (len(hashes) + SESSION_SEEN_HASHES_PER_CHUNK - 1) // SESSION_SEEN_HASHES_PER_CHUNK,
+            )
+        ):
+            chunk = hashes[
+                index * SESSION_SEEN_HASHES_PER_CHUNK : (index + 1) * SESSION_SEEN_HASHES_PER_CHUNK
+            ]
             seen_entries.append(
-                {"key": f"{scope}:{index}", "value": {"scope": scope, "index": index, "hashes": chunk}}
+                (
+                    f"{scope}:{index}",
+                    {"scope": scope, "index": index, "hashes": chunk},
+                )
             )
     # File entries + seen entries are written in parallel.
     import asyncio
@@ -856,15 +854,14 @@ def _write_session_ingestion_state(
             write_memory_core_workspace_entries(
                 namespace=DREAMING_SESSION_INGESTION_FILES_NAMESPACE,
                 workspace_dir=workspace_dir,
-                entries=[
-                    {"key": key, "value": value}
-                    for key, value in (state.get("files") or {}).items()
+                entries=[  # type: ignore[arg-type]
+                    (key, value) for key, value in (state.get("files") or {}).items()
                 ],
             ),
             write_memory_core_workspace_entries(
                 namespace=DREAMING_SESSION_INGESTION_SEEN_NAMESPACE,
                 workspace_dir=workspace_dir,
-                entries=seen_entries,
+                entries=seen_entries,  # type: ignore[arg-type]
             ),
         )
 
@@ -897,9 +894,7 @@ def _normalize_session_corpus_snippet(value: str) -> str:
     return _truncate_utf16_safe(" ".join(value.split()), SESSION_INGESTION_MAX_SNIPPET_CHARS)
 
 
-def _merge_tracked_message_hashes(
-    existing: list[str], additions: list[str]
-) -> list[str]:
+def _merge_tracked_message_hashes(existing: list[str], additions: list[str]) -> list[str]:
     """Append unique additions to ``existing``; cap to the per-session max.
 
     Mirrors OpenClaw's ``mergeTrackedMessageHashes``.

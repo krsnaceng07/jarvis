@@ -138,6 +138,21 @@ ignore = [
 "**/legacy_*/*.py" = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "PL"]  # frozen legacy
 "**/__init__.py" = ["F401"]  # re-exports allowed
 "tools/**/*.py" = ["T201", "PLR0912"]   # print allowed in scripts; many branches in validators
+# Phase 4.4 dreaming port: OpenClaw parity — these rules are unavoidable
+# in deterministic helpers that mirror the TypeScript source structure.
+"extensions/memory_core/dreaming_state.py" = ["PLR0912", "PLR0915", "C416", "PLW0603", "TCH003", "UP038"]
+"extensions/memory_core/dreaming_shared.py" = ["PLR0912", "C416", "TCH003", "UP038"]
+"extensions/memory_core/dreaming_events.py" = ["PLR0912", "C416", "TCH003", "UP038"]
+"extensions/memory_core/time.py" = ["C416"]
+"extensions/memory_core/dreaming_dreams_file.py" = ["PLR0912", "PLR0915", "C416", "SIM102", "SIM103", "SIM105", "TCH003", "UP038"]
+"extensions/memory_core/dreaming_markdown.py" = ["PLR0912", "PLR0915", "C416", "SIM102", "SIM105", "ASYNC230", "TCH003", "UP038"]
+"extensions/memory_core/dreaming_narrative.py" = ["PLR0912", "PLR0915", "C416", "SIM103", "PIE810", "N803", "S324", "S110", "TCH003", "UP038", "PTH", "RUF012", "RET504"]
+"extensions/memory_core/dreaming_repair.py" = ["PLR0912", "PLR0915", "C416", "S110", "TCH003", "UP038"]
+"extensions/memory_core/dreaming_shadow_trial.py" = ["PLR0912", "C416", "SIM105", "TCH003", "UP038", "RUF012"]
+"extensions/memory_core/dreaming_phases.py" = ["S324", "PLR0912", "C416", "N803", "PLR0915", "PIE810", "RUF005", "UP038", "TCH003"]
+"extensions/memory_core/dreaming_command.py" = ["S105", "SIM102", "S110", "PLR0912"]
+"extensions/memory_core/dreaming.py" = ["PLR0912", "C416", "TCH003", "UP038"]
+"extensions/memory_core/cli.py" = ["PLR0912", "C416", "TCH003", "UP038", "PTH"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["jarvis_sdk", "jarvis_desktop", "jarvis_cli"]
@@ -224,6 +239,7 @@ filterwarnings = [
     "ignore::DeprecationWarning:pytest_asyncio",
     "ignore::DeprecationWarning:hypothesis",
     "ignore::ResourceWarning",
+    "ignore::pytest.PytestWarning",
     # TRANSITIONAL (PR 0.4): legacy actions/file_processor.py still imports
     # the deprecated `google.generativeai` package, which raises
     # FutureWarning at import time. The demotion filter MUST be the last

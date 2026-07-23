@@ -9,9 +9,10 @@ Two helpers:
 - ``resolve_memory_core_timestamp`` — same as above but returns an
   ISO-8601 string suitable for event timestamps.
 """
+
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from numbers import Real
 from typing import Any
 
@@ -23,8 +24,8 @@ def resolve_memory_core_now_ms(now_ms: Any) -> int:
     (any Python value) and only treats real numbers as a valid input.
     """
     if isinstance(now_ms, Real) and not isinstance(now_ms, bool):
-        return int(now_ms)
-    return int(datetime.now(tz=timezone.utc).timestamp() * 1000)
+        return int(now_ms)  # type: ignore[arg-type]
+    return int(datetime.now(tz=UTC).timestamp() * 1000)
 
 
 def resolve_memory_core_timestamp(now_ms: Any) -> str:
@@ -34,8 +35,8 @@ def resolve_memory_core_timestamp(now_ms: Any) -> str:
     numeric, use it; else fall back to the current UTC time.
     """
     if isinstance(now_ms, Real) and not isinstance(now_ms, bool):
-        return datetime.fromtimestamp(int(now_ms) / 1000, tz=timezone.utc).isoformat()
-    return datetime.now(tz=timezone.utc).isoformat()
+        return datetime.fromtimestamp(int(now_ms) / 1000, tz=UTC).isoformat()  # type: ignore[arg-type]
+    return datetime.now(tz=UTC).isoformat()
 
 
 __all__ = ["resolve_memory_core_now_ms", "resolve_memory_core_timestamp"]

@@ -14,11 +14,12 @@ OpenClaw parity: mirrors ``extensions/memory-core/src/dreaming-markdown.ts``
 Both functions emit a ``memory.dream.completed`` event via the host's
 event log (best-effort, no-op when the SDK event API isn't available).
 """
+
 from __future__ import annotations
 
 import asyncio
 import os
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Literal, TypedDict
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -85,9 +86,9 @@ def _format_memory_dreaming_day(epoch_ms: int, timezone_name: str | None = None)
         try:
             tz = ZoneInfo(timezone_name)
         except ZoneInfoNotFoundError:
-            tz = timezone.utc
+            tz = UTC
     else:
-        tz = timezone.utc
+        tz = UTC
     dt = datetime.fromtimestamp(epoch_ms / 1000, tz=tz)
     return f"{dt.year:04d}-{dt.month:02d}-{dt.day:02d}"
 
@@ -149,12 +150,10 @@ def _should_write_separate(storage: MemoryDreamingStorageConfig) -> bool:
 # inside ``dreaming_dreams_file.py`` but keeps its scope local.
 import re  # noqa: E402
 
-_RE_MD_MARKER = re.compile(  # noqa: E402
-    r"^[ \t]*<!--[ \t]*([\w-]+):([\w.-]+):start[ \t]*-->\s*$"
-)
+_RE_MD_MARKER = re.compile(r"^[ \t]*<!--[ \t]*([\w-]+):([\w.-]+):start[ \t]*-->\s*$")
 
 
-def _replace_managed_markdown_block(  # noqa: PLR0913
+def _replace_managed_markdown_block(
     original: str,
     body: str,
     start_marker: str,
@@ -172,7 +171,7 @@ def _replace_managed_markdown_block(  # noqa: PLR0913
         start_idx = original.index(start_marker)
         end_idx = original.index(end_marker, start_idx)
         before = original[:start_idx]
-        after = original[end_idx + len(end_marker):]
+        after = original[end_idx + len(end_marker) :]
         heading_prefix = f"{heading}\n" if heading else ""
         return f"{before}{heading_prefix}{start_marker}\n{body}\n{end_marker}{after}"
 
@@ -186,7 +185,7 @@ def _replace_managed_markdown_block(  # noqa: PLR0913
 # ── Public API ─────────────────────────────────────────────────────────
 
 
-async def write_daily_dreaming_phase_block(  # noqa: PLR0913
+async def write_daily_dreaming_phase_block(
     *,
     workspace_dir: str,
     phase: DailyDreamingPhaseName,
@@ -214,7 +213,7 @@ async def write_daily_dreaming_phase_block(  # noqa: PLR0913
         inline_path = _resolve_daily_memory_path(workspace_dir, resolved_now_ms, timezone_name)
         os.makedirs(os.path.dirname(inline_path) or ".", exist_ok=True)
         try:
-            with open(inline_path, "r", encoding="utf-8") as f:
+            with open(inline_path, encoding="utf-8") as f:
                 original = f.read()
         except FileNotFoundError:
             original = ""
@@ -312,9 +311,7 @@ def _atomic_write_text(path: str, content: str) -> None:
     os.makedirs(parent, exist_ok=True)
     import tempfile
 
-    fd, tmp = tempfile.mkstemp(
-        prefix=f".{os.path.basename(path)}.tmp.", dir=parent
-    )
+    fd, tmp = tempfile.mkstemp(prefix=f".{os.path.basename(path)}.tmp.", dir=parent)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(content)
@@ -327,7 +324,7 @@ def _atomic_write_text(path: str, content: str) -> None:
         raise
 
 
-async def _emit_completed_event(  # noqa: PLR0913
+async def _emit_completed_event(
     *,
     workspace_dir: str,
     phase: str,
@@ -344,7 +341,9 @@ async def _emit_completed_event(  # noqa: PLR0913
     is not blocked by event-log failures.
     """
     try:
-        from jarvis_sdk.memory_host_events import append_memory_host_event  # type: ignore[attr-defined]
+        from jarvis_sdk.memory_host_events import (  # pyright: ignore[reportMissingImports]
+            append_memory_host_event,  # type: ignore[attr-defined]
+        )
     except ImportError:
         # SDK doesn't expose the events API yet — degrade to a no-op.
         return

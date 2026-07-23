@@ -65,9 +65,13 @@ from jarvis_sdk import (
     define_plugin_entry,
 )
 
-from . import doctor as doctor_module, prompt_section
-from . import dreaming as dreaming_module
-from . import dreaming_command, dreaming_state
+from . import (
+    doctor as doctor_module,
+    dreaming as dreaming_module,
+    dreaming_command,
+    dreaming_state,
+    prompt_section,
+)
 from .plugin import MemoryCorePlugin
 from .public_artifacts import list_artifacts as _list_artifacts
 
@@ -122,6 +126,11 @@ def _dreaming_command_handler(ctx: PluginCommandContext) -> PluginCommandResult:
     """
     import asyncio
 
+    ctx_dict: dict = {
+        "args": ctx.args or "",
+        "gatewayClientScopes": list(getattr(ctx, "gateway_client_scopes", None) or []),
+        "senderIsOwner": bool(getattr(ctx, "sender_is_owner", False)),
+    }
     result = asyncio.run(
         dreaming_command.handle_dreaming_command(
             # The OpenClaw handler expects the plugin API; the
@@ -129,11 +138,7 @@ def _dreaming_command_handler(ctx: PluginCommandContext) -> PluginCommandResult:
             # ``runtime.config.current()``. The PluginApi has
             # ``runtime.config`` so we can pass it directly.
             api=_get_dreaming_api_proxy(),
-            ctx={
-                "args": ctx.args or "",
-                "gatewayClientScopes": getattr(ctx, "gateway_client_scopes", None),
-                "senderIsOwner": ctx.sender_is_owner if hasattr(ctx, "sender_is_owner") else False,
-            },
+            ctx=ctx_dict,  # type: ignore[arg-type]
         )
     )
     return PluginCommandResult(reply_text=result.get("text", ""))
@@ -205,16 +210,14 @@ def _configure_dreaming_state(api: PluginApi) -> None:
     state = getattr(state_runtime, "state", None)
     if state is None:
         return
-    open_keyed = getattr(state, "open_keyed_store", None) or getattr(
-        state, "openKeyedStore", None
-    )
+    open_keyed = getattr(state, "open_keyed_store", None) or getattr(state, "openKeyedStore", None)
     if not callable(open_keyed):
         return
 
-    def _factory(options: dict) -> object:
-        return open_keyed(options)
+    def _factory(options):  # type: ignore[no-untyped-def]
+        return open_keyed(options)  # type: ignore[arg-type]
 
-    dreaming_state.configure_memory_core_dreaming_state(_factory)
+    dreaming_state.configure_memory_core_dreaming_state(_factory)  # type: ignore[arg-type]
 
 
 def _register(api: PluginApi) -> None:

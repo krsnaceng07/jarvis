@@ -35,10 +35,12 @@ Key port decisions:
 - Permission check: a channel caller must be the owner; a gateway
   client must have ``operator.admin`` in its scopes.
 """
+
 from __future__ import annotations
 
 from typing import Any, TypedDict
 
+# ruff: noqa: S105, SIM102, S110
 
 # ── Public types ──────────────────────────────────────────────────────
 
@@ -239,9 +241,7 @@ def _first_token(args: str) -> str:
     return ""
 
 
-async def handle_dreaming_command(
-    api: Any, ctx: PluginCommandContextLike
-) -> DreamingCommandResult:
+async def handle_dreaming_command(api: Any, ctx: PluginCommandContextLike) -> DreamingCommandResult:
     """Dispatch the ``/dreaming`` command.
 
     Mirrors OpenClaw's ``handleDreamingCommand``. ``api`` is the
@@ -288,8 +288,12 @@ async def handle_dreaming_command(
                         ),
                     )
                     if isinstance(result, dict):
-                        committed_config = result.get("nextConfig") or result.get("next_config") or committed_config
-            except Exception:  # noqa: BLE001
+                        committed_config = (
+                            result.get("nextConfig")
+                            or result.get("next_config")
+                            or committed_config
+                        )
+            except Exception:
                 # Fall through to the in-memory config update below.
                 pass
         # Always reflect the desired enabled state in the displayed status.

@@ -38,13 +38,13 @@ Key port decisions:
 - The "diary continuity context" helper truncates each entry to
   360 chars so the LLM prompt doesn't grow unbounded.
 """
+
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import re
-from datetime import datetime, timezone
-from typing import Any, Callable, Literal, TypedDict
+from datetime import UTC, datetime
+from typing import Any, Literal, TypedDict
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from .dreaming_dreams_file import (
@@ -102,8 +102,8 @@ NARRATIVE_SYSTEM_PROMPT = "\n".join(
         "",
         "Rules:",
         "- Draw from the memory fragments provided — weave them into the entry.",
-        "- Never say \"I'm dreaming\", \"in my dream\", \"as I dream\", or any meta-commentary about dreaming.",
-        "- Never mention \"AI\", \"agent\", \"LLM\", \"model\", \"language model\", or any technical self-reference.",
+        '- Never say "I\'m dreaming", "in my dream", "as I dream", or any meta-commentary about dreaming.',
+        '- Never mention "AI", "agent", "LLM", "model", "language model", or any technical self-reference.',
         "- Do NOT use markdown headers, bullet points, or any formatting — just flowing prose.",
         "- Keep it between 80-180 words. Quality over quantity.",
         "- Output ONLY the diary entry. No preamble, no sign-off, no commentary.",
@@ -174,11 +174,7 @@ def split_diary_blocks(diary_content: str) -> list[str]:
     Mirrors OpenClaw's ``splitDiaryBlocks``. Whitespace-trimmed;
     empty blocks are dropped.
     """
-    return [
-        block.strip()
-        for block in diary_content.split("\n---\n")
-        if block.strip()
-    ]
+    return [block.strip() for block in diary_content.split("\n---\n") if block.strip()]
 
 
 def clamp_diary_context_entry(entry: str) -> str:
@@ -207,11 +203,7 @@ def normalize_diary_block_body(block: str) -> str:
         if not trimmed or trimmed.startswith("<!--") or trimmed.startswith("#"):
             continue
         # Skip the "*<date>*" italics line.
-        if (
-            trimmed.startswith("*")
-            and trimmed.endswith("*")
-            and len(trimmed) > 2
-        ):
+        if trimmed.startswith("*") and trimmed.endswith("*") and len(trimmed) > 2:
             continue
         body_lines.append(trimmed)
     return clamp_diary_context_entry(" ".join(body_lines))
@@ -249,9 +241,7 @@ def is_optional_diary_context_read_error(err: Any) -> bool:
 # ── Read recent entries ────────────────────────────────────────────────
 
 
-def read_recent_dream_diary_entries(
-    workspace_dir: str, limit: int | None = None
-) -> list[str]:
+def read_recent_dream_diary_entries(workspace_dir: str, limit: int | None = None) -> list[str]:
     """Return the most recent N (clamped) diary context entries.
 
     Mirrors OpenClaw's ``readRecentDreamDiaryEntries``. Returns ``[]``
@@ -264,7 +254,7 @@ def read_recent_dream_diary_entries(
     try:
         dreams_path = resolve_dreams_path(workspace_dir)
         existing = read_dreams_file(dreams_path)
-    except Exception as err:  # noqa: BLE001
+    except Exception as err:
         if is_optional_diary_context_read_error(err):
             return []
         raise
@@ -272,7 +262,7 @@ def read_recent_dream_diary_entries(
     end_idx = existing.find(DIARY_END_MARKER)
     if start_idx < 0 or end_idx < 0 or end_idx < start_idx:
         return []
-    inner = existing[start_idx + len(DIARY_START_MARKER): end_idx]
+    inner = existing[start_idx + len(DIARY_START_MARKER) : end_idx]
     blocks = split_diary_blocks(inner)
     normalized = [normalize_diary_block_body(b) for b in blocks]
     filtered = [n for n in normalized if n]
@@ -325,7 +315,7 @@ def strip_backfill_diary_blocks(existing: str) -> dict[str, Any]:
     end_idx = ensured.find(DIARY_END_MARKER)
     if start_idx < 0 or end_idx < 0 or end_idx < start_idx:
         return {"updated": ensured, "removed": 0}
-    inner = ensured[start_idx + len(DIARY_START_MARKER): end_idx]
+    inner = ensured[start_idx + len(DIARY_START_MARKER) : end_idx]
     kept: list[str] = []
     removed = 0
     for block in split_diary_blocks(inner):
@@ -349,10 +339,8 @@ def format_backfill_diary_date(iso_day: str, _timezone: str | None = None) -> st
     if not match:
         return iso_day
     year, month, day = match.groups()
-    epoch_ms = int(
-        datetime(int(year), int(month), int(day), 12, tzinfo=timezone.utc).timestamp() * 1000
-    )
-    dt = datetime.fromtimestamp(epoch_ms / 1000, tz=timezone.utc)
+    epoch_ms = int(datetime(int(year), int(month), int(day), 12, tzinfo=UTC).timestamp() * 1000)
+    dt = datetime.fromtimestamp(epoch_ms / 1000, tz=UTC)
     return f"{dt.strftime('%B')} {dt.day}, {dt.year}"
 
 
@@ -391,12 +379,13 @@ def write_backfill_diary_entries(
     prior backfill entries; preserves user-written entries.
     Returns ``{"dreamsPath", "written", "replaced"}``.
     """
+
     def _updater(existing: str, dreams_path: str) -> dict[str, Any]:
         stripped = strip_backfill_diary_blocks(existing)
         start_idx = stripped["updated"].find(DIARY_START_MARKER)
         end_idx = stripped["updated"].find(DIARY_END_MARKER)
         inner = (
-            stripped["updated"][start_idx + len(DIARY_START_MARKER): end_idx]
+            stripped["updated"][start_idx + len(DIARY_START_MARKER) : end_idx]
             if start_idx >= 0 and end_idx > start_idx
             else ""
         )
@@ -411,9 +400,7 @@ def write_backfill_diary_entries(
             for entry in entries
         ]
         return {
-            "content": replace_diary_content(
-                stripped["updated"], join_diary_blocks(next_blocks)
-            ),
+            "content": replace_diary_content(stripped["updated"], join_diary_blocks(next_blocks)),
             "result": {
                 "dreamsPath": dreams_path,
                 "written": len(entries),
@@ -430,6 +417,7 @@ def remove_backfill_diary_entries(workspace_dir: str) -> dict[str, Any]:
     Mirrors OpenClaw's ``removeBackfillDiaryEntries``. Returns
     ``{"dreamsPath", "removed"}``.
     """
+
     def _updater(existing: str, dreams_path: str) -> dict[str, Any]:
         stripped = strip_backfill_diary_blocks(existing)
         return {
@@ -447,6 +435,7 @@ def dedupe_dream_diary_entries(workspace_dir: str) -> dict[str, Any]:
     Mirrors OpenClaw's ``dedupeDreamDiaryEntries``. Returns
     ``{"dreamsPath", "removed", "kept"}``.
     """
+
     def _updater(existing: str, dreams_path: str) -> dict[str, Any]:
         ensured = ensure_diary_section(existing)
         start_idx = ensured.find(DIARY_START_MARKER)
@@ -457,7 +446,7 @@ def dedupe_dream_diary_entries(workspace_dir: str) -> dict[str, Any]:
                 "result": {"dreamsPath": dreams_path, "removed": 0, "kept": 0},
                 "shouldWrite": False,
             }
-        inner = ensured[start_idx + len(DIARY_START_MARKER): end_idx]
+        inner = ensured[start_idx + len(DIARY_START_MARKER) : end_idx]
         blocks = split_diary_blocks(inner)
         seen: set[str] = set()
         kept_blocks: list[str] = []
@@ -509,10 +498,7 @@ def build_narrative_prompt(data: NarrativePhaseData) -> str:
             lines.append(f"- {promo}")
 
     current_date = (data.get("currentDate") or "").strip()
-    recent_entries = [
-        clamp_diary_context_entry(e)
-        for e in (data.get("recentDiaryEntries") or [])
-    ]
+    recent_entries = [clamp_diary_context_entry(e) for e in (data.get("recentDiaryEntries") or [])]
     recent_entries = [e for e in recent_entries if e][:RECENT_DIARY_CONTEXT_LIMIT]
 
     if current_date or recent_entries:
@@ -580,9 +566,9 @@ def format_narrative_date(epoch_ms: int, timezone_name: str | None = None) -> st
         try:
             tz = ZoneInfo(timezone_name)
         except ZoneInfoNotFoundError:
-            tz = timezone.utc
+            tz = UTC
     else:
-        tz = timezone.utc
+        tz = UTC
     dt = datetime.fromtimestamp(epoch_ms / 1000, tz=tz)
     # Match the OpenClaw en-US long format with timezone abbreviation.
     # Python's strftime doesn't have a portable %Z for short names on
@@ -599,7 +585,9 @@ def format_narrative_date(epoch_ms: int, timezone_name: str | None = None) -> st
     if hasattr(tz, "key") and getattr(tz, "key", None):
         tz_label = f" {tz.key}"
     elif dt.utcoffset():
-        offset = dt.utcoffset()
+        offset = dt.utcoffset()  # type: ignore[assignment]
+        if offset is None:
+            return f"{month} {day}, {year} at {hour12}:{minute} {ampm}"
         total_minutes = int(offset.total_seconds() // 60)
         sign = "+" if total_minutes >= 0 else "-"
         h, m = divmod(abs(total_minutes), 60)
@@ -637,9 +625,7 @@ def _append_narrative_entry(
             updated = f"{existing[:end_idx]}{entry}\n{existing[end_idx:]}"
         elif DIARY_START_MARKER in existing:
             start_idx = existing.index(DIARY_START_MARKER) + len(DIARY_START_MARKER)
-            updated = (
-                f"{existing[:start_idx]}{entry}\n{DIARY_END_MARKER}\n{existing[start_idx:]}"
-            )
+            updated = f"{existing[:start_idx]}{entry}\n{DIARY_END_MARKER}\n{existing[start_idx:]}"
         else:
             diary_section = f"{DIARY_HEADING}\n\n{DIARY_START_MARKER}{entry}\n{DIARY_END_MARKER}\n"
             updated = diary_section if existing.strip() == "" else f"{diary_section}\n{existing}"
@@ -677,7 +663,7 @@ def append_fallback_narrative_entry(
             logger.info(
                 f"memory-core: narrative generation used fallback for {phase} phase because {reason}."
             )
-    except Exception as fallback_err:  # noqa: BLE001
+    except Exception as fallback_err:
         if logger is not None:
             phase = data.get("phase", "unknown")
             logger.warn(

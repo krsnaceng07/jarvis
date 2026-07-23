@@ -36,12 +36,15 @@ Key port decisions:
   ``withLease``). When ``None``, the handlers run in a degraded
   mode that returns the same "not yet available" message.
 """
+
 from __future__ import annotations
 
-import argparse
 import os
-from typing import Any, Callable
+from datetime import UTC
+from typing import TYPE_CHECKING, Any
 
+if TYPE_CHECKING:
+    import argparse
 
 # ── Public API ────────────────────────────────────────────────────────
 
@@ -84,34 +87,22 @@ def register_memory_cli(program: Any, host: Any | None = None) -> None:
     # ── memory search ─────────────────────────────────────────
     p_search = sub.add_parser("search", help="Search memory files")
     p_search.add_argument("query", help="Search query")
-    p_search.add_argument(
-        "--limit", type=int, default=20, help="Max results (default 20)"
-    )
+    p_search.add_argument("--limit", type=int, default=20, help="Max results (default 20)")
     p_search.set_defaults(_handler=_cmd_memory_search)
 
     # ── memory promote ────────────────────────────────────────
-    p_promote = sub.add_parser(
-        "promote", help="Rank short-term recalls and append to MEMORY.md"
-    )
-    p_promote.add_argument(
-        "--dry-run", action="store_true", help="Show what would be promoted"
-    )
+    p_promote = sub.add_parser("promote", help="Rank short-term recalls and append to MEMORY.md")
+    p_promote.add_argument("--dry-run", action="store_true", help="Show what would be promoted")
     p_promote.set_defaults(_handler=_cmd_memory_promote)
 
     # ── memory promote-explain ────────────────────────────────
-    p_explain = sub.add_parser(
-        "promote-explain", help="Explain a specific promotion candidate"
-    )
+    p_explain = sub.add_parser("promote-explain", help="Explain a specific promotion candidate")
     p_explain.add_argument("key", help="The recall entry key to explain")
     p_explain.set_defaults(_handler=_cmd_memory_promote_explain)
 
     # ── memory rem-harness ─────────────────────────────────────
-    p_remh = sub.add_parser(
-        "rem-harness", help="Preview REM reflections (shadow trial, no writes)"
-    )
-    p_remh.add_argument(
-        "--limit", type=int, default=5, help="Max reflections to preview"
-    )
+    p_remh = sub.add_parser("rem-harness", help="Preview REM reflections (shadow trial, no writes)")
+    p_remh.add_argument("--limit", type=int, default=5, help="Max reflections to preview")
     p_remh.set_defaults(_handler=_cmd_memory_rem_harness)
 
     # ── memory rem-backfill ────────────────────────────────────
@@ -119,9 +110,7 @@ def register_memory_cli(program: Any, host: Any | None = None) -> None:
         "rem-backfill",
         help="Write grounded historical REM summaries to DREAMS.md",
     )
-    p_remb.add_argument(
-        "--days", type=int, default=30, help="Backfill window in days"
-    )
+    p_remb.add_argument("--days", type=int, default=30, help="Backfill window in days")
     p_remb.set_defaults(_handler=_cmd_memory_rem_backfill)
 
 
@@ -162,8 +151,9 @@ def _cmd_memory_status(args: argparse.Namespace) -> int:
     try:
         from .runtime import MemoryRuntime
 
-        rt = MemoryRuntime(os.path.join(workspace, "core", "memory.sqlite"))
-    except Exception as exc:  # noqa: BLE001
+        db_path = os.path.join(workspace, "core", "memory.sqlite")
+        rt = MemoryRuntime(db_path)  # type: ignore[arg-type]
+    except Exception as exc:
         print(f"memory status: could not open runtime ({exc})")
         return 1
     try:
@@ -182,9 +172,7 @@ def _cmd_memory_index(args: argparse.Namespace) -> int:
     # Full reindex is a no-op for the SQLite substring backend; for
     # the LanceDB backend it would call ``reindex``. Best-effort:
     # log a status line and return 0.
-    print(
-        f"memory index: reindex workspace={workspace} (substring backend: no-op)"
-    )
+    print(f"memory index: reindex workspace={workspace} (substring backend: no-op)")
     return 0
 
 
@@ -194,8 +182,9 @@ def _cmd_memory_search(args: argparse.Namespace) -> int:
     try:
         from .runtime import MemoryRuntime
 
-        rt = MemoryRuntime(os.path.join(workspace, "core", "memory.sqlite"))
-    except Exception as exc:  # noqa: BLE001
+        db_path = os.path.join(workspace, "core", "memory.sqlite")
+        rt = MemoryRuntime(db_path)  # type: ignore[arg-type]
+    except Exception as exc:
         print(f"memory search: could not open runtime ({exc})")
         return 1
     try:
@@ -218,17 +207,13 @@ def _cmd_memory_promote(args: argparse.Namespace) -> int:
     # subagent + short-term-promotion module. When wired, this
     # command will run the deep phase.
     try:
-        from . import dreaming_phases
-
         # The stub is async; run it via asyncio.run.
         import asyncio
 
-        asyncio.run(
-            dreaming_phases.run_dreaming_sweep_phases(
-                workspace_dir=workspace, config={}
-            )
-        )
-    except Exception as exc:  # noqa: BLE001
+        from . import dreaming_phases
+
+        asyncio.run(dreaming_phases.run_dreaming_sweep_phases(workspace_dir=workspace, config={}))
+    except Exception as exc:
         print(f"memory promote: dreaming pipeline unavailable ({exc})")
         return 1
     if getattr(args, "dry_run", False):
@@ -250,14 +235,13 @@ def _cmd_memory_rem_backfill(args: argparse.Namespace) -> int:
     """Write grounded historical REM summaries to DREAMS.md."""
     workspace = _resolve_workspace(args)
     try:
+        # write_backfill_diary_entries is async; run via asyncio.run.
+        from datetime import datetime, timedelta
+
         from . import dreaming_narrative
 
-        # write_backfill_diary_entries is async; run via asyncio.run.
-        import asyncio
-        from datetime import datetime, timezone, timedelta
-
         days = getattr(args, "days", 30)
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         entries = []
         for i in range(days):
             day = (now - timedelta(days=i)).strftime("%Y-%m-%d")
@@ -267,15 +251,13 @@ def _cmd_memory_rem_backfill(args: argparse.Namespace) -> int:
                     "bodyLines": [f"- auto-backfilled reflection for {day}"],
                 }
             )
-        result = asyncio.run(
-            dreaming_narrative.write_backfill_diary_entries(workspace, entries)
-        )
+        result = dreaming_narrative.write_backfill_diary_entries(workspace, entries)
         print(
             f"memory rem-backfill: wrote {result.get('written', 0)} entries "
             f"(replaced {result.get('replaced', 0)} prior) "
             f"to {result.get('dreamsPath')}"
         )
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         print(f"memory rem-backfill: failed ({exc})")
         return 1
     return 0

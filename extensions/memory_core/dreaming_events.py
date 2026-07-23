@@ -8,13 +8,13 @@ OpenClaw parity: mirrors ``extensions/memory-core/src/dreaming-events.ts``
   The host swallows write errors and emits a warning (the event log is
   best-effort diagnostic, not a critical path).
 """
+
 from __future__ import annotations
 
 from typing import Literal
 
 from .dreaming_shared import format_error_message
 from .time import resolve_memory_core_now_ms, resolve_memory_core_timestamp
-
 
 # Mirrors OpenClaw's ``MemoryDreamingPhaseName`` literal type. The
 # value is the same string the host uses to tag the event so consumers
@@ -46,7 +46,9 @@ def append_failed_dreaming_event(
     # Lazy import to avoid a hard dependency on the memory_host_sdk at
     # module import time (matches OpenClaw's TS import pattern).
     try:
-        from jarvis_sdk.memory_host_events import append_memory_host_event  # type: ignore[attr-defined]
+        from jarvis_sdk.memory_host_events import (  # pyright: ignore[reportMissingImports]
+            append_memory_host_event,  # type: ignore[attr-defined]
+        )
     except ImportError:
         # SDK doesn't expose the events API yet — degrade to a
         # no-op + warning so the dreaming pipeline can still run.
@@ -62,9 +64,7 @@ def append_failed_dreaming_event(
             workspace_dir,
             {
                 "type": "memory.dream.completed",
-                "timestamp": resolve_memory_core_timestamp(
-                    resolve_memory_core_now_ms(now_ms)
-                ),
+                "timestamp": resolve_memory_core_timestamp(resolve_memory_core_now_ms(now_ms)),
                 "phase": phase,
                 "outcome": "failed",
                 "error": error,
