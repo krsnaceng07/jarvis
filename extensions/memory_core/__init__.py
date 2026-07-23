@@ -1,8 +1,12 @@
 """memory_core — JARVIS memory extension (Phase 4 OpenClaw parity).
 
-Mirrors OpenClaw's ``extensions/memory-core/`` plugin (97
-source files in the source; we ship the Python port as a
-focused subset that meets the SDK contract).
+Mirrors OpenClaw's ``extensions/memory-core/`` plugin. The Python
+port ships the deterministic surface + the lazy runtime provider +
+the public artifacts list, plus the dreaming pipeline (Phase 4.4):
+7-state keyed store, shared helpers, dream diary, phase block
+writers, narrative scaffolding, repair + audit, shadow trials,
+phases (light/REM/deep), ``/dreaming`` command, and cron-lifecycle
+reconciliation (stubbed pending the cron extension).
 
 Surface
 -------
@@ -16,13 +20,14 @@ Surface
     ``prompt_builder`` + ``flush_plan_resolver`` + ``runtime`` +
     ``public_artifacts``. Matches OpenClaw's
     ``MemoryPluginCapability`` shape.
-  - **Slash command:** ``/memory list|count|search``.
+  - **Slash commands:**
+      - ``/memory [list|count|search]`` (operator surface)
+      - ``/dreaming [status|on|off|help|phases]`` (Phase 4.4)
   - **Doctor contract:** migrate legacy JARVIS memory formats.
-
-Phase 4.0 ships the SQLite fallback backend (Phase 2's
-``MemoryRuntime``). LanceDB + semantic search is a Phase 4.1+
-extension (``extensions/memory_lancedb``); both plug into the
-shared ``MemorySearchManager`` interface from the SDK.
+  - **Dreaming pipeline (Phase 4.4):** 7-namespace keyed store,
+    DREAMS.md diary management, light/REM/deep phase helpers,
+    audit + repair, shadow trials, ``/dreaming`` command,
+    cron-lifecycle reconciliation (stubbed).
 
 OpenClaw parity
 ==============
@@ -35,6 +40,16 @@ OpenClaw parity
   ``runtime`` is a small wrapper over the active
   ``MemorySearchManager``; ``public_artifacts`` is a coroutine
   the host calls to enumerate published artifacts.
+- Dreaming state: ``configure_memory_core_dreaming_state`` is
+  called once during ``register()`` so all 7 dreaming
+  namespaces (daily ingestion, session ingestion files/seen,
+  short-term recall/phase signals/meta/locks) share the host's
+  keyed store factory. Mirrors OpenClaw's
+  ``configureMemoryCoreDreamingState``.
+- Dreaming cron: ``register_short_term_promotion_dreaming`` is
+  called once during ``register()``; when the cron extension
+  isn't available, it logs a warning and returns (the
+  dreaming pipeline still works for on-demand invocations).
 - Capture gating: ``memory_search`` and the host's
   ``save_memory`` tool both consult ``MEMORY_TRIGGERS`` +
   ``looks_like_envelope_sludge`` (the security-critical
@@ -51,6 +66,8 @@ from jarvis_sdk import (
 )
 
 from . import doctor as doctor_module, prompt_section
+from . import dreaming as dreaming_module
+from . import dreaming_command, dreaming_state
 from .plugin import MemoryCorePlugin
 from .public_artifacts import list_artifacts as _list_artifacts
 
@@ -94,6 +111,61 @@ def _memory_command_handler(ctx: PluginCommandContext) -> PluginCommandResult:
     )
 
 
+# ── /dreaming command handler (Phase 4.4i) ────────────────
+
+
+def _dreaming_command_handler(ctx: PluginCommandContext) -> PluginCommandResult:
+    """Slash command handler for ``/dreaming [status|on|off|help|phases]``.
+
+    Mirrors OpenClaw's ``extensions/memory-core/src/dreaming-command.ts``.
+    Delegates to ``dreaming_command.handle_dreaming_command``.
+    """
+    import asyncio
+
+    result = asyncio.run(
+        dreaming_command.handle_dreaming_command(
+            # The OpenClaw handler expects the plugin API; the
+            # dreaming_command module accepts any object with
+            # ``runtime.config.current()``. The PluginApi has
+            # ``runtime.config`` so we can pass it directly.
+            api=_get_dreaming_api_proxy(),
+            ctx={
+                "args": ctx.args or "",
+                "gatewayClientScopes": getattr(ctx, "gateway_client_scopes", None),
+                "senderIsOwner": ctx.sender_is_owner if hasattr(ctx, "sender_is_owner") else False,
+            },
+        )
+    )
+    return PluginCommandResult(reply_text=result.get("text", ""))
+
+
+def _get_dreaming_api_proxy() -> object:
+    """Return a proxy object exposing ``runtime.config.current()``.
+
+    The dreaming_command module only needs ``api.runtime.config.current()``
+    and (optionally) ``api.runtime.config.mutate_config_file``. We
+    return a tiny stub that satisfies the read path with an empty
+    dict (the status block will reflect "disabled" / default
+    cadence); the mutate path is a no-op (the dreaming module
+    will apply the in-memory patch).
+    """
+
+    class _Config:
+        def current(self) -> dict:
+            return {}
+
+        def mutate_config_file(self, *args: object, **kwargs: object) -> dict:
+            return {"nextConfig": {}}
+
+    class _Runtime:
+        config = _Config()
+
+    class _Proxy:
+        runtime = _Runtime()
+
+    return _Proxy()
+
+
 # ── Memory capability runtime (OpenClaw-shaped) ────────────
 
 
@@ -118,8 +190,46 @@ class _MemoryPluginRuntime:
         return None
 
 
+def _configure_dreaming_state(api: PluginApi) -> None:
+    """Wire the host's keyed store factory into the dreaming state.
+
+    Mirrors OpenClaw's ``configureMemoryCoreDreamingState(<T>(opts) =>
+    state.openKeyedStore<T>(opts))``. When the host exposes
+    ``api.runtime.state.openKeyedStore``, use it; otherwise
+    the dreaming state falls back to a per-process in-memory
+    store (registered by tests).
+    """
+    state_runtime = getattr(api, "runtime", None)
+    if state_runtime is None:
+        return
+    state = getattr(state_runtime, "state", None)
+    if state is None:
+        return
+    open_keyed = getattr(state, "open_keyed_store", None) or getattr(
+        state, "openKeyedStore", None
+    )
+    if not callable(open_keyed):
+        return
+
+    def _factory(options: dict) -> object:
+        return open_keyed(options)
+
+    dreaming_state.configure_memory_core_dreaming_state(_factory)
+
+
 def _register(api: PluginApi) -> None:
     """Register the memory plugin's surface with the host's PluginApi."""
+    # ── Dreaming state (Phase 4.4) ─────────────────────────
+    # Wire the host's keyed store into the dreaming state BEFORE
+    # any cron/lifecycle registration so the 7 dreaming
+    # namespaces can read/write without a separate config step.
+    _configure_dreaming_state(api)
+
+    # Wire the short-term-promotion dreaming cron + lifecycle.
+    # Stubbed until the cron extension is ported; logs a warning
+    # and returns when unavailable.
+    dreaming_module.register_short_term_promotion_dreaming(api)
+
     # Tools
     api.register_tool(
         MemoryCorePlugin(),
@@ -138,7 +248,7 @@ def _register(api: PluginApi) -> None:
         }
     )
 
-    # Slash command
+    # Slash commands
     api.register_command(
         {
             "name": "memory",
@@ -146,6 +256,17 @@ def _register(api: PluginApi) -> None:
             "accepts_args": True,
             "expose_sender_is_owner": True,
             "handler": _memory_command_handler,
+        }
+    )
+
+    # /dreaming command (Phase 4.4i) — enable/disable dreaming
+    api.register_command(
+        {
+            "name": "dreaming",
+            "description": "Enable or disable memory dreaming.",
+            "accepts_args": True,
+            "expose_sender_is_owner": True,
+            "handler": _dreaming_command_handler,
         }
     )
 
@@ -168,12 +289,13 @@ entry = define_plugin_entry(
     kind="memory",
     name="Memory (Core)",
     description=(
-        "File-backed memory tools (memory_search, memory_get), slash command, "
-        "and the host's memory prompt section. Phase 4 OpenClaw parity "
-        "with envelope-scrubbing + memory-trigger capture gating."
+        "File-backed memory tools (memory_search, memory_get), slash "
+        "command, /dreaming command (Phase 4.4), and the host's memory "
+        "prompt section. Phase 4 OpenClaw parity with envelope-scrubbing "
+        "+ memory-trigger capture gating + dreaming pipeline."
     ),
     register=_register,
-    version="0.2.0",
+    version="0.3.0",  # bumped for Phase 4.4 dreaming pipeline
     activation="on_startup",
     permissions=["fs:read:core", "fs:write:core"],
 )

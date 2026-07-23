@@ -69,8 +69,10 @@ class TestMemoryCoreEntry:
         assert entry.kind == "memory"
         assert entry.activation == "on_startup"
         assert entry.permissions  # non-empty
-        # Version reflects the phase.
-        assert entry.version == "0.2.0"
+        # Version reflects the phase. Bumped to 0.3.0 for Phase 4.4
+        # (dreaming pipeline: 7-state keyed store, narrative, repair,
+        # shadow trial, phases, /dreaming command, cron lifecycle).
+        assert entry.version == "0.3.0"
 
     def test_register_adds_tools_and_capability(self) -> None:
         from extensions.memory_core import _register
