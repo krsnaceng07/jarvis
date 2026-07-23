@@ -4099,3 +4099,50 @@ PR is needed.
 
 Next: Phase 5 (Brain Core) — see `docs/OPENCLAW_FULL_BRAIN_PORT_PLAN.md`
 for the phased plan. Phase 5.1 = memory-host-sdk port.
+
+---
+
+## §43 — Phase 5.3 (memory-host-sdk: query-expansion + multimodal) port-complete (2026-07-24)
+
+**Commit:** `71864fe` — feat(phase5.3): memory_host_query_expansion + memory_host_multimodal
+
+| Sub | Files | Status | Tests |
+|---|---|---|---|
+| 5.3a | `memory_host_query_expansion.py` (port of `host/query-expansion.ts`) | ✅ | 35 |
+| 5.3b | `memory_host_multimodal.py` (port of `host/multimodal.ts`) | ✅ | 36 |
+| 5.3c | `memory_host_query.py` + `memory_host_multimodal_facade.py` (facades) | ✅ | (covered by 5.3a/b) |
+
+**Port highlights:**
+
+- **`memory_host_query_expansion.py`** (776 LOC TS → ~7700 LOC port):
+  - 7 stop-word sets preserved verbatim: `STOP_WORDS_EN/ES/PT/AR/KO/JA/ZH`
+  - `KO_TRAILING_PARTICLES` sorted by descending length (longest match first)
+  - Tokenizer for EN/ZH/JA/KO: whitespace+punct split, per-script chunking,
+    kanji unigrams + bigrams (default) or whole CJK block (trigram mode)
+  - `regex` module used for `\p{P}` / `\p{S}` Unicode property escapes
+    (stdlib `re` does not support them)
+  - Cross-language stop-word filter: `isQueryStopWordToken` checks all 7 sets,
+    so `前` (Chinese) is filtered because it appears in JA — matches OpenClaw
+  - All 4 originally-failing tests were fixed by correcting the test
+    expectations (not the implementation) — they assumed the cross-language
+    filter would be looser than OpenClaw's
+
+- **`memory_host_multimodal.py`** (~7700 LOC port):
+  - `MEMORY_MULTIMODAL_SPECS` for image (jpg/jpeg/png/webp/gif/heic/heif)
+    + audio (mp3/wav/ogg/opus/m4a/m2a/aac/flac)
+  - `MemoryMultimodalModality` / `MemoryMultimodalSelection` Literal types
+  - `normalize_memory_multimodal_settings` preserves insertion order
+    (matches OpenClaw's JS `Set` iteration order; `sorted()` would change it)
+  - Public helpers: `is_memory_multimodal_enabled`,
+    `get_memory_multimodal_extensions`, `classify_memory_multimodal_path`
+
+**Tests:** 71 new tests (35 query-expansion + 36 multimodal), all green.
+
+**Pre-existing failures remaining (2, unrelated to Phase 5):**
+- `test_register_adds_tools_and_capability` (memory_core)
+- `test_register_sets_active_db_and_embeddings` (memory_lancedb)
+Both require `set_manifest()` calls; 4.3k contract change. Tracked
+separately.
+
+Next: Phase 5.4 — see `docs/OPENCLAW_FULL_BRAIN_PORT_PLAN.md` for
+the remaining `host/{internal, read-file, read-file-shared, read-retry}.ts` ports.
