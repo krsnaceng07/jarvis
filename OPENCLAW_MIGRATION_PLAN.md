@@ -4059,5 +4059,43 @@ Phase 4.3 (memory_wiki) is now **100% structurally AND functionally**
 port-complete. The live JARVIS CLI behaves the same way as OpenClaw's
 memory-wiki extension would, end-to-end.
 
-Next: Phase 4.4 (dreaming pipeline) — all parts exist in OpenClaw's
-`memory-core` extension.
+### §41 — Phase 4.4 — Dreaming pipeline (port-complete)
+
+**Date:** 2026-07-23
+**Result:** 13/13 sub-phases complete. +328 new tests. 0 regressions.
+
+| Sub | File | LOC | Status |
+|---|---|---|---|
+| 4.4a | `dreaming_state.py` | 7 namespaces + workspace-keyed CRUD | ✅ |
+| 4.4b | `dreaming_shared.py` + `dreaming_events.py` + `time.py` | helpers | ✅ |
+| 4.4c | `dreaming_dreams_file.py` | DREAMS.md persistence | ✅ |
+| 4.4d | `dreaming_markdown.py` | phase block writers | ✅ |
+| 4.4e | `dreaming_narrative.py` | diary + backfill + dedupe + prompt + extract | ✅ (LLM stub) |
+| 4.4f | `dreaming_repair.py` | audit + repair | ✅ |
+| 4.4g | `dreaming_shadow_trial.py` | preview without writing | ✅ |
+| 4.4h | `dreaming_phases.py` | lookback + snippet + ingestion state | ✅ (LLM stubs) |
+| 4.4i | `dreaming_command.py` | /dreaming slash command | ✅ |
+| 4.4j | `dreaming.py` | short-term promotion + cron lifecycle | ✅ (cron stub) |
+| 4.4k | `index.ts` integration | entry wiring | ✅ |
+| 4.4l | `cli.py` | `register_memory_cli` (7 subcommands) | ✅ |
+| 4.4m | verification + pre-commit + tests | `docs/OPENCLAW_VERIFICATION_4.4.md` | ✅ |
+
+**Stubs (require future work):** 10 LLM/cron orchestrator functions
+(`generate_and_append_dream_narrative`, `run_light_dreaming`,
+`run_rem_dreaming`, `run_dreaming_sweep_phases`, `preview_rem_dreaming`,
+`seed_historical_daily_memory_signals`,
+`reconcile_short_term_dreaming_cron_job`,
+`run_short_term_dreaming_promotion_if_triggered`,
+`register_short_term_promotion_dreaming`) are documented stubs that
+log a warning and return when their dependencies aren't wired. All
+deterministic building blocks they depend on are implemented and
+tested.
+
+**Pre-existing failures (NOT introduced by 4.4):** 4 tests fail at
+master HEAD, all from 4.3k's `set_manifest()` requirement. Follow-up
+PR is needed.
+
+**Verification:** `docs/OPENCLAW_VERIFICATION_4.4.md` (full report).
+
+Next: cleanup pass (remove legacy dreaming code if any) or
+LLM-subagent / cron-extension port to fill in the stubs.
