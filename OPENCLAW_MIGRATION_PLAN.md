@@ -4146,3 +4146,99 @@ separately.
 
 Next: Phase 5.4 — see `docs/OPENCLAW_FULL_BRAIN_PORT_PLAN.md` for
 the remaining `host/{internal, read-file, read-file-shared, read-retry}.ts` ports.
+
+---
+
+## §44 — Phase 5.4 (memory-host-sdk: internal + read-file + read-retry) port-complete (2026-07-24)
+
+**Commit:** `1eb334f` — feat(phase5.4): memory_host_internal + read_file + read_file_shared + read_retry
+
+| Sub | Files | LOC est. | Tests |
+|---|---|---|---|
+| 5.4a | `memory_host_read_retry.py` (port of `host/read-retry.ts`) | ~100 | 18 |
+| 5.4b | `memory_host_read_file_shared.py` (port of `host/read-file-shared.ts`) | ~180 | 25 |
+| 5.4c | `memory_host_internal.py` (port of `host/internal.ts`) + 7 dep ports | ~1300 | 46 |
+| 5.4d | `memory_host_read_file.py` (port of `host/read-file.ts`) | ~250 | 16 |
+| 5.4e | 4 facades (pure re-exports) | ~50 | (covered) |
+| 5.4f | `memory_host_multimodal.py` companion fix (`None` settings) | +5 | (covered) |
+
+**Port highlights:**
+
+- **`memory_host_read_retry.py`** (51 LOC TS → 100 LOC port):
+  - 3-attempt retry with 25-50 ms linear backoff via
+    `retry_runtime.retry_async`
+  - Transient-error predicate checks Node-style `code` /
+    `errno` + `Unknown system error -11` message regex
+  - Mirrors OpenClaw verbatim
+
+- **`memory_host_read_file_shared.py`** (131 LOC TS → 180 LOC port):
+  - `DEFAULT_MEMORY_READ_LINES = 120` /
+    `DEFAULT_MEMORY_READ_MAX_CHARS = 12_000`
+  - `MemoryReadResult` TypedDict — `from` field uses
+    string-key access (Python keyword)
+  - Line-slicing + char-budget fitting + UTF-16-safe
+    truncation + continuation notice
+  - Reuses `truncate_utf16_safe` from `text_utility`
+
+- **`memory_host_internal.py`** (551 LOC TS → 600 LOC port):
+  - Public API: `ensure_dir`, `normalize_extra_memory_paths`,
+    `is_memory_path`, `list_memory_files` (async),
+    `build_file_entry` (async),
+    `build_multimodal_chunk_for_indexing` (async),
+    `chunk_markdown`, `remap_chunk_lines`, `parse_embedding`,
+    `cosine_similarity`, `run_memory_host_tasks_with_concurrency`
+  - `chunk_markdown` uses CJK-aware `estimate_string_chars`
+    so CJK-heavy markdown is chunked at ~1 char/token
+    (not the Latin 1 token / 4 chars)
+  - `list_memory_files` deduplicates by realpath when the
+    same file appears via multiple paths
+
+- **`memory_host_read_file.py`** (182 LOC TS → 250 LOC port):
+  - `read_memory_file` — path safety + symlink-parent
+    rejection + transient retry + line slicing
+  - `read_agent_memory_file` — agent config integration
+    via `resolveMemoryHostAgentWorkspaceDir` +
+    `resolveMemoryHostAgentContextLimits` +
+    `resolveMemoryHostSearchPathConfig`
+
+- **Dependency ports (7 files, ~700 LOC):**
+  - `memory_host_fs_utils.py` — `isFileMissingError`,
+    `readRegularFile` (with `maxBytes` cap),
+    `statRegularFile` (missing shortcut),
+    `walkDirectory` (symlinks="skip"/"follow"),
+    `isPathInside` / `isPathInsideWithRealpath`,
+    `assertNoSymlinkParents`, `root` (safe resolver)
+  - `memory_host_concurrency.py` —
+    `runWithConcurrency` with stop-and-drain semantics
+    (mirrors `p-map`'s `stopOnError: true`)
+  - `memory_host_embedding_inputs.py` + `_limits.py` —
+    `EmbeddingInput` types + UTF-8 byte estimation +
+    structured input size + byte-limit splitting
+  - `memory_host_cjk_chars.py` — `CHARS_PER_TOKEN_ESTIMATE`
+    + `estimateStringChars` (CJK-aware char counting)
+  - `memory_host_runtime_io.py` — narrow facade
+    re-exporting CJK helpers + `detectMime` +
+    `truncateUtf16Safe`
+  - `memory_host_runtime_memory.py` — root memory file
+    resolvers (`resolveCanonicalRootMemoryFile`,
+    `shouldSkipRootMemoryAuxiliaryPath`)
+  - `memory_host_config_utils.py` — narrow port of the
+    agent config helpers needed by `readAgentMemoryFile`
+
+- **Facades (4 files):** pure re-exports that mirror the
+  OpenClaw SDK root + `host/` sub-module split.
+
+**Multimodal companion fix:** `normalize_memory_multimodal_settings`
+now accepts `None` (treated as empty settings dict). The
+TS source's `listMemoryFiles` doesn't guard against
+`multimodal === undefined`; the Python port surfaces the
+same lenient behavior to keep call sites identical.
+
+**Tests:** 105 new tests across 4 test files, all green.
+Full SDK test suite: 364 passing, 2 pre-existing failures
+(unrelated — `set_manifest()` contract change from 4.3k).
+
+**pyproject.toml:** per-file-ignores block added for
+`memory_host_*.py` covering the OpenClaw-parity lint
+patterns (PLR0912, PLR0915, C416, SIM*, N815, BLE001,
+etc.).
