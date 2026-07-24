@@ -4302,3 +4302,80 @@ Next: Phase 5.6 — see `docs/OPENCLAW_FULL_BRAIN_PORT_PLAN.md`
 for the remaining `src/plugins/*` + `src/agents/*` +
 `src/gateway/*` + `src/cli/*` + `src/channels/*` +
 `src/cron/*` + `src/providers/*` + cleanup work.
+
+---
+
+## §46 — Phase 5.6a (plugin registry core) port-complete (2026-07-25)
+
+**Commit:** — feat(phase5.6a): plugin registry core (4 full + 2 stub)
+
+| Sub | Files | Status | Tests |
+|---|---|---|---|
+| 5.6a.1 | `plugin_registry_types.py` (port of `registry-types.ts`, 521 LOC TS) | ✅ full | covered |
+| 5.6a.2 | `plugin_registry_empty.py` (port of `registry-empty.ts`, 59 LOC TS) | ✅ full | 4 |
+| 5.6a.3 | `plugin_registry_lifecycle.py` (port of `registry-lifecycle.ts`, 30 LOC TS) | ✅ full | 6 |
+| 5.6a.4 | `plugin_registry_state.py` (port of `registry-state.ts`, 100 LOC TS) | ✅ full (model-catalog stub) | 15 |
+| 5.6a.5 | `plugin_registry.py` (port of `registry.ts`, 95 LOC TS) | ⚠️ stub | covered |
+| 5.6a.6 | `plugin_registry_refresh.py` (port of `registry-refresh.ts`, 65 LOC TS) | ⚠️ stub | covered |
+
+**Port highlights:**
+
+- **`plugin_registry_types.py`** (~900 LOC port, 521 LOC TS):
+  - 60+ opaque `TypeAlias` placeholders for OpenClaw types
+  - 30+ `TypedDict` registration shapes (total=False)
+  - `PluginRecord` (50+ fields), `PluginRegistry`
+    (50+ fields), `PluginRegistryParams`
+
+- **`plugin_registry_empty.py`** (~80 LOC port, 59 LOC TS):
+  - `create_empty_plugin_registry()` — fresh empty shape
+  - Each call returns an independent registry
+
+- **`plugin_registry_lifecycle.py`** (~80 LOC port, 30 LOC TS):
+  - `mark_*` / `is_*` for the active / retired flags
+  - `set()` keyed on `id(registry)` (Python's `weakref`
+    can't reference dicts; the OpenClaw `WeakSet`
+    semantics are preserved via identity keys)
+
+- **`plugin_registry_state.py`** (~250 LOC port, 100 LOC TS):
+  - `PluginRegistrationMode` Literal
+  - `resolve_plugin_registration_capabilities(mode)`
+  - `resolve_typed_hook_timeout_ms(...)` with layered
+    fallback (policy.timeouts > policy.timeoutMs > opts.timeoutMs)
+  - `create_plugin_registry_state(params)` builds the
+    state object (registry + pushDiagnostic + rollback
+    map + side-effect guards + channel conflict set +
+    cron service accessor)
+  - **Stub**: `_create_stub_model_catalog_registration_handlers`
+    is a no-op placeholder for the model-catalog
+    registration logic (full port deferred)
+
+- **`plugin_registry.py`** (STUB):
+  - `create_plugin_registry(params)` returns a partial
+    facade with no-op domain registrars +
+    placeholder `createApi` + placeholder
+    `rollbackPluginGlobalSideEffects`
+  - Full composition (registry-registrars +
+    registry-runtime + registry-api) deferred
+
+- **`plugin_registry_refresh.py`** (STUB):
+  - `refresh_plugin_registry_after_config_mutations`
+    and
+    `invalidate_plugin_runtime_discovery_after_config_mutations`
+    stubbed with logger fallback
+  - Full implementation (load install records +
+    `refreshPluginRegistry` + `clearPluginRegistryLoadCache`)
+    deferred
+
+**Tests (31 new tests, all passing):**
+- Empty-registry invariants (50+ list fields)
+- Lifecycle flag transitions
+- PluginRecord / PluginRegistry shapes
+- `resolve_plugin_registration_capabilities` for all 5 modes
+- `resolve_typed_hook_timeout_ms` layered fallback
+- State factory: empty registry, sorted/deduped core
+  gateway method names, pushDiagnostic, rollback map,
+  side-effect guards, channel conflict set, cron service
+
+**Full SDK test suite:** 425 passing, 2 pre-existing
+failures (unrelated — `set_manifest()` contract change
+from 4.3k).
