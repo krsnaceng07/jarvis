@@ -137,6 +137,31 @@ ignore = [
 "tests/**/*.py" = ["S101", "S106", "S603", "PLR2004", "N802"]
 "**/legacy_*/*.py" = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "PL"]  # frozen legacy
 "**/__init__.py" = ["F401"]  # re-exports allowed
+# OpenClaw-parity files: preserve the structural patterns from the
+# TS source (long functions, deep nesting, broad try/except, etc.).
+# These ports mirror the OpenClaw code shape; aggressive refactoring
+# would defeat the "same-to-same" goal.
+"packages/plugin_sdk/src/jarvis_sdk/memory_host_*.py" = [
+    "PLR0912",  # too many branches (mirrors OpenClaw's per-field ladder)
+    "PLR0915",  # too many statements (mirrors long port functions)
+    "C416",     # unnecessary-comprehension (intentional for parity)
+    "SIM102",   # nested-if (mirrors OpenClaw's nested-if style)
+    "SIM103",   # return-in-condition (intentional for parity)
+    "SIM105",   # contextlib-suppress (intentional for parity)
+    "SIM108",   # ternary (intentional for parity)
+    "TRY003",   # long-message-outside-exception-class
+    "BLE001",   # blind-except (intentional — OpenClaw catch-all)
+    "EM101",    # exception-in-str (intentional for raise messages)
+    "EM102",    # exception-in-fstring (intentional for raise messages)
+    "N815",     # mixedCase (camelCase fields mirror OpenClaw JSON)
+    "N818",     # exception-name (intentional for parity)
+    "PERF203",  # try-except-in-loop (intentional for retry loops)
+    "B904",     # raise-without-from-inside-except (intentional for parity)
+    "B006",     # mutable-default-argument (intentional for callable defaults)
+    "ARG001",   # unused-function-argument (intentional for protocol parity)
+    "ARG002",   # unused-method-argument (intentional for protocol parity)
+    "S110",     # try-except-pass (intentional for OSError cleanup)
+]
 "tools/**/*.py" = ["T201", "PLR0912"]   # print allowed in scripts; many branches in validators
 # Phase 4.4 dreaming port: OpenClaw parity — these rules are unavoidable
 # in deterministic helpers that mirror the TypeScript source structure.

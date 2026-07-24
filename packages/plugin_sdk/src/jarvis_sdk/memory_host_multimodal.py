@@ -112,16 +112,18 @@ def _normalize_memory_multimodal_modalities(
 
 
 def normalize_memory_multimodal_settings(
-    raw: dict,
+    raw: dict | None,
 ) -> MemoryMultimodalSettings:
     """Normalize user multimodal settings.
 
     Mirrors OpenClaw's ``normalizeMemoryMultimodalSettings``. When
     ``enabled`` is not ``True``, ``modalities`` is forced to ``[]``.
     ``maxFileBytes`` is floored to ``>= 1``; defaults to 10 MB.
+    ``None`` is treated as an empty settings dict.
     """
-    enabled = raw.get("enabled") is True
-    max_file_bytes_raw = raw.get("maxFileBytes")
+    safe_raw = raw if isinstance(raw, dict) else {}
+    enabled = safe_raw.get("enabled") is True
+    max_file_bytes_raw = safe_raw.get("maxFileBytes")
     if isinstance(max_file_bytes_raw, (int, float)) and max_file_bytes_raw == max_file_bytes_raw:  # NaN check
         max_file_bytes = max(1, int(max_file_bytes_raw))
     else:
@@ -129,7 +131,7 @@ def normalize_memory_multimodal_settings(
     return {
         "enabled": enabled,
         "modalities": (
-            _normalize_memory_multimodal_modalities(raw.get("modalities"))
+            _normalize_memory_multimodal_modalities(safe_raw.get("modalities"))
             if enabled
             else []
         ),
