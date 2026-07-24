@@ -4242,3 +4242,63 @@ Full SDK test suite: 364 passing, 2 pre-existing failures
 `memory_host_*.py` covering the OpenClaw-parity lint
 patterns (PLR0912, PLR0915, C416, SIM*, N815, BLE001,
 etc.).
+
+---
+
+## §45 — Phase 5.5 (memory-host-sdk: error-utils) port-complete (2026-07-24)
+
+**Commit:** `0f42f54` — feat(phase5.5): memory_host_error_utils
+
+| Sub | Files | LOC est. | Tests |
+|---|---|---|---|
+| 5.5a | `memory_host_error_utils.py` (port of `host/error-utils.ts`) | ~250 | 30 |
+| 5.5b | `memory_host_error_utils_facade.py` (re-export) | ~20 | (covered) |
+
+**Port highlights:**
+
+- 18 `SECRET_PATTERNS` preserved **verbatim** from the
+  OpenClaw source — this is the entire security perimeter.
+  Even small tweaks would change the redaction coverage.
+- `redact_sensitive_text(text)` applies every pattern in
+  order; preserves surrounding text and only masks the
+  matched portion (group-aware).
+- `format_error_message(err)` — canonical formatter
+  (`Type: message` shape) + the local redaction policy.
+- `findLast` from JS → `next(...reversed(groups)...)`
+- A small `_last_n_chars` helper for the
+  `sliceUtf16Safe(token, -4)` semantics (the existing
+  `truncate_utf16_safe` is forward-only).
+
+**Patterns covered:**
+- `KEY=...` / `TOKEN=...` / `SECRET=...` / etc. (env-var style)
+- `?access_token=...` & `auth=...` in query strings
+- JSON `"apiKey": "..."` / `"token": "..."` / etc.
+- CLI flags: `--api-key X` / `--token X` / etc.
+- `Authorization: Bearer <token>` + free-standing `Bearer <long>`
+- Bare `token=...` / `secret=...` in text
+- PEM private key blocks (header + body + footer preserved)
+- Vendor prefixes: `sk-` (OpenAI), `ghp_` / `github_pat_`
+  (GitHub), `xox*` / `xapp-` (Slack), `gsk_` (Groq),
+  `AIza` (Google), `pplx-` (Perplexity), `npm_` (NPM)
+- Telegram bot tokens (`bot<digits>:<token>` and
+  standalone `<digits>:<token>`)
+
+**Tests (30 total, all passing):**
+- Each of the 18 SECRET_PATTERNS has a dedicated test
+- Edge cases: short / long tokens, multiple secrets in
+  one message, non-exception input, exception chains,
+  PEM blocks (full + too-short), empty string, plain text
+  pass-through
+
+**Host/ folder status:** ALL `host/*.ts` files in
+OpenClaw's `memory-host-sdk` are now ported. The 11
+public facades at the SDK root are also in place.
+
+**Full SDK test suite:** 394 passing, 2 pre-existing
+failures (unrelated — `set_manifest()` contract change
+from 4.3k).
+
+Next: Phase 5.6 — see `docs/OPENCLAW_FULL_BRAIN_PORT_PLAN.md`
+for the remaining `src/plugins/*` + `src/agents/*` +
+`src/gateway/*` + `src/cli/*` + `src/channels/*` +
+`src/cron/*` + `src/providers/*` + cleanup work.
