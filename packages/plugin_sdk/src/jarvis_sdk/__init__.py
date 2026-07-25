@@ -111,7 +111,7 @@ from .memory_embeddings import (
     register_memory_embedding_provider,
 )
 from .memory_host_search import close_active_memory_search_manager
-from .memory_runtime import (
+from memory.memory_runtime import (
     MemoryFlushPlan,
     MemoryFlushPlanResolver,
     MemoryPluginCapability,
@@ -120,7 +120,7 @@ from .memory_runtime import (
     MemoryPluginRuntime,
     MemoryPromptSectionBuilder,
 )
-from .memory_storage import (
+from memory.memory_storage import (
     SOURCE_ALL,
     SOURCE_MEMORY,
     SOURCE_SESSIONS,
