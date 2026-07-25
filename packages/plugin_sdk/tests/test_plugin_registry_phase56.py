@@ -403,3 +403,163 @@ def test_create_state_get_host_cron_service_default_none() -> None:
     """``getHostCronService`` returns ``None`` when no host service is configured."""
     state = create_plugin_registry_state({"logger": None})
     assert state["getHostCronService"]() is None
+
+
+# -- plugin_registry_registrars — composition -----------------------
+
+
+def test_create_plugin_registrars_returns_full_shape() -> None:
+    """The composition includes every public registrar name.
+
+    Mirrors OpenClaw's ``createPluginRegistrars`` which
+    spreads the 7 per-domain registrar factories +
+    exposes ``registerModelCatalogProvider`` from the
+    state.
+    """
+    from jarvis_sdk.plugin_registry_registrars import create_plugin_registrars
+    from jarvis_sdk.plugin_registry_state import create_plugin_registry_state
+
+    state = create_plugin_registry_state({"logger": None})
+    registrars = create_plugin_registrars(state)
+
+    # Capability registrars.
+    assert "registerSessionSchedulerJob" in registrars
+    assert "registerSessionAction" in registrars
+    assert "registerAgentEventSubscription" in registrars
+    assert "registerRuntimeLifecycle" in registrars
+    assert "registerControlUiDescriptor" in registrars
+    assert "registerToolMetadata" in registrars
+    assert "registerTrustedToolPolicy" in registrars
+
+    # Tool / hook registrars.
+    assert "registerTool" in registrars
+    assert "registerHook" in registrars
+    assert "registerTypedHook" in registrars
+    assert "registerHttpRoute" in registrars
+    assert "registerAgentToolResultMiddleware" in registrars
+
+    # Network registrars.
+    assert "registerChannel" in registrars
+    assert "registerHostedMediaResolver" in registrars
+    assert "registerMcpServerConnectionResolver" in registrars
+    assert "registerReload" in registrars
+    assert "registerNodeHostCommand" in registrars
+    assert "registerNodeInvokePolicy" in registrars
+    assert "registerSecurityAuditCollector" in registrars
+
+    # Provider registrars.
+    assert "registerProvider" in registrars
+    assert "registerWorkerProvider" in registrars
+    assert "registerEmbeddingProvider" in registrars
+    assert "registerAgentHarness" in registrars
+    assert "registerSpeechProvider" in registrars
+    assert "registerRealtimeTranscriptionProvider" in registrars
+    assert "registerRealtimeVoiceProvider" in registrars
+    assert "registerMediaUnderstandingProvider" in registrars
+    assert "registerTranscriptSourceProvider" in registrars
+    assert "registerImageGenerationProvider" in registrars
+    assert "registerVideoGenerationProvider" in registrars
+    assert "registerMusicGenerationProvider" in registrars
+    assert "registerWebFetchProvider" in registrars
+    assert "registerWebSearchProvider" in registrars
+    assert "registerMigrationProvider" in registrars
+    assert "registerService" in registrars
+    assert "registerGatewayDiscoveryService" in registrars
+
+    # Operation registrars.
+    assert "registerGatewayMethod" in registrars
+    assert "registerSessionCatalog" in registrars
+    assert "registerCliBackend" in registrars
+    assert "registerTextTransforms" in registrars
+    assert "registerCli" in registrars
+    assert "registerCommand" in registrars
+    assert "registerSessionExtension" in registrars
+    assert "registerCodexAppServerExtensionFactory" in registrars
+    assert "registerInteractiveHandler" in registrars
+    assert "registerContextEngine" in registrars
+    assert "registerCompactionProvider" in registrars
+
+    # Host registrars (memory).
+    assert "registerMemoryCapability" in registrars
+    assert "registerMemoryPromptSection" in registrars
+    assert "registerMemoryPromptSupplement" in registrars
+    assert "registerMemoryPromptPreparation" in registrars
+    assert "registerMemoryCorpusSupplement" in registrars
+    assert "registerMemoryFlushPlan" in registrars
+    assert "registerMemoryRuntime" in registrars
+    assert "registerMemoryEmbeddingProvider" in registrars
+
+    # Memory registrars (rollback).
+    assert "rollbackHooks" in registrars
+
+    # Model-catalog registrar (from state).
+    assert "registerModelCatalogProvider" in registrars
+
+
+def test_create_plugin_registry_wires_state_and_registrars() -> None:
+    """``create_plugin_registry`` exposes both the state and the registrars.
+
+    Mirrors OpenClaw's ``createPluginRegistry`` return
+    shape: ``registry`` (the state) + ``createApi`` +
+    ``rollbackPluginGlobalSideEffects`` +
+    ``pushDiagnostic`` + the registrars spread in.
+    """
+    from jarvis_sdk.plugin_registry import create_plugin_registry
+
+    result = create_plugin_registry({"logger": None})
+
+    assert "registry" in result
+    assert "createApi" in result
+    assert "rollbackPluginGlobalSideEffects" in result
+    assert "pushDiagnostic" in result
+    assert "registerTool" in result  # from registrars spread
+    assert "registerChannel" in result
+    assert "registerProvider" in result
+
+
+def test_create_plugin_registry_create_api_is_callable() -> None:
+    """The stub ``createApi`` returns a dict with the expected shape."""
+    from jarvis_sdk.plugin_registry import create_plugin_registry
+
+    result = create_plugin_registry({"logger": None})
+    api = result["createApi"](
+        {
+            "id": "x",
+            "name": "x",
+            "source": "s",
+            "origin": "user",
+            "enabled": True,
+            "status": "loaded",
+        },
+        {"config": {}},
+    )
+    assert isinstance(api, dict)
+    assert api["id"] == ""
+    # The stub exposes a registerCli / registerChannel no-op.
+    assert "registerCli" in api
+    assert "registerChannel" in api
+
+
+def test_create_plugin_registry_registrars_are_noop_by_default() -> None:
+    """The composition uses no-op registrars (until the
+    per-domain registrar files are ported)."""
+    from jarvis_sdk.plugin_registry import create_plugin_registry
+
+    result = create_plugin_registry({"logger": None})
+    # Calling any registrar is safe (no-op).
+    result["registerTool"](None, None)
+    result["registerChannel"](None)
+    result["registerProvider"](None)
+
+
+def test_registrars_share_state() -> None:
+    """Two registry instances have independent state + registrars."""
+    from jarvis_sdk.plugin_registry import create_plugin_registry
+
+    r1 = create_plugin_registry({"logger": None})
+    r2 = create_plugin_registry({"logger": None})
+
+    # Mutating r1's diagnostics doesn't affect r2.
+    r1["pushDiagnostic"]({"level": "error", "message": "boom"})
+    assert len(r1["registry"]["diagnostics"]) == 1
+    assert len(r2["registry"]["diagnostics"]) == 0
