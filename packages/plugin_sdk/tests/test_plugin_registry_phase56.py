@@ -14,21 +14,21 @@ _SRC = _PKG_ROOT / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
-from jarvis_sdk.plugin_registry_empty import (  # noqa: E402
+from plugins.empty import (  # noqa: E402
     create_empty_plugin_registry,
 )
-from jarvis_sdk.plugin_registry_lifecycle import (  # noqa: E402
+from plugins.lifecycle import (  # noqa: E402
     is_plugin_registry_activated,
     is_plugin_registry_retired,
     mark_plugin_registry_active,
     mark_plugin_registry_retired,
 )
-from jarvis_sdk.plugin_registry_state import (  # noqa: E402
+from plugins.state import (  # noqa: E402
     create_plugin_registry_state,
     resolve_plugin_registration_capabilities,
     resolve_typed_hook_timeout_ms,
 )
-from jarvis_sdk.plugin_registry_types import (  # noqa: E402
+from plugins.types import (  # noqa: E402
     PluginRecord,
     PluginRegistry,
 )
@@ -416,8 +416,8 @@ def test_create_plugin_registrars_returns_full_shape() -> None:
     exposes ``registerModelCatalogProvider`` from the
     state.
     """
-    from jarvis_sdk.plugin_registry_registrars import create_plugin_registrars
-    from jarvis_sdk.plugin_registry_state import create_plugin_registry_state
+    from plugins.registrars import create_plugin_registrars
+    from plugins.state import create_plugin_registry_state
 
     state = create_plugin_registry_state({"logger": None})
     registrars = create_plugin_registrars(state)
@@ -504,7 +504,7 @@ def test_create_plugin_registry_wires_state_and_registrars() -> None:
     ``rollbackPluginGlobalSideEffects`` +
     ``pushDiagnostic`` + the registrars spread in.
     """
-    from jarvis_sdk.plugin_registry import create_plugin_registry
+    from plugins.registry import create_plugin_registry
 
     result = create_plugin_registry({"logger": None})
 
@@ -519,7 +519,7 @@ def test_create_plugin_registry_wires_state_and_registrars() -> None:
 
 def test_create_plugin_registry_create_api_is_callable() -> None:
     """The stub ``createApi`` returns a dict with the expected shape."""
-    from jarvis_sdk.plugin_registry import create_plugin_registry
+    from plugins.registry import create_plugin_registry
 
     result = create_plugin_registry({"logger": None})
     api = result["createApi"](
@@ -543,7 +543,7 @@ def test_create_plugin_registry_create_api_is_callable() -> None:
 def test_create_plugin_registry_registrars_are_noop_by_default() -> None:
     """The composition uses no-op registrars (until the
     per-domain registrar files are ported)."""
-    from jarvis_sdk.plugin_registry import create_plugin_registry
+    from plugins.registry import create_plugin_registry
 
     result = create_plugin_registry({"logger": None})
     # Calling any registrar is safe (no-op).
@@ -554,7 +554,7 @@ def test_create_plugin_registry_registrars_are_noop_by_default() -> None:
 
 def test_registrars_share_state() -> None:
     """Two registry instances have independent state + registrars."""
-    from jarvis_sdk.plugin_registry import create_plugin_registry
+    from plugins.registry import create_plugin_registry
 
     r1 = create_plugin_registry({"logger": None})
     r2 = create_plugin_registry({"logger": None})
