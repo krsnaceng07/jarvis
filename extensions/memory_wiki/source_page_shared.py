@@ -23,7 +23,7 @@ writer:
   each build a different ``## Source``
   / ``## Content`` / ``## Notes`` shape).
 - Writes the page via
-  :func:`jarvis_sdk.security_runtime.fs_root`
+  :func:`security.security_runtime.fs_root`
   + the guarded vault page writer (so the
   write stays inside the vault fs-safe
   root).

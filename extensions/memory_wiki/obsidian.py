@@ -19,7 +19,7 @@ implementations probe ``PATH`` for the
 ``obsidian`` executable (with the
 Windows ``PATHEXT`` / ``.cmd`` /
 ``.bat`` lookup) and run the command
-through :func:`jarvis_sdk.security_runtime.run_exec`
+through :func:`security.security_runtime.run_exec`
 with a 10-second timeout.
 """
 

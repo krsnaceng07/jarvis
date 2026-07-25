@@ -436,7 +436,7 @@ class TranscriptReadLimits(TypedDict, total=False):
 
 # Runtime transcript target (from the host's session-transcript
 # runtime). Matches the SessionTranscriptTargetParams shape
-# in jarvis_sdk.session_transcript_runtime.
+# in sessions.session_transcript_runtime.
 class RuntimeTranscriptTarget(TypedDict):
     agentId: str
     sessionId: str
@@ -449,7 +449,7 @@ class ActiveMemoryRuntimeTranscriptSource(TypedDict):
 
     Mirrors OpenClaw's ``{ kind: "runtime", target: ... }``
     variant. ``target`` matches
-    ``jarvis_sdk.session_transcript_runtime.SessionTranscriptTargetParams``.
+    ``sessions.session_transcript_runtime.SessionTranscriptTargetParams``.
     """
 
     kind: Literal["runtime"]

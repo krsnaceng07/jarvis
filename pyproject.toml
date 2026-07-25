@@ -281,6 +281,7 @@ pythonpath = [
     ".",
     "src",
     "packages/plugin_sdk/src",
+    "packages/agent_runtime/src",
     "packages/memory_host_sdk/src",
     "packages/normalization_core/src",
     "packages/retry/src",

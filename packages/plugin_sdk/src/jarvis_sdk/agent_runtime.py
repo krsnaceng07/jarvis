@@ -52,7 +52,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from .routing import normalize_agent_id
+from routing.routing import normalize_agent_id
 
 DEFAULT_AGENT_ID = "default"
 DEFAULT_PROVIDER = "openai"

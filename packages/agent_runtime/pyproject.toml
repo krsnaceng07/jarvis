@@ -1,0 +1,59 @@
+# packages/agent_runtime — JARVIS agent core (Python port)
+#
+# Mirrors OpenClaw's `packages/agent-core/` — the agent loop, harness
+# primitives, and session tree that sit directly above the LLM contracts
+# in `packages/llm_client`. Ported starting in Phase 5.8 of
+# `docs/OPENCLAW_BRAIN_PORT_PLAN_V2.md`.
+#
+# Parity notes (Phase 5.8 slice):
+#   - `agent-core/src/types.ts`                       -> jarvis_agent/types.py
+#   - `agent-core/src/harness/types.ts`               -> jarvis_agent/harness_types.py
+#   - `agent-core/src/harness/messages.ts`            -> jarvis_agent/messages.py
+#   - `agent-core/src/harness/session/uuid.ts`        -> jarvis_agent/uuid7.py
+#   - `agent-core/src/harness/session/session.ts`     -> jarvis_agent/session_context.py
+#   - `agent-core/src/harness/utils/truncate.ts`      -> jarvis_agent/truncate.py
+#   - `agent-core/src/harness/prompt-template-arguments.ts`
+#                                                     -> jarvis_agent/prompt_template_arguments.py
+#   - `agent-core/src/runtime-deps.ts`                -> jarvis_agent/runtime_deps.py
+#   - `agent-core/src/reasoning.ts`                   -> jarvis_agent/reasoning.py
+#   - `agent-core/src/errors.ts`                      -> jarvis_agent/errors.py
+#   - `agent-core/src/validation.ts`                  -> jarvis_agent/validation.py
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jarvis-agent-runtime"
+version = "0.1.0-rc1"
+description = "JARVIS agent core — OpenClaw packages/agent-core parity."
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+authors = [{ name = "JARVIS architect" }]
+keywords = ["jarvis", "agent", "openclaw", "harness", "session"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+# The only dependency is the LLM contracts package. Provider SDKs stay in
+# extensions, exactly as agent-core depends on llm-core and nothing else.
+dependencies = ["jarvis-llm-client"]
+
+[project.urls]
+Homepage = "https://github.com/jarvis-ai/jarvis"
+Repository = "https://github.com/jarvis-ai/jarvis.git"
+Issues = "https://github.com/jarvis-ai/jarvis/issues"
+
+# ─────────────────────────────────────────────────────────────────────
+# Build configuration (hatchling + src layout)
+# ─────────────────────────────────────────────────────────────────────
+[tool.hatch.build.targets.wheel]
+packages = ["src/jarvis_agent"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/jarvis_agent", "README.md"]
