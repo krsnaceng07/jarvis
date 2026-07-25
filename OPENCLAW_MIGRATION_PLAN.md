@@ -4432,3 +4432,111 @@ failures (unrelated).
 - 1 fully ported (registrars composition with per-domain stubs)
 - 1 facade wired (plugin_registry.create_plugin_registry)
 - 2 stubs still pending (registry-api + registry-refresh)
+
+---
+
+## §48 — Refactor Step 1 + Phase 5.7 (LLM contracts + provider facade) port-complete (2026-07-25)
+
+**Commit:** — refactor(structure) + feat(phase5.7)
+
+This is a **two-part** commit that:
+
+1. **Refactor Step 1** brings JARVIS's package layout
+   closer to OpenClaw's (per
+   `docs/OPENCLAW_STRUCTURE_MISMATCH.md`).
+2. **Phase 5.7 (LLM contracts + provider facade)** —
+   the foundation of the brain port, was already done
+   in `packages/llm_client/src/jarvis_llm/` and is now
+   committed.
+
+### 48.1 — Refactor Step 1
+
+| Change | Status | Notes |
+|---|---|---|
+| `packages/memory_host_sdk/` | ✅ NEW | re-exports 34 `memory_host_*.py` modules |
+| `packages/normalization_core/` | ✅ NEW | re-exports `string_coerce`, `text_utility`, `result`, `json_store` |
+| `packages/retry/` | ✅ NEW | re-exports `retry_runtime` |
+| `packages/llm_client/` | ✅ populated | re-exports `agent_runtime` + LLM runtime helpers |
+| `src/routing/` | ✅ NEW | re-exports `routing.py` |
+| `src/plugins/` | ✅ NEW | re-exports the 7 `plugin_registry_*.py` modules |
+| `src/memory/` | ✅ NEW | re-exports `memory_runtime` + `memory_storage` |
+| `src/security/` | ✅ NEW | re-exports `security_runtime` |
+| `src/sessions/` | ✅ NEW | re-exports `session_transcript_runtime` |
+| `src/llm/` | ✅ NEW | re-exports the LLM runtime helpers |
+| `src/cron/` | ✅ minimal | full port in Phase 6.1 |
+
+All old `jarvis_sdk.*` import paths continue to work
+via the re-export shims. A follow-up phase will
+physically move the modules to their new homes and
+update import sites.
+
+### 48.2 — Phase 5.7 (LLM contracts + provider facade)
+
+Per the V2 plan, Phase 5.7 is the **foundation** of
+the brain port. The `StreamFn` no-throw contract is
+the only thing the agent loop depends on, so it must
+be proved before the loop is written.
+
+**Port: 8 source files + 3 test files** in
+`packages/llm_client/src/jarvis_llm/`:
+
+- `types.py` — every wire contract
+  (`AssistantMessage`, `StreamEvent*`, `StopReason`,
+  `Tool`, `Provider`, `Context`, `Model`, etc.)
+- `validation.py` — JSON schema validation +
+  `validate_tool_arguments` + `validate_tool_call`
+- `stream.py` — `StreamFn` protocol, `CompleteSimpleFn`,
+  `guard_stream_fn`, `create_failure_message`
+- `event_stream.py` — `AssistantMessageEventStream`
+  + `EventStream` base
+- `abort.py` — `AbortController`, `AbortSignal`,
+  `AbortError`, `is_aborted`, `TurnHandoffAbort`
+- `diagnostics.py` — diagnostic helpers
+- `model_contracts.py` — Claude model identity +
+  thinking level maps
+- `__init__.py` — public surface re-export
+
+**Key contract (proved on a stub provider):**
+- `StreamFn` never throws and never rejects for
+  request/model/runtime failures. Failures are encoded
+  *in the returned stream* as `error` events plus a
+  final `AssistantMessage` with `stop_reason: "error" | "aborted"`
+  and `error_message`.
+- `guard_stream_fn` enforces the contract even when
+  a provider misbehaves.
+
+**Tests:** 123 new tests (all passing):
+- `test_stream_contract_phase57.py` (47 tests)
+- `test_validation_phase57.py` (35 tests)
+- `test_model_contracts_phase58.py` (41 tests)
+
+The Phase 5.7 acceptance criterion from the V2 plan
+is met: "a test suite that injects timeout, 4xx, 5xx,
+malformed-payload, and mid-stream abort into the stub
+and asserts the function never raises and always
+terminates with an `AssistantMessage` carrying
+`stop_reason` in `{"error", "aborted"}` plus
+`error_message`."
+
+**Combined test count: 553 SDK tests pass** (430
+plugin_sdk + 123 llm_client). Pre-existing 2 test
+failures in `extensions/memory_core` and
+`extensions/memory_lancedb` are unchanged (unrelated —
+`set_manifest` contract change from 4.3k).
+
+### 48.3 — Next: Phase 5.8
+
+Per the V2 plan, the next phase is **5.8 (agent-core
+types + harness primitives)**:
+
+- `agent-core/src/types.ts` (547) → `packages/agent_core/src/jarvis_agent/types.py`
+- `harness/types.ts` (131), `harness/session/uuid.ts` (55),
+  `harness/session/session.ts` (85), `harness/messages.ts` (200),
+  `harness/prompt-template-arguments.ts` (97),
+  `harness/utils/truncate.ts` (388), `runtime-deps.ts` (45),
+  `reasoning.ts` (43), `errors.ts`, `validation.ts`
+
+Estimated ~1.6K LOC, 1 PR. The `packages/agent_core/`
+package is now ready to receive the brain — the
+existing `packages/agent_runtime/` is empty and can
+be filled.
