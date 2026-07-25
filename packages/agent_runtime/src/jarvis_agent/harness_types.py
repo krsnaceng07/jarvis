@@ -35,7 +35,7 @@ OpenClaw's harness re-exports ``ok`` / ``err`` / ``Result`` from
 error type. The harness relies on that: it returns
 ``err(CompactionError(...))``, passing an exception *object* as the error.
 
-JARVIS already has a ``Result`` in ``jarvis_sdk.result``, but it is a
+JARVIS already has a ``Result`` in ``jarvis_normalization_core.result``, but it is a
 narrower thing — ``Err(error: str, code: str)`` — designed for the plugin
 wire format, where an error has to serialize to text. It cannot carry a
 ``CompactionError``.
@@ -43,7 +43,7 @@ wire format, where an error has to serialize to text. It cannot carry a
 So this module defines the faithful generic form rather than bending either
 side. The two are intentionally separate:
 
-* :class:`jarvis_sdk.result.Result` — plugin boundary, string errors.
+* :class:`jarvis_normalization_core.result.Result` — plugin boundary, string errors.
 * this module's :data:`Result` — harness internals, typed error objects.
 
 Unifying them is a real cleanup, but it changes the published plugin
@@ -86,7 +86,7 @@ class Err(Generic[TError]):
 
     ``error`` is any value, typically a :class:`CompactionError` or
     :class:`BranchSummaryError` instance. It is *not* a string — the whole
-    reason this type exists separately from ``jarvis_sdk.result.Err``.
+    reason this type exists separately from ``jarvis_normalization_core.result.Err``.
     """
 
     error: TError

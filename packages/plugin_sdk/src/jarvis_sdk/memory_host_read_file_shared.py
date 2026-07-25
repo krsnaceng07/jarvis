@@ -19,7 +19,7 @@ Public API:
 
 Key port decisions:
 - ``truncate_utf16_safe`` is reused from
-  ``jarvis_sdk.text_utility`` (the same helper is used by
+  ``jarvis_normalization_core.text_utility`` (the same helper is used by
   memory-lancedb for embedding input truncation).
 - The result envelope is a ``TypedDict`` (not a dataclass) to
   preserve the optional ``truncated`` / ``nextFrom`` field
@@ -31,7 +31,7 @@ from __future__ import annotations
 
 from typing import TypedDict
 
-from .text_utility import truncate_utf16_safe
+from jarvis_normalization_core.text_utility import truncate_utf16_safe
 
 # Mirrors OpenClaw's ``DEFAULT_MEMORY_READ_LINES = 120``.
 # Used as the default line count when callers don't specify one.

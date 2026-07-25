@@ -87,7 +87,7 @@ from .expect_runtime import expect_defined, expect_truthy
 
 # Hook types
 from .hook import HookHandler, HookName, HookRegistration
-from .json_store import (
+from jarvis_normalization_core.json_store import (
     load_json_file,
     read_json_file_with_fallback,
     save_json_file,
@@ -162,7 +162,7 @@ from .plugin_state_keyed_store import (
 )
 
 # Result type (Ok / Err / Result)
-from .result import Err, Ok, Result, ResultNone
+from jarvis_normalization_core.result import Err, Ok, Result, ResultNone
 from jarvis_retry.retry_runtime import retry_async
 from routing.routing import (
     normalize_agent_id,
@@ -192,7 +192,7 @@ from sessions.session_transcript_runtime import (
 
 # Skill types
 from .skill import SkillDecl
-from .string_coerce import (
+from jarvis_normalization_core.string_coerce import (
     as_optional_record,
     lowercase_preserving_whitespace,
     normalize_lowercase_string_or_empty,
@@ -202,7 +202,7 @@ from .string_coerce import (
     normalize_trimmed_string_list,
     unique_strings,
 )
-from .text_utility import truncate_utf16_safe, utf16_length
+from jarvis_normalization_core.text_utility import truncate_utf16_safe, utf16_length
 
 __all__ = [
     # Chat channel ids

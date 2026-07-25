@@ -23,7 +23,7 @@ from typing import Any
 # We re-export it under both names so callers can use either
 # ``from extensions.memory_core.dreaming_shared import as_record``
 # (OpenClaw-compatible) or ``as_optional_record`` (JARVIS-idiomatic).
-from jarvis_sdk.string_coerce import as_optional_record as as_record  # type: ignore[attr-defined]
+from jarvis_normalization_core.string_coerce import as_optional_record as as_record  # type: ignore[attr-defined]
 
 
 def format_error_message(err: object) -> str:

@@ -30,8 +30,8 @@ recall sub-agent:
 
 Dependencies
 ============
-- ``jarvis_sdk.string_coerce.{as_optional_record, normalize_optional_string}``
-- ``jarvis_sdk.text_utility.truncate_utf16_safe``
+- ``jarvis_normalization_core.string_coerce.{as_optional_record, normalize_optional_string}``
+- ``jarvis_normalization_core.text_utility.truncate_utf16_safe``
 - ``extensions.active_memory.types`` — the recall-flow types
   and constants.
 - ``extensions.active_memory.query.extract_text_content_parts`` — re-used

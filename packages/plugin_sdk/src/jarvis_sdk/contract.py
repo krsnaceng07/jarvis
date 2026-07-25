@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, Any, Protocol, TypeVar, runtime_checkable
 
 if TYPE_CHECKING:
     from .manifest import ToolDecl
-    from .result import Result
+    from jarvis_normalization_core.result import Result
 
 T = TypeVar("T")
 

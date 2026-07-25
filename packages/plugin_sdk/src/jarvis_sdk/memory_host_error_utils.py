@@ -20,7 +20,7 @@ Key port decisions:
 - ``findLast`` from JS is implemented as
   ``next((v for v in reversed(groups) if isinstance(v, str) and v), match)``.
 - ``sliceUtf16Safe`` (used by ``maskToken``) is reused
-  from ``jarvis_sdk.text_utility``.
+  from ``jarvis_normalization_core.text_utility``.
 - All ``SECRET_PATTERNS`` are preserved verbatim from
   the OpenClaw source (the list is the entire security
   perimeter; even small tweaks matter for parity).
@@ -30,7 +30,7 @@ from __future__ import annotations
 import re
 from typing import Match
 
-from .text_utility import truncate_utf16_safe
+from jarvis_normalization_core.text_utility import truncate_utf16_safe
 
 # Mirrors OpenClaw's ``SECRET_PATTERNS``. Each regex matches
 # a common token / key / secret shape. The list is the

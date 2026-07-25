@@ -25,7 +25,7 @@ from .memory_host_cjk_chars import (
     CHARS_PER_TOKEN_ESTIMATE,
     estimate_string_chars,
 )
-from .text_utility import truncate_utf16_safe
+from jarvis_normalization_core.text_utility import truncate_utf16_safe
 
 
 def detect_mime(

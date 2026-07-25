@@ -68,7 +68,7 @@ from jarvis_sdk import (
     normalize_optional_string,
     read_session_transcript_raw_delta,
 )
-from jarvis_sdk.text_utility import truncate_utf16_safe
+from jarvis_normalization_core.text_utility import truncate_utf16_safe
 
 from .config import _clamp_int
 from .prompt import (

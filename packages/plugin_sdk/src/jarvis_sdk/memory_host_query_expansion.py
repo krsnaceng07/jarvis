@@ -1,4 +1,4 @@
-"""jarvis_sdk.memory_host_query_expansion — keyword extraction for FTS.
+r"""jarvis_sdk.memory_host_query_expansion — keyword extraction for FTS.
 
 OpenClaw parity: mirrors
 ``packages/memory-host-sdk/src/host/query-expansion.ts`` (776 LOC).
@@ -43,7 +43,7 @@ from typing import Literal, TypedDict
 # the SDK. Mirrors the TS source's
 # ``import { normalizeLowercaseStringOrEmpty } from "@openclaw/normalization-core/string-coerce"``.
 try:
-    from jarvis_sdk.string_coerce import (
+    from jarvis_normalization_core.string_coerce import (
         normalize_lowercase_string_or_empty,  # type: ignore[attr-defined]
     )
 except ImportError:  # pyright: ignore[reportMissingImports]

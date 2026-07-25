@@ -39,7 +39,7 @@ Surface
 
 Dependencies
 ============
-- ``jarvis_sdk.text_utility.truncate_utf16_safe``
+- ``jarvis_normalization_core.text_utility.truncate_utf16_safe``
 - ``jarvis_sdk.agent_runtime.{DEFAULT_PROVIDER, parse_model_ref,
   resolve_agent_effective_model_primary,
   resolve_default_model_for_agent}``

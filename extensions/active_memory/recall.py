@@ -43,7 +43,7 @@ Surface
 
 Dependencies
 ============
-- ``jarvis_sdk.text_utility.truncate_utf16_safe``
+- ``jarvis_normalization_core.text_utility.truncate_utf16_safe``
 - ``jarvis_sdk.as_optional_record`` /
   ``normalize_optional_string``
 - ``extensions.active_memory.query.get_model_ref``

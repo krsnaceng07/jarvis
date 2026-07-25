@@ -21,7 +21,7 @@ from typing import Any, Literal, TypedDict
 # the SDK. The TS source uses ``@openclaw/normalization-core/string-coerce``;
 # the JARVIS SDK provides the same helper under a snake_case name.
 try:
-    from jarvis_sdk.string_coerce import (
+    from jarvis_normalization_core.string_coerce import (
         normalize_lowercase_string_or_empty,  # type: ignore[attr-defined]
     )
 except ImportError:  # pyright: ignore[reportMissingImports]
