@@ -1,0 +1,44 @@
+# packages/normalization_core — shared normalization utilities
+#
+# Mirrors OpenClaw's `packages/normalization-core/` (the shared
+# string / result / utf16-slice utilities used by every other
+# package). JARVIS ports the relevant sub-modules:
+# - `string-coerce` → `jarvis_sdk.string_coerce`
+# - `utf16-slice`   → `jarvis_sdk.text_utility`
+# - `result`        → `jarvis_sdk.result`
+# - `json-store`    → `jarvis_sdk.json_store`
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jarvis-normalization-core"
+version = "0.1.0-rc1"
+description = "JARVIS Normalization Core — shared utilities (string, result, utf16-slice, json-store)."
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+authors = [{ name = "JARVIS architect" }]
+keywords = ["jarvis", "normalization-core", "openclaw"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.13",
+]
+
+dependencies = [
+    "jarvis-plugin-sdk>=0.1.0-rc1",
+]
+
+[project.urls]
+Homepage = "https://github.com/jarvis-ai/jarvis"
+Repository = "https://github.com/jarvis-ai/jarvis.git"
+Issues = "https://github.com/jarvis-ai/jarvis/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jarvis_normalization_core"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/jarvis_normalization_core", "README.md", "AGENTS.md"]

@@ -1,0 +1,48 @@
+# packages/llm_client — LLM client + agent-runtime helpers
+#
+# Mirrors OpenClaw's `packages/llm-core/` + `src/llm/` +
+# `packages/agent-core/src/agent-runtime.ts` (in `plugin-sdk`).
+# JARVIS ports:
+# - `agent_runtime`         → `jarvis_sdk.agent_runtime`
+# - `expect_runtime`        → `jarvis_sdk.expect_runtime`
+# - `lazy_runtime`          → `jarvis_sdk.lazy_runtime`
+# - `number_runtime`        → `jarvis_sdk.number_runtime`
+# - `runtime_env`           → `jarvis_sdk.runtime_env`
+# - `memory_embeddings`     → `jarvis_sdk.memory_embeddings`
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jarvis-llm-client"
+version = "0.1.0-rc1"
+description = "JARVIS LLM Client + agent-runtime helpers (OpenClaw llm-core + llm facade parity)."
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+authors = [{ name = "JARVIS architect" }]
+keywords = ["jarvis", "llm", "openclaw", "agent-runtime"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.13",
+]
+
+dependencies = [
+    "jarvis-plugin-sdk>=0.1.0-rc1",
+    "jarvis-normalization-core>=0.1.0-rc1",
+    "jarvis-retry>=0.1.0-rc1",
+]
+
+[project.urls]
+Homepage = "https://github.com/jarvis-ai/jarvis"
+Repository = "https://github.com/jarvis-ai/jarvis.git"
+Issues = "https://github.com/jarvis-ai/jarvis/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jarvis_llm_client"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/jarvis_llm_client", "README.md", "AGENTS.md"]

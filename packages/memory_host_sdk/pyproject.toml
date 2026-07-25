@@ -1,0 +1,54 @@
+# packages/memory_host_sdk — Public memory host SDK
+#
+# Mirrors OpenClaw's `packages/memory-host-sdk/` (60+ files: the public
+# memory API used by both the host runtime and by plugin authors).
+# Plugins import ONLY from this package; never from `src/...` or
+# other extensions.
+#
+# Migration note: the 34 `memory_host_*.py` modules were originally
+# ported into `packages/plugin_sdk/src/jarvis_sdk/`. They are being
+# re-homed here per the V2 plan to match OpenClaw's structure. Until
+# the physical move (Phase 2 of the refactor), this package
+# re-exports the modules from their old location so all imports
+# keep working.
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jarvis-memory-host-sdk"
+version = "0.1.0-rc1"
+description = "JARVIS Memory Host SDK — public memory API for host + plugins (OpenClaw parity)."
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+authors = [{ name = "JARVIS architect" }]
+keywords = ["jarvis", "memory-host-sdk", "openclaw", "extension", "contract"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+# Runtime deps: only the plugin_sdk (during the re-export phase).
+# Once the modules are physically moved, this can become empty.
+dependencies = [
+    "jarvis-plugin-sdk>=0.1.0-rc1",
+]
+
+[project.urls]
+Homepage = "https://github.com/jarvis-ai/jarvis"
+Repository = "https://github.com/jarvis-ai/jarvis.git"
+Issues = "https://github.com/jarvis-ai/jarvis/issues"
+
+# ─────────────────────────────────────────────────────────────────────
+# Build configuration (hatchling + src layout)
+# ─────────────────────────────────────────────────────────────────────
+[tool.hatch.build.targets.wheel]
+packages = ["src/jarvis_memory_host_sdk"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/jarvis_memory_host_sdk", "README.md", "AGENTS.md"]

@@ -60,6 +60,11 @@ members = [
 
 [tool.uv.sources]
 jarvis-plugin-sdk = { workspace = true }
+jarvis-memory-host-sdk = { workspace = true }
+jarvis-normalization-core = { workspace = true }
+jarvis-retry = { workspace = true }
+jarvis-llm-client = { workspace = true }
+jarvis-agent-runtime = { workspace = true }
 jarvis = { workspace = true }
 
 # Modern dependency groups (PEP 735). Replaces deprecated [tool.uv.dev-dependencies].
@@ -163,6 +168,38 @@ ignore = [
     "S110",     # try-except-pass (intentional for OSError cleanup)
 ]
 "tools/**/*.py" = ["T201", "PLR0912"]   # print allowed in scripts; many branches in validators
+# Phase 5.7 llm-core port: OpenClaw parity. These files mirror the shape of
+# `packages/llm-core/src/*.ts`, where the long type-dispatch ladders and the
+# deliberately-broad excepts *are* the design. Refactoring them would defeat
+# the "same-to-same" goal, and in stream.py the broad except is the contract.
+"packages/llm_client/src/jarvis_llm/types.py" = [
+    "TCH003",   # typing-only stdlib import (dataclass fields need runtime types)
+    "UP038",    # isinstance tuple vs union (parity with TS typeof chains)
+]
+"packages/llm_client/src/jarvis_llm/validation.py" = [
+    "PLR0911",  # too many returns (mirrors the TS switch on schema type)
+    "PLR0912",  # too many branches (same)
+    "PLR0915",  # too many statements (same)
+    "SIM102",   # nested-if (mirrors OpenClaw's nested-if style)
+    "SIM103",   # return-in-condition (intentional for parity)
+    "SIM108",   # ternary (intentional for parity)
+    "SIM114",   # combine-if-branches (branches kept 1:1 with the TS cases)
+    "UP038",    # isinstance tuple vs union (parity with TS typeof chains)
+    "TCH003",
+]
+"packages/llm_client/src/jarvis_llm/stream.py" = [
+    "BLE001",   # blind-except IS the never-throw contract, not an oversight
+    "TCH003",
+]
+"packages/llm_client/src/jarvis_llm/abort.py" = [
+    "BLE001",   # best-effort teardown listeners must not break each other
+    "S110",     # try-except-pass (same: abort path must not raise)
+    "SLF001",   # private-member-access (controller owns its signal's listeners)
+]
+"packages/llm_client/src/jarvis_llm/event_stream.py" = [
+    "ASYNC",    # __aiter__ as an async generator mirrors the TS iterator
+    "TCH003",
+]
 # Phase 4.4 dreaming port: OpenClaw parity — these rules are unavoidable
 # in deterministic helpers that mirror the TypeScript source structure.
 "extensions/memory_core/dreaming_state.py" = ["PLR0912", "PLR0915", "C416", "PLW0603", "TCH003", "UP038"]
@@ -180,7 +217,7 @@ ignore = [
 "extensions/memory_core/cli.py" = ["PLR0912", "C416", "TCH003", "UP038", "PTH"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["jarvis_sdk", "jarvis_desktop", "jarvis_cli"]
+known-first-party = ["jarvis_sdk", "jarvis_llm", "jarvis_desktop", "jarvis_cli"]
 combine-as-imports = true
 
 [tool.ruff.format]
@@ -242,7 +279,12 @@ minversion = "8.0"
 testpaths = ["apps", "packages", "extensions", "tools", "tests"]
 pythonpath = [
     ".",
+    "src",
     "packages/plugin_sdk/src",
+    "packages/memory_host_sdk/src",
+    "packages/normalization_core/src",
+    "packages/retry/src",
+    "packages/llm_client/src",
     "apps/desktop/src",
     "apps/cli/src",
 ]
