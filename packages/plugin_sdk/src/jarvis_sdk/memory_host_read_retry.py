@@ -12,11 +12,11 @@ Public API:
 - ``is_transient_memory_read_error(error)`` — true for the
   narrow set of transient error shapes.
 - ``retry_transient_memory_read(read, label)`` — async retry
-  using the ``retry_async`` helper from ``jarvis_sdk.retry_runtime``.
+  using the ``retry_async`` helper from ``jarvis_retry.retry_runtime``.
 
 Key port decisions:
 - We delegate to the existing ``retry_async`` (from
-  ``jarvis_sdk.retry_runtime``) so this module reuses the
+  ``jarvis_retry.retry_runtime``) so this module reuses the
   same bounded-retry machinery as the rest of the SDK
   (``openclaw/plugin-sdk/retry-runtime``'s ``retryAsync``).
 - The transient-error predicate checks Node-style ``code`` /
@@ -34,7 +34,7 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from .retry_runtime import retry_async
+from jarvis_retry.retry_runtime import retry_async
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable

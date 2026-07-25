@@ -163,7 +163,7 @@ from .plugin_state_keyed_store import (
 
 # Result type (Ok / Err / Result)
 from .result import Err, Ok, Result, ResultNone
-from .retry_runtime import retry_async
+from jarvis_retry.retry_runtime import retry_async
 from .routing import (
     normalize_agent_id,
     parse_agent_session_key,
