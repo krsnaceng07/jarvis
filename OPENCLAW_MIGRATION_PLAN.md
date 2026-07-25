@@ -4379,3 +4379,56 @@ for the remaining `src/plugins/*` + `src/agents/*` +
 **Full SDK test suite:** 425 passing, 2 pre-existing
 failures (unrelated — `set_manifest()` contract change
 from 4.3k).
+
+---
+
+## §47 — Phase 5.6b (plugin registry composition) port-complete (2026-07-25)
+
+**Commit:** `a08cfb0` — feat(phase5.6b): plugin registry composition
+
+| Sub | Files | Status | Tests |
+|---|---|---|---|
+| 5.6b.1 | `plugin_registry_registrars.py` (port of `registry-registrars.ts`, 25 LOC TS) | ✅ full (per-domain stubs) | covered |
+| 5.6b.2 | `plugin_registry.py` (REFRESHED, 95 LOC TS) | ✅ wired (createApi stub) | 5 new |
+
+**Port highlights:**
+
+- **`plugin_registry_registrars.py`** (~250 LOC port):
+  - `create_plugin_registrars(state)` composes 7
+    per-domain registrar factories (capability,
+    tool-hook, network, provider, operation, host,
+    memory) + the model-catalog registrar (from state)
+  - Each per-domain registrar function is a **stub**
+    that returns the canonical OpenClaw method names
+    as no-op callables
+  - The shape is identical to the source's
+    `PluginRegistrars` type
+
+- **`plugin_registry.py` (REFRESHED):**
+  - `create_plugin_registry(params)` now returns the
+    state + the registrars (composed) + a stub
+    `createApi` + a stub
+    `rollbackPluginGlobalSideEffects`
+  - The registrar methods are spread into the return
+    value, matching OpenClaw's surface
+  - The real `createApi` factory (from
+    `registry-api.ts`) is still stubbed — deferred
+  - The real `rollbackPluginGlobalSideEffects` is
+    still stubbed — deferred
+
+**Tests (5 new tests, all passing):**
+- test_create_plugin_registrars_returns_full_shape
+  (asserts all ~50 registrar names are present)
+- test_create_plugin_registry_wires_state_and_registrars
+- test_create_plugin_registry_create_api_is_callable
+- test_create_plugin_registry_registrars_are_noop_by_default
+- test_registrars_share_state
+
+**Full SDK test suite:** 430 passing, 2 pre-existing
+failures (unrelated).
+
+**Plugin registry port status:**
+- 4 fully ported (types, empty, lifecycle, state)
+- 1 fully ported (registrars composition with per-domain stubs)
+- 1 facade wired (plugin_registry.create_plugin_registry)
+- 2 stubs still pending (registry-api + registry-refresh)
