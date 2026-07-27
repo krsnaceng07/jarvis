@@ -16,7 +16,7 @@ physically move the modules here and update all
 """
 from __future__ import annotations
 
-# Phase 5.1 — event store.
+# Phase 5.1 — event store (4 modules).
 from jarvis_sdk.memory_host_event_types import (  # noqa: F401
     MemoryHostEvent,
     MemoryHostEventRecord,
@@ -143,7 +143,7 @@ from jarvis_sdk.memory_host_fs_utils import (  # noqa: F401
     stat_regular_file,
     walk_directory,
 )
-from jarvis_sdk.memory_host_concurrency import run_with_concurrency as _run_with_concurrency  # noqa: F401
+from jarvis_sdk.memory_host_concurrency import run_with_concurrency  # noqa: F401
 from jarvis_sdk.memory_host_cjk_chars import (  # noqa: F401
     CHARS_PER_TOKEN_ESTIMATE,
     estimate_string_chars,
@@ -196,7 +196,7 @@ from jarvis_sdk.memory_host_error_utils import (  # noqa: F401
 # Phase 4 — search facade.
 from jarvis_sdk.memory_host_search import close_active_memory_search_manager  # noqa: F401
 
-# Public facades.
+# Public facades (5 files).
 from jarvis_sdk.memory_host_hash_facade import *  # noqa: F401, F403
 from jarvis_sdk.memory_host_multimodal_facade import *  # noqa: F401, F403
 from jarvis_sdk.memory_host_read_retry_facade import *  # noqa: F401, F403
