@@ -10,13 +10,18 @@ resolution-markers = [
 members = [
     "jarvis",
     "jarvis-active-memory",
+    "jarvis-agent-runtime",
     "jarvis-cli",
     "jarvis-cron",
     "jarvis-desktop",
+    "jarvis-llm-client",
     "jarvis-memory-core",
+    "jarvis-memory-host-sdk",
     "jarvis-memory-lancedb",
     "jarvis-memory-wiki",
+    "jarvis-normalization-core",
     "jarvis-plugin-sdk",
+    "jarvis-retry",
     "jarvis-telegram",
     "jarvis-tui",
 ]
@@ -811,6 +816,17 @@ version = "0.1.0"
 source = { virtual = "extensions/active_memory" }
 
 [[package]]
+name = "jarvis-agent-runtime"
+version = "0.1.0rc1"
+source = { editable = "packages/agent_runtime" }
+dependencies = [
+    { name = "jarvis-llm-client" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "jarvis-llm-client", editable = "packages/llm_client" }]
+
+[[package]]
 name = "jarvis-cli"
 version = "0.1.0"
 source = { editable = "apps/cli" }
@@ -897,9 +913,37 @@ requires-dist = [
 provides-extras = ["windows", "macos", "linux", "all"]
 
 [[package]]
+name = "jarvis-llm-client"
+version = "0.1.0rc1"
+source = { editable = "packages/llm_client" }
+dependencies = [
+    { name = "jarvis-normalization-core" },
+    { name = "jarvis-plugin-sdk" },
+    { name = "jarvis-retry" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "jarvis-normalization-core", editable = "packages/normalization_core" },
+    { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
+    { name = "jarvis-retry", editable = "packages/retry" },
+]
+
+[[package]]
 name = "jarvis-memory-core"
 version = "0.1.0"
 source = { virtual = "extensions/memory_core" }
+
+[[package]]
+name = "jarvis-memory-host-sdk"
+version = "0.1.0rc1"
+source = { editable = "packages/memory_host_sdk" }
+dependencies = [
+    { name = "jarvis-plugin-sdk" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" }]
 
 [[package]]
 name = "jarvis-memory-lancedb"
@@ -930,9 +974,31 @@ dependencies = [
 requires-dist = [{ name = "pyyaml", specifier = ">=6.0" }]
 
 [[package]]
+name = "jarvis-normalization-core"
+version = "0.1.0rc1"
+source = { editable = "packages/normalization_core" }
+dependencies = [
+    { name = "jarvis-plugin-sdk" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" }]
+
+[[package]]
 name = "jarvis-plugin-sdk"
 version = "0.1.0rc1"
 source = { editable = "packages/plugin_sdk" }
+
+[[package]]
+name = "jarvis-retry"
+version = "0.1.0rc1"
+source = { editable = "packages/retry" }
+dependencies = [
+    { name = "jarvis-plugin-sdk" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" }]
 
 [[package]]
 name = "jarvis-telegram"
