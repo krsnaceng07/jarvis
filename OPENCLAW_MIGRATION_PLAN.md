@@ -4540,3 +4540,99 @@ Estimated ~1.6K LOC, 1 PR. The `packages/agent_core/`
 package is now ready to receive the brain — the
 existing `packages/agent_runtime/` is empty and can
 be filled.
+
+
+## §49 — Refactor Step 2 (Waves 1-5) + Phase 5.8-5.12 (agent_runtime + context_engine) port-complete (2026-07-27)
+
+
+**Commits:**
+- 109c68 fix(refactor): restore src/cron/__init__.py + clean up Wave 6 partial-move debris
+- 4f4e5f7 feat(phase5.8-5.11): agent_runtime — agent-core + loop + compaction + Agent
+- ed6448d feat(phase5.12): context_engine + new OpenClaw-shaped src/ dirs
+- c06db37 docs(plan) + conftest.py + uv.lock workspace-member updates
+
+
+### 49.1 — Refactor Step 2 (Waves 1-5)
+
+The re-export shims introduced in Step 1 (855d748) have been physically resolved for 5 of 6 module groups. Each wave moved the actual module bodies to their OpenClaw-shaped homes and updated internal imports; the legacy jarvis_sdk.* import surface is preserved by the per-package __init__.py re-export shims in packages/plugin_sdk/ and src/-level __init__.py shims that PYTHONPATH-resolve from src/.
+
+
+| Wave | Module(s) | New home | Commit | Tests |
+|---|---|---|---|---|
+| 1 | etry_runtime | packages/retry/src/jarvis_retry/ |  9b9d6a | (uses llm_client mocks) |
+| 2 | outing | src/routing/routing.py | 9f24184 | (uses plugin_sdk shims) |
+| 2 | security_runtime | src/security/ | 9f24184 | — |
+| 2 | session_transcript_runtime | src/sessions/ | 9f24184 | — |
+| 3 | string_coerce / 	ext_utility / esult / json_store | packages/normalization_core/src/jarvis_normalization_core/ | 85ecaec | — |
+| 4 | memory_runtime / memory_storage | src/memory/ | 32b95c | (covered by 4.4k memory tests) |
+| 5 | 7 plugin_registry_*.py | src/plugins/ | 975cc14 | 31 registry tests |
+| 6 | 34 memory_host_*.py | packages/memory_host_sdk/src/jarvis_memory_host_sdk/ | (deferred) | — |
+
+
+Wave 6 was attempted and rolled back: the 34 partial-move files were created in packages/memory_host_sdk/src/jarvis_memory_host_sdk/ but the barrel re-exports + cross-module dependencies created a circular import surface. The package __init__.py is restored to a clean re-export shim from jarvis_sdk.memory_host_*; the 34 partial-move files were deleted in commit 109c68. The physical move will retry in a follow-up phase that wires all barrel re-exports + intra-package imports to avoid the circular import. None of the 60+ files actually moved (Waves 1-5 + Step 1) depended on Wave 6 landing, so the 5.1-5.6b ports are safe in their plugin_sdk home for now.
+
+
+### 49.2 — Phase 5.8-5.11 (agent_runtime)
+
+The full agent brain loop, in packages/agent_runtime/src/jarvis_agent/ (mirrors OpenClaw's packages/agent-core/ + src/agents/):
+
+| Phase | Module(s) | LOC | Tests | Notes |
+|---|---|---|---|---|
+| 5.8 | 	ypes / 	runcate / uuid7 / harness_types / easoning / untime_deps / errors / llm / messages / prompt_template_arguments / session_context / alidation | ~1.6K | 69 | agent-core types + harness primitives |
+| 5.9 | gent_loop (48K) / 	urn_interruption | ~3K | ~150 | per-turn async loop, abort signal semantics |
+| 5.10 | compaction (33K) / ranch_summarization (12K) / compaction_utils (8K) | ~2.1K | ~80 | context-window overflow handler |
+| 5.11 | gent (25K) | ~0.8K | ~36 | user-facing Agent class — standalone brain entry point |
+| | **TOTAL** | **~7.5K** | **335** | |
+
+
+The legacy jarvis_sdk.agent_runtime re-export shim in packages/plugin_sdk/ remains for backward compat; it delegates to jarvis_agent. The Agent class is testable in isolation: Agent(config, harness, llm, store) runs the loop in-process without a gateway or channel. The gateway + channels + extension registration layer will attach to it in Phase 5.15-5.16.
+
+### 49.3 — Phase 5.12 (context_engine) + new src/ dirs
+
+
+| Dir / Module | LOC | Notes |
+|---|---|---|
+| src/context_engine/ | ~2.2K | registry + legacy engine + host_compat + runtime_settings + quarantine_health + delegate (memory prompt add bridge) |
+| src/infra/ | small | abort_signal (used by agent loop) |
+| src/plugin_state/ | small | runtime_health_store (cross-process dedupe) |
+| src/shared/ | small | global_singleton + lazy_runtime + pid_alive + structured_prompt_section |
+| src/terminal_core/ | small | ansi (TUI feedback) |
+| src/utils/ | small | string_readers |
+| src/routing/ additions (15 modules) | ~1.8K | per-file OpenClaw split of the single outing.py |
+| src/plugins/memory_state.py + slots.py | small | in-process memory-prompt-section registry + plugin-slot helpers |
+| **TOTAL new** | **~2.2K + 1.8K** | matches OpenClaw's src/context-engine/ + the new src/infra etc. |
+
+
+### 49.4 — Test impact + known issues
+
+- **Phase 5.7-5.11**: 335 new tests pass in packages/agent_runtime/tests/.
+- **Phase 5.12 test file**: 	ests/test_phase512_context_engine.py (2083 lines, 72 tests) was uncommitted in the working tree. The botched file-split pass destroyed the original source. The 72 tests it contained will be **re-ported from OpenClaw's** context-engine.test.ts + host-compat.test.ts + untime-settings.test.ts + quarantine-health.test.ts in a follow-up **Phase 5.12b** commit (one file per OpenClaw test source, matching the 4-file split there). The src/context_engine/ implementation is intact and ready for those tests to land.
+- **4.3k set_manifest regressions** (pre-existing, NOT from §49):
+  - 	est_register_adds_tools_and_capability (memory_core)
+  - 	est_register_sets_active_db_and_embeddings (memory_lancedb)
+  - 	est_jarvis_desktop_app_module (smoke — TOOL_DECLARATIONS count regression)
+  - 	est_tool_declarations_includes_manifest_entries (smoke — same root cause)
+- **google-genai deps**: smoke test transitive deps (nnotated_types, nyio, certifi, ...) were missing; installed in-session. Tracked for a follow-up that pins the dep list in pyproject.toml.
+
+
+### 49.5 — New V2 plan + refactor tools
+
+- docs/OPENCLAW_BRAIN_PORT_PLAN_V2.md — canonical brain-port plan. V1 (docs/OPENCLAW_FULL_BRAIN_PORT_PLAN.md) named files that don't exist in the OpenClaw source; V2 renumbers starting at 5.7 since memory-host-sdk 5.1-5.6b are already done. The V2 plan is the working plan going forward.
+- 	ools/jarvis_refactor.py — single-module move with bulk import rewrite (regex \b{module}\b → \b{new_path}\b).
+- 	ools/jarvis_bulk_move.py — bulk prefix move (used for the 4 normalization modules).
+- 	ools/fix_internal_imports.py — barrel / cross-module import repair (used after Wave 6 rollback to keep the re-export shim working).
+- conftest.py — Windows path-safety hook. On Windows, pytest's default cleanup_dead_symlinks calls esolve().exists() on the pytest-current symlink in the temp-dir, which can raise PermissionError when the temp-dir junction is held by an open OS handle. The hook wraps the cleanup with 	ry/except so the test run doesn't crash on locked temp dirs. No-op on POSIX.
+- uv.lock — registers the new workspace members that landed across Waves 1-5 + Phase 5.8-5.12: jarvis-agent-runtime, jarvis-llm-client, jarvis-memory-host-sdk, jarvis-normalization-core, jarvis-retry.
+
+
+### 49.6 — Next: Phase 5.12b (re-port test_phase512_context_engine from OpenClaw)
+
+Per the V2 plan, the next step is to re-port the Phase 5.12 test file from OpenClaw's 4 source .test.ts files. Each OpenClaw test file lands as a separate Python test file (matching the 4-file split), keeping each under the 2000-line hard limit from the start:
+
+- 	ests/test_phase512_context_engine.py (≤1.5K lines) — from context-engine.test.ts (49 tests)
+- 	ests/test_phase512_context_engine_host_compat.py (≤500 lines) — from host-compat.test.ts (5 tests)
+- 	ests/test_phase512_context_engine_quarantine_health.py (≤500 lines) — from quarantine-health.test.ts (4 tests)
+- 	ests/test_phase512_context_engine_runtime_settings.py (≤500 lines) — from untime-settings.test.ts (6 tests)
+
+Plus fix the 4.3k set_manifest regressions in extensions/memory_core + extensions/memory_lancedb so the smoke test TOOL_DECLARATIONS count returns to 8+ and the test_register tests pass.
+
