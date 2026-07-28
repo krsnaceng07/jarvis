@@ -17,11 +17,32 @@ Mirrors OpenClaw's ``src/sessions/``:
 from __future__ import annotations
 
 from .classify_session_kind import classify_session_kind, is_valid_session_kind
+from .level_overrides import (
+    ParsedTraceOverride,
+    ParsedVerboseOverride,
+    TraceLevel,
+    VerboseLevel,
+    apply_trace_override,
+    apply_verbose_override,
+    normalize_trace_level,
+    normalize_verbose_level,
+    parse_trace_override,
+    parse_verbose_override,
+)
 from .session_id import looks_like_session_id
 from .session_label import (
     ParsedSessionLabel,
     SESSION_LABEL_MAX_LENGTH,
     parse_session_label,
+)
+from .session_lifecycle_events import (
+    SessionIdentityMutation,
+    SessionIdentityMutationTarget,
+    SessionLifecycleEvent,
+    emit_session_identity_mutation,
+    emit_session_lifecycle_event,
+    on_session_identity_mutation,
+    on_session_lifecycle_event,
 )
 from .session_lifecycle_identity import (
     decode_session_identity,
@@ -46,17 +67,35 @@ __all__ = [
     "MEDIA_ONLY_USER_TEXT",
     "NOTIFY_BY_SESSION_STATE_EVENT_KIND",
     "ParsedSessionLabel",
+    "ParsedTraceOverride",
+    "ParsedVerboseLabel",
+    "ParsedVerboseOverride",
     "SESSION_LABEL_MAX_LENGTH",
+    "SessionIdentityMutation",
+    "SessionIdentityMutationTarget",
+    "SessionLifecycleEvent",
     "SessionRecord",
     "SessionStateActorType",
     "SessionStateEventKind",
     "SessionStore",
+    "TraceLevel",
+    "VerboseLevel",
+    "apply_trace_override",
+    "apply_verbose_override",
     "classify_session_kind",
     "decode_session_identity",
+    "emit_session_identity_mutation",
+    "emit_session_lifecycle_event",
     "get_default_session_store",
     "is_valid_session_kind",
     "looks_like_session_id",
     "normalize_session_identities",
+    "normalize_trace_level",
+    "normalize_verbose_level",
+    "on_session_identity_mutation",
+    "on_session_lifecycle_event",
     "parse_session_label",
+    "parse_trace_override",
+    "parse_verbose_override",
     "reset_default_session_store",
 ]
