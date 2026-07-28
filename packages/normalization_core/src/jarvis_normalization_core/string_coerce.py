@@ -96,6 +96,19 @@ def normalize_string_entries(value: object) -> list[str]:
     return out
 
 
+def normalize_optional_lowercase_string(value: object) -> str | None:
+    """Return a trimmed, lowercased string, or ``None`` for empty / non-string.
+
+    Mirrors ``@openclaw/normalization-core/string-coerce``'s
+    ``normalizeOptionalLowercaseString``. Used by routing helpers
+    that want channel/agent ids in canonical lowercase form.
+    """
+    if not isinstance(value, str):
+        return None
+    trimmed = value.strip().lower()
+    return trimmed if trimmed else None
+
+
 def normalize_optional_string(value: object) -> str | None:
     """Return a trimmed string, or ``None`` for empty / non-string.
 
