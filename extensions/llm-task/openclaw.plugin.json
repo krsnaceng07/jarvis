@@ -1,0 +1,14 @@
+{
+  "id": "llm-task",
+  "name": "LLM Task",
+  "description": "OpenClaw LLM Task infra extension port (Phase 5.15 stub).",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}

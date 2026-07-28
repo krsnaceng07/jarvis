@@ -1,0 +1,51 @@
+{
+  "id": "github-copilot-2",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "github-copilot-2"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "github-copilot-2",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "GITHUB_COPILOT_2_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "github-copilot-2": {
+        "baseUrl": "https://api.githubcopilot.com/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "gpt-4o",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  }
+}

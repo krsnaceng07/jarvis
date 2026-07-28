@@ -1,0 +1,57 @@
+{
+  "id": "nvidia",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "nvidia"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "nvidia",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "NVIDIA_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "nvidia": {
+        "baseUrl": "https://integrate.api.nvidia.com/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "nvidia-llama-3.1-70b",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "nvidia-mistral-large-2",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  }
+}

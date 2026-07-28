@@ -1,0 +1,57 @@
+{
+  "id": "xai",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "xai"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "xai",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "XAI_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "xai": {
+        "baseUrl": "https://api.x.ai/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "grok-2",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "grok-2-mini",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  }
+}

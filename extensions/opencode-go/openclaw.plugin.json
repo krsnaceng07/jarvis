@@ -1,0 +1,51 @@
+{
+  "id": "opencode-go",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "opencode-go"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "opencode-go",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "OPENCODE_GO_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "opencode-go": {
+        "baseUrl": "https://api.opencode.go/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "opencode-go-llama-3.1-8b",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  }
+}

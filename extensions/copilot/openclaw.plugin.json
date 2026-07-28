@@ -1,0 +1,51 @@
+{
+  "id": "copilot",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "copilot"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "copilot",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "COPILOT_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "copilot": {
+        "baseUrl": "https://api.copilot.microsoft.com/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "copilot-pro",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  }
+}

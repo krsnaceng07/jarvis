@@ -1,0 +1,51 @@
+{
+  "id": "tencent",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "tencent"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "tencent",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "TENCENT_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "tencent": {
+        "baseUrl": "https://api.tencent.com/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "hunyuan-pro",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  }
+}

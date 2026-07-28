@@ -1,0 +1,57 @@
+{
+  "id": "github-copilot",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "github-copilot"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "github-copilot",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "GITHUB_COPILOT_TOKEN"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "github-copilot": {
+        "baseUrl": "https://api.githubcopilot.com/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "gpt-4o",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "claude-3-5-sonnet",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  }
+}

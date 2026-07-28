@@ -1,0 +1,51 @@
+{
+  "id": "chutes",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "chutes"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "chutes",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "CHUTES_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "chutes": {
+        "baseUrl": "https://api.chutes.ai/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "chutes-llama-3.1-70b",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  }
+}

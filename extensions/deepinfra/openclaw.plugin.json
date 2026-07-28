@@ -1,0 +1,51 @@
+{
+  "id": "deepinfra",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "deepinfra"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "deepinfra",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "DEEPINFRA_TOKEN"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "deepinfra": {
+        "baseUrl": "https://api.deepinfra.com/v1/openai",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "meta-llama/Meta-Llama-3-70B-Instruct",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  }
+}

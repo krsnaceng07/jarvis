@@ -1,0 +1,51 @@
+{
+  "id": "llama-cpp",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "llama-cpp"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "llama-cpp",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "LLAMA_CPP_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "llama-cpp": {
+        "baseUrl": "http://localhost:8080/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "local-model",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  }
+}

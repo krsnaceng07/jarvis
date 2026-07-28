@@ -1,0 +1,51 @@
+{
+  "id": "volcengine",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "volcengine"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "volcengine",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "VOLCENGINE_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "volcengine": {
+        "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "doubao-pro-32k",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  }
+}

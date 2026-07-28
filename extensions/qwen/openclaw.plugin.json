@@ -1,0 +1,57 @@
+{
+  "id": "qwen",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "qwen"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "qwen",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "QWEN_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "qwen": {
+        "baseUrl": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "qwen-max",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "qwen-plus",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  }
+}

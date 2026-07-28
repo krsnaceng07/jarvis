@@ -1,0 +1,57 @@
+{
+  "id": "stepfun",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "stepfun"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "stepfun",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "STEPFUN_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "stepfun": {
+        "baseUrl": "https://api.stepfun.com/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "step-1-32k",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "step-1v-32k",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  }
+}

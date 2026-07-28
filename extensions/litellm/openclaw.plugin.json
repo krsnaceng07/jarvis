@@ -1,0 +1,57 @@
+{
+  "id": "litellm",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "litellm"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "litellm",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "LITELLM_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "litellm": {
+        "baseUrl": "http://localhost:4000/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "gpt-4o",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "claude-3-5-sonnet",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "id": "arcee",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "arcee"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "arcee",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "ARCEE_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "arcee": {
+        "baseUrl": "https://api.arcee.ai/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "arcee-ai/virtuoso-medium",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "arcee-ai/coder-large",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  }
+}

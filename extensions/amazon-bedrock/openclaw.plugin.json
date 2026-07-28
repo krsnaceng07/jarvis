@@ -1,0 +1,57 @@
+{
+  "id": "amazon-bedrock",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "amazon-bedrock"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "amazon-bedrock",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "AWS_ACCESS_KEY_ID"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "amazon-bedrock": {
+        "baseUrl": "https://bedrock-runtime.us-east-1.amazonaws.com",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "anthropic.claude-3-5-sonnet",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "meta.llama3-70b",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  }
+}

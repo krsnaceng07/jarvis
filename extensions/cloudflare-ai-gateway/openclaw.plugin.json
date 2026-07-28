@@ -1,0 +1,51 @@
+{
+  "id": "cloudflare-ai-gateway",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "cloudflare-ai-gateway"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "cloudflare-ai-gateway",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "CLOUDFLARE_AI_GATEWAY_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "cloudflare-ai-gateway": {
+        "baseUrl": "https://gateway.ai.cloudflare.com/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "cloudflare-llama-3.1-70b",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  }
+}

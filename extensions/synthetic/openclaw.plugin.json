@@ -1,0 +1,51 @@
+{
+  "id": "synthetic",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "synthetic"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "synthetic",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "SYNTHETIC_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "synthetic": {
+        "baseUrl": "https://api.synthetic.ai/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "synthetic-pro",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  }
+}
