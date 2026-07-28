@@ -162,7 +162,7 @@ def _load_plugins() -> (
     for manifest_path in sorted(extensions_dir.glob("*/openclaw.plugin.json")):
         ext_name = manifest_path.parent.name
         try:
-            _json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest_obj = _json.loads(manifest_path.read_text(encoding="utf-8"))
         except (OSError, _json.JSONDecodeError) as e:
             print(f"[WARN] Could not read manifest {manifest_path}: {e}")
             continue
@@ -181,6 +181,15 @@ def _load_plugins() -> (
             workspace=workspace,
         )
         api = PluginApi(ctx)
+        # Wire the manifest's `contracts.tools` declaration so the API
+        # can validate plugin tool registrations against the declared
+        # tool names. Mirrors the OpenClaw SDK ``PluginContext.set_manifest``
+        # contract: tools not in ``contracts.tools`` are skipped at
+        # ``register_tool`` time (4.3h contract).
+        try:
+            api.set_manifest(manifest_obj)
+        except Exception as e:
+            print(f"[WARN] {ext_name} set_manifest() failed: {e}")
         try:
             entry.register(api)
         except Exception as e:

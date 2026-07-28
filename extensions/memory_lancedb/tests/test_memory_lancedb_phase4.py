@@ -121,6 +121,12 @@ class TestMemoryLancedbEntry:
             },
         )
         api = PluginApi(ctx)
+        # Phase 4.3h contract: the host wires the manifest's
+        # ``contracts.tools`` declaration so the SDK can validate
+        # plugin tool registrations.
+        import json as _json
+        manifest = _json.loads((ROOT / "extensions" / "memory_lancedb" / "openclaw.plugin.json").read_text(encoding="utf-8"))
+        api.set_manifest(manifest)
         try:
             _register(api)
             # 3 tools.

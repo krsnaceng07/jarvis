@@ -85,6 +85,13 @@ class TestMemoryCoreEntry:
             workspace=REPO_ROOT,
         )
         api = PluginApi(ctx)
+        # Phase 4.3h contract: the host wires the manifest's
+        # ``contracts.tools`` declaration so the SDK can validate
+        # plugin tool registrations. Mirrors the production loader
+        # in ``apps/desktop/src/jarvis_desktop/app.py``.
+        import json as _json
+        manifest = _json.loads((REPO_ROOT / "extensions" / "memory_core" / "openclaw.plugin.json").read_text(encoding="utf-8"))
+        api.set_manifest(manifest)
         _register(api)
         # 2 tools: memory_search + memory_get
         assert any(t.name == "memory_search" for t in api.tool_instances[0].tools)
