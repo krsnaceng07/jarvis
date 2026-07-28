@@ -16,6 +16,14 @@ from typing import Any
 _VALID_KINDS = ("direct", "channel", "thread", "cron", "unknown")
 
 
+def is_valid_session_kind(value: Any) -> bool:
+    """Return True if ``value`` is a recognized session kind string.
+
+    Mirrors OpenClaw's ``isValidSessionKind`` helper.
+    """
+    return isinstance(value, str) and value in _VALID_KINDS
+
+
 def classify_session_kind(value: Any) -> str:
     """Return the session kind for ``value``; falls back to ``"unknown"``.
 
