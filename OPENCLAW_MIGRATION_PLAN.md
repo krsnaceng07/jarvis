@@ -4691,3 +4691,42 @@ Per the V2 plan, the next phase is **5.13 (routing)**. The 15 `src/routing/` mod
 
 Alternatively, fixing the 4.3k `set_manifest` regressions is the smallest gap to a fully green test suite — extending the manifest loader to accept the contract-less tool declarations (or updating the 3 plugin manifests) would close the 4 remaining failures without changing the architecture.
 
+
+
+## §51 — Phase 5.13 (routing tests) port-complete (2026-07-28)
+
+
+**Commit:**  02cd83 feat(phase5.13): routing tests + missing normalize helper
+
+
+### 51.1 — Test files added (40 tests, 4 files, all pass)
+
+| File | Tests | Mirrors |
+|---|---|---|
+| 	ests/test_routing_account_id.py | 15 | src/routing/account-id.test.ts |
+| 	ests/test_routing_account_lookup.py | 8 | src/routing/account-lookup.test.ts |
+| 	ests/test_routing_session_key_continuity.py | 4 | src/routing/session-key.continuity.test.ts |
+| 	ests/test_routing_small_helpers.py | 13 | Python-only helpers (no OpenClaw source) |
+| **TOTAL** | **40** | |
+
+
+### 51.2 — Missing-helper fix
+
+- Added 
+ormalize_optional_lowercase_string to packages/normalization_core/src/jarvis_normalization_core/string_coerce.py (the OpenClaw 
+ormalizeOptionalLowercaseString helper). src/routing/channel_ids.py was importing it (failing at first-import), blocking the routing tree from being importable.
+
+### 51.3 — Test impact
+
+- 40 new tests pass; 0 fail; 0 skip.
+- Total pass count: 2476 → 2516 (+40).
+
+
+### 51.4 — Not ported (deferred)
+
+- src/routing/resolve-route.test.ts (37K) — full esolveRoute path tests. Lands with Phase 5.15 (minimal runner spine) when the runner surface is wired in.
+- src/routing/session-key.test.ts (18K) — full session-key tests. Already exercised by 	est_routing_session_key_continuity indirectly. Full port will land with Phase 5.14 (sessions).
+- src/routing/bound-account-read.test.ts (13K) — account-bound read surface. Deferred to a follow-up phase that lands the matching implementation surface (the Python port has the ound_account_read module but no test surface yet).
+- src/routing/channel-route-targets.test.ts — depends on a collectChannelRouteTargets function that the Python port doesn't have. Implementation will land with Phase 5.15 (runner).
+
+
