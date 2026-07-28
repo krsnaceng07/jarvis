@@ -110,6 +110,13 @@ from .memory_embeddings import (
     list_registered_memory_embedding_providers,
     register_memory_embedding_provider,
 )
+# Media understanding provider surface (Phase 5.15+)
+from .media_understanding import (
+    AudioTranscriptionRequest,
+    AudioTranscriptionResult,
+    MediaUnderstandingProvider,
+    transcribe_openai_compatible_audio,
+)
 from .memory_host_search import close_active_memory_search_manager
 from memory.memory_runtime import (
     MemoryFlushPlan,
@@ -230,6 +237,8 @@ __all__ = [
     # Cron
     "CronDecl",
     # Result
+    "AudioTranscriptionRequest",
+    "AudioTranscriptionResult",
     "Err",
     # Hooks
     "FsSafeError",
@@ -258,6 +267,7 @@ __all__ = [
     "OpenKeyedStoreOptions",
     "Plugin",
     # Manifest
+    "MediaUnderstandingProvider",
     "PluginActivation",
     # API
     "PluginAgentApi",
@@ -347,6 +357,7 @@ __all__ = [
     "SessionTranscriptTargetParams",
     "SqliteSessionFileMarker",
     "timestamp_ms_to_iso_string",
+    "transcribe_openai_compatible_audio",
     "TranscriptRawDeltaPage",
     # Text utility
     "truncate_utf16_safe",

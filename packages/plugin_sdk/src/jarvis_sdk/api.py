@@ -343,6 +343,12 @@ class PluginApi:
         # (e.g. bonjour); the host wires it to the actual gateway start
         # sequence on the host's chosen platform.
         self._gateway_discovery_service: dict[str, Any] | None = None
+        # Media understanding provider registrations (Phase 5.15+). Mirrors
+        # OpenClaw's ``api.registerMediaUnderstandingProvider(provider)``.
+        # Multiple providers can be registered; the host picks one per
+        # capability (audio/image/video) based on ``auto_priority`` +
+        # operator override.
+        self._media_understanding_providers: list[dict[str, Any]] = []
         # Plugin manifest (for contracts.tools validation). Populated by the
         # loader via ``set_manifest``; safe default is empty.
         self._manifest: dict[str, Any] = {}
@@ -661,6 +667,64 @@ class PluginApi:
         service["_owner_id"] = self._ctx.plugin_id
         self._gateway_discovery_service = service
 
+    def register_media_understanding_provider(
+        self, provider: "MediaUnderstandingProvider | dict[str, Any]"
+    ) -> None:
+        """Register a media-understanding provider (audio/image/video).
+
+        Mirrors OpenClaw's ``api.registerMediaUnderstandingProvider``.
+        Multiple providers can be registered; the host picks
+        one per capability (audio/image/video) based on the
+        provider's ``auto_priority`` field + any operator
+        override. Provider is a ``MediaUnderstandingProvider``
+        (or a dict with the same shape) carrying:
+          - ``id`` (required, str): unique provider id
+          - ``capabilities`` (list[str]): modalities, e.g.
+            ``["audio"]``, ``["image"]``, ``["video"]``
+          - ``default_models`` (dict[str, str]): default
+            model id per capability
+          - ``auto_priority`` (dict[str, int]): priority per
+            capability (higher = preferred)
+          - ``transcribe_audio`` (callable): async function
+            to transcribe audio via this provider
+        """
+        if isinstance(provider, dict):
+            provider_id = provider.get("id")
+            capabilities = provider.get("capabilities", [])
+            if not provider_id:
+                raise ValueError("media understanding provider must have a non-empty 'id'")
+            provider_obj: dict[str, Any] = {
+                "id": provider_id,
+                "capabilities": list(capabilities),
+                "default_models": dict(provider.get("default_models", {})),
+                "auto_priority": dict(provider.get("auto_priority", {})),
+                "transcribe_audio": provider.get("transcribe_audio"),
+                "metadata": dict(provider.get("metadata", {})),
+            }
+        else:
+            # MediaUnderstandingProvider dataclass
+            provider_id = getattr(provider, "id", None)
+            if not provider_id:
+                raise ValueError("media understanding provider must have a non-empty 'id'")
+            provider_obj = {
+                "id": provider_id,
+                "capabilities": list(provider.capabilities),
+                "default_models": dict(provider.default_models),
+                "auto_priority": dict(provider.auto_priority),
+                "transcribe_audio": provider.transcribe_audio,
+                "metadata": dict(provider.metadata),
+            }
+        # Reject duplicate provider ids
+        for existing in self._media_understanding_providers:
+            if existing["id"] == provider_id:
+                raise RuntimeError(
+                    f"Plugin {self._ctx.plugin_id!r} tried to register media "
+                    f"understanding provider {provider_id!r} but it's already "
+                    f"registered by {existing.get('_owner_id')!r}."
+                )
+        provider_obj["_owner_id"] = self._ctx.plugin_id
+        self._media_understanding_providers.append(provider_obj)
+
     # ── Read-back accessors (host uses these) ─────────────────────────
 
     @property
@@ -723,6 +787,11 @@ class PluginApi:
     def gateway_discovery_service(self) -> dict[str, Any] | None:
         """The single registered gateway discovery service, or ``None``."""
         return self._gateway_discovery_service
+
+    @property
+    def media_understanding_providers(self) -> list[dict[str, Any]]:
+        """All registered media-understanding providers, in registration order."""
+        return list(self._media_understanding_providers)
 
 
 __all__ = [

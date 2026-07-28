@@ -15,6 +15,12 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+# Force stdout/stderr to UTF-8 to support emojis on Windows
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+
 # ── Workspace-root import shim ──────────────────────────────────────
 # The desktop app needs the workspace root on sys.path so it can
 # resolve `extensions.<id>`, `src.<module>`, and `packages.<sdk>`.
@@ -22,5 +28,8 @@ from pathlib import Path
 _WORKSPACE_ROOT = Path(__file__).resolve().parents[4]
 if str(_WORKSPACE_ROOT) not in sys.path:
     sys.path.insert(0, str(_WORKSPACE_ROOT))
+_SRC_DIR = _WORKSPACE_ROOT / "src"
+if _SRC_DIR.exists() and str(_SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(_SRC_DIR))
 
 __version__ = "0.1.0-rc1"

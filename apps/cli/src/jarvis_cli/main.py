@@ -26,6 +26,12 @@ import sys
 from pathlib import Path
 from typing import Any
 
+# Force stdout/stderr to UTF-8 to support emojis on Windows
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8")
+
 # ── Plugin discovery (CLI-slim variant) ───────────────────────────
 
 
@@ -46,6 +52,9 @@ def _load_cli_plugins(workspace: Path) -> dict[str, Any]:
     workspace_str = str(workspace)
     if workspace_str not in sys.path:
         sys.path.insert(0, workspace_str)
+    src_str = str(workspace / "src")
+    if src_str not in sys.path:
+        sys.path.insert(0, src_str)
 
     extensions_dir = workspace / "extensions"
     if not extensions_dir.exists():
@@ -401,6 +410,9 @@ def main(argv: list[str] | None = None) -> int:
     ws_str = str(workspace)
     if ws_str not in sys.path:
         sys.path.insert(0, ws_str)
+    src_str = str(workspace / "src")
+    if src_str not in sys.path:
+        sys.path.insert(0, src_str)
 
     # Always load plugins so their CLI subcommands can be registered
     # onto the parser. Cheap when no plugins are registered.
