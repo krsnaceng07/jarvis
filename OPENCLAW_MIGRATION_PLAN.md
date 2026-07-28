@@ -4730,3 +4730,11 @@ ormalizeOptionalLowercaseString helper). src/routing/channel_ids.py was importin
 - src/routing/channel-route-targets.test.ts — depends on a collectChannelRouteTargets function that the Python port doesn't have. Implementation will land with Phase 5.15 (runner).
 
 
+
+
+## §52 — Phase 5.14 (minimal sessions surface + in-memory SessionStore) port-complete (2026-07-28)
+
+
+**Commit:** 8debd0 feat(phase5.14): minimal sessions surface + in-memory SessionStore
+
+
