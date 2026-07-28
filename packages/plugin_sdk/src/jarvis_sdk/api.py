@@ -337,6 +337,12 @@ class PluginApi:
         self._skills: list[SkillDecl] = []
         self._hooks: list[HookRegistration] = []
         self._cron_jobs: list[CronDecl] = []
+        # Gateway discovery service registrations (Phase 5.15+). Mirrors
+        # OpenClaw's ``api.registerGatewayDiscoveryService({...})``. Each
+        # plugin can register at most one gateway discovery service
+        # (e.g. bonjour); the host wires it to the actual gateway start
+        # sequence on the host's chosen platform.
+        self._gateway_discovery_service: dict[str, Any] | None = None
         # Plugin manifest (for contracts.tools validation). Populated by the
         # loader via ``set_manifest``; safe default is empty.
         self._manifest: dict[str, Any] = {}
@@ -619,6 +625,42 @@ class PluginApi:
             )
         self._cron_jobs.append(job)
 
+    def register_gateway_discovery_service(self, service: dict[str, Any]) -> None:
+        """Register a gateway discovery service (mDNS / Bonjour / etc.).
+
+        Mirrors OpenClaw's ``api.registerGatewayDiscoveryService``.
+        The service is a dict with:
+          - ``id`` (required, str): the service id (e.g. ``"bonjour"``)
+          - ``advertise`` (required, callable): an async function
+            ``async (ctx) -> {stop: Callable}`` that starts the
+            discovery. ``ctx`` carries gateway port, TLS fingerprint,
+            machine display name, etc.
+
+        Only one gateway discovery service can be registered per
+        process (the host picks the one to use). Registering a
+        second one raises ``RuntimeError`` (matches OpenClaw's
+        behavior of "only one discovery backend active").
+        """
+        if not isinstance(service, dict):
+            raise TypeError(
+                f"gateway discovery service must be a dict; got {type(service).__name__}"
+            )
+        if "id" not in service or not service["id"]:
+            raise ValueError("gateway discovery service must have a non-empty 'id'")
+        if "advertise" not in service or not callable(service["advertise"]):
+            raise ValueError(
+                "gateway discovery service must have a callable 'advertise' "
+                "(async function taking ctx and returning a stop handle)"
+            )
+        if self._gateway_discovery_service is not None:
+            raise RuntimeError(
+                f"Plugin {self._ctx.plugin_id!r} tried to register a gateway "
+                f"discovery service but {self._gateway_discovery_service.get('id')!r} "
+                f"is already registered. Only one discovery backend is supported."
+            )
+        service["_owner_id"] = self._ctx.plugin_id
+        self._gateway_discovery_service = service
+
     # ── Read-back accessors (host uses these) ─────────────────────────
 
     @property
@@ -676,6 +718,11 @@ class PluginApi:
     @property
     def cron_jobs(self) -> list[CronDecl]:
         return list(self._cron_jobs)
+
+    @property
+    def gateway_discovery_service(self) -> dict[str, Any] | None:
+        """The single registered gateway discovery service, or ``None``."""
+        return self._gateway_discovery_service
 
 
 __all__ = [
