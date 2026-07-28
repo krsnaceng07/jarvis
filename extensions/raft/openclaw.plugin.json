@@ -1,0 +1,30 @@
+{
+  "id": "raft",
+  "name": "RAFT",
+  "description": "OpenClaw RAFT channel plugin port (Phase 5.15 stub).",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "channels": [
+    "raft"
+  ],
+  "channelEnvVars": {
+    "raft": [
+      "RAFT_NODE_ID"
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "bot_token": {
+        "type": "string"
+      },
+      "polling_interval_sec": {
+        "type": "integer",
+        "default": 5
+      }
+    }
+  }
+}

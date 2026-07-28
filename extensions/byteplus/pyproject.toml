@@ -1,0 +1,12 @@
+[project]
+name = "jarvis-byteplus"
+version = "0.1.0"
+description = "JARVIS BytePlus provider extension (Phase 5.15 minimum scaffold matching the OpenClaw byteplus extension shape)."
+requires-python = ">=3.13"
+dependencies = [
+    "httpx>=0.27.0",
+    "jarvis-plugin-sdk>=0.1.0-rc1",
+]
+
+[tool.uv]
+package = false

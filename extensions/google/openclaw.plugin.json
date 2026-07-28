@@ -1,0 +1,57 @@
+{
+  "id": "google",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "google"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "google",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "GOOGLE_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "google": {
+        "baseUrl": "https://generativelanguage.googleapis.com/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "gemini-2.0-flash",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "gemini-1.5-pro",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  }
+}

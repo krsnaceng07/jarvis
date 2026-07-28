@@ -1,0 +1,31 @@
+{
+  "id": "feishu",
+  "name": "Feishu",
+  "description": "OpenClaw Feishu channel plugin port (Phase 5.15 stub).",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "channels": [
+    "feishu"
+  ],
+  "channelEnvVars": {
+    "feishu": [
+      "FEISHU_APP_ID",
+      "FEISHU_APP_SECRET"
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "bot_token": {
+        "type": "string"
+      },
+      "polling_interval_sec": {
+        "type": "integer",
+        "default": 5
+      }
+    }
+  }
+}

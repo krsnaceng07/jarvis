@@ -1,0 +1,51 @@
+{
+  "id": "copilot-proxy",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "copilot-proxy"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "copilot-proxy",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "COPILOT_PROXY_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "copilot-proxy": {
+        "baseUrl": "http://localhost:8080/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "gpt-4o",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  }
+}

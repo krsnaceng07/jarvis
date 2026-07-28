@@ -1,0 +1,11 @@
+[project]
+name = "jarvis-thread-ownership"
+version = "0.1.0"
+description = "JARVIS Thread Ownership infra extension (Phase 5.15 minimum scaffold matching the OpenClaw thread-ownership extension shape)."
+requires-python = ">=3.13"
+dependencies = [
+    "jarvis-plugin-sdk>=0.1.0-rc1",
+]
+
+[tool.uv]
+package = false

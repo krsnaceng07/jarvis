@@ -1,0 +1,14 @@
+{
+  "id": "runway",
+  "name": "Runway",
+  "description": "OpenClaw Runway infra extension port (Phase 5.15 stub).",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}

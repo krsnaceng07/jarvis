@@ -1,0 +1,31 @@
+{
+  "id": "slack",
+  "name": "Slack",
+  "description": "OpenClaw Slack channel plugin port (Phase 5.15 stub).",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "channels": [
+    "slack"
+  ],
+  "channelEnvVars": {
+    "slack": [
+      "SLACK_BOT_TOKEN",
+      "SLACK_APP_TOKEN"
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "bot_token": {
+        "type": "string"
+      },
+      "polling_interval_sec": {
+        "type": "integer",
+        "default": 5
+      }
+    }
+  }
+}
