@@ -1,0 +1,23 @@
+{
+  "id": "device-pair",
+  "name": "Device Pairing",
+  "description": "OpenClaw Device Pairing infra extension port (Phase 5.15 stub).",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "pairing_token_ttl_sec": {
+        "type": "integer",
+        "default": 300
+      },
+      "qr_payload_format": {
+        "type": "string",
+        "default": "json"
+      }
+    }
+  }
+}
