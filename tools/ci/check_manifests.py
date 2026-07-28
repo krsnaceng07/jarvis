@@ -51,8 +51,17 @@ def validate_manifest(ext_dir: Path) -> list[str]:
     # OpenClaw's `extensions/<id>/openclaw.plugin.json`). Python's
     # identifier rules force the directory name to be snake_case, but
     # the manifest file name follows OpenClaw exactly.
+    #
+    # Shared "core" packages (no plugin manifest, just a
+    # ``pyproject.toml`` for the shared runtime surface — e.g.
+    # ``image-generation-core``) are skipped here. OpenClaw
+    # ships these in ``extensions/`` too but without
+    # ``openclaw.plugin.json``, so the validator only walks
+    # actual plugin directories.
     manifest_path = ext_dir / "openclaw.plugin.json"
     if not manifest_path.exists():
+        if (ext_dir / "pyproject.toml").exists():
+            return []  # shared core package — not a plugin
         return [f"{ext_dir.name}: openclaw.plugin.json not found"]
 
     try:
@@ -93,12 +102,37 @@ def validate_manifest(ext_dir: Path) -> list[str]:
         if not isinstance(version, str) or not SEMVER_RE.match(version):
             errors.append(f"{ext_dir.name}: 'version' ({version!r}) must be semver (e.g. '0.1.0')")
 
-    # activation (optional)
-    if "activation" in manifest and manifest["activation"] not in ALLOWED_ACTIVATION:
-        errors.append(
-            f"{ext_dir.name}: 'activation' ({manifest['activation']}) "
-            f"must be one of {sorted(ALLOWED_ACTIVATION)}"
-        )
+    # activation (optional) — accept both string form
+    # (``"always" | "on_startup" | "on_demand"``) and OpenClaw's
+    # dict form (``{"onStartup": false, "onMessage": true, ...}``).
+    # The dict form mirrors OpenClaw's `openclaw.plugin.json` shape;
+    # keys are event names, values are booleans meaning
+    # "activate on this event".
+    if "activation" in manifest:
+        act = manifest["activation"]
+        if isinstance(act, str):
+            if act not in ALLOWED_ACTIVATION:
+                errors.append(
+                    f"{ext_dir.name}: 'activation' ({act!r}) "
+                    f"must be one of {sorted(ALLOWED_ACTIVATION)}"
+                )
+        elif isinstance(act, dict):
+            allowed_keys = {"onStartup", "onMessage", "onDemand", "always", "on_startup", "on_demand"}
+            for k, v in act.items():
+                if k not in allowed_keys:
+                    errors.append(
+                        f"{ext_dir.name}: 'activation' dict key {k!r} "
+                        f"must be one of {sorted(allowed_keys)}"
+                    )
+                if not isinstance(v, bool):
+                    errors.append(
+                        f"{ext_dir.name}: 'activation[{k}]' value {v!r} "
+                        f"must be a boolean"
+                    )
+        else:
+            errors.append(
+                f"{ext_dir.name}: 'activation' ({act!r}) must be a string or dict"
+            )
 
     # tools (optional, list of dicts)
     if "tools" in manifest:

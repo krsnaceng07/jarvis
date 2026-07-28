@@ -11,19 +11,30 @@ members = [
     "jarvis",
     "jarvis-active-memory",
     "jarvis-agent-runtime",
+    "jarvis-anthropic",
     "jarvis-cli",
+    "jarvis-cohere",
     "jarvis-cron",
+    "jarvis-deepseek",
     "jarvis-desktop",
+    "jarvis-discord",
+    "jarvis-groq",
+    "jarvis-huggingface",
+    "jarvis-image-generation-core",
     "jarvis-llm-client",
+    "jarvis-media-understanding-core",
     "jarvis-memory-core",
     "jarvis-memory-host-sdk",
     "jarvis-memory-lancedb",
     "jarvis-memory-wiki",
+    "jarvis-mistral",
     "jarvis-normalization-core",
+    "jarvis-openai",
     "jarvis-plugin-sdk",
     "jarvis-retry",
     "jarvis-telegram",
     "jarvis-tui",
+    "jarvis-video-generation-core",
 ]
 
 [[package]]
@@ -827,6 +838,21 @@ dependencies = [
 requires-dist = [{ name = "jarvis-llm-client", editable = "packages/llm_client" }]
 
 [[package]]
+name = "jarvis-anthropic"
+version = "0.1.0"
+source = { virtual = "extensions/anthropic" }
+dependencies = [
+    { name = "httpx" },
+    { name = "jarvis-plugin-sdk" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.27.0" },
+    { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
+]
+
+[[package]]
 name = "jarvis-cli"
 version = "0.1.0"
 source = { editable = "apps/cli" }
@@ -838,9 +864,39 @@ dependencies = [
 requires-dist = [{ name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" }]
 
 [[package]]
+name = "jarvis-cohere"
+version = "0.1.0"
+source = { virtual = "extensions/cohere" }
+dependencies = [
+    { name = "httpx" },
+    { name = "jarvis-plugin-sdk" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.27.0" },
+    { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
+]
+
+[[package]]
 name = "jarvis-cron"
 version = "0.1.0"
 source = { virtual = "extensions/cron" }
+
+[[package]]
+name = "jarvis-deepseek"
+version = "0.1.0"
+source = { virtual = "extensions/deepseek" }
+dependencies = [
+    { name = "httpx" },
+    { name = "jarvis-plugin-sdk" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.27.0" },
+    { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
+]
 
 [[package]]
 name = "jarvis-desktop"
@@ -913,6 +969,62 @@ requires-dist = [
 provides-extras = ["windows", "macos", "linux", "all"]
 
 [[package]]
+name = "jarvis-discord"
+version = "0.1.0"
+source = { virtual = "extensions/discord" }
+dependencies = [
+    { name = "httpx" },
+    { name = "jarvis-plugin-sdk" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.27.0" },
+    { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
+]
+
+[[package]]
+name = "jarvis-groq"
+version = "0.1.0"
+source = { virtual = "extensions/groq" }
+dependencies = [
+    { name = "httpx" },
+    { name = "jarvis-plugin-sdk" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.27.0" },
+    { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
+]
+
+[[package]]
+name = "jarvis-huggingface"
+version = "0.1.0"
+source = { virtual = "extensions/huggingface" }
+dependencies = [
+    { name = "httpx" },
+    { name = "jarvis-plugin-sdk" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.27.0" },
+    { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
+]
+
+[[package]]
+name = "jarvis-image-generation-core"
+version = "0.1.0"
+source = { virtual = "extensions/image-generation-core" }
+dependencies = [
+    { name = "jarvis-plugin-sdk" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" }]
+
+[[package]]
 name = "jarvis-llm-client"
 version = "0.1.0rc1"
 source = { editable = "packages/llm_client" }
@@ -928,6 +1040,17 @@ requires-dist = [
     { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
     { name = "jarvis-retry", editable = "packages/retry" },
 ]
+
+[[package]]
+name = "jarvis-media-understanding-core"
+version = "0.1.0"
+source = { virtual = "extensions/media-understanding-core" }
+dependencies = [
+    { name = "jarvis-plugin-sdk" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" }]
 
 [[package]]
 name = "jarvis-memory-core"
@@ -974,6 +1097,21 @@ dependencies = [
 requires-dist = [{ name = "pyyaml", specifier = ">=6.0" }]
 
 [[package]]
+name = "jarvis-mistral"
+version = "0.1.0"
+source = { virtual = "extensions/mistral" }
+dependencies = [
+    { name = "httpx" },
+    { name = "jarvis-plugin-sdk" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.27.0" },
+    { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
+]
+
+[[package]]
 name = "jarvis-normalization-core"
 version = "0.1.0rc1"
 source = { editable = "packages/normalization_core" }
@@ -983,6 +1121,21 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" }]
+
+[[package]]
+name = "jarvis-openai"
+version = "0.1.0"
+source = { virtual = "extensions/openai" }
+dependencies = [
+    { name = "httpx" },
+    { name = "jarvis-plugin-sdk" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.27.0" },
+    { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
+]
 
 [[package]]
 name = "jarvis-plugin-sdk"
@@ -1015,6 +1168,17 @@ requires-dist = [{ name = "httpx", specifier = ">=0.27.0" }]
 name = "jarvis-tui"
 version = "0.0.1"
 source = { virtual = "apps/tui" }
+
+[[package]]
+name = "jarvis-video-generation-core"
+version = "0.1.0"
+source = { virtual = "extensions/video-generation-core" }
+dependencies = [
+    { name = "jarvis-plugin-sdk" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" }]
 
 [[package]]
 name = "jiter"

@@ -1,0 +1,11 @@
+[project]
+name = "jarvis-image-generation-core"
+version = "0.1.0"
+description = "JARVIS OpenClaw image generation runtime package (shared core). (shared core package, not a plugin)."
+requires-python = ">=3.13"
+dependencies = [
+    "jarvis-plugin-sdk>=0.1.0-rc1",
+]
+
+[tool.uv]
+package = false

@@ -1,0 +1,96 @@
+{
+  "id": "groq",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "groq"
+  ],
+  "providerEndpoints": [
+    {
+      "endpointClass": "groq-native",
+      "hosts": [
+        "api.groq.com"
+      ]
+    }
+  ],
+  "providerRequest": {
+    "providers": {
+      "groq": {
+        "family": "groq"
+      }
+    }
+  },
+  "setup": {
+    "providers": [
+      {
+        "id": "groq",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "GROQ_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "groq": {
+        "baseUrl": "https://api.groq.com/openai/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "llama-3.1-8b-instant",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "llama-3.3-70b-versatile",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "meta-llama/llama-4-scout-17b-16e-instruct",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "openai/gpt-oss-120b",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "openai/gpt-oss-20b",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "qwen/qwen3-32b",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  }
+}
