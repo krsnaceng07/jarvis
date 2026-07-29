@@ -422,6 +422,12 @@ class PluginApi:
         # host invokes ``start(ctx)`` on the chosen platform and
         # ``stop()`` on shutdown.
         self._services: list[dict[str, Any]] = []
+        # Speech provider registrations (Phase 5.16+). Mirrors
+        # OpenClaw's ``api.registerSpeechProvider(provider)``.
+        # Multiple providers can be registered; the host picks
+        # one per request based on ``providerId`` /
+        # ``defaultFor``.
+        self._speech_providers: list[dict[str, Any]] = []
         # Gateway method registrations (Phase 5.16+). Mirrors
         # OpenClaw's ``api.registerGatewayMethod(method, handler, opts)``.
         # The handler is an async function taking
@@ -922,6 +928,67 @@ class PluginApi:
             {"policy": dict(policy), "_owner_id": self._ctx.plugin_id}
         )
 
+    def register_speech_provider(
+        self,
+        provider: "SpeechProviderPlugin | dict[str, Any]",
+    ) -> None:
+        """Register a speech provider (TTS) the host can call.
+
+        Mirrors OpenClaw's ``api.registerSpeechProvider(provider)``.
+        Multiple providers can be registered; the host picks
+        one per request based on the request's ``providerId``
+        and the provider's ``defaultFor`` hint.
+
+        The ``provider`` is a ``SpeechProviderPlugin`` (or a
+        dict with the same shape) carrying:
+          - ``id`` (required, str)
+          - ``label`` (str): human-readable name
+          - ``synthesize`` (callable): async ``(request, cfg) -> result``
+          - ``synthesizeTelephony`` (callable, optional): telephony variant
+          - ``listVoices`` (callable, optional): ``async (cfg) -> list[dict]``
+        """
+        if isinstance(provider, dict):
+            provider_id = provider.get("id")
+            if not provider_id:
+                raise ValueError("speech provider must have a non-empty 'id'")
+            provider_obj: dict[str, Any] = {
+                "id": provider_id,
+                "label": provider.get("label", ""),
+                "description": provider.get("description", ""),
+                "defaultFormat": provider.get("defaultFormat"),
+                "defaultFor": provider.get("defaultFor"),
+                "synthesize": provider.get("synthesize"),
+                "synthesizeTelephony": provider.get("synthesizeTelephony"),
+                "listVoices": provider.get("listVoices"),
+                "metadata": dict(provider.get("metadata") or {}),
+            }
+        else:
+            # SpeechProviderPlugin TypedDict (or duck-typed object)
+            provider_id = getattr(provider, "id", None) or provider.get("id", None)
+            if not provider_id:
+                raise ValueError("speech provider must have a non-empty 'id'")
+            provider_obj = {
+                "id": provider_id,
+                "label": getattr(provider, "label", ""),
+                "description": getattr(provider, "description", ""),
+                "defaultFormat": getattr(provider, "defaultFormat", None),
+                "defaultFor": getattr(provider, "defaultFor", None),
+                "synthesize": getattr(provider, "synthesize", None),
+                "synthesizeTelephony": getattr(provider, "synthesizeTelephony", None),
+                "listVoices": getattr(provider, "listVoices", None),
+                "metadata": dict(getattr(provider, "metadata", {}) or {}),
+            }
+        # Reject duplicate provider ids
+        for existing in self._speech_providers:
+            if existing["id"] == provider_id:
+                raise RuntimeError(
+                    f"Plugin {self._ctx.plugin_id!r} tried to register "
+                    f"speech provider {provider_id!r} but it's already "
+                    f"registered by {existing.get('_owner_id')!r}."
+                )
+        provider_obj["_owner_id"] = self._ctx.plugin_id
+        self._speech_providers.append(provider_obj)
+
     def set_plugin_config(self, plugin_config: Any) -> None:
         """Provide the ``plugins.<id>`` block from the host config.
 
@@ -1019,6 +1086,11 @@ class PluginApi:
     def node_invoke_policies(self) -> list[dict[str, Any]]:
         """All registered node-invoke policies, in registration order."""
         return list(self._node_invoke_policies)
+
+    @property
+    def speech_providers(self) -> list[dict[str, Any]]:
+        """All registered speech providers, in registration order."""
+        return list(self._speech_providers)
 
 
 __all__ = [
