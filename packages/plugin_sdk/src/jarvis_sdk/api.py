@@ -240,11 +240,98 @@ class PluginAgentApi:
     resolve_agent_workspace_dir: Any = None  # set by host on init
     resolve_cli_backend_dispatch_eligibility: Any = None
     session: PluginAgentSessionApi = field(default_factory=PluginAgentSessionApi)
+    # The host wires the following DI callables. They are
+    # ``None`` until the host sets them, so plugins can
+    # test the no-op fallback paths without a real host.
+    resolve_thinking_policy_fn: Any = None
+    normalize_thinking_level_fn: Any = None
+    run_embedded_agent_fn: Any = None
+    build_model_alias_index_fn: Any = None
+    resolve_model_ref_from_string_fn: Any = None
+    resolve_effective_agent_runtime_fn: Any = None
 
     def __getattr__(self, item: str) -> Any:
         # Tolerate attribute lookups for properties the host
         # hasn't wired yet.
         return None
+
+    def resolve_thinking_policy(
+        self, params: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Resolve the thinking-policy for a (provider, model) pair.
+
+        Mirrors ``api.runtime.agent.resolveThinkingPolicy``.
+        The host wires ``resolve_thinking_policy_fn``; the
+        fallback returns an empty policy with a single
+        ``"none"`` level.
+        """
+        if self.resolve_thinking_policy_fn is not None:
+            return self.resolve_thinking_policy_fn(params)
+        return {
+            "levels": [{"id": "none", "label": "None"}],
+            "default": "none",
+        }
+
+    def normalize_thinking_level(self, value: object) -> Optional[str]:
+        """Normalize a thinking-level id, or ``None`` for invalid input.
+
+        Mirrors ``api.runtime.agent.normalizeThinkingLevel``.
+        """
+        if self.normalize_thinking_level_fn is not None:
+            return self.normalize_thinking_level_fn(value)
+        if not isinstance(value, str):
+            return None
+        lowered = value.strip().lower()
+        return lowered or None
+
+    def run_embedded_agent(
+        self, params: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Run an embedded agent turn (provider/model/prompt).
+
+        Mirrors ``api.runtime.agent.runEmbeddedAgent``. The
+        host wires ``run_embedded_agent_fn``; the default
+        raises ``NotImplementedError`` so plugins detect the
+        missing wiring.
+        """
+        if self.run_embedded_agent_fn is None:
+            raise NotImplementedError(
+                "api.runtime.agent.run_embedded_agent is not wired"
+            )
+        return self.run_embedded_agent_fn(params)
+
+    def build_model_alias_index(
+        self, params: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Build a model-alias index for the host config.
+
+        Mirrors ``api.runtime.agent.buildModelAliasIndex``.
+        """
+        if self.build_model_alias_index_fn is None:
+            return {}
+        return self.build_model_alias_index_fn(params)
+
+    def resolve_model_ref_from_string(
+        self, params: dict[str, Any]
+    ) -> Optional[dict[str, Any]]:
+        """Resolve a model-ref string to ``{provider, model}`` or ``None``.
+
+        Mirrors ``api.runtime.agent.resolveModelRefFromString``.
+        """
+        if self.resolve_model_ref_from_string_fn is None:
+            return None
+        return self.resolve_model_ref_from_string_fn(params)
+
+    def resolve_effective_agent_runtime(
+        self, params: dict[str, Any]
+    ) -> Optional[str]:
+        """Resolve the effective agent runtime for a (provider, model) pair.
+
+        Mirrors ``api.runtime.agent.resolveEffectiveAgentRuntime``.
+        """
+        if self.resolve_effective_agent_runtime_fn is None:
+            return None
+        return self.resolve_effective_agent_runtime_fn(params)
 
 
 @dataclass
@@ -445,6 +532,9 @@ class PluginApi:
         # ``~/.jarvis/config.json``). Populated by the loader via
         # ``set_plugin_config``; safe default is empty.
         self._plugin_config: Any = None
+        # Host config (the full ``JarvisConfig``). Populated by
+        # the loader via ``set_config``; safe default is None.
+        self._config: Any = None
 
         # ── Grouped facades (mirror OpenClaw) ───────────────────────
         # Top-level grouped facades (Phase 1C).
@@ -488,6 +578,24 @@ class PluginApi:
     @property
     def logger(self) -> Any:
         return self._logger
+
+    @property
+    def config(self) -> Any:
+        """The host config (the full ``OpenClawConfig`` / ``JarvisConfig``).
+
+        Mirrors OpenClaw's ``api.config`` accessor. The host
+        sets the config on the API before
+        ``register(api)`` runs; safe default is ``None``.
+        """
+        return self._config
+
+    def set_config(self, config: Any) -> None:
+        """Provide the host config to the plugin API.
+
+        Mirrors OpenClaw's loader wiring that puts the host
+        config on the API.
+        """
+        self._config = config
 
     # ── Registration methods (plugins call these) ────────────────────
 
