@@ -670,9 +670,37 @@ class JarvisLive:
         return types.FunctionResponse(id=fc.id, name=name, response={"result": result})
 
     async def _send_realtime(self):
+        """Pump mic PCM chunks to the Live API.
+
+        The ``media=`` parameter on ``send_realtime_input``
+        was deprecated in 2026-Q2; Google now requires
+        ``audio=``, ``video=``, or ``text=`` directly. The
+        old call returned ``1007 realtime_input.media_chunks
+        is deprecated`` and dropped the session. We pass
+        a ``types.Blob`` with the raw PCM bytes + the
+        MIME type so the Live API classifies the chunk
+        as audio.
+        """
         while True:
             msg = await self.out_queue.get()
-            await self.session.send_realtime_input(media=msg)
+            # ``msg`` is shaped like ``{"data": bytes,
+            # "mime_type": "audio/pcm"}`` from
+            # ``_listen_audio``. The Google Live API
+            # expects the MIME to include the sample
+            # rate; the Mic's ``SEND_SAMPLE_RATE`` is
+            # 16 kHz so we append ``;rate=16000`` when
+            # missing.
+            data = msg.get("data") if isinstance(msg, dict) else None
+            mime = (
+                msg.get("mime_type")
+                if isinstance(msg, dict) and msg.get("mime_type")
+                else "audio/pcm"
+            )
+            if ";rate=" not in mime:
+                mime = f"{mime};rate={SEND_SAMPLE_RATE}"
+            await self.session.send_realtime_input(
+                audio=types.Blob(data=data, mime_type=mime),
+            )
 
     async def _listen_audio(self):
         print("[JARVIS] 🎤 Mic started")
