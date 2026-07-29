@@ -43,6 +43,28 @@ class Plugin(ABC):
         has its context ready. Use this to acquire services, open
         connections, register callbacks. Never block forever here."""
 
+    def register(self, api: Any) -> None:
+        """Register plugin-owned services / hooks with the host ``PluginApi``.
+
+        Mirrors OpenClaw's ``plugin.register(api)`` contract:
+        the loader calls ``entry.register(api)`` once per plugin
+        and the plugin's body wires its services / channels /
+        tools / hooks / commands / etc. into the host.
+
+        The default implementation is a no-op so that lightweight
+        identity-only stubs (the 148 scaffold plugins) load
+        without warnings. Real plugins (ToolPlugin / ChannelPlugin
+        / ProviderPlugin / etc.) override this method and call
+        ``api.registerService()`` / ``api.registerChannel()`` /
+        ``api.registerTool()`` / etc. on the supplied ``api``.
+
+        The ``api`` parameter is typed as ``Any`` because the
+        ``PluginApi`` class is defined in ``api.py`` and we want
+        to avoid a circular import; the runtime contract is
+        ``api.registerX(...)`` style methods.
+        """
+        return None
+
     async def shutdown(self) -> None:
         """Optional async cleanup. Default is no-op. Called when the
         host stops. Must not raise."""
