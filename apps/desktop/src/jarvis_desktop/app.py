@@ -16,6 +16,7 @@ happens in Phase 1.
 from __future__ import annotations
 
 import asyncio
+import os
 import threading
 import json
 import sys
@@ -68,7 +69,30 @@ def get_base_dir() -> Path:
 BASE_DIR = get_base_dir()
 API_CONFIG_PATH = BASE_DIR / "config" / "api_keys.json"
 PROMPT_PATH = BASE_DIR / "core" / "prompt.txt"
-LIVE_MODEL = "models/gemini-2.5-flash-native-audio-preview-12-2025"
+# Primary Live API model. Mirrors OpenClaw's
+# ``GOOGLE_REALTIME_DEFAULT_MODEL`` in
+# ``extensions/google/realtime-voice-provider.ts``.
+# The previous ``gemini-2.5-flash-native-audio-preview-12-2025``
+# was deprecated in 2026-Q1 and now returns
+# ``1008 None. Requested entity was not found`` on connect
+# (see Google's Live API deprecation notice + the
+# ``google-gemini/gemini-skills`` Live API guide).
+# Override at runtime with ``JARVIS_LIVE_MODEL``.
+LIVE_MODEL = (
+    os.environ.get("JARVIS_LIVE_MODEL")
+    or "models/gemini-3.1-flash-live-preview"
+)
+# Fallback chain used when the primary model returns
+# 1008 / "Requested entity was not found". The runtime
+# walks the chain left-to-right and stops at the first
+# model that accepts the WebSocket handshake. Mirrors
+# OpenClaw's pattern of cycling through model versions
+# before failing the session.
+LIVE_MODEL_FALLBACKS: list[str] = [
+    "models/gemini-2.5-flash-native-audio-preview-12-2025",
+    "models/gemini-2.5-flash-native-audio-preview-09-2025",
+    "models/gemini-live-2.5-flash-preview",
+]
 CHANNELS = 1
 SEND_SAMPLE_RATE = 16000
 RECEIVE_SAMPLE_RATE = 24000
@@ -768,17 +792,60 @@ class JarvisLive:
             stream.stop()
             stream.close()
 
+    def _is_model_not_found_error(self, error: BaseException) -> bool:
+        """Return True when ``error`` looks like a deprecated / unknown model.
+
+        The Gemini Live API closes the WebSocket with code
+        1008 + reason "Requested entity was not found" when
+        the model name is deprecated, revoked, or the API
+        key doesn't have access to it. We use this signal
+        to walk the ``LIVE_MODEL_FALLBACKS`` chain.
+        """
+        msg = str(error).lower()
+        if "1008" in msg and "not found" in msg:
+            return True
+        if "requested entity was not found" in msg:
+            return True
+        return False
+
+    def _is_transient_error(self, error: BaseException) -> bool:
+        """True for reconnect-worthy failures (network blip, 5xx)."""
+        msg = str(error).lower()
+        if "1008" in msg:
+            return False  # model_not_found, not transient
+        return True
+
+    async def _try_connect(
+        self,
+        client: "genai.Client",
+        config: Any,
+        model: str,
+    ) -> Any:
+        """Open a Live API session on ``model``; raise the raw error otherwise.
+
+        Mirrors OpenClaw's pattern of cycling through model
+        versions on 1008. Returns the session context
+        manager; the caller enters it.
+        """
+        return client.aio.live.connect(model=model, config=config)
+
     async def run(self):
         client = genai.Client(api_key=_get_api_key(), http_options={"api_version": "v1beta"})
 
+        # Active model: starts at LIVE_MODEL, falls back on
+        # 1008 "Requested entity was not found". Persists
+        # across reconnect cycles so a successful model is
+        # not retried on every reconnect.
+        active_model: str = LIVE_MODEL
+
         while True:
             try:
-                print("[JARVIS] 🔌 Connecting...")
+                print(f"[JARVIS] 🔌 Connecting ({active_model})...")
                 self.ui.set_state("THINKING")
                 config = self._build_config()
 
                 async with (
-                    client.aio.live.connect(model=LIVE_MODEL, config=config) as session,
+                    client.aio.live.connect(model=active_model, config=config) as session,
                     asyncio.TaskGroup() as tg,
                 ):
                     self.session = session
@@ -786,9 +853,9 @@ class JarvisLive:
                     self.audio_in_queue = asyncio.Queue()
                     self.out_queue = asyncio.Queue(maxsize=10)
 
-                    print("[JARVIS] ✅ Connected.")
+                    print(f"[JARVIS] ✅ Connected ({active_model}).")
                     self.ui.set_state("LISTENING")
-                    self.ui.write_log("SYS: JARVIS online.")
+                    self.ui.write_log(f"SYS: JARVIS online ({active_model}).")
 
                     tg.create_task(self._send_realtime())
                     tg.create_task(self._listen_audio())
@@ -797,6 +864,41 @@ class JarvisLive:
 
             except Exception as e:
                 print(f"[JARVIS] ⚠️ {e}")
+                if self._is_model_not_found_error(e):
+                    # Walk the fallback chain. If we already
+                    # used it, give up with a clear message.
+                    tried = [active_model]
+                    for fallback in LIVE_MODEL_FALLBACKS:
+                        if fallback in tried:
+                            continue
+                        print(
+                            f"[JARVIS] 🔁 Model {active_model} returned 1008 "
+                            f"(not found). Trying fallback: {fallback}"
+                        )
+                        active_model = fallback
+                        tried.append(fallback)
+                        break
+                    else:
+                        print(
+                            "[JARVIS] ❌ All Live API model fallbacks exhausted. "
+                            "Common causes:\n"
+                            "  1. The Gemini API key in config/api_keys.json "
+                            "is invalid, revoked, or doesn't have Live API access.\n"
+                            "  2. The current model is no longer available in "
+                            "your region / tier.\n"
+                            "Fix: rotate the Gemini key (see AGENTS.md security "
+                            "section) or set JARVIS_LIVE_MODEL env var to a "
+                            "known-good model like 'models/gemini-3.1-flash-live-preview'."
+                        )
+                        self.ui.write_log(
+                            "SYS: ❌ Live API model not found. Rotate the "
+                            "Gemini key or set JARVIS_LIVE_MODEL."
+                        )
+                        self.ui.set_state("IDLE")
+                        await asyncio.sleep(30)
+                        continue
+                    # Don't sleep the full 3s on fallback; reconnect immediately.
+                    continue
                 traceback.print_exc()
 
             self.set_speaking(False)
