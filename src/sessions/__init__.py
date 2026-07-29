@@ -103,6 +103,20 @@ from .session_state_notices import (
     set_request_heartbeat,
     should_wake_watcher,
 )
+from .input_provenance import (
+    InputProvenance,
+    InputProvenanceKind,
+    annotate_inter_session_prompt_text,
+    apply_input_provenance_to_user_message,
+    has_inter_session_user_provenance,
+    is_agent_mediated_completion_source_tool,
+    is_completion_report_input_provenance,
+    is_inter_session_input_provenance,
+    is_main_session_restart_recovery_input_provenance,
+    normalize_input_provenance,
+    should_preserve_user_facing_session_state_for_input_provenance,
+    strip_inter_session_prompt_prefix_for_display,
+)
 from .transcript_events import (
     InternalSessionTranscriptUpdate,
     SessionTranscriptListener,
@@ -177,6 +191,9 @@ __all__ = [
     "is_notifiable_watcher_key",
     "is_subagent_session_key",
     "is_valid_session_kind",
+    "is_agent_mediated_completion_source_tool",
+    "is_completion_report_input_provenance",
+    "is_main_session_restart_recovery_input_provenance",
     "looks_like_session_id",
     "normalize_session_identities",
     "normalize_session_key_preserving_opaque_peer_ids",
@@ -203,4 +220,9 @@ __all__ = [
     "set_enqueue_system_event",
     "set_request_heartbeat",
     "should_wake_watcher",
+    "annotate_inter_session_prompt_text",
+    "apply_input_provenance_to_user_message",
+    "normalize_input_provenance",
+    "should_preserve_user_facing_session_state_for_input_provenance",
+    "strip_inter_session_prompt_prefix_for_display",
 ]
