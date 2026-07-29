@@ -65,6 +65,7 @@ jarvis-normalization-core = { workspace = true }
 jarvis-retry = { workspace = true }
 jarvis-llm-client = { workspace = true }
 jarvis-agent-runtime = { workspace = true }
+jarvis-state-core = { workspace = true }
 jarvis = { workspace = true }
 
 # Modern dependency groups (PEP 735). Replaces deprecated [tool.uv.dev-dependencies].
@@ -286,6 +287,7 @@ pythonpath = [
     "packages/normalization_core/src",
     "packages/retry/src",
     "packages/llm_client/src",
+    "packages/state_core/src",
     "apps/desktop/src",
     "apps/cli/src",
 ]

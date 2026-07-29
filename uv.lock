@@ -138,6 +138,7 @@ members = [
     "jarvis-signal",
     "jarvis-slack",
     "jarvis-sms",
+    "jarvis-state-core",
     "jarvis-stepfun",
     "jarvis-synology-chat",
     "jarvis-synthetic",
@@ -2728,6 +2729,11 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
 ]
+
+[[package]]
+name = "jarvis-state-core"
+version = "0.1.0"
+source = { editable = "packages/state_core" }
 
 [[package]]
 name = "jarvis-stepfun"
