@@ -248,12 +248,79 @@ class PluginAgentApi:
 
 
 @dataclass
+class PluginControlUiDescriptor:
+    """A dashboard tab/section descriptor a plugin registers.
+
+    Mirrors the shape consumed by OpenClaw's
+    ``api.session.controls.registerControlUiDescriptor``. The
+    host renders the descriptor only while the plugin is
+    active, so no core code references the plugin id.
+    """
+
+    surface: str = "tab"  # "tab" | "section" | "panel"
+    id: str = ""
+    label: str = ""
+    description: str = ""
+    icon: str = ""
+    group: str = "control"
+    required_scopes: list[str] = field(default_factory=list)
+
+
+@dataclass
+class _PluginControlsApi:
+    """Grouped facade for session control-UI registrations.
+
+    Mirrors OpenClaw's ``api.session.controls``. The host
+    reads back the registered descriptors via the
+    ``descriptors`` property and renders them in the
+    dashboard.
+    """
+
+    def __init__(self) -> None:
+        self._descriptors: list[PluginControlUiDescriptor] = []
+
+    def register_control_ui_descriptor(
+        self,
+        descriptor: PluginControlUiDescriptor | dict[str, Any],
+    ) -> None:
+        if isinstance(descriptor, dict):
+            # Translate camelCase keys to snake_case for the
+            # dataclass. Mirrors the OpenClaw dict-shape
+            # (camelCase keys per the TS source) and the
+            # Python dataclass field shape (snake_case).
+            translated = {
+                "surface": descriptor.get("surface", "tab"),
+                "id": descriptor.get("id", ""),
+                "label": descriptor.get("label", ""),
+                "description": descriptor.get("description", ""),
+                "icon": descriptor.get("icon", ""),
+                "group": descriptor.get("group", "control"),
+                "required_scopes": list(
+                    descriptor.get("requiredScopes") or descriptor.get(
+                        "required_scopes"
+                    )
+                    or []
+                ),
+            }
+            descriptor = PluginControlUiDescriptor(**translated)
+        if not descriptor.id:
+            raise ValueError(
+                "control-ui descriptor must have a non-empty 'id'"
+            )
+        self._descriptors.append(descriptor)
+
+
+@dataclass
 class PluginSessionApi:
     """Grouped facade for session-state registrations. Stubs in 1C."""
 
     state: Any = None  # registerSessionExtension (Phase 2)
     workflow: Any = None  # enqueueNextTurnInjection (Phase 2)
-    controls: Any = None  # registerSessionAction (Phase 2)
+    controls: Any = None  # _PluginControlsApi (populated below)
+
+    def __post_init__(self) -> None:
+        if self.controls is None:
+            self.controls = _PluginControlsApi()
 
 
 @dataclass
@@ -349,9 +416,29 @@ class PluginApi:
         # capability (audio/image/video) based on ``auto_priority`` +
         # operator override.
         self._media_understanding_providers: list[dict[str, Any]] = []
+        # Service registrations (Phase 5.16+). Mirrors
+        # OpenClaw's ``api.registerService({id, start, stop})``. Each
+        # plugin can register at most one long-running service; the
+        # host invokes ``start(ctx)`` on the chosen platform and
+        # ``stop()`` on shutdown.
+        self._services: list[dict[str, Any]] = []
+        # Gateway method registrations (Phase 5.16+). Mirrors
+        # OpenClaw's ``api.registerGatewayMethod(method, handler, opts)``.
+        # The handler is an async function taking
+        # ``{params, respond}`` and responding with ``respond(ok, payload)``.
+        self._gateway_methods: list[dict[str, Any]] = []
+        # Node-invoke policy registrations (Phase 5.16+). Mirrors
+        # OpenClaw's ``api.registerNodeInvokePolicy(policy)``. Used by
+        # the gateway to decide which plugin commands are allowed on
+        # which platform and how the deny-list is applied.
+        self._node_invoke_policies: list[dict[str, Any]] = []
         # Plugin manifest (for contracts.tools validation). Populated by the
         # loader via ``set_manifest``; safe default is empty.
         self._manifest: dict[str, Any] = {}
+        # Plugin config (the ``plugins.<id>`` block from
+        # ``~/.jarvis/config.json``). Populated by the loader via
+        # ``set_plugin_config``; safe default is empty.
+        self._plugin_config: Any = None
 
         # ── Grouped facades (mirror OpenClaw) ───────────────────────
         # Top-level grouped facades (Phase 1C).
@@ -725,6 +812,131 @@ class PluginApi:
         provider_obj["_owner_id"] = self._ctx.plugin_id
         self._media_understanding_providers.append(provider_obj)
 
+    def register_service(
+        self,
+        service: dict[str, Any],
+    ) -> None:
+        """Register a long-running service owned by this plugin.
+
+        Mirrors OpenClaw's ``api.registerService({id, start, stop})``.
+        The host invokes ``start(ctx)`` on the chosen platform
+        (e.g. when the desktop app is ready) and ``stop()`` on
+        shutdown. ``ctx`` is a dict that carries
+        ``{config, logger, stateDir, runtime}`` (mirrors the
+        OpenClaw ``ServiceContext`` shape).
+
+        The ``service`` dict shape:
+          - ``id`` (required, str)
+          - ``start`` (required, callable): ``async (ctx) -> None``
+          - ``stop`` (optional, callable): ``() -> None``; defaults to no-op
+        """
+        if not isinstance(service, dict):
+            raise TypeError(
+                f"service must be a dict; got {type(service).__name__}"
+            )
+        if "id" not in service or not service["id"]:
+            raise ValueError("service must have a non-empty 'id'")
+        if "start" not in service or not callable(service["start"]):
+            raise ValueError(
+                "service must have a callable 'start' "
+                "(async function taking ctx)"
+            )
+        # Reject duplicate service ids (one per plugin).
+        for existing in self._services:
+            if existing["id"] == service["id"]:
+                raise RuntimeError(
+                    f"Plugin {self._ctx.plugin_id!r} tried to register "
+                    f"service {service['id']!r} but it's already registered."
+                )
+        service["_owner_id"] = self._ctx.plugin_id
+        self._services.append(service)
+
+    def register_gateway_method(
+        self,
+        method: str,
+        handler: Callable[..., Any],
+        opts: dict[str, Any] | None = None,
+    ) -> None:
+        """Register a JSON-RPC method on the host gateway.
+
+        Mirrors OpenClaw's ``api.registerGatewayMethod(method, handler, opts)``.
+        The handler is an async function taking
+        ``{params, respond}`` where ``respond(ok, payload, error?)`` sends
+        the response back to the gateway. ``opts`` is a dict with
+        optional ``scope`` (e.g. ``"operator.read"`` / ``"operator.write"``)
+        for authorization.
+        """
+        if not method or not isinstance(method, str):
+            raise ValueError("gateway method name must be a non-empty string")
+        if not callable(handler):
+            raise TypeError(
+                f"gateway method handler must be callable; got {type(handler).__name__}"
+            )
+        # Reject duplicate method names.
+        for existing in self._gateway_methods:
+            if existing["method"] == method:
+                raise RuntimeError(
+                    f"Plugin {self._ctx.plugin_id!r} tried to register "
+                    f"gateway method {method!r} but it's already registered."
+                )
+        self._gateway_methods.append(
+            {
+                "method": method,
+                "handler": handler,
+                "opts": dict(opts or {}),
+                "_owner_id": self._ctx.plugin_id,
+            }
+        )
+
+    def register_node_invoke_policy(
+        self, policy: dict[str, Any]
+    ) -> None:
+        """Register a node-invoke policy for plugin commands.
+
+        Mirrors OpenClaw's ``api.registerNodeInvokePolicy(policy)``.
+        The policy is a dict with:
+          - ``commands`` (required, list[str]): plugin command names
+            the policy applies to
+          - ``defaultPlatforms`` (optional, list[str]): platforms where
+            the commands are allowed by default
+          - ``handle`` (required, callable): ``async (ctx) -> {ok, code?, message?}``
+            where ``ctx`` carries ``{config, invokeNode}``; the policy
+            handler can deny the call or invoke the underlying node
+        """
+        if not isinstance(policy, dict):
+            raise TypeError(
+                f"node-invoke policy must be a dict; got {type(policy).__name__}"
+            )
+        commands = policy.get("commands")
+        if not isinstance(commands, list) or not commands:
+            raise ValueError(
+                "node-invoke policy must have a non-empty 'commands' list"
+            )
+        handle = policy.get("handle")
+        if not callable(handle):
+            raise ValueError(
+                "node-invoke policy must have a callable 'handle' "
+                "(async function taking ctx)"
+            )
+        self._node_invoke_policies.append(
+            {"policy": dict(policy), "_owner_id": self._ctx.plugin_id}
+        )
+
+    def set_plugin_config(self, plugin_config: Any) -> None:
+        """Provide the ``plugins.<id>`` block from the host config.
+
+        Mirrors OpenClaw's ``api.pluginConfig`` accessor. The
+        loader is responsible for extracting the per-plugin
+        block and passing it to the API before the plugin's
+        ``register(api)`` runs.
+        """
+        self._plugin_config = plugin_config
+
+    @property
+    def plugin_config(self) -> Any:
+        """The ``plugins.<id>`` block from the host config (or ``None``)."""
+        return self._plugin_config
+
     # ── Read-back accessors (host uses these) ─────────────────────────
 
     @property
@@ -793,12 +1005,28 @@ class PluginApi:
         """All registered media-understanding providers, in registration order."""
         return list(self._media_understanding_providers)
 
+    @property
+    def services(self) -> list[dict[str, Any]]:
+        """All registered services, in registration order."""
+        return list(self._services)
+
+    @property
+    def gateway_methods(self) -> list[dict[str, Any]]:
+        """All registered gateway methods, in registration order."""
+        return list(self._gateway_methods)
+
+    @property
+    def node_invoke_policies(self) -> list[dict[str, Any]]:
+        """All registered node-invoke policies, in registration order."""
+        return list(self._node_invoke_policies)
+
 
 __all__ = [
     "CliDescriptor",
     "CommandDecl",
     "PluginAgentApi",
     "PluginApi",
+    "PluginControlUiDescriptor",
     "PluginLifecycleApi",
     "PluginRunContextApi",
     "PluginSessionApi",
