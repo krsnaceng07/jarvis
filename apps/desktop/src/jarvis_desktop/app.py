@@ -438,17 +438,6 @@ class JarvisLive:
         self._loop = None
         self._is_speaking = False
         self._speaking_lock = threading.Lock()
-        # The Gemini 3.1 Live model sends a ``setupComplete``
-        # message after the WebSocket handshake and requires
-        # the client to wait for it before sending any
-        # realtime input. ``_send_realtime`` buffers chunks
-        # in ``_pending_audio`` until ``_setup_complete``
-        # flips True (set by ``_receive_audio`` when the
-        # server's setupComplete message arrives). Mirrors
-        # OpenClaw's ``sessionConfigured`` discipline in
-        # ``extensions/google/realtime-voice-provider.ts``.
-        self._setup_complete: bool = False
-        self._pending_audio: list = []
         self.ui.on_text_command = self._on_text_command
 
         # ── Plugin initialization ──────────────────────────
@@ -683,56 +672,29 @@ class JarvisLive:
     async def _send_realtime(self):
         """Pump mic PCM chunks to the Live API.
 
-        The ``media=`` parameter on ``send_realtime_input``
-        was deprecated in 2026-Q2; Google now requires
-        ``audio=``, ``video=``, or ``text=`` directly. The
-        old call returned ``1007 realtime_input.media_chunks
-        is deprecated`` and dropped the session. We pass
-        a ``types.Blob`` with the raw PCM bytes + the
-        MIME type so the Live API classifies the chunk
-        as audio.
-
-        The new Gemini 3.1 Live model also requires the
-        client to wait for the server's ``setupComplete``
-        message before sending any realtime input. Sending
-        chunks before the server confirms the session is
-        ready returns ``1007 Request contains an invalid
-        argument`` and closes the WebSocket. We buffer
-        chunks in ``self._pending_audio`` (bounded to
-        ``MAX_PENDING_AUDIO_CHUNKS`` to avoid unbounded
-        growth) and drain them once ``self._setup_complete``
-        flips True. Mirrors OpenClaw's
-        ``pendingAudio`` + ``sessionConfigured`` discipline
-        in ``extensions/google/realtime-voice-provider.ts``.
+        Matches the OLD JARVIS pattern that worked before
+        the SDK / model upgrade: each chunk in
+        ``self.out_queue`` is a ``{"data": bytes,
+        "mime_type": "audio/pcm"}`` dict produced by
+        ``_listen_audio``. The new SDK's
+        ``send_realtime_input`` requires ``audio=``
+        (not the deprecated ``media=``) so we wrap
+        the dict in a ``types.Blob``.
         """
-        MAX_PENDING_AUDIO_CHUNKS = 320
         while True:
             msg = await self.out_queue.get()
-            if not self._setup_complete:
-                # Buffer the chunk; ``_receive_audio``
-                # will drain it once ``setupComplete``
-                # arrives.
-                if len(self._pending_audio) < MAX_PENDING_AUDIO_CHUNKS:
-                    self._pending_audio.append(msg)
-                continue
-            # ``msg`` is shaped like ``{"data": bytes,
-            # "mime_type": "audio/pcm"}`` from
-            # ``_listen_audio``. The Google Live API
-            # expects the MIME to include the sample
-            # rate; the Mic's ``SEND_SAMPLE_RATE`` is
-            # 16 kHz so we append ``;rate=16000`` when
-            # missing.
-            data = msg.get("data") if isinstance(msg, dict) else None
-            mime = (
-                msg.get("mime_type")
-                if isinstance(msg, dict) and msg.get("mime_type")
-                else "audio/pcm"
-            )
-            if ";rate=" not in mime:
-                mime = f"{mime};rate={SEND_SAMPLE_RATE}"
-            await self.session.send_realtime_input(
-                audio=types.Blob(data=data, mime_type=mime),
-            )
+            if isinstance(msg, dict):
+                await self.session.send_realtime_input(
+                    audio=types.Blob(
+                        data=msg.get("data"),
+                        mime_type=msg.get("mime_type") or "audio/pcm",
+                    )
+                )
+            else:
+                # Defensive: pass the dict / Blob straight
+                # through if the producer was already a
+                # Blob (future-proof).
+                await self.session.send_realtime_input(audio=msg)
 
     async def _listen_audio(self):
         print("[JARVIS] 🎤 Mic started")
@@ -769,44 +731,6 @@ class JarvisLive:
         try:
             while True:
                 async for response in self.session.receive():
-                    # The Gemini 3.1 Live model emits a
-                    # ``setupComplete`` message once the
-                    # session is ready to receive realtime
-                    # input. Flipping the flag here unblocks
-                    # ``_send_realtime`` (which buffers
-                    # chunks until then) and drains the
-                    # ``_pending_audio`` queue. Mirrors
-                    # OpenClaw's ``handleSetupComplete`` +
-                    # ``pendingAudio.splice(0)`` discipline.
-                    if response.setup_complete and not self._setup_complete:
-                        self._setup_complete = True
-                        pending = self._pending_audio
-                        self._pending_audio = []
-                        print(
-                            f"[JARVIS] ✅ Session ready "
-                            f"(draining {len(pending)} buffered audio chunks)."
-                        )
-                        for chunk in pending:
-                            data = chunk.get("data") if isinstance(chunk, dict) else None
-                            mime = (
-                                chunk.get("mime_type")
-                                if isinstance(chunk, dict) and chunk.get("mime_type")
-                                else "audio/pcm"
-                            )
-                            if ";rate=" not in mime:
-                                mime = f"{mime};rate={SEND_SAMPLE_RATE}"
-                            try:
-                                await self.session.send_realtime_input(
-                                    audio=types.Blob(data=data, mime_type=mime),
-                                )
-                            except Exception as drain_err:
-                                # The session may have closed
-                                # between the setupComplete and
-                                # the drain; the reconnect loop
-                                # in ``run`` will recover.
-                                print(f"[JARVIS] ⚠️ drain error: {drain_err}")
-                                break
-
                     if response.data:
                         self.audio_in_queue.put_nowait(response.data)
 
@@ -950,13 +874,6 @@ class JarvisLive:
                     self._loop = asyncio.get_event_loop()
                     self.audio_in_queue = asyncio.Queue()
                     self.out_queue = asyncio.Queue(maxsize=10)
-                    # Reset setup-complete gate on every
-                    # reconnect cycle so the new server
-                    # session can send its own
-                    # ``setupComplete`` before we start
-                    # streaming audio.
-                    self._setup_complete = False
-                    self._pending_audio = []
 
                     print(f"[JARVIS] ✅ Connected ({active_model}).")
                     self.ui.set_state("LISTENING")
