@@ -45,6 +45,21 @@ Public constants:
 Re-exports:
 - ``SessionStateActorType`` from session_state_event_kinds
 
+Phase 5.18 — "second consumer" of jarvis_state_core:
+- ``SessionStateDatabaseOptions`` keeps the public
+  ``connection_factory`` / ``env`` / ``path`` / ``now``
+  surface (so callers and tests don't change) but
+  internally builds a ``jarvis_state_core.StateDatabase``
+  that owns the connection lifecycle. The connection
+  factory call delegates to ``StateDatabase.open()`` so
+  the standard pragmas (busy_timeout, WAL, foreign_keys)
+  apply across the runtime + tests.
+- ``ensure_schema()`` delegates to
+  ``jarvis_state_core.ensure_schema()`` for the canonical
+  baseline tables. The combined DDL matches state_core's
+  default + the session-events index so a fresh
+  ``StateDatabase`` open produces the same shape.
+
 Python adaptations (documented in code):
 - TS Kysely query builder → direct ``sqlite3`` SQL. The
   OpenClaw queries compile to a small set of well-known
@@ -79,6 +94,8 @@ import sqlite3
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Literal, Optional, TypedDict
+
+import jarvis_state_core
 
 from src.sessions.classify_session_kind import classify_session_kind
 from src.sessions.input_provenance import InputProvenance
@@ -236,6 +253,15 @@ class SessionStateDatabaseOptions:
     the per-call ``now`` override. The factory is called
     fresh per open so callers can use a per-test temp DB
     or the canonical state DB.
+
+    Phase 5.18 — second consumer of ``jarvis_state_core``:
+    the dataclass still carries the public
+    ``connection_factory`` / ``env`` / ``path`` / ``now``
+    surface, but the actual connection lifecycle is owned
+    by a lazily-built ``jarvis_state_core.StateDatabase``.
+    Public callers don't need to change; the standard
+    pragmas (busy_timeout, WAL, foreign_keys) apply
+    transparently.
     """
 
     connection_factory: Optional[Callable[[], sqlite3.Connection]] = None
@@ -244,6 +270,19 @@ class SessionStateDatabaseOptions:
     now: Optional[int] = None
     load_entry: Optional[Callable[..., Optional[dict[str, Any]]]] = None
     skip_schema_ensure: bool = False
+    # Cached StateDatabase. Built lazily on first ``open()``
+    # so the dataclass is still cheap to instantiate (tests
+    # pass options with no real DB; the StateDatabase is
+    # only created when the helper actually opens a
+    # connection). ``field(default=None, ...)`` is required
+    # because dataclass fields with defaults must come
+    # after fields without defaults — we put it last via
+    # the ``field(default=None, ...)`` marker.
+    _state_db_cache: Optional["jarvis_state_core.StateDatabase"] = field(
+        default=None,
+        repr=False,
+        compare=False,
+    )
 
 
 @dataclass
@@ -257,28 +296,71 @@ _PRUNE = _PruneState()
 # ── DB helpers ─────────────────────────────────────────────
 
 
-def _open(options: SessionStateDatabaseOptions) -> sqlite3.Connection:
+def _build_state_db(
+    options: SessionStateDatabaseOptions,
+) -> "jarvis_state_core.StateDatabase":
+    """Lazily build a ``StateDatabase`` for ``options``.
+
+    Mirrors OpenClaw's ``openOpenClawStateDatabase``: the
+    options bag carries the public input shape, and the
+    state database handle is the single source of truth
+    for the connection lifecycle. The cache lives on
+    ``options._state_db_cache`` so repeated calls reuse
+    the same per-store-path queue map.
+    """
+    if options._state_db_cache is not None:
+        return options._state_db_cache
     if options.connection_factory is None:
         raise ValueError(
             "session_state_events: connection_factory is required "
             "(host must wire the canonical state DB)"
         )
-    conn = options.connection_factory()
-    conn.row_factory = sqlite3.Row
-    return conn
+    state_options = jarvis_state_core.StateDatabaseOptions(
+        connection_factory=options.connection_factory,
+        env=options.env,
+        path=options.path,
+        now=options.now,
+    )
+    options._state_db_cache = jarvis_state_core.StateDatabase(state_options)
+    return options._state_db_cache
+
+
+def _open(options: SessionStateDatabaseOptions) -> sqlite3.Connection:
+    """Open a fresh connection via the cached ``StateDatabase``.
+
+    Mirrors ``openOpenClawStateDatabase`` followed by
+    ``conn`` access: the OpenClaw handle returns
+    ``{db, path, walMaintenance}`` and the helper uses
+    ``db`` directly. The Python port uses
+    ``StateDatabase.open()`` which returns a
+    ``sqlite3.Connection`` with the standard pragmas
+    already applied (busy_timeout, WAL, foreign_keys).
+    """
+    return _build_state_db(options).open()
+
+
+# Combined DDL is provided by ``jarvis_state_core.ensure_schema``'s
+# default (the canonical baseline covers every table the
+# sessions helpers touch, including the per-module
+# ``idx_session_state_events_session`` index). The sessions
+# modules just delegate to state_core's ensure_schema with no
+# ``schema_sql`` override so the runtime + tests share the
+# same baseline DDL.
 
 
 def ensure_schema(options: SessionStateDatabaseOptions) -> None:
-    """Create the state-event tables if missing."""
+    """Create the canonical state-event tables if missing.
+
+    Mirrors the OpenClaw ``ensureSessionStateSchema``
+    flow. The Python port delegates to
+    ``jarvis_state_core.ensure_schema`` so the runtime
+    + tests share the same baseline DDL (and the
+    per-module ``idx_session_state_events_session``
+    index, which state_core's default already creates).
+    """
     conn = _open(options)
     try:
-        conn.executescript(
-            f"{SCHEMA_STATE_EVENTS};\n"
-            f"{SCHEMA_STATE_HEADS};\n"
-            f"{SCHEMA_WATCH_CURSORS};\n"
-            f"{SCHEMA_STATE_EVENTS_INDEX};"
-        )
-        conn.commit()
+        jarvis_state_core.ensure_schema(conn)
     finally:
         conn.close()
 

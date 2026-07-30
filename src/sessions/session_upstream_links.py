@@ -10,6 +10,19 @@ are being polled). The Python port uses a direct
 ``sqlite3.Connection`` (stdlib) against the same canonical
 schema.
 
+Phase 5.18 — "second consumer" of jarvis_state_core:
+- ``SessionUpstreamLinkOptions`` keeps the public
+  ``connection_factory`` / ``env`` / ``now`` /
+  ``expected_updated_at`` surface so callers and tests
+  don't change, but the actual connection lifecycle is
+  owned by a lazily-built
+  ``jarvis_state_core.StateDatabase``. The standard
+  pragmas (busy_timeout, WAL, foreign_keys) apply
+  transparently.
+- The ``ensure_schema`` path delegates to
+  ``jarvis_state_core.ensure_schema`` (the canonical
+  baseline already covers ``session_upstream_links``).
+
 Python adaptations (documented in code):
 - TS ``Kysely`` query builder → direct ``sqlite3`` SQL. The
   OpenClaw queries compile to a small set of well-known
@@ -38,6 +51,8 @@ import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, TypedDict
+
+import jarvis_state_core
 
 logger = logging.getLogger("jarvis.sessions.upstream_links")
 
@@ -82,6 +97,14 @@ class SessionUpstreamLinkOptions:
     called lazily and the returned connection is closed in a
     ``with`` block, so the host can pass an in-memory or
     file-backed DB.
+
+    Phase 5.18 — second consumer of ``jarvis_state_core``:
+    the dataclass still carries the public
+    ``connection_factory`` / ``env`` / ``now`` surface, but
+    the actual connection lifecycle is owned by a
+    lazily-built ``jarvis_state_core.StateDatabase``. The
+    ``_state_db_cache`` slot is built on first open so the
+    dataclass stays cheap to instantiate.
     """
 
     connection_factory: Optional[Callable[[], sqlite3.Connection]] = None
@@ -93,6 +116,15 @@ class SessionUpstreamLinkOptions:
     # the schema. Production code paths leave this ``False`` and let
     # the host ensure the tables exist.
     skip_schema_ensure: bool = False
+    # Cached StateDatabase. See session_state_events for the
+    # same field's purpose. The cache is per-Options so
+    # multiple test cases don't share a per-store-path
+    # queue map.
+    _state_db_cache: Optional["jarvis_state_core.StateDatabase"] = field(
+        default=None,
+        repr=False,
+        compare=False,
+    )
 
 
 @dataclass
@@ -108,22 +140,44 @@ class _DbState:
 _thread_local = threading.local()
 
 
-def _open_connection(
+def _build_state_db(
     options: SessionUpstreamLinkOptions,
-) -> sqlite3.Connection:
-    """Open a connection per call. The factory is called fresh;
-    callers that need a longer-lived connection should use the
-    same factory twice and get a new connection each time.
+) -> "jarvis_state_core.StateDatabase":
+    """Lazily build a ``StateDatabase`` for ``options``.
+
+    Mirrors OpenClaw's ``openOpenClawStateDatabase``. The
+    cache lives on ``options._state_db_cache`` so repeated
+    open() calls share the same per-store-path queue map.
     """
+    if options._state_db_cache is not None:
+        return options._state_db_cache
     if options.connection_factory is None:
         raise ValueError(
             "session_upstream_links: connection_factory is required "
             "(host must wire the canonical state DB)"
         )
-    conn = options.connection_factory()
-    # Use the row factory so reads return dicts.
-    conn.row_factory = sqlite3.Row
-    return conn
+    state_options = jarvis_state_core.StateDatabaseOptions(
+        connection_factory=options.connection_factory,
+        env=options.env,
+        path=None,
+        now=options.now,
+    )
+    options._state_db_cache = jarvis_state_core.StateDatabase(state_options)
+    return options._state_db_cache
+
+
+def _open_connection(
+    options: SessionUpstreamLinkOptions,
+) -> sqlite3.Connection:
+    """Open a connection per call via the cached ``StateDatabase``.
+
+    Mirrors OpenClaw's ``openOpenClawStateDatabase`` +
+    ``conn`` access: the Python port uses
+    ``StateDatabase.open()`` which returns a
+    ``sqlite3.Connection`` with the standard pragmas
+    already applied.
+    """
+    return _build_state_db(options).open()
 
 
 # ── Schema bootstrap (test / first-use helper) ───────────────
@@ -155,17 +209,29 @@ CREATE TABLE IF NOT EXISTS session_watch_cursors (
 """.strip()
 
 
+# The combined DDL is provided by ``jarvis_state_core.ensure_schema``'s
+# default (the canonical baseline covers every table the
+# upstream-link helpers touch, including the
+# ``idx_session_upstream_links_catalog`` index). The
+# upstream-link modules just delegate to state_core's
+# ensure_schema with no ``schema_sql`` override so the
+# runtime + tests share the same baseline DDL.
+
+
 def ensure_schema(connection: sqlite3.Connection) -> None:
     """Create the upstream-link and watch-cursor tables if missing.
 
     Test-only / first-use helper. The host is responsible for
     running the canonical schema migration; this helper is
     provided for tests and for one-time lazy bootstrap.
+
+    Phase 5.18 — delegates to ``jarvis_state_core.ensure_schema``
+    with no ``schema_sql`` override so the runtime + tests
+    share the canonical baseline (which already creates
+    ``session_upstream_links`` + the
+    ``idx_session_upstream_links_catalog`` index).
     """
-    connection.executescript(
-        f"{SCHEMA_UPSTREAM_LINKS};\n{SCHEMA_WATCH_CURSORS};"
-    )
-    connection.commit()
+    jarvis_state_core.ensure_schema(connection)
 
 
 def _ensure_schema_for_options(options: SessionUpstreamLinkOptions) -> None:
@@ -173,9 +239,8 @@ def _ensure_schema_for_options(options: SessionUpstreamLinkOptions) -> None:
         return
     if options.connection_factory is None:
         return
-    conn = options.connection_factory()
+    conn = _open_connection(options)
     try:
-        conn.row_factory = sqlite3.Row
         ensure_schema(conn)
     finally:
         conn.close()
