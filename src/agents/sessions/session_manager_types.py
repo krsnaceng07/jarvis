@@ -513,14 +513,15 @@ class PromptReleasedSessionMergeResult:
 # ============================================================================
 
 
-#: Alias for the transcript cache snapshot. Mirrors
-#: ``SessionFileSnapshot``
-#: (``session-manager-types.ts:163``) — the
-#: full type is owned by the configuration-side
-#: transcript cache; the Python port declares the
-#: alias as ``Any`` (Phase 6.4 ports the concrete
-#: shape).
-SessionFileSnapshot: TypeAlias = Any
+#: The ``SessionFileSnapshot`` dataclass is owned
+#: by :mod:`jarvis.agents.sessions.session_manager_file`
+#: (OpenClaw
+#: ``session-manager-file.ts:117-126``). The full
+#: transcript-cache snapshot is mirrored by
+#: :class:`jarvis.agents.sessions.session_manager_file.SessionFileSnapshot`
+#: and re-exported from this package's
+#: ``__init__``. Mirrors ``SessionFileSnapshot``
+#: (``session-manager-types.ts:163``).
 
 
 # ============================================================================
@@ -572,7 +573,6 @@ __all__ = [
     "SessionContext",
     "SessionEntry",
     "SessionEntryType",
-    "SessionFileSnapshot",
     "SessionHeader",
     "SessionInfo",
     "SessionInfoEntry",
