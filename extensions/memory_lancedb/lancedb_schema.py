@@ -51,11 +51,27 @@ def has_agent_scope_column(schema: object) -> bool:
 
     Mirrors OpenClaw's ``hasAgentScopeColumn``. Used by the
     doctor migration to detect pre-isolation legacy tables.
+
+    Robust to multiple schema shapes: LanceDB's
+    ``table.schema()`` returns a ``pyarrow.Schema`` (which
+    exposes ``.names`` but no ``.fields`` iterator), but
+    some LanceDB versions return a dataclass-like object
+    with ``.fields``. We try the cheapest path first
+    (``schema.names``) and fall back to the iterator.
     """
+    # Cheap path: pyarrow exposes a ``names`` tuple.
+    names = getattr(schema, "names", None)
+    if names is not None:
+        return MEMORY_AGENT_ID_COLUMN in names
+    # Fallback: iterate fields (older LanceDB or duck-typed
+    # schema providers).
     fields = getattr(schema, "fields", None)
     if not fields:
         return False
-    return any(getattr(field, "name", None) == MEMORY_AGENT_ID_COLUMN for field in fields)
+    return any(
+        getattr(field, "name", None) == MEMORY_AGENT_ID_COLUMN
+        for field in fields
+    )
 
 
 def is_valid_memory_id(memory_id: str) -> bool:

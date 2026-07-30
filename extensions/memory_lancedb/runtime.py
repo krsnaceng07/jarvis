@@ -385,7 +385,15 @@ class LanceDBStore(MemoryStore):
             table: Any
             if MEMORY_TABLE_NAME in table_names:
                 table = db.open_table(MEMORY_TABLE_NAME)
-                if not has_agent_scope_column(table.schema()):
+                # ``table.schema`` is a property (returns the
+                # current pyarrow Schema); calling it like a
+                # method raises ``'Schema' object is not
+                # callable``. Older versions of LanceDB exposed
+                # ``.schema()`` as a method; the two are
+                # equivalent and the property form is what
+                # ``lancedb >= 0.10`` ships.
+                table_schema = table.schema
+                if not has_agent_scope_column(table_schema):
                     raise legacy_memory_schema_error()
             else:
                 sentinel = {
@@ -446,8 +454,13 @@ class LanceDBStore(MemoryStore):
         if len(vector) != self._vector_dim:
             raise ValueError(f"vector dim {len(vector)} != store dim {self._vector_dim}")
         table = self._ensure_initialized()
+        # LanceDB >= 0.10 merged ``vector_search`` into ``search``
+        # (the method now auto-detects vector vs full-text
+        # queries). Older versions still have ``vector_search``
+        # as a separate method; the merged form works on
+        # both via the ``.where(...).limit(...)`` builder.
         rows = (
-            table.vector_search(vector)
+            table.search(vector)
             .where(memory_agent_predicate(agent_id))
             .limit(limit)
             .to_list()
