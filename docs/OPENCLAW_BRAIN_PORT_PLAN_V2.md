@@ -264,6 +264,85 @@ Migrate the 6 existing extensions onto the new session/tool surface. Write `docs
 
 ---
 
+## 4a. State as of 2026-07-30 — completed real-surface + state-core + 2nd-consumer work
+
+The V2 plan above numbers 5.7-5.19 for the *brain* port. In parallel, a separate stream of work ported the real-surface extension entry points + the `jarvis_state_core` shared connection layer + the sessions 2nd consumers. That work used a parallel 5.17a-5.22 numbering and is now complete. **None of the brain phases above has been touched** by this work — the brain port is still ahead.
+
+### Completed (commits `43fb68a` → `678793d`)
+
+| Phase | Scope | Commit | Tests added |
+|---|---|---|---|
+| 5.17 | `state_core` base — `StateDatabase` + Kysely-like query + canonical schema | `43fb68a` | 27 |
+| 5.17b | `state_core` Phase 1 — lease, readonly, contract, paths, permissions, audit_migration, agent_db | `3741156` | 69 |
+| 5.17c | `state_core` Phase 2 — schema_helpers, schema_additive (100+ ensureColumn), schema_repair, operator_approval_migration, session_watch_migration, legacy_backfills, maintenance | `83bf231` | 130 |
+| 5.18 | sessions 2nd consumer — `session_state_events` + `session_upstream_links` use `StateDatabase` for connection lifecycle | `ca09358` | 9 |
+| 5.19 | real-surface entry points — `logbook` (25K) + `device-pair` (lib/ + plugin.py) | `0706a4e` | 97 |
+| 5.20 | sessions 2nd consumer — `SqliteSessionStore` implements `SessionStore` protocol via `StateDatabase` | `58271d4` | 16 |
+| 5.21 | real-surface entry points — `acpx` (15K) + `tts-local-cli` (10K) + `llm-task` (14K) | `92404a7` | 103 |
+| 5.22 | sessions 2nd consumer — `SqliteSessionTranscriptReader` implements transcript read/cleanup via `StateDatabase` | `678793d` | 37 |
+| **Total** | | **8 commits** | **+488 tests** |
+
+**Test count:** 3170 → 3662 (+492 across all 8 phases; +37 from 5.22 alone). 0 regressions. 4 skipped (unchanged — case-insensitive FS + Linux-only tests).
+
+### Pattern established
+
+- **"Second consumer"** — every new module that needs a state DB goes through `jarvis_state_core.StateDatabase` (not its own `connection_factory` pattern). The state_core provides standard pragmas (busy_timeout=5s, WAL, foreign_keys=ON) transparently.
+- **"Real surface port"** — for each OpenClaw extension, port the full `register(api)` flow + every SDK registrar the extension calls, not just a stub.
+- **Schema bootstrap** — `_schema_ensured` flag + `threading.Lock` for one-shot DDL execution; combined DDL constant + delegate to `state_core.ensure_schema(conn, schema_sql=...)`.
+- **Idempotent schema** — `ensure_schema` is lazy and idempotent; first call opens connection + ensures the table exists, subsequent calls no-op.
+
+### What's left for the brain (still ahead)
+
+The V2 plan's Phase 5.7 (LLM contracts + provider facade) onwards has not been started. The completed 5.17-5.22 work above is **infrastructure the brain will consume** (state_core + 2nd consumers + real-surface extensions), not the brain itself.
+
+---
+
+## 4b. State as of 2026-07-30 — Layer 2 port work (Phase 6.0 → 6.3)
+
+The V2 plan covers Layer 1 (the loop, 5.7-5.13) + minimal session core (5.14). In parallel, the Layer 2 host funnel work — what the brain sits on top of — is being ported in a `Phase 6.x` series per [`docs/OPENCLAW_LAYER2_PORT_PLAN.md`](OPENCLAW_LAYER2_PORT_PLAN.md). **The brain port (Layer 1) is still ahead and unchanged** by this work; the 6.x work is the host scaffolding + session codec/IO the brain will eventually call.
+
+### Completed (commits `b3edb0d` → `e04696e`)
+
+| Phase | Scope | Commit | Tests added |
+|---|---|---|---|
+| 6.0 | Layer 2 scaffolding + helpers + small types (11 modules: defaults, source_info, event_bus, diagnostics, messages, slash_commands, telemetry, auth_guidance, provider_display_names, resolve_config_value) | `b3edb0d` | 41 |
+| 6.1 | Layer 2 storage primitives (5 modules: storage_lock, http_dispatcher, exec, bash_executor, keybindings) | `22361cb` | 50 |
+| 6.2 | Layer 2 session codec (3 modules: session_manager_id, session_manager_types, session_manager_codec) | `7b909b6` | 65 |
+| 6.3 | Layer 2 session IO + discovery (2 modules: session_manager_file, session_manager_list) | `e04696e` | 52 |
+| **Total** | | **4 commits** | **+208 tests** |
+
+**Test count:** 3662 → 3870 (+208 across 6.0/6.1/6.2/6.3; +52 from 6.3 alone). 0 regressions across the full suite (4 platform-specific skips unchanged).
+
+### Bug fixes captured this session (Phase 6.0 → 6.3)
+
+- **Phase 6.1 real bugs found + fixed:**
+  - `exec.py` `nonlocal output_limit_exceeded` missing in nested `finish()` → `UnboundLocalError`.
+  - `exec.py` `time` not imported → `NameError` in monitor thread.
+  - `OutputAccumulator.append` returned delta instead of new text → empty buffers.
+  - `storage_lock.py` Windows `unlock` not idempotent → `EBADF` on second call.
+  - `exec_command` read loop deadlocked without drain threads → rewrote with dedicated stdout/stderr drain threads + abort-signal monitor.
+- **Phase 6.2 design choice:** `build_session_context` rewritten to do dict-based projection locally (not calling `jarvis_agent.session_context.build_session_context` because it expects typed `SessionTreeEntry` objects, not dicts).
+- **Phase 6.3 design choice:** `json_serialization_can_run_user_code` uses `hasattr(value, "toJSON")` for OpenClaw toJSON detection; empty marker parts raise `ValueError` (not return None) to mirror OpenClaw throw-on-invalid.
+- **Phase 6.3 name-collision bug:** `SessionFileSnapshot` was defined in BOTH `session_manager_file` (real dataclass) AND `session_manager_types` (`TypeAlias = Any`). The second import in `__init__.py` shadowed the first, making every test that constructed a snapshot hit `TypeError: Any cannot be instantiated`. Removed the alias.
+
+### What Layer 2 still has (6.4 → 6.14)
+
+- **6.4**: session core/branching (~51K LOC) — 4 files: `session_manager_core.py`, `session_manager_branching.py`, `session_manager_persistence.py`, `session_manager_entries.py`
+- **6.5**: session manager facade (`session_manager.py` ~10K)
+- **6.6**: auth-storage + oauth-registry (~15K)
+- **6.7**: model-registry + resolver (~55K)
+- **6.8**: settings-manager (~34K)
+- **6.9**: extensions/ (~30K, 5 files: loader, runner, types, wrapper, index)
+- **6.10**: tools/ (16 files, ~40K)
+- **6.11**: resource-loader + package-manager (~79K)
+- **6.12**: AgentSession family (11 files, ~100K) — biggest
+- **6.13**: support modules (~25K)
+- **6.14**: `createAgentSession` in `sdk.py` (~20K) — the terminal phase
+
+After Layer 2 lands, the brain (Layer 1 + Layer 3) + device-pair camelCase fix + desktop rewire remain.
+
+---
+
 ## 5. Effort summary
 
 | Phase | Content | LOC (impl + test) | PRs |
