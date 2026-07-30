@@ -327,7 +327,10 @@ The V2 plan covers Layer 1 (the loop, 5.7-5.13) + minimal session core (5.14). I
 
 ### What Layer 2 still has (6.4 → 6.14)
 
-- **6.4**: session core/branching (~51K LOC) — 4 files: `session_manager_core.py`, `session_manager_branching.py`, `session_manager_persistence.py`, `session_manager_entries.py`
+- **6.4a**: `session_manager_core.py` (the core class) — **DONE** (`376e404`, 24 tests)
+- **6.4b**: `session_manager_persistence.py` (the persistence layer) — **DONE** (`3a5863b`, 12 tests)
+- **6.4c**: `session_manager_entries.py` (typed append + getters + branch mutators) — **DONE** (`41dd22b`, 28 tests)
+- **6.4d**: `session_manager_branching.py` (the `createBranchedSession` path) — **DONE** (`74bd0e4`, 9 tests)
 - **6.5**: session manager facade (`session_manager.py` ~10K)
 - **6.6**: auth-storage + oauth-registry (~15K)
 - **6.7**: model-registry + resolver (~55K)
@@ -338,6 +341,10 @@ The V2 plan covers Layer 1 (the loop, 5.7-5.13) + minimal session core (5.14). I
 - **6.12**: AgentSession family (11 files, ~100K) — biggest
 - **6.13**: support modules (~25K)
 - **6.14**: `createAgentSession` in `sdk.py` (~20K) — the terminal phase
+
+**Phase 6.4 total (a + b + c + d)**: 4 modules + 73 tests (24 + 12 + 28 + 9). Full session-manager class hierarchy (`Core` → `Persistence` → `Entries` → `Branching`) now ported 1:1 from OpenClaw.
+
+**Test count after 6.4**: 3870 → 3943 (+73 across 6.4a/b/c/d). 0 regressions.
 
 After Layer 2 lands, the brain (Layer 1 + Layer 3) + device-pair camelCase fix + desktop rewire remain.
 
