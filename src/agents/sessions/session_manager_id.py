@@ -24,6 +24,7 @@ Phase 6.2 — session codec.
 from __future__ import annotations
 
 import uuid
+from typing import Callable
 
 from jarvis_agent.uuid7 import uuidv7
 
@@ -41,7 +42,7 @@ def create_session_id() -> str:
 
 
 def generate_session_entry_id(
-    existing: "set[str] | object",
+    existing: "set[str] | object | Callable[[str], bool]",
 ) -> str:
     """Generate a short, collision-checked entry id.
 
@@ -50,15 +51,20 @@ def generate_session_entry_id(
 
     Parameters
     ----------
-    existing : set[str] | object
-        A container that supports ``id in existing``
-        (the OpenClaw source's ``has`` method on
-        a ``Set``). In practice this is a ``set``
-        of already-used ids; the function generates
-        a fresh 8-char prefix until it finds a
-        collision-free id. Up to 100 attempts; on
-        collision exhaustion, the function falls
-        back to a full UUID v4.
+    existing : set[str] | object | Callable[[str], bool]
+        Either a container that supports
+        ``id in existing`` (the OpenClaw source's
+        ``has`` method on a ``Set``), or a
+        callable ``(id: str) -> bool`` predicate
+        matching the OpenClaw
+        ``has: (id) => this.byId.has(id) || ...``
+        pattern in ``session-manager-core.ts:451``.
+
+        The Python port uses duck-typing: if
+        ``existing`` has a ``__call__`` attribute
+        (and isn't a built-in container), it's
+        treated as a predicate; otherwise it's
+        treated as a container.
 
     Returns
     -------
@@ -67,14 +73,21 @@ def generate_session_entry_id(
         full 36-char UUID v4 string if the prefix
         space is exhausted).
     """
+    is_predicate = callable(existing) and not isinstance(
+        existing, (set, dict, list, tuple, frozenset)
+    )
     for _ in range(100):
         # ``uuid.uuid4().hex[:8]`` matches the
         # OpenClaw ``randomUUID().slice(0, 8)``
         # exactly (8 lowercase hex chars from a
         # random UUID v4).
         candidate = uuid.uuid4().hex[:8]
-        if candidate not in existing:
-            return candidate
+        if is_predicate:
+            if not existing(candidate):
+                return candidate
+        else:
+            if candidate not in existing:
+                return candidate
     # Collision-exhaustion fallback — match the
     # OpenClaw source's ``return randomUUID()``.
     return str(uuid.uuid4())
