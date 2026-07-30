@@ -46,6 +46,34 @@ from PyQt6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from PyQt6.QtCore import QtMsgType, qInstallMessageHandler
+
+
+# ── Qt message handler ──────────────────────────────────────
+# Suppress the noisy ``qt.text.font.db: OpenType support missing
+# for "…", script …`` warnings Qt emits when a requested font
+# has glyph data but no OT layout tables Qt can read (Windows
+# ships Courier New / Arial / Segoe UI in TrueType-flavored
+# OpenType without all the OT tables PyQt6 expects). The text
+# still renders correctly via Qt's non-OT fallback; the warning
+# is just chatter. The handler is installed once at import time
+# so every PyQt6 surface in the app benefits.
+def _jarvis_qt_message_handler(mode: QtMsgType, context, message: str) -> None:
+    if "OpenType support missing" in message:
+        return
+    # Pass everything else through to the default handler.
+    if mode == QtMsgType.QtWarningMsg:
+        sys.stderr.write(f"Qt: {message}\n")
+    elif mode == QtMsgType.QtCriticalMsg:
+        sys.stderr.write(f"Qt CRIT: {message}\n")
+    elif mode == QtMsgType.QtFatalMsg:
+        sys.stderr.write(f"Qt FATAL: {message}\n")
+    else:
+        # QtInfoMsg + debug messages: keep stdout for them.
+        sys.stdout.write(f"{message}\n")
+
+
+qInstallMessageHandler(_jarvis_qt_message_handler)
 
 
 def _base_dir() -> Path:
