@@ -8,18 +8,20 @@ subdir; the module bodies land incrementally per
 the V2 plan as the corresponding subsystem is ported.
 
 Phase 6.0 — scaffolding + helpers + small types.
+Phase 6.1 — storage primitives (storage-lock,
+http-dispatcher, exec, bash-executor, keybindings).
 
 This sub-package is the host funnel into the brain
 (``createAgentSession`` + the ``AgentSession``
 family). The public surface is re-exported from the
-Phase-6.0 leaf modules here so callers can use
+Phase-6.0/6.1 leaf modules here so callers can use
 ``from jarvis.agents.sessions import ...`` exactly
 the way they would in OpenClaw.
 
 The re-export shape follows the OpenClaw
 ``index.ts`` (which re-exports every leaf module),
-but is restricted to the Phase-6.0 surface only;
-later phases extend it as modules land.
+but is restricted to the Phase-6.0/6.1 surface
+only; later phases extend it as modules land.
 """
 from __future__ import annotations
 
@@ -36,6 +38,15 @@ from .auth_guidance import (
     format_no_models_available_message,
     get_provider_login_help,
 )
+from .bash_executor import (
+    BashExecutorOptions,
+    BashOperations,
+    BashOperationsExecResult,
+    BashResult,
+    OutputAccumulator,
+    create_streaming_binary_output_sanitizer,
+    execute_bash_with_operations,
+)
 from .defaults import DEFAULT_THINKING_LEVEL, ThinkingLevel
 from .diagnostics import (
     DiagnosticType,
@@ -48,6 +59,29 @@ from .event_bus import (
     EventBusController,
     Subscriber,
     create_event_bus,
+)
+from .exec import (
+    DEFAULT_OUTPUT_LIMIT_CHARS,
+    ExecOptions,
+    ExecResult,
+    FORCE_KILL_GRACE_MS,
+    exec_command,
+)
+from .http_dispatcher import (
+    DEFAULT_HTTP_IDLE_TIMEOUT_MS,
+    parse_http_idle_timeout_ms,
+)
+from .keybindings import (
+    KEYBINDINGS,
+    KEYBINDING_NAME_MIGRATIONS,
+    KeyBindingValue,
+    KeybindingDef,
+    KeybindingsConfig,
+    KeybindingsManager,
+    is_legacy_keybinding_name,
+    load_raw_config,
+    migrate_keybindings_config,
+    to_keybindings_config,
 )
 from .messages import (
     BashExecutionMessage,
@@ -71,6 +105,12 @@ from .source_info import (
     create_source_info,
     create_synthetic_source_info,
 )
+from .storage_lock import (
+    LOCK_RETRY_DELAY_MS,
+    MAX_LOCK_ATTEMPTS,
+    UnlockFn,
+    acquire_lock_sync_with_retry,
+)
 from .telemetry import is_install_telemetry_enabled
 
 
@@ -81,6 +121,14 @@ __all__ = [
     "format_no_model_selected_message",
     "format_no_models_available_message",
     "get_provider_login_help",
+    # bash_executor
+    "BashExecutorOptions",
+    "BashOperations",
+    "BashOperationsExecResult",
+    "BashResult",
+    "OutputAccumulator",
+    "create_streaming_binary_output_sanitizer",
+    "execute_bash_with_operations",
     # defaults
     "DEFAULT_THINKING_LEVEL",
     "ThinkingLevel",
@@ -94,6 +142,26 @@ __all__ = [
     "EventBusController",
     "Subscriber",
     "create_event_bus",
+    # exec
+    "DEFAULT_OUTPUT_LIMIT_CHARS",
+    "ExecOptions",
+    "ExecResult",
+    "FORCE_KILL_GRACE_MS",
+    "exec_command",
+    # http_dispatcher
+    "DEFAULT_HTTP_IDLE_TIMEOUT_MS",
+    "parse_http_idle_timeout_ms",
+    # keybindings
+    "KEYBINDINGS",
+    "KEYBINDING_NAME_MIGRATIONS",
+    "KeyBindingValue",
+    "KeybindingDef",
+    "KeybindingsConfig",
+    "KeybindingsManager",
+    "is_legacy_keybinding_name",
+    "load_raw_config",
+    "migrate_keybindings_config",
+    "to_keybindings_config",
     # messages
     "BashExecutionMessage",
     "CustomMessage",
@@ -116,6 +184,11 @@ __all__ = [
     "SourceScope",
     "create_source_info",
     "create_synthetic_source_info",
+    # storage_lock
+    "LOCK_RETRY_DELAY_MS",
+    "MAX_LOCK_ATTEMPTS",
+    "UnlockFn",
+    "acquire_lock_sync_with_retry",
     # telemetry
     "is_install_telemetry_enabled",
 ]
