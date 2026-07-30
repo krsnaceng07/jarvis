@@ -559,6 +559,29 @@ class JarvisLive:
         name = fc.name
         args = dict(fc.args or {})
 
+        # ── Host-owned tool context ────────────────────────────────
+        # Mirrors OpenClaw's ``buildToolContext`` in
+        # ``src/agents/agent-tools.before-tool-call.ts``: the host
+        # injects ``agentId`` (and the per-agent memorySearch
+        # override) into the tool call so the LLM never has to
+        # pass it. Without this, plugins like
+        # ``memory_recall`` / ``memory_store`` / ``memory_forget``
+        # reject calls with ``Err("memory_recall requires an
+        # enabled agentId.")`` because the LLM doesn't know what
+        # agent it is running for. OpenClaw's pattern: the host
+        # owns ``agentId``; the tool reads it from the context
+        # (``ctx.agentId``), not from the LLM's args.
+        from src.routing.agent_id import DEFAULT_AGENT_ID, normalize_agent_id
+
+        # Only inject if the LLM didn't already pass one. If the
+        # LLM DID pass one (e.g. via ``memory_recall(agentId="x",
+        # query=...)``), trust it — but normalize it so the
+        # plugin doesn't have to.
+        if "agentId" in args and args["agentId"]:
+            args["agentId"] = normalize_agent_id(args["agentId"])
+        else:
+            args.setdefault("agentId", DEFAULT_AGENT_ID)
+
         print(f"[JARVIS] 🔧 {name}  {args}")
         self.ui.set_state("THINKING")
 
