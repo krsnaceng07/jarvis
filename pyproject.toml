@@ -78,6 +78,7 @@ dev = [
     "pytest-cov>=5.0.0",
     "hypothesis>=6.110.0",
     "pre-commit>=4.0.0",
+    "pyrefly>=1.1.1",
 ]
 
 # ─────────────────────────────────────────────────────────────────────
@@ -360,3 +361,81 @@ derandomize = true
 print_blob = false
 # `deadline` intentionally unset: defaults are fine. Override per-test with
 # `@settings(deadline=...)` when needed.
+
+# ─────────────────────────────────────────────────────────────────────
+# Pyrefly — Meta's Python type checker. Mirrors pyrightconfig.json so
+# the Pyrefly IDE integration finds the same modules Pyright does.
+#
+# Pyrefly infers the import root from the project layout and (by
+# default) sometimes picks ``src/`` because it has Python submodules.
+# We pin the import root to the workspace root (``E:\jarvis\``) by
+# writing the config inside ``pyproject.toml`` — Pyrefly treats
+# the directory containing the config file as the project root.
+# Mirrors OpenClaw's pattern: ``src/`` is a plain namespace dir
+# (no ``__init__.py`` at the top level), so ``from src.hooks``
+# resolves to ``<project_root>/src/hooks/...`` via the
+# ``search-path`` entry.
+# ─────────────────────────────────────────────────────────────────────
+[tool.pyrefly]
+project-includes = [
+    "apps",
+    "packages",
+    "extensions",
+    "tools",
+    "tests",
+    "examples",
+]
+project-excludes = [
+    "**/legacy_*",
+    "openclaw-main",
+    ".venv",
+    "build",
+    "dist",
+    "**/node_modules",
+    "config",
+    "**/jarvis_desktop/app.py",
+    "**/jarvis_desktop/ui.py",
+    # Hyphened extensions use a runtime ``importlib.util
+    # .spec_from_file_location`` loader that Pyrefly can't
+    # statically analyze. Their ``__init__.py`` is just a
+    # docstring; their real entry is in ``plugin.py`` or
+    # ``lib/*.py``. The runtime is the source of truth for
+    # these — skip them in static analysis.
+    "extensions/*-*",
+    # plugin_sdk unit tests use synthetic fixtures with
+    # phantom imports that aren't real dependencies. They're
+    # exercised by the pytest suite; static analysis of
+    # their mock-heavy bodies just creates noise.
+    "packages/plugin_sdk/tests/**",
+]
+# Note: ``src`` is NOT in project-includes on purpose. Pyrefly
+# infers the import root from the first Python package in
+# project-includes; if ``src`` is included Pyrefly picks
+# ``E:\jarvis\src`` as the import root and breaks
+# ``from src.hooks import …`` (it then looks for
+# ``E:\jarvis\src\src\hooks/…``). Keeping ``src`` out of
+# project-includes and putting it only in search-path
+# forces the workspace root as the import root, which
+# is what the runtime ``PYTHONPATH`` expects. Mirrors
+# OpenClaw's pattern: ``src/`` is a plain namespace dir
+# without an ``__init__.py`` at the top level.
+search-path = [
+    ".",
+    "apps/desktop/src",
+    "apps/cli/src",
+    "packages/plugin_sdk/src",
+    "packages/state_core/src",
+    "packages/memory_host_sdk/src",
+    "packages/normalization_core/src",
+    "src",
+]
+python-version = "3.13"
+
+[tool.pyrefly.errors]
+# missing-import stays as ``warn`` (not ``error``) because
+# the JARVIS project uses OpenClaw-style optional imports
+# wrapped in ``try: from .foo import bar; except ImportError:
+# bar = None``. The runtime is the source of truth; static
+# analysis shouldn't break the build when a phantom module
+# is referenced for parity.
+missing-import = "warn"
