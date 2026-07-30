@@ -114,6 +114,7 @@ from .session_manager_codec import (
     partition_session_file_entries,
 )
 from .session_manager_core import SessionManagerCore, SqliteSessionManagerPersistence
+from .session_manager_persistence import SessionManagerPersistence
 from .session_manager_file import (
     LoadedSessionFile,
     MAX_CACHED_SESSION_BYTES,
@@ -270,6 +271,8 @@ __all__ = [
     # session_manager_core
     "SessionManagerCore",
     "SqliteSessionManagerPersistence",
+    # session_manager_persistence
+    "SessionManagerPersistence",
     # session_manager_file
     "LoadedSessionFile",
     "MAX_CACHED_SESSION_BYTES",
