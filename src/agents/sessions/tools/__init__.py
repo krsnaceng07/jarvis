@@ -67,6 +67,33 @@ from .path_utils import (
     resolve_to_cwd,
 )
 
+# Phase 6.10b — output + render + wrapper
+from .private_temp_file import (
+    create_private_temp_write_stream,
+    write_private_temp_file,
+)
+from .output_accumulator import (
+    OutputAccumulator,
+    OutputAccumulatorOptions,
+    OutputSnapshot,
+)
+from .render_utils import (
+    append_session_tool_truncation_warning,
+    format_session_tool_output,
+    get_text_output,
+    invalid_arg_text,
+    normalize_display_text,
+    replace_tabs,
+    shorten_path,
+    str_ as render_str,
+)
+from .tool_definition_wrapper import (
+    AgentTool,
+    create_tool_definition_from_agent_tool,
+    wrap_tool_definition,
+    wrap_tool_definitions,
+)
+
 
 __all__ = [
     # Phase 6.10a — tool contracts
@@ -101,4 +128,25 @@ __all__ = [
     # Phase 6.10a — path utilities
     "resolve_read_path",
     "resolve_to_cwd",
+    # Phase 6.10b — private temp file
+    "create_private_temp_write_stream",
+    "write_private_temp_file",
+    # Phase 6.10b — output accumulator
+    "OutputAccumulator",
+    "OutputAccumulatorOptions",
+    "OutputSnapshot",
+    # Phase 6.10b — render utils
+    "append_session_tool_truncation_warning",
+    "format_session_tool_output",
+    "get_text_output",
+    "invalid_arg_text",
+    "normalize_display_text",
+    "render_str",
+    "replace_tabs",
+    "shorten_path",
+    # Phase 6.10b — tool definition wrapper
+    "AgentTool",
+    "create_tool_definition_from_agent_tool",
+    "wrap_tool_definition",
+    "wrap_tool_definitions",
 ]
