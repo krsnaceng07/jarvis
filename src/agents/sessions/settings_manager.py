@@ -591,14 +591,19 @@ class SettingsManager:
         ``save``
         (``settings-manager.ts:502-521``).
 
-        Phase 6.8a ships the sync save path
-        (the OpenClaw source's
-        ``enqueueWrite`` chains a Promise;
-        the Python port uses
-        ``_schedule_write`` which runs the
-        task synchronously after the
-        in-flight task).
+        The OpenClaw source calls
+        ``recomputeSettings()`` as the very
+        first step (before the load-error
+        check) so the merged ``this.settings``
+        reflects any in-memory changes to
+        ``this.globalSettings`` made by the
+        typed setters. The Python port
+        preserves that order — without it,
+        the typed setters' ``getX`` reads
+        return stale values immediately after
+        ``setX``.
         """
+        self._recompute_settings()
         if self.global_settings_load_error:
             return
         snapshot = copy.deepcopy(self.global_settings)
@@ -680,6 +685,540 @@ class SettingsManager:
         infra layer)."""
         with self._write_lock:
             task()
+
+    # ------------------------------------------------------------------
+    # Typed setters (Phase 6.8b 1:1 port)
+    # ------------------------------------------------------------------
+    # These mirror every ``getX`` / ``setX``
+    # method in the OpenClaw source's
+    # ``SettingsManager``. The Python port
+    # preserves the same default values +
+    # the same setX side-effects (mark
+    # modified + persist).
+    # ------------------------------------------------------------------
+
+    def _mark_modified(
+        self, field: str, nested_key: Optional[str] = None
+    ) -> None:
+        self.modified_fields.add(field)
+        if nested_key is not None:
+            if field not in self.modified_nested_fields:
+                self.modified_nested_fields[field] = set()
+            self.modified_nested_fields[field].add(nested_key)
+
+    def _mark_project_modified(
+        self, field: str, nested_key: Optional[str] = None
+    ) -> None:
+        self.modified_project_fields.add(field)
+        if nested_key is not None:
+            if field not in self.modified_project_nested_fields:
+                self.modified_project_nested_fields[field] = set()
+            self.modified_project_nested_fields[field].add(nested_key)
+
+    def get_last_changelog_version(self) -> Optional[str]:
+        return self.settings.get("lastChangelogVersion")
+
+    def set_last_changelog_version(self, version: str) -> None:
+        self.global_settings["lastChangelogVersion"] = version
+        self._mark_modified("lastChangelogVersion")
+        self._save()
+
+    def get_default_provider(self) -> Optional[str]:
+        return self.settings.get("defaultProvider")
+
+    def get_default_model(self) -> Optional[str]:
+        return self.settings.get("defaultModel")
+
+    def set_default_provider(self, provider: str) -> None:
+        self.global_settings["defaultProvider"] = provider
+        self._mark_modified("defaultProvider")
+        self._save()
+
+    def set_default_model(self, model_id: str) -> None:
+        self.global_settings["defaultModel"] = model_id
+        self._mark_modified("defaultModel")
+        self._save()
+
+    def set_default_model_and_provider(
+        self, provider: str, model_id: str
+    ) -> None:
+        self.global_settings["defaultProvider"] = provider
+        self.global_settings["defaultModel"] = model_id
+        self._mark_modified("defaultProvider")
+        self._mark_modified("defaultModel")
+        self._save()
+
+    def get_steering_mode(self) -> str:
+        return self.settings.get("steeringMode") or "one-at-a-time"
+
+    def set_steering_mode(self, mode: str) -> None:
+        self.global_settings["steeringMode"] = mode
+        self._mark_modified("steeringMode")
+        self._save()
+
+    def get_follow_up_mode(self) -> str:
+        return self.settings.get("followUpMode") or "one-at-a-time"
+
+    def set_follow_up_mode(self, mode: str) -> None:
+        self.global_settings["followUpMode"] = mode
+        self._mark_modified("followUpMode")
+        self._save()
+
+    def get_theme(self) -> Optional[str]:
+        return self.settings.get("theme")
+
+    def set_theme(self, theme: str) -> None:
+        self.global_settings["theme"] = theme
+        self._mark_modified("theme")
+        self._save()
+
+    def get_default_thinking_level(self) -> Optional[str]:
+        return self.settings.get("defaultThinkingLevel")
+
+    def set_default_thinking_level(self, level: str) -> None:
+        self.global_settings["defaultThinkingLevel"] = level
+        self._mark_modified("defaultThinkingLevel")
+        self._save()
+
+    def get_transport(self) -> str:
+        return self.settings.get("transport") or "auto"
+
+    def set_transport(self, transport: str) -> None:
+        self.global_settings["transport"] = transport
+        self._mark_modified("transport")
+        self._save()
+
+    def get_compaction_enabled(self) -> bool:
+        compaction = self.settings.get("compaction")
+        if compaction is None:
+            return True
+        return compaction.get("enabled", True)
+
+    def set_compaction_enabled(self, enabled: bool) -> None:
+        if not self.global_settings.get("compaction"):
+            self.global_settings["compaction"] = {}
+        self.global_settings["compaction"]["enabled"] = enabled
+        self._mark_modified("compaction", "enabled")
+        self._save()
+
+    def get_compaction_reserve_tokens(self) -> int:
+        compaction = self.settings.get("compaction")
+        if compaction is None:
+            return 16384
+        return compaction.get("reserveTokens", 16384)
+
+    def get_compaction_keep_recent_tokens(self) -> int:
+        compaction = self.settings.get("compaction")
+        if compaction is None:
+            return 20000
+        return compaction.get("keepRecentTokens", 20000)
+
+    def get_compaction_settings(self) -> dict:
+        return {
+            "enabled": self.get_compaction_enabled(),
+            "reserveTokens": self.get_compaction_reserve_tokens(),
+            "keepRecentTokens": self.get_compaction_keep_recent_tokens(),
+        }
+
+    def get_branch_summary_settings(self) -> dict:
+        branch = self.settings.get("branchSummary")
+        if branch is None:
+            return {"reserveTokens": 16384, "skipPrompt": False}
+        return {
+            "reserveTokens": branch.get("reserveTokens", 16384),
+            "skipPrompt": branch.get("skipPrompt", False),
+        }
+
+    def get_branch_summary_skip_prompt(self) -> bool:
+        branch = self.settings.get("branchSummary")
+        if branch is None:
+            return False
+        return branch.get("skipPrompt", False)
+
+    def get_retry_enabled(self) -> bool:
+        retry = self.settings.get("retry")
+        if retry is None:
+            return True
+        return retry.get("enabled", True)
+
+    def set_retry_enabled(self, enabled: bool) -> None:
+        if not self.global_settings.get("retry"):
+            self.global_settings["retry"] = {}
+        self.global_settings["retry"]["enabled"] = enabled
+        self._mark_modified("retry", "enabled")
+        self._save()
+
+    def get_retry_settings(self) -> dict:
+        retry = self.settings.get("retry")
+        if retry is None:
+            retry = {}
+        return {
+            "enabled": retry.get("enabled", True),
+            "maxRetries": retry.get("maxRetries", 3),
+            "baseDelayMs": retry.get("baseDelayMs", 2000),
+        }
+
+    def get_http_idle_timeout_ms(self) -> int:
+        # Phase 6.8a ships a thin wrapper around
+        # the http-dispatcher helper (the full
+        # LLM-side integration lands in 6.8+).
+        from .http_dispatcher import (
+            DEFAULT_HTTP_IDLE_TIMEOUT_MS,
+            parse_http_idle_timeout_ms,
+        )
+        value = self.settings.get("httpIdleTimeoutMs")
+        parsed = parse_http_idle_timeout_ms(value)
+        if parsed is not None:
+            return parsed
+        if value is not None:
+            raise RuntimeError(
+                f"Invalid httpIdleTimeoutMs setting: {value!r}"
+            )
+        return DEFAULT_HTTP_IDLE_TIMEOUT_MS
+
+    def set_http_idle_timeout_ms(self, timeout_ms: int) -> None:
+        if (
+            not isinstance(timeout_ms, (int, float))
+            or timeout_ms < 0
+            or (isinstance(timeout_ms, float) and (timeout_ms != timeout_ms))
+        ):
+            raise RuntimeError(
+                f"Invalid httpIdleTimeoutMs setting: {timeout_ms!r}"
+            )
+        self.global_settings["httpIdleTimeoutMs"] = int(timeout_ms)
+        self._mark_modified("httpIdleTimeoutMs")
+        self._save()
+
+    def get_provider_retry_settings(self) -> dict:
+        retry = self.settings.get("retry")
+        provider = (retry or {}).get("provider", {})
+        return {
+            "timeoutMs": provider.get("timeoutMs"),
+            "maxRetries": provider.get("maxRetries"),
+            "maxRetryDelayMs": provider.get("maxRetryDelayMs", 60000),
+        }
+
+    def get_hide_thinking_block(self) -> bool:
+        return bool(self.settings.get("hideThinkingBlock", False))
+
+    def set_hide_thinking_block(self, hide: bool) -> None:
+        self.global_settings["hideThinkingBlock"] = hide
+        self._mark_modified("hideThinkingBlock")
+        self._save()
+
+    def get_shell_path(self) -> Optional[str]:
+        return self.settings.get("shellPath")
+
+    def set_shell_path(self, path: Optional[str]) -> None:
+        self.global_settings["shellPath"] = path
+        self._mark_modified("shellPath")
+        self._save()
+
+    def get_quiet_startup(self) -> bool:
+        return bool(self.settings.get("quietStartup", False))
+
+    def set_quiet_startup(self, quiet: bool) -> None:
+        self.global_settings["quietStartup"] = quiet
+        self._mark_modified("quietStartup")
+        self._save()
+
+    def get_shell_command_prefix(self) -> Optional[str]:
+        return self.settings.get("shellCommandPrefix")
+
+    def set_shell_command_prefix(self, prefix: Optional[str]) -> None:
+        self.global_settings["shellCommandPrefix"] = prefix
+        self._mark_modified("shellCommandPrefix")
+        self._save()
+
+    def get_npm_command(self) -> Optional[list[str]]:
+        npm = self.settings.get("npmCommand")
+        return list(npm) if npm else None
+
+    def set_npm_command(self, command: Optional[list[str]]) -> None:
+        self.global_settings["npmCommand"] = (
+            list(command) if command else None
+        )
+        self._mark_modified("npmCommand")
+        self._save()
+
+    def get_collapse_changelog(self) -> bool:
+        return bool(self.settings.get("collapseChangelog", False))
+
+    def set_collapse_changelog(self, collapse: bool) -> None:
+        self.global_settings["collapseChangelog"] = collapse
+        self._mark_modified("collapseChangelog")
+        self._save()
+
+    def get_enable_install_telemetry(self) -> bool:
+        return bool(self.settings.get("enableInstallTelemetry", True))
+
+    def set_enable_install_telemetry(self, enabled: bool) -> None:
+        self.global_settings["enableInstallTelemetry"] = enabled
+        self._mark_modified("enableInstallTelemetry")
+        self._save()
+
+    def get_packages(self) -> list:
+        return list(self.settings.get("packages") or [])
+
+    def set_packages(self, packages: list) -> None:
+        self.global_settings["packages"] = list(packages)
+        self._mark_modified("packages")
+        self._save()
+
+    def set_project_packages(self, packages: list) -> None:
+        project = copy.deepcopy(self.project_settings)
+        project["packages"] = list(packages)
+        self._mark_project_modified("packages")
+        self._save_project_settings(project)
+
+    def get_extension_paths(self) -> list[str]:
+        return list(self.settings.get("extensions") or [])
+
+    def set_extension_paths(self, paths: list[str]) -> None:
+        self.global_settings["extensions"] = list(paths)
+        self._mark_modified("extensions")
+        self._save()
+
+    def set_project_extension_paths(self, paths: list[str]) -> None:
+        project = copy.deepcopy(self.project_settings)
+        project["extensions"] = list(paths)
+        self._mark_project_modified("extensions")
+        self._save_project_settings(project)
+
+    def get_skill_paths(self) -> list[str]:
+        return list(self.settings.get("skills") or [])
+
+    def set_skill_paths(self, paths: list[str]) -> None:
+        self.global_settings["skills"] = list(paths)
+        self._mark_modified("skills")
+        self._save()
+
+    def set_project_skill_paths(self, paths: list[str]) -> None:
+        project = copy.deepcopy(self.project_settings)
+        project["skills"] = list(paths)
+        self._mark_project_modified("skills")
+        self._save_project_settings(project)
+
+    def get_prompt_template_paths(self) -> list[str]:
+        return list(self.settings.get("prompts") or [])
+
+    def set_prompt_template_paths(self, paths: list[str]) -> None:
+        self.global_settings["prompts"] = list(paths)
+        self._mark_modified("prompts")
+        self._save()
+
+    def set_project_prompt_template_paths(self, paths: list[str]) -> None:
+        project = copy.deepcopy(self.project_settings)
+        project["prompts"] = list(paths)
+        self._mark_project_modified("prompts")
+        self._save_project_settings(project)
+
+    def get_theme_paths(self) -> list[str]:
+        return list(self.settings.get("themes") or [])
+
+    def set_theme_paths(self, paths: list[str]) -> None:
+        self.global_settings["themes"] = list(paths)
+        self._mark_modified("themes")
+        self._save()
+
+    def set_project_theme_paths(self, paths: list[str]) -> None:
+        project = copy.deepcopy(self.project_settings)
+        project["themes"] = list(paths)
+        self._mark_project_modified("themes")
+        self._save_project_settings(project)
+
+    def get_enable_skill_commands(self) -> bool:
+        return bool(self.settings.get("enableSkillCommands", True))
+
+    def set_enable_skill_commands(self, enabled: bool) -> None:
+        self.global_settings["enableSkillCommands"] = enabled
+        self._mark_modified("enableSkillCommands")
+        self._save()
+
+    def get_thinking_budgets(self) -> Optional[dict]:
+        return self.settings.get("thinkingBudgets")
+
+    def get_show_images(self) -> bool:
+        terminal = self.settings.get("terminal")
+        if terminal is None:
+            return True
+        return terminal.get("showImages", True)
+
+    def set_show_images(self, show: bool) -> None:
+        if not self.global_settings.get("terminal"):
+            self.global_settings["terminal"] = {}
+        self.global_settings["terminal"]["showImages"] = show
+        self._mark_modified("terminal", "showImages")
+        self._save()
+
+    def get_image_width_cells(self) -> int:
+        from .http_dispatcher import resolve_integer_option
+        terminal = self.settings.get("terminal")
+        if terminal is None:
+            return 60
+        return resolve_integer_option(
+            terminal.get("imageWidthCells"), 60, {"min": 1}
+        )
+
+    def set_image_width_cells(self, width: int) -> None:
+        if not self.global_settings.get("terminal"):
+            self.global_settings["terminal"] = {}
+        self.global_settings["terminal"]["imageWidthCells"] = max(
+            1, int(width)
+        )
+        self._mark_modified("terminal", "imageWidthCells")
+        self._save()
+
+    def get_clear_on_shrink(self) -> bool:
+        terminal = self.settings.get("terminal")
+        if terminal is None:
+            return False
+        return terminal.get("clearOnShrink", False)
+
+    def set_clear_on_shrink(self, enabled: bool) -> None:
+        if not self.global_settings.get("terminal"):
+            self.global_settings["terminal"] = {}
+        self.global_settings["terminal"]["clearOnShrink"] = enabled
+        self._mark_modified("terminal", "clearOnShrink")
+        self._save()
+
+    def get_show_terminal_progress(self) -> bool:
+        terminal = self.settings.get("terminal")
+        if terminal is None:
+            return False
+        return terminal.get("showTerminalProgress", False)
+
+    def set_show_terminal_progress(self, enabled: bool) -> None:
+        if not self.global_settings.get("terminal"):
+            self.global_settings["terminal"] = {}
+        self.global_settings["terminal"]["showTerminalProgress"] = enabled
+        self._mark_modified("terminal", "showTerminalProgress")
+        self._save()
+
+    def get_image_auto_resize(self) -> bool:
+        images = self.settings.get("images")
+        if images is None:
+            return True
+        return images.get("autoResize", True)
+
+    def set_image_auto_resize(self, enabled: bool) -> None:
+        if not self.global_settings.get("images"):
+            self.global_settings["images"] = {}
+        self.global_settings["images"]["autoResize"] = enabled
+        self._mark_modified("images", "autoResize")
+        self._save()
+
+    def get_block_images(self) -> bool:
+        images = self.settings.get("images")
+        if images is None:
+            return False
+        return images.get("blockImages", False)
+
+    def set_block_images(self, blocked: bool) -> None:
+        if not self.global_settings.get("images"):
+            self.global_settings["images"] = {}
+        self.global_settings["images"]["blockImages"] = blocked
+        self._mark_modified("images", "blockImages")
+        self._save()
+
+    def get_enabled_models(self) -> Optional[list[str]]:
+        return self.settings.get("enabledModels")
+
+    def set_enabled_models(self, patterns: Optional[list[str]]) -> None:
+        self.global_settings["enabledModels"] = (
+            list(patterns) if patterns else None
+        )
+        self._mark_modified("enabledModels")
+        self._save()
+
+    def get_double_escape_action(self) -> str:
+        return self.settings.get("doubleEscapeAction") or "tree"
+
+    def set_double_escape_action(self, action: str) -> None:
+        self.global_settings["doubleEscapeAction"] = action
+        self._mark_modified("doubleEscapeAction")
+        self._save()
+
+    def get_tree_filter_mode(self) -> str:
+        mode = self.settings.get("treeFilterMode")
+        if mode in ("default", "no-tools", "user-only", "labeled-only", "all"):
+            return mode
+        return "default"
+
+    def set_tree_filter_mode(self, mode: str) -> None:
+        self.global_settings["treeFilterMode"] = mode
+        self._mark_modified("treeFilterMode")
+        self._save()
+
+    def get_show_hardware_cursor(self) -> bool:
+        return bool(self.settings.get("showHardwareCursor", False))
+
+    def set_show_hardware_cursor(self, enabled: bool) -> None:
+        self.global_settings["showHardwareCursor"] = enabled
+        self._mark_modified("showHardwareCursor")
+        self._save()
+
+    def get_editor_padding_x(self) -> int:
+        return int(self.settings.get("editorPaddingX", 0))
+
+    def set_editor_padding_x(self, padding: int) -> None:
+        self.global_settings["editorPaddingX"] = max(
+            0, min(3, int(padding))
+        )
+        self._mark_modified("editorPaddingX")
+        self._save()
+
+    def get_autocomplete_max_visible(self) -> int:
+        return int(self.settings.get("autocompleteMaxVisible", 5))
+
+    def set_autocomplete_max_visible(self, max_visible: int) -> None:
+        self.global_settings["autocompleteMaxVisible"] = max(
+            3, min(20, int(max_visible))
+        )
+        self._mark_modified("autocompleteMaxVisible")
+        self._save()
+
+    def get_code_block_indent(self) -> str:
+        markdown = self.settings.get("markdown")
+        if markdown is None:
+            return "  "
+        return markdown.get("codeBlockIndent", "  ")
+
+    def get_warnings(self) -> dict:
+        return dict(self.settings.get("warnings") or {})
+
+    def set_warnings(self, warnings: dict) -> None:
+        self.global_settings["warnings"] = dict(warnings)
+        self._mark_modified("warnings")
+        self._save()
+
+    def _save_project_settings(self, project: Settings) -> None:
+        """Persist the project-scope settings.
+        Mirrors ``saveProjectSettings``
+        (``settings-manager.ts:523-542``).
+
+        OpenClaw assigns the new project
+        settings to ``this.projectSettings``
+        (deep-clone) + recomputes the merged
+        settings BEFORE the load-error check.
+        The Python port preserves that order.
+        """
+        self.project_settings = copy.deepcopy(project)
+        self._recompute_settings()
+        if self.project_settings_load_error:
+            return
+        snapshot = copy.deepcopy(self.project_settings)
+        modified_fields = set(self.modified_project_fields)
+        modified_nested = {
+            k: set(v) for k, v in self.modified_project_nested_fields.items()
+        }
+        def _task() -> None:
+            self._persist_scoped_settings(
+                "project", snapshot, modified_fields, modified_nested
+            )
+        self._schedule_write("project", _task)
+        self.modified_project_fields.clear()
+        self.modified_project_nested_fields.clear()
 
 
 __all__ = [
