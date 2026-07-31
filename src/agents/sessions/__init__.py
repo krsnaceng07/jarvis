@@ -166,6 +166,18 @@ from .model_registry_loader import (
     LoadAgentModelRegistryOptions,
     load_agent_model_registry,
 )
+from .model_resolver import (
+    InitialModelResult,
+    ParsedModelResult,
+    ResolveCliModelResult,
+    ScopedModel,
+    VALID_THINKING_LEVELS,
+    find_exact_model_reference_match,
+    find_initial_model,
+    parse_model_pattern,
+    resolve_cli_model,
+    resolve_model_scope,
+)
 from .session_manager_file import (
     LoadedSessionFile,
     MAX_CACHED_SESSION_BYTES,
@@ -375,6 +387,17 @@ __all__ = [
     # model_registry_loader
     "LoadAgentModelRegistryOptions",
     "load_agent_model_registry",
+    # model_resolver (Phase 6.7c 1:1 port)
+    "InitialModelResult",
+    "ParsedModelResult",
+    "ResolveCliModelResult",
+    "ScopedModel",
+    "VALID_THINKING_LEVELS",
+    "find_exact_model_reference_match",
+    "find_initial_model",
+    "parse_model_pattern",
+    "resolve_cli_model",
+    "resolve_model_scope",
     # session_manager_file
     "LoadedSessionFile",
     "MAX_CACHED_SESSION_BYTES",

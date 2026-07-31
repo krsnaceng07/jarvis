@@ -36,7 +36,22 @@ ThinkingLevel = Literal[
 DEFAULT_THINKING_LEVEL: ThinkingLevel = "medium"
 
 
+#: Mirrors ``DEFAULT_PROVIDER``
+#: (``openclaw-main/src/agents/defaults.ts:3``).
+#: Phase 6.7c re-uses this for the
+#: model-resolver's "no model found" fallback
+#: selection.
+DEFAULT_PROVIDER: str = "openai"
+
+
+#: Mirrors ``DEFAULT_MODEL``
+#: (``openclaw-main/src/agents/defaults.ts:4``).
+DEFAULT_MODEL: str = "gpt-5.6-sol"
+
+
 __all__ = [
+    "DEFAULT_MODEL",
+    "DEFAULT_PROVIDER",
     "DEFAULT_THINKING_LEVEL",
     "ThinkingLevel",
 ]
