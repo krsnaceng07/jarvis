@@ -294,6 +294,21 @@ class NewSessionOptions(TypedDict, total=False):
     withSession: Callable[["ReplacedSessionContext"], Awaitable[None]]
 
 
+class ExtensionCommandContext(ExtensionContext, total=False):
+    """Extended context for command handlers.
+    Mirrors ``ExtensionCommandContext``
+    (``extensions/types.ts:382-421``)."""
+
+    waitForIdle: Callable[[], Awaitable[None]]
+    newSession: Callable[
+        [Optional[NewSessionOptions]], Awaitable[dict]
+    ]
+    fork: Callable[[str, Optional[ForkOptions]], Awaitable[dict]]
+    navigateTree: Callable[[str, Optional[NavigateTreeOptions]], Awaitable[dict]]
+    switchSession: Callable[[str, Optional[SwitchSessionOptions]], Awaitable[dict]]
+    reload: Callable[[], Awaitable[None]]
+
+
 class ForkOptions(TypedDict, total=False):
     position: str  # "before" | "at"
     withSession: Callable[["ReplacedSessionContext"], Awaitable[None]]
@@ -1104,6 +1119,22 @@ class ExtensionError(TypedDict, total=False):
     stack: str
 
 
+#: Error listener type (the OpenClaw source
+#: declares it in ``runner.ts:163``; the
+#: Python port keeps the alias in the
+#: ``runner`` module to match the
+#: OpenClaw module split).
+ExtensionErrorListener = Callable[["ExtensionError"], None]
+
+
+#: Shutdown handler type (the OpenClaw source
+#: declares it in ``runner.ts:196``; the
+#: Python port keeps the alias in the
+#: ``runner`` module to match the
+#: OpenClaw module split).
+ShutdownHandler = Callable[[], None]
+
+
 # ============================================================================
 # Type Guards
 # ============================================================================
@@ -1195,6 +1226,7 @@ __all__ = [
     "Extension",
     "ExtensionActions",
     "ExtensionAPI",
+    "ExtensionCommandContext",
     "ExtensionCommandContextActions",
     "ExtensionContext",
     "ExtensionContextActions",
