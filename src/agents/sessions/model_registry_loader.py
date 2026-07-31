@@ -84,15 +84,17 @@ def _discover_models(
     ``discoverModels``
     (``openclaw-main/src/agents/agent-model-discovery.ts``).
 
-    Phase 6.7a returns an empty
-    :class:`ModelRegistry`; the full model
-    discovery (built-in + plugin-published
-    providers + custom models.json) lands in
+    Phase 6.7b returns a real
+    :class:`ModelRegistry` (with the
+    full ``models.json`` loader). The
+    built-in + plugin-published providers
+    + the model-discovery context land in
     Phase 6.7+."""
+    workspace_dir = options.get("workspaceDir")
     return ModelRegistry.create(
-        cwd=options.get("cwd", os.getcwd()),
-        agent_dir=agent_dir,
         auth_storage=auth_storage,
+        models_json_path=os.path.join(agent_dir, "models.json"),
+        options={"workspaceDir": workspace_dir} if workspace_dir else {},
     )
 
 

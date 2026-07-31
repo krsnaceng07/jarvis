@@ -146,7 +146,22 @@ from .model_registry_runtime import (
     initialize_model_registry_runtime,
     reset_model_registry_runtime,
 )
-from .model_registry import ConfiguredModel, ModelDefinition, ModelRegistry
+from .model_registry import (
+    Api,
+    AssistantMessageEventStreamContract,
+    ConfiguredModel,
+    Context,
+    CustomModelsResult,
+    Model,
+    ModelDefinition,
+    ModelRegistry,
+    ProviderAuthMode,
+    ProviderConfigInput,
+    ProviderRequestConfig,
+    ResolvedRequestAuth,
+    SimpleStreamOptions,
+    clear_api_key_cache,
+)
 from .model_registry_loader import (
     LoadAgentModelRegistryOptions,
     load_agent_model_registry,
@@ -345,6 +360,18 @@ __all__ = [
     "ConfiguredModel",
     "ModelDefinition",
     "ModelRegistry",
+    # model_registry core (Phase 6.7b 1:1 port)
+    "Api",
+    "AssistantMessageEventStreamContract",
+    "Context",
+    "CustomModelsResult",
+    "Model",
+    "ProviderAuthMode",
+    "ProviderConfigInput",
+    "ProviderRequestConfig",
+    "ResolvedRequestAuth",
+    "SimpleStreamOptions",
+    "clear_api_key_cache",
     # model_registry_loader
     "LoadAgentModelRegistryOptions",
     "load_agent_model_registry",
