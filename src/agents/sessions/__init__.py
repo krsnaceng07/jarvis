@@ -138,6 +138,19 @@ from .auth_storage_oauth_registry import (
     OAuthProviderRegistry,
     get_auth_storage_oauth_provider_registry,
 )
+from .model_registry_runtime import (
+    ApiRegistry,
+    LlmRuntime,
+    ModelRegistryRuntime,
+    get_model_registry_runtime,
+    initialize_model_registry_runtime,
+    reset_model_registry_runtime,
+)
+from .model_registry import ConfiguredModel, ModelDefinition, ModelRegistry
+from .model_registry_loader import (
+    LoadAgentModelRegistryOptions,
+    load_agent_model_registry,
+)
 from .session_manager_file import (
     LoadedSessionFile,
     MAX_CACHED_SESSION_BYTES,
@@ -321,6 +334,20 @@ __all__ = [
     # auth_storage_oauth_registry
     "OAuthProviderRegistry",
     "get_auth_storage_oauth_provider_registry",
+    # model_registry_runtime
+    "ApiRegistry",
+    "LlmRuntime",
+    "ModelRegistryRuntime",
+    "get_model_registry_runtime",
+    "initialize_model_registry_runtime",
+    "reset_model_registry_runtime",
+    # model_registry (facade — Phase 6.7a minimal)
+    "ConfiguredModel",
+    "ModelDefinition",
+    "ModelRegistry",
+    # model_registry_loader
+    "LoadAgentModelRegistryOptions",
+    "load_agent_model_registry",
     # session_manager_file
     "LoadedSessionFile",
     "MAX_CACHED_SESSION_BYTES",
