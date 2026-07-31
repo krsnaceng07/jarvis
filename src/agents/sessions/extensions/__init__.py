@@ -8,14 +8,23 @@ extension system. This barrel re-exports the
 ``ExtensionRunner`` + ``ExtensionAPI`` + event /
 result / tool / command / shortcut / flag types
 + the loader helpers (``createExtensionRuntime``,
-``loadExtensionFromFactory``) + the
+``loadExtensionFromFactory``, ``loadExtensionsCached``,
+``clearExtensionCache``) + the
 ``wrapRegisteredTools`` helper. The actual
 ``loadExtensionsCached`` + ``createExtensionRuntime``
-+ ``loadExtensionFromFactory`` implementations land
-in Phase 6.9c (``loader.py``).
++ ``loadExtensionFromFactory`` implementations live
+in ``loader.py``.
 """
 from __future__ import annotations
 
+from .loader import (
+    EXTENSION_VIRTUAL_MODULES,
+    clear_extension_cache,
+    create_extension_runtime,
+    load_extension_from_factory,
+    load_extensions_cached,
+)
+from .runner import ExtensionRunner
 from .types import (
     AbortSignal,
     AgentEndEvent,
@@ -143,6 +152,7 @@ from .types import (
     is_tool_call_event_type,
     is_write_tool_result,
 )
+from .wrapper import wrap_registered_tool, wrap_registered_tools
 
 
 __all__ = [
@@ -181,6 +191,7 @@ __all__ = [
     "ExtensionFlag",
     "ExtensionHandler",
     "ExtensionRuntime",
+    "ExtensionRunner",
     "ExtensionShortcut",
     "ExtensionUIDialogOptions",
     "ExtensionUIContext",
@@ -262,6 +273,8 @@ __all__ = [
     "UserBashEventResult",
     "WidgetPlacement",
     "WorkingIndicatorOptions",
+    "clear_extension_cache",
+    "create_extension_runtime",
     "define_tool",
     "is_bash_tool_result",
     "is_edit_tool_result",
@@ -271,4 +284,8 @@ __all__ = [
     "is_read_tool_result",
     "is_tool_call_event_type",
     "is_write_tool_result",
+    "load_extension_from_factory",
+    "load_extensions_cached",
+    "wrap_registered_tool",
+    "wrap_registered_tools",
 ]
