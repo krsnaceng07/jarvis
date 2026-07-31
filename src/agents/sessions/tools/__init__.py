@@ -135,6 +135,44 @@ from .edit import (
     edit_file,
 )
 
+# Phase 6.10d — search + bash
+from .bash_operations import (
+    BashExecOptions,
+    BashOperations,
+    OnData,
+)
+from .bash import (
+    DEFAULT_BASH_TIMEOUT_MS,
+    create_bash_tool,
+    create_bash_tool_definition,
+    create_local_bash_operations,
+    execute_bash,
+    resolve_bash_timeout_ms,
+)
+from .find import (
+    DEFAULT_IGNORE_PATTERNS,
+    DEFAULT_LIMIT as FIND_DEFAULT_LIMIT,
+    FindOperations,
+    create_find_tool,
+    create_find_tool_definition,
+    find_files,
+)
+from .grep import (
+    DEFAULT_CONTEXT,
+    DEFAULT_LIMIT as GREP_DEFAULT_LIMIT,
+    GrepOperations,
+    create_grep_tool,
+    create_grep_tool_definition,
+    grep_files,
+)
+from .ls import (
+    DEFAULT_LIMIT as LS_DEFAULT_LIMIT,
+    LsOperations,
+    create_ls_tool,
+    create_ls_tool_definition,
+    list_directory,
+)
+
 
 __all__ = [
     # Phase 6.10a — tool contracts
@@ -226,4 +264,35 @@ __all__ = [
     "create_edit_tool",
     "create_edit_tool_definition",
     "edit_file",
+    # Phase 6.10d — bash operations
+    "BashExecOptions",
+    "BashOperations",
+    "OnData",
+    # Phase 6.10d — bash
+    "DEFAULT_BASH_TIMEOUT_MS",
+    "create_bash_tool",
+    "create_bash_tool_definition",
+    "create_local_bash_operations",
+    "execute_bash",
+    "resolve_bash_timeout_ms",
+    # Phase 6.10d — find
+    "DEFAULT_IGNORE_PATTERNS",
+    "FIND_DEFAULT_LIMIT",
+    "FindOperations",
+    "create_find_tool",
+    "create_find_tool_definition",
+    "find_files",
+    # Phase 6.10d — grep
+    "DEFAULT_CONTEXT",
+    "GREP_DEFAULT_LIMIT",
+    "GrepOperations",
+    "create_grep_tool",
+    "create_grep_tool_definition",
+    "grep_files",
+    # Phase 6.10d — ls
+    "LS_DEFAULT_LIMIT",
+    "LsOperations",
+    "create_ls_tool",
+    "create_ls_tool_definition",
+    "list_directory",
 ]
