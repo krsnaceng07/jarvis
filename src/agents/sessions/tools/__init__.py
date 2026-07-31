@@ -94,6 +94,47 @@ from .tool_definition_wrapper import (
     wrap_tool_definitions,
 )
 
+# Phase 6.10c — file ops
+from .edit_diff import (
+    EDIT_CANDIDATE_LIMIT,
+    EDIT_CANDIDATE_MAX_LINES,
+    EDIT_CANDIDATE_MAX_SCAN_CHARS,
+    EDIT_CANDIDATE_MAX_LINE_CHARS,
+    EDIT_CANDIDATE_MIN_SCORE,
+    Edit as EditOp,
+    EditNoChangeError,
+    apply_edits,
+    count_occurrences,
+    create_unified_patch,
+    detect_line_ending,
+    fuzzy_find_text,
+    levenshtein_distance,
+    normalize_for_fuzzy_match,
+    normalize_to_lf,
+    restore_line_endings,
+    strip_bom,
+)
+from .file_mutation_queue import with_file_mutation_queue
+from .read import (
+    IMAGE_MIME_TYPES,
+    create_read_tool,
+    create_read_tool_definition,
+    detect_image_mime_type,
+    read_image_file,
+    read_text_file,
+)
+from .write import (
+    create_write_tool,
+    create_write_tool_definition,
+    write_file,
+)
+from .edit import (
+    EditResult,
+    create_edit_tool,
+    create_edit_tool_definition,
+    edit_file,
+)
+
 
 __all__ = [
     # Phase 6.10a — tool contracts
@@ -149,4 +190,40 @@ __all__ = [
     "create_tool_definition_from_agent_tool",
     "wrap_tool_definition",
     "wrap_tool_definitions",
+    # Phase 6.10c — edit diff engine
+    "EDIT_CANDIDATE_LIMIT",
+    "EDIT_CANDIDATE_MAX_LINES",
+    "EDIT_CANDIDATE_MAX_SCAN_CHARS",
+    "EDIT_CANDIDATE_MAX_LINE_CHARS",
+    "EDIT_CANDIDATE_MIN_SCORE",
+    "EditNoChangeError",
+    "EditOp",
+    "apply_edits",
+    "count_occurrences",
+    "create_unified_patch",
+    "detect_line_ending",
+    "fuzzy_find_text",
+    "levenshtein_distance",
+    "normalize_for_fuzzy_match",
+    "normalize_to_lf",
+    "restore_line_endings",
+    "strip_bom",
+    # Phase 6.10c — file mutation queue
+    "with_file_mutation_queue",
+    # Phase 6.10c — read
+    "IMAGE_MIME_TYPES",
+    "create_read_tool",
+    "create_read_tool_definition",
+    "detect_image_mime_type",
+    "read_image_file",
+    "read_text_file",
+    # Phase 6.10c — write
+    "create_write_tool",
+    "create_write_tool_definition",
+    "write_file",
+    # Phase 6.10c — edit
+    "EditResult",
+    "create_edit_tool",
+    "create_edit_tool_definition",
+    "edit_file",
 ]

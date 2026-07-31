@@ -21,9 +21,9 @@ Adaptations
   the small helper functions.
 - The OpenClaw source's ``Edit`` import
   from ``./edit-diff.js`` is replaced with
-  a forward reference (the ``Edit``
-  dataclass lands in Phase 6.10c with
-  ``tools/edit_diff.py``).
+  a re-export from the Phase 6.10c
+  ``edit_diff`` module (``Edit = dict``
+  re-exported as ``EditOp`` in this package).
 """
 from __future__ import annotations
 
@@ -31,12 +31,14 @@ from typing import Any, Optional, TypedDict
 
 
 # ============================================================================
-# Forward references (Phase 6.10c lands the real shapes)
+# Re-exports (Phase 6.10c lands the real shapes)
 # ============================================================================
 
 
 #: Edit operation shape (Phase 6.10c).
-Edit = Any
+#: Re-exported from :mod:`edit_diff` for the
+#: ``EditToolInput.edits`` field type.
+Edit = dict  # see ``EditOp`` re-export in :mod:`__init__`
 
 
 # ============================================================================
