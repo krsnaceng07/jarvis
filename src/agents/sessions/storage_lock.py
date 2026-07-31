@@ -119,16 +119,28 @@ def _try_acquire_windows(path: str) -> UnlockFn | None:
     works against itself and ``fcntl``-equivalent
     ``flock`` locks on the same file when the file
     is opened with the same sharing mode.
+
+    Phase 6.6 fix: the file is opened via
+    Python's built-in :func:`open` (which uses
+    ``FILE_SHARE_READ | FILE_SHARE_WRITE |
+    FILE_SHARE_DELETE`` on Windows) so other
+    file handles (e.g. the auth-storage
+    read-then-write under the lock) can
+    re-open the file. The raw :func:`os.open`
+    call would open the file with no sharing
+    mode, which would prevent other file
+    handles from reading the file.
     """
     import msvcrt
 
-    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o644)
+    f = open(path, "r+b" if os.path.exists(path) else "w+b")
+    fd = f.fileno()
     try:
         # Lock 1 byte at offset 0. ``LK_NBLCK`` fails
         # immediately if the lock is held.
         msvcrt.locking(fd, msvcrt.LK_NBLCK, 1)
     except OSError as exc:
-        os.close(fd)
+        f.close()
         # ``LockViolation`` (13) and ``IOError`` map
         # to "already locked" on Windows.
         if getattr(exc, "winerror", None) in (33, 36) or exc.errno in (
@@ -140,6 +152,7 @@ def _try_acquire_windows(path: str) -> UnlockFn | None:
         raise
 
     unlocked = [False]
+    file_obj = f
 
     def unlock() -> None:
         if unlocked[0]:
@@ -151,7 +164,9 @@ def _try_acquire_windows(path: str) -> UnlockFn | None:
         except OSError:
             pass
         finally:
-            os.close(fd)
+            # Close the file object (which also
+            # closes the underlying fd).
+            file_obj.close()
 
     return unlock
 

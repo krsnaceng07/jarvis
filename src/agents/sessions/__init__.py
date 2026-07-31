@@ -118,6 +118,26 @@ from .session_manager_persistence import SessionManagerPersistence
 from .session_manager_entries import SessionManagerEntries
 from .session_manager_branching import SessionManagerBranching
 from .session_manager import ReadonlySessionManager, SessionManager
+from .auth_storage import (
+    ApiKeyCredential,
+    AuthCredential,
+    AuthStatus,
+    AuthStorage,
+    AuthStorageBackend,
+    AuthStorageData,
+    AuthStoragePersistenceError,
+    FileAuthStorageBackend,
+    InMemoryAuthStorageBackend,
+    OAuthCredential,
+    OAuthCredentials,
+    OAuthProviderId,
+    find_env_keys,
+    get_env_api_key,
+)
+from .auth_storage_oauth_registry import (
+    OAuthProviderRegistry,
+    get_auth_storage_oauth_provider_registry,
+)
 from .session_manager_file import (
     LoadedSessionFile,
     MAX_CACHED_SESSION_BYTES,
@@ -283,6 +303,24 @@ __all__ = [
     # session_manager (facade)
     "SessionManager",
     "ReadonlySessionManager",
+    # auth_storage
+    "ApiKeyCredential",
+    "AuthCredential",
+    "AuthStatus",
+    "AuthStorage",
+    "AuthStorageBackend",
+    "AuthStorageData",
+    "AuthStoragePersistenceError",
+    "FileAuthStorageBackend",
+    "InMemoryAuthStorageBackend",
+    "OAuthCredential",
+    "OAuthCredentials",
+    "OAuthProviderId",
+    "find_env_keys",
+    "get_env_api_key",
+    # auth_storage_oauth_registry
+    "OAuthProviderRegistry",
+    "get_auth_storage_oauth_provider_registry",
     # session_manager_file
     "LoadedSessionFile",
     "MAX_CACHED_SESSION_BYTES",
