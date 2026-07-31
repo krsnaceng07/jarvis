@@ -117,6 +117,7 @@ from .session_manager_core import SessionManagerCore, SqliteSessionManagerPersis
 from .session_manager_persistence import SessionManagerPersistence
 from .session_manager_entries import SessionManagerEntries
 from .session_manager_branching import SessionManagerBranching
+from .session_manager import ReadonlySessionManager, SessionManager
 from .session_manager_file import (
     LoadedSessionFile,
     MAX_CACHED_SESSION_BYTES,
@@ -279,6 +280,9 @@ __all__ = [
     "SessionManagerEntries",
     # session_manager_branching
     "SessionManagerBranching",
+    # session_manager (facade)
+    "SessionManager",
+    "ReadonlySessionManager",
     # session_manager_file
     "LoadedSessionFile",
     "MAX_CACHED_SESSION_BYTES",
