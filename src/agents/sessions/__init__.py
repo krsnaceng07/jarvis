@@ -178,6 +178,16 @@ from .model_resolver import (
     resolve_cli_model,
     resolve_model_scope,
 )
+from .settings_manager import (
+    CONFIG_DIR_NAME,
+    FileSettingsStorage,
+    InMemorySettingsStorage,
+    Settings,
+    SettingsError,
+    SettingsManager,
+    SettingsScope,
+    SettingsStorage,
+)
 from .session_manager_file import (
     LoadedSessionFile,
     MAX_CACHED_SESSION_BYTES,
@@ -398,6 +408,15 @@ __all__ = [
     "parse_model_pattern",
     "resolve_cli_model",
     "resolve_model_scope",
+    # settings_manager (Phase 6.8a foundation)
+    "CONFIG_DIR_NAME",
+    "FileSettingsStorage",
+    "InMemorySettingsStorage",
+    "Settings",
+    "SettingsError",
+    "SettingsManager",
+    "SettingsScope",
+    "SettingsStorage",
     # session_manager_file
     "LoadedSessionFile",
     "MAX_CACHED_SESSION_BYTES",
