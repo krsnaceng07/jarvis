@@ -255,6 +255,13 @@ class AgentSessionBase:
     # Last assistant message tracking
     last_assistant_message: Optional[AssistantMessage]
     last_run_ended_for_turn_handoff: bool
+    # Pending bash-execution messages
+    # (deferred while the agent is
+    # streaming; flushed on agent_end).
+    pending_bash_messages: list[BashExecutionMessage]
+    # Bash + retry abort controllers.
+    bash_abort_controller: Optional[Any]
+    retry_abort_controller: Optional[Any]
     # Prompting state (set by the
     # prompting / execution / model
     # subclasses).
@@ -268,6 +275,8 @@ class AgentSessionBase:
     # models subclass).
     steering_mode: str  # "all" | "one-at-a-time"
     follow_up_mode: str  # "all" | "one-at-a-time"
+    # Retry state.
+    retry_count: int
 
     def __init__(self, config: AgentSessionConfig) -> None:
         """Bind the session to the agent +
@@ -361,6 +370,68 @@ class AgentSessionBase:
         the ``modelRegistry`` getter
         (``agent-session-base.ts:151-154``)."""
         return self.session_model_registry
+
+    # ------------------------------------------------------------------
+    # Read-only state access (mirrors
+    # agent-session-base.ts:586-716)
+    # ------------------------------------------------------------------
+
+    @property
+    def state(self) -> Any:
+        """Full agent state. Mirrors the
+        ``state`` getter
+        (``agent-session-base.ts:586-588``)."""
+        return self.agent.state
+
+    @property
+    def messages(self) -> list:
+        """All messages including custom
+        types like BashExecutionMessage.
+        Mirrors the ``messages`` getter
+        (``agent-session-base.ts:689-691``)."""
+        state = self.agent.state
+        if isinstance(state, dict):
+            return state.get("messages", [])
+        return getattr(state, "messages", [])
+
+    @property
+    def session_file(self) -> Optional[str]:
+        """Current session file path, or
+        ``None`` when sessions are
+        disabled. Mirrors the
+        ``sessionFile`` getter
+        (``agent-session-base.ts:704-706``)."""
+        getter = getattr(self.session_manager, "get_session_file", None)
+        if callable(getter):
+            value: Any = getter()
+            if value is not None:
+                return str(value)
+        return None
+
+    @property
+    def session_id(self) -> str:
+        """Current session ID. Mirrors the
+        ``sessionId`` getter
+        (``agent-session-base.ts:709-711``)."""
+        getter = getattr(self.session_manager, "get_session_id", None)
+        if callable(getter):
+            value: Any = getter()
+            if value is not None:
+                return str(value)
+        return ""
+
+    @property
+    def session_name(self) -> Optional[str]:
+        """Current session display name, or
+        ``None`` when not set. Mirrors the
+        ``sessionName`` getter
+        (``agent-session-base.ts:714-716``)."""
+        getter = getattr(self.session_manager, "get_session_name", None)
+        if callable(getter):
+            value: Any = getter()
+            if value is not None:
+                return str(value)
+        return None
 
     # ------------------------------------------------------------------
     # Auth helpers (used by the prompting
