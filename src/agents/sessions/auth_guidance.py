@@ -1,133 +1,103 @@
-"""jarvis.agents.sessions.auth_guidance — user-facing auth guidance.
+"""jarvis.agents.sessions.auth_guidance — auth guidance message formatters.
 
-OpenClaw parity: mirrors
+OpenClaw parity: mirrors the ``formatNoApiKeyFoundMessage`` +
+``formatNoModelSelectedMessage`` helpers
+in
 ``openclaw-main/src/agents/sessions/auth-guidance.ts``.
 
-Uses docs paths instead of provider-specific
-instructions so guidance stays correct across
-OAuth / API-key providers.
-
-Parity
-======
-- ``format_no_models_available_message() -> str``
-  (``auth-guidance.ts:21-23``).
-- ``format_no_model_selected_message() -> str``
-  (``auth-guidance.ts:26-28``).
-- ``format_no_api_key_found_message(provider) -> str``
-  (``auth-guidance.ts:31-34``) — special-cases the
-  ``"unknown"`` provider to use the phrase
-  ``"the selected model"`` (matches the OpenClaw
-  constant).
-- ``get_provider_login_help()`` — the shared helper
-  that returns the standard login help block
-  (``auth-guidance.ts:12-18``).
-
-Phase 6.0 — scaffolding + helpers + small types.
-
-Adaptations
------------
-- The OpenClaw source uses ``getDocsPath()`` from
-  ``../config.js`` to build the docs URLs. The
-  Python port introduces a ``_get_docs_path()``
-  helper that returns the JARVIS docs root
-  (``<workspace>/docs/``). Later phases can swap
-  the helper for the real OpenClaw-style config
-  resolver.
-- The env override for the docs path is
-  ``OPENCLAW_DOCS_PATH`` (matches the OpenClaw
-  convention).
+Phase 6.12c — STUB. The OpenClaw source
+builds a richer message (with hints
+about the env var to set, the OAuth
+flow to use, etc.). The Python port
+returns a simple one-line string; the
+full guidance lands in Phase 6.13.
 """
 from __future__ import annotations
 
-import os
-from pathlib import Path
 
-#: Sentinel provider name that means "no provider
-#: selected yet". Mirrors ``UNKNOWN_PROVIDER``
-#: (``auth-guidance.ts:9``).
+#: Sentinel for "no provider specified".
+#: Mirrors the OpenClaw source's
+#: ``UNKNOWN_PROVIDER`` constant.
 UNKNOWN_PROVIDER = "unknown"
 
 
-def _get_docs_path() -> Path:
-    """Return the docs directory used for help URLs.
+def format_no_api_key_found_message(provider: str) -> str:
+    """Build the user-facing message when
+    the model registry has no API key
+    for ``provider``.
 
-    Mirrors ``getDocsPath`` from
-    ``openclaw-main/src/agents/config.js`` (Phase 6.x
-    — the JARVIS port introduces this helper in
-    Phase 6.0 so the messages are correct even before
-    the full settings manager lands).
+    Mirrors ``formatNoApiKeyFoundMessage``
+    (``auth-guidance.ts``).
 
-    Override with the ``OPENCLAW_DOCS_PATH`` env var
-    (CI / packaged launcher control). Default: the
-    ``docs/`` directory under the workspace root.
+    The OpenClaw source special-cases the
+    ``UNKNOWN_PROVIDER`` sentinel: when
+    no provider is selected, the message
+    says "the selected model" instead of
+    naming a specific provider. The
+    Python port preserves that shape so
+    the user-facing text matches.
     """
-    override = os.environ.get("OPENCLAW_DOCS_PATH")
-    if override:
-        return Path(override)
-    # The OpenClaw source uses a config-driven path;
-    # the JARVIS port defaults to the workspace docs
-    # dir (matches ``docs/`` in this repo).
-    # ``Path.cwd()`` is the workspace root when the
-    # host is invoked from the JARVIS CLI / desktop.
-    return Path.cwd() / "docs"
-
-
-def get_provider_login_help() -> str:
-    """Return the standard provider login help block.
-
-    Mirrors ``getProviderLoginHelp``
-    (``auth-guidance.ts:12-18``). The two doc links
-    use ``os.path.join`` (Python's ``str(Path /)``)
-    to build a platform-correct path — the same as
-    ``node:path.join`` in OpenClaw.
-    """
-    docs = _get_docs_path()
+    if provider == UNKNOWN_PROVIDER:
+        return (
+            "No API key found for the selected model. "
+            "Run /login <provider> to configure credentials."
+        )
     return (
-        "Use /login to log into a provider via OAuth or API key. See:\n"
-        f"  {docs / 'providers.md'}\n"
-        f"  {docs / 'models.md'}"
+        f"No API key found for provider {provider}. "
+        f"Run /login {provider} to configure credentials."
+    )
+
+
+def format_no_model_selected_message() -> str:
+    """Build the user-facing message when
+    no model has been selected.
+
+    Mirrors ``formatNoModelSelectedMessage``
+    (``auth-guidance.ts``).
+    """
+    return (
+        "No model selected. Use /model to pick one, "
+        "or run /login to configure a provider."
     )
 
 
 def format_no_models_available_message() -> str:
-    """Format the message shown when no configured
-    model can be used.
+    """Build the user-facing message when
+    the model registry has no models
+    available for any provider.
 
-    Mirrors ``formatNoModelsAvailableMessage``
-    (``auth-guidance.ts:21-23``).
-    """
-    return f"No models available. {get_provider_login_help()}"
-
-
-def format_no_model_selected_message() -> str:
-    """Format the message shown before a model is
-    selected.
-
-    Mirrors ``formatNoModelSelectedMessage``
-    (``auth-guidance.ts:26-28``).
+    Mirrors the OpenClaw source's
+    ``formatNoModelsAvailableMessage``
+    (the full impl lands in 6.13).
     """
     return (
-        f"No model selected.\n\n"
-        f"{get_provider_login_help()}\n\n"
-        f"Then use /model to select a model."
+        "No models available. "
+        "Run /login to configure a provider."
     )
 
 
-def format_no_api_key_found_message(provider: str) -> str:
-    """Format the missing API key guidance for a
-    provider (or the ``"unknown"`` sentinel).
+def get_provider_login_help(provider: str = UNKNOWN_PROVIDER) -> str:
+    """Build a provider-specific help
+    string for the ``/login <provider>``
+    command. Mirrors the OpenClaw
+    source's ``getProviderLoginHelp``
+    (the full impl lands in 6.13).
 
-    Mirrors ``formatNoApiKeyFoundMessage``
-    (``auth-guidance.ts:31-34``). When the provider is
-    the ``"unknown"`` sentinel, the displayed name is
-    ``"the selected model"`` (matches OpenClaw).
+    The default ``UNKNOWN_PROVIDER``
+    argument yields a generic help
+    message that links to the
+    ``providers.md`` + ``models.md``
+    docs (the OpenClaw source's
+    generic-help case).
     """
-    provider_display = (
-        "the selected model" if provider == UNKNOWN_PROVIDER else provider
-    )
+    if provider == UNKNOWN_PROVIDER:
+        return (
+            "Run /login <provider> to configure credentials. "
+            "See providers.md and models.md for the supported list."
+        )
     return (
-        f"No API key found for {provider_display}.\n\n"
-        f"{get_provider_login_help()}"
+        f"Run /login {provider} to configure credentials. "
+        f"See providers.md and models.md for the supported list."
     )
 
 

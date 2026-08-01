@@ -254,6 +254,12 @@ class AgentSessionBase:
     # Last assistant message tracking
     last_assistant_message: Optional[AssistantMessage]
     last_run_ended_for_turn_handoff: bool
+    # Prompting state (set by the
+    # prompting / execution / model
+    # subclasses).
+    model: Optional[Model]
+    is_streaming: bool
+    prompt_templates: list[Any]  # list[PromptTemplate]
 
     def __init__(self, config: AgentSessionConfig) -> None:
         """Bind the session to the agent +
@@ -323,6 +329,13 @@ class AgentSessionBase:
         self.pending_next_turn_messages = []
         self.last_assistant_message = None
         self.last_run_ended_for_turn_handoff = False
+        # Prompting / execution / model
+        # state (the prompting subclass +
+        # the model / execution subclasses
+        # mutate these in 6.12c + 6.12d).
+        self.model = None
+        self.is_streaming = False
+        self.prompt_templates = []  # type: ignore[assignment]
 
     # ------------------------------------------------------------------
     # Model registry accessors
@@ -481,6 +494,78 @@ class AgentSessionBase:
         extensions subclass in 6.12e.
         """
         # No-op stub. Subclass overrides.
+        return None
+
+    # ------------------------------------------------------------------
+    # Lifecycle hooks used by the
+    # prompting subclass. These are
+    # overridden by the execution /
+    # compaction subclasses (6.12d + 6.12g).
+    # ------------------------------------------------------------------
+
+    def flush_pending_bash_messages(self) -> None:
+        """Drain the pending bash-execution
+        messages. The OpenClaw source's
+        execution subclass (6.12d) implements
+        this. The base class ships a no-op
+        stub so the prompting subclass can
+        call it without a forward ref.
+        Mirrors ``flushPendingBashMessages``
+        (``agent-session-base.ts``)."""
+        return None
+
+    def is_retryable_error(self, msg: AssistantMessage) -> bool:
+        """Whether the assistant's last
+        error is retryable. The OpenClaw
+        source's execution subclass (6.12e)
+        implements this. The base class
+        ships a ``False`` default.
+        Mirrors ``isRetryableError``
+        (``agent-session-base.ts``)."""
+        return False
+
+    async def prepare_retry(self, msg: AssistantMessage) -> bool:
+        """Schedule a retry. Returns
+        ``True`` when a retry was scheduled.
+        The OpenClaw source's execution
+        subclass (6.12e) implements this.
+        The base class ships a ``False``
+        default. Mirrors ``prepareRetry``
+        (``agent-session-base.ts``)."""
+        return False
+
+    async def check_compaction(
+        self,
+        msg: AssistantMessage,
+        is_post_run: bool = True,
+    ) -> bool:
+        """Trigger a compaction if needed.
+        Returns ``True`` when a compaction
+        was scheduled. The OpenClaw source's
+        compaction subclass (6.12g) implements
+        this. The base class ships a
+        ``False`` default. Mirrors
+        ``checkCompaction``
+        (``agent-session-base.ts``)."""
+        return False
+
+    def find_last_assistant_message(self) -> Optional[AssistantMessage]:
+        """Return the last assistant
+        message in the agent's state.
+        The OpenClaw source's execution
+        subclass (6.12d) implements this.
+        The base class returns ``None``.
+        Mirrors ``findLastAssistantMessage``
+        (``agent-session-base.ts``)."""
+        return None
+
+    def abort_retry(self) -> None:
+        """Abort any in-flight retry.
+        The OpenClaw source's execution
+        subclass (6.12e) implements this.
+        The base class is a no-op. Mirrors
+        ``abortRetry``
+        (``agent-session-base.ts``)."""
         return None
 
     # ------------------------------------------------------------------

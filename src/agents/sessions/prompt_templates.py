@@ -108,10 +108,33 @@ def loadPromptTemplates(
     return {"prompts": [], "diagnostics": []}
 
 
+def expandPromptTemplate(
+    text: str,
+    templates: list[PromptTemplate],
+) -> str:
+    """Expand a ``/template args`` style
+    prompt into the underlying template
+    body. Mirrors ``expandPromptTemplate``
+    (``prompt-templates.ts:52-90``).
+
+    Phase 6.12c — STUB. The OpenClaw
+    source matches the leading ``/``
+    command against the supplied
+    templates; on a match, it substitutes
+    the template body + handles the
+    remaining args. The Python port
+    returns the text unchanged (the
+    matching + substitution lands in
+    Phase 6.13).
+    """
+    return text
+
+
 __all__ = [
     "LoadPromptTemplatesResult",
     "PromptArgument",
     "PromptSourceInfo",
     "PromptTemplate",
+    "expandPromptTemplate",
     "loadPromptTemplates",
 ]
