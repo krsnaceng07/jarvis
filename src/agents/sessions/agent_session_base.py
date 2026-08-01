@@ -64,6 +64,7 @@ from .agent_session_types import (
     AgentSessionEventListener,
     AgentSessionWriteLockRunner,
 )
+from .defaults import DEFAULT_THINKING_LEVEL
 from .extensions.runner import ExtensionRunner
 from .extensions.types import (
     ExtensionCommandContextActions,
@@ -260,6 +261,13 @@ class AgentSessionBase:
     model: Optional[Model]
     is_streaming: bool
     prompt_templates: list[Any]  # list[PromptTemplate]
+    # Model state (set by the models
+    # subclass).
+    thinking_level: str
+    # Agent queue modes (set by the
+    # models subclass).
+    steering_mode: str  # "all" | "one-at-a-time"
+    follow_up_mode: str  # "all" | "one-at-a-time"
 
     def __init__(self, config: AgentSessionConfig) -> None:
         """Bind the session to the agent +
@@ -336,6 +344,11 @@ class AgentSessionBase:
         self.model = None
         self.is_streaming = False
         self.prompt_templates = []  # type: ignore[assignment]
+        # Model / queue state (the models
+        # subclass mutates these in 6.12d).
+        self.thinking_level = DEFAULT_THINKING_LEVEL
+        self.steering_mode = "one-at-a-time"
+        self.follow_up_mode = "one-at-a-time"  # type: ignore[assignment]
 
     # ------------------------------------------------------------------
     # Model registry accessors

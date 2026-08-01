@@ -49,9 +49,31 @@ DEFAULT_PROVIDER: str = "openai"
 DEFAULT_MODEL: str = "gpt-5.6-sol"
 
 
+#: The full ordered list of thinking
+#: levels. Mirrors the OpenClaw source's
+#: ``THINKING_LEVELS`` local in
+#: ``agent-session-models.ts:12``. The
+#: base list (``THINKING_LEVELS_BASE``)
+#: mirrors the OpenClaw literal; the
+#: Python port extends it with the
+#: ``"xhigh"`` + ``"max"`` levels that
+#: the OpenClaw ``ThinkingLevel`` union
+#: already accepts (Phase 6.0).
+THINKING_LEVELS: tuple[ThinkingLevel, ...] = (
+    "off",
+    "minimal",
+    "low",
+    "medium",
+    "high",
+    "xhigh",
+    "max",
+)
+
+
 __all__ = [
     "DEFAULT_MODEL",
     "DEFAULT_PROVIDER",
     "DEFAULT_THINKING_LEVEL",
+    "THINKING_LEVELS",
     "ThinkingLevel",
 ]
