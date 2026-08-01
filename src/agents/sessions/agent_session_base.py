@@ -560,6 +560,62 @@ class AgentSessionBase:
         return unsubscribe
 
     # ------------------------------------------------------------------
+    # Agent disconnect / reconnect
+    # ------------------------------------------------------------------
+
+    def disconnect_from_agent(self) -> None:
+        """Disconnect from the agent's
+        event stream (user listeners are
+        preserved). Mirrors
+        :meth:`disconnectFromAgent`
+        (``agent-session-base.ts:535-540``).
+
+        Used internally during operations
+        that need to pause event
+        processing (e.g. manual
+        compaction, session replace).
+        """
+        if self.unsubscribe_agent is not None:
+            try:
+                self.unsubscribe_agent()
+            except Exception:
+                pass
+            self.unsubscribe_agent = None
+
+    def reconnect_to_agent(self) -> None:
+        """Reconnect to the agent's event
+        stream after
+        :meth:`disconnect_from_agent`.
+        Preserves all existing user
+        listeners. Mirrors
+        :meth:`reconnectToAgent`
+        (``agent-session-base.ts:546-555``).
+        """
+        if self.unsubscribe_agent is not None:
+            # Already connected.
+            return
+        subscribe_agent = getattr(
+            self.agent, "subscribe_events", None
+        )
+        if callable(subscribe_agent):
+            try:
+                self.unsubscribe_agent = subscribe_agent(
+                    self._on_agent_event
+                )
+            except Exception:
+                self.unsubscribe_agent = None
+
+    def _on_agent_event(self, event: dict) -> None:
+        """Forward an agent event to the
+        session's listeners. Mirrors
+        the OpenClaw source's
+        :func:`onAgentEvent` helper
+        inside :meth:`reconnectToAgent`."""
+        # Re-emit as a session event with
+        # the original payload preserved.
+        self.emit(event)
+
+    # ------------------------------------------------------------------
     # Tool hooks (skeleton — the full
     # implementation lands in the
     # extensions subclass)
