@@ -116,7 +116,12 @@ EXTENSION_VIRTUAL_MODULES: dict[str, str] = {
 _extension_cache: dict[str, ExtensionFactory] = {}
 _extension_cache_cwd: Optional[str] = None
 _extension_cache_generation: int = 0
-_cache_lock = threading.Lock()
+#: Re-entrant lock: ``_use_extension_cache_cwd``
+#: calls :func:`clear_extension_cache` while
+#: already holding the lock (when the cwd
+#: changes); a plain ``threading.Lock``
+#: would deadlock the second call.
+_cache_lock = threading.RLock()
 
 
 def clear_extension_cache() -> None:
