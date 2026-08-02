@@ -747,6 +747,58 @@ def _now_ms() -> int:
     return int(time.time() * 1000)
 
 
+# ============================================================================
+# Active-run handle queries (Phase 7.2c-2 additions)
+# ============================================================================
+
+
+def is_embedded_agent_run_handle_active(session_id: str) -> bool:
+    """Return True if an active run is registered for ``session_id``.
+
+    Mirrors :func:`isEmbeddedAgentRunHandleActive`` from OpenClaw
+    ``runs.ts``. Focused minimal port: looks up the
+    session-id-keyed run registry.
+    """
+    normalized = (session_id or "").strip()
+    if not normalized:
+        return False
+    return normalized in ACTIVE_EMBEDDED_RUNS
+
+
+def resolve_active_embedded_run_handle_session_id(
+    session_key: str,
+) -> Optional[str]:
+    """Return the active run's session id for ``session_key``, if any.
+
+    Mirrors :func:`resolveActiveEmbeddedRunHandleSessionId``
+    from OpenClaw ``runs.ts``.
+    """
+    key = (session_key or "").strip()
+    if not key:
+        return None
+    sid = ACTIVE_EMBEDDED_RUN_SESSION_IDS_BY_KEY.get(key)
+    if not sid:
+        return None
+    return sid if isinstance(sid, str) else None
+
+
+def resolve_active_embedded_run_handle_session_id_by_session_file(
+    session_file: str,
+) -> Optional[str]:
+    """Return the active run's session id for ``session_file``, if any.
+
+    Mirrors :func:`resolveActiveEmbeddedRunHandleSessionIdBySessionFile``
+    from OpenClaw ``runs.ts``.
+    """
+    resolved = resolve_embedded_session_file_key(session_file or "")
+    if not resolved:
+        return None
+    sid = ACTIVE_EMBEDDED_RUN_SESSION_IDS_BY_FILE.get(resolved)
+    if not sid:
+        return None
+    return sid if isinstance(sid, str) else None
+
+
 # Re-export commonly-used types
 # (for callers that import from
 # ``runs`` directly).
@@ -763,11 +815,14 @@ __all__ = [
     "clear_embedded_agent_run_abortability_for_run_id",
     "format_embedded_agent_queue_failure_summary",
     "is_embedded_agent_run_abortable_for_run_id",
+    "is_embedded_agent_run_handle_active",
     "is_embedded_run_abandoned",
     "queue_embedded_agent_message_with_outcome",
     "queue_embedded_agent_message_with_outcome_async",
     "mark_active_embedded_run_abandoned",
     "register_active_embedded_run",
+    "resolve_active_embedded_run_handle_session_id",
+    "resolve_active_embedded_run_handle_session_id_by_session_file",
     "retain_embedded_agent_run_abortability_for_run_id",
     "unregister_active_embedded_run",
 ]
