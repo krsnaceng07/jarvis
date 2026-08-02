@@ -78,6 +78,15 @@ from .message_action_discovery_input import (
     build_embedded_message_action_discovery_input,
 )
 from .run import run_embedded_agent
+from .run.execution_context import PreparedEmbeddedRunInput
+from .run.internal_params import (
+    RunEmbeddedAgentInternalParams,
+    RunEmbeddedAgentParamsWithSessionFile,
+)
+from .run.params import RunEmbeddedAgentParams
+from .run_execution import execute_prepared_embedded_run
+from .run_loop import run_prepared_embedded_loop
+from .run_orchestrator import run_embedded_agent as _run_embedded_agent_orchestrator  # noqa: F401
 from .run_state import (
     ABANDONED_EMBEDDED_RUNS_BY_SESSION_ID,
     ABANDONED_EMBEDDED_RUN_SESSION_IDS_BY_FILE,
@@ -98,6 +107,20 @@ from .run_state import (
     list_active_embedded_run_session_ids,
     list_active_embedded_run_session_keys,
     resolve_active_embedded_run_session_id,
+)
+from .runs import (
+    EmbeddedAgentQueueMessageOutcome,
+    abort_active_embedded_run,
+    clear_embedded_agent_run_abortability_for_run_id,
+    format_embedded_agent_queue_failure_summary,
+    is_embedded_agent_run_abortable_for_run_id,
+    is_embedded_run_abandoned,
+    mark_active_embedded_run_abandoned,
+    queue_embedded_agent_message_with_outcome,
+    queue_embedded_agent_message_with_outcome_async,
+    register_active_embedded_run,
+    retain_embedded_agent_run_abortability_for_run_id,
+    unregister_active_embedded_run,
 )
 from .session_file_key import (
     resolve_embedded_session_file_key,
@@ -128,6 +151,8 @@ from .types import (
 __all__ = [
     # Public entrypoint
     "run_embedded_agent",
+    "execute_prepared_embedded_run",
+    "run_prepared_embedded_loop",
     # Types
     "BlockReplyFlushContext",
     "EmbeddedAgentCompactResult",
@@ -141,6 +166,11 @@ __all__ = [
     "EmbeddedSandboxInfo",
     "ToolSummaryTrace",
     "TraceAttempt",
+    # Params
+    "RunEmbeddedAgentParams",
+    "RunEmbeddedAgentInternalParams",
+    "RunEmbeddedAgentParamsWithSessionFile",
+    "PreparedEmbeddedRunInput",
     # Helpers
     "build_embedded_message_action_discovery_input",
     "format_embedded_agent_execution_phase",
@@ -186,4 +216,17 @@ __all__ = [
     "list_active_embedded_run_session_ids",
     "list_active_embedded_run_session_keys",
     "resolve_active_embedded_run_session_id",
+    # Run registry
+    "EmbeddedAgentQueueMessageOutcome",
+    "abort_active_embedded_run",
+    "clear_embedded_agent_run_abortability_for_run_id",
+    "format_embedded_agent_queue_failure_summary",
+    "is_embedded_agent_run_abortable_for_run_id",
+    "is_embedded_run_abandoned",
+    "mark_active_embedded_run_abandoned",
+    "queue_embedded_agent_message_with_outcome",
+    "queue_embedded_agent_message_with_outcome_async",
+    "register_active_embedded_run",
+    "retain_embedded_agent_run_abortability_for_run_id",
+    "unregister_active_embedded_run",
 ]

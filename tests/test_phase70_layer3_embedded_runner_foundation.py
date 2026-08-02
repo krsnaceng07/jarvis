@@ -563,9 +563,12 @@ class TestRunState:
 
 class TestRunEmbeddedAgent:
     @pytest.mark.asyncio
-    async def test_stub_raises(self) -> None:
-        with pytest.raises(NotImplementedError):
-            await run_embedded_agent({})
+    async def test_runs_sync(self) -> None:
+        # Phase 7.1 — the stub was
+        # replaced with a real
+        # (focused minimal) implementation.
+        result = await run_embedded_agent({})
+        assert "meta" in result
 
 
 # ============================================================================
