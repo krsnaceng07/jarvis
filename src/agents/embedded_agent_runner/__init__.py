@@ -53,6 +53,34 @@ Public surface (re-exported):
 from __future__ import annotations
 
 from .abort import is_runner_abort_error
+from .compact_reasons import (
+    DEFERRED_CONTEXT_ENGINE_COMPACTION_REASON,
+    classify_compaction_reason,
+    format_unknown_compaction_reason_detail,
+    resolve_compaction_failure_reason,
+)
+from .compact_runtime import compact_embedded_agent_session_direct
+from .compact_runtime_types import CompactEmbeddedAgentSessionDirect
+from .compact_types import (
+    CompactEmbeddedAgentSessionParams,
+    CompactEmbeddedAgentSessionRuntimeParams,
+    CompactionMessageMetrics,
+)
+from .compaction_duplicate_user_messages import (
+    DEFAULT_DUPLICATE_USER_MESSAGE_WINDOW_MS,
+    MIN_DUPLICATE_USER_MESSAGE_CHARS,
+    collect_duplicate_user_message_entry_ids_for_compaction,
+    dedupe_duplicate_user_messages_for_compaction,
+)
+from .compaction_harness_model_provider import (
+    build_compaction_harness_model_provider,
+)
+from .compaction_safety_timeout import (
+    EMBEDDED_COMPACTION_TIMEOUT_MS,
+    compact_context_engine_with_safety_timeout,
+    compact_with_safety_timeout,
+    resolve_compaction_timeout_ms,
+)
 from .empty_assistant_turn import (
     is_zero_usage_empty_stop_assistant_turn,
 )
@@ -76,6 +104,13 @@ from .lanes import (
 from .logger import log
 from .message_action_discovery_input import (
     build_embedded_message_action_discovery_input,
+)
+from .post_compaction_loop_guard import (
+    DEFAULT_WINDOW_SIZE as POST_COMPACTION_WINDOW_SIZE,
+)
+from .post_compaction_loop_guard import (
+    PostCompactionLoopPersistedError,
+    create_post_compaction_loop_guard,
 )
 from .run import run_embedded_agent
 from .run.execution_context import PreparedEmbeddedRunInput
@@ -124,6 +159,9 @@ from .runs import (
 )
 from .session_file_key import (
     resolve_embedded_session_file_key,
+)
+from .thinking_replay_repair import (
+    repair_rejected_thinking_replay_in_session_manager,
 )
 from .tool_name_allowlist import (
     AGENT_RESERVED_TOOL_NAMES,
@@ -229,4 +267,27 @@ __all__ = [
     "register_active_embedded_run",
     "retain_embedded_agent_run_abortability_for_run_id",
     "unregister_active_embedded_run",
+    # Compaction (7.2a)
+    "DEFERRED_CONTEXT_ENGINE_COMPACTION_REASON",
+    "classify_compaction_reason",
+    "format_unknown_compaction_reason_detail",
+    "resolve_compaction_failure_reason",
+    "compact_embedded_agent_session_direct",
+    "CompactEmbeddedAgentSessionDirect",
+    "CompactEmbeddedAgentSessionParams",
+    "CompactEmbeddedAgentSessionRuntimeParams",
+    "CompactionMessageMetrics",
+    "DEFAULT_DUPLICATE_USER_MESSAGE_WINDOW_MS",
+    "MIN_DUPLICATE_USER_MESSAGE_CHARS",
+    "collect_duplicate_user_message_entry_ids_for_compaction",
+    "dedupe_duplicate_user_messages_for_compaction",
+    "build_compaction_harness_model_provider",
+    "EMBEDDED_COMPACTION_TIMEOUT_MS",
+    "compact_context_engine_with_safety_timeout",
+    "compact_with_safety_timeout",
+    "resolve_compaction_timeout_ms",
+    "POST_COMPACTION_WINDOW_SIZE",
+    "PostCompactionLoopPersistedError",
+    "create_post_compaction_loop_guard",
+    "repair_rejected_thinking_replay_in_session_manager",
 ]
