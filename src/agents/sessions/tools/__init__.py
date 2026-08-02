@@ -29,6 +29,8 @@ Sub-phases:
 """
 from __future__ import annotations
 
+from typing import Optional
+
 # Phase 6.10a — foundational types + helpers
 from .tool_contracts import (
     BashToolDetails,
@@ -102,17 +104,23 @@ from .edit_diff import (
     EDIT_CANDIDATE_MAX_LINE_CHARS,
     EDIT_CANDIDATE_MIN_SCORE,
     Edit as EditOp,
+    EditDiffError,
+    EditDiffResult,
     EditNoChangeError,
-    apply_edits,
+    apply_edits_to_normalized_content,
+    compute_edits_diff,
     count_occurrences,
-    create_unified_patch,
     detect_line_ending,
     fuzzy_find_text,
+    generate_diff_string,
+    generate_unified_patch,
     levenshtein_distance,
     normalize_for_fuzzy_match,
     normalize_to_lf,
     restore_line_endings,
+    split_no_op_edits,
     strip_bom,
+    validate_no_op_edit_targets,
 )
 from .file_mutation_queue import with_file_mutation_queue
 from .read import (
@@ -129,10 +137,18 @@ from .write import (
     write_file,
 )
 from .edit import (
-    EditResult,
+    EDIT_MISMATCH_HINT_LIMIT,
+    EDIT_MISMATCH_MESSAGE,
+    EditOperations,
+    EditToolOptions,
+    append_mismatch_hint,
     create_edit_tool,
     create_edit_tool_definition,
-    edit_file,
+    default_edit_operations,
+    did_edit_likely_apply,
+    prepare_edit_arguments,
+    remove_exact_occurrences,
+    validate_edit_input,
 )
 
 # Phase 6.10d — search + bash
@@ -149,6 +165,34 @@ from .bash import (
     execute_bash,
     resolve_bash_timeout_ms,
 )
+
+
+def create_coding_tools(
+    cwd: str,
+    options: Optional[dict] = None,
+) -> list:
+    """Create the mutable coding
+    tools used by local agent
+    sessions (``read`` / ``bash`` /
+    ``edit`` / ``write``). Mirrors
+    :func:`createCodingTools`
+    (``tools/index.ts:203-210``).
+
+    The OpenClaw source returns a
+    list of :class:`Tool`
+    instances; the Python port
+    returns a list of
+    :class:`AgentTool` instances
+    (the same shape used by the
+    agent loop).
+    """
+    _ = options
+    return [
+        create_read_tool(cwd),
+        create_bash_tool(cwd),
+        create_edit_tool(cwd),
+        create_write_tool(cwd),
+    ]
 from .find import (
     DEFAULT_IGNORE_PATTERNS,
     DEFAULT_LIMIT as FIND_DEFAULT_LIMIT,
@@ -234,18 +278,24 @@ __all__ = [
     "EDIT_CANDIDATE_MAX_SCAN_CHARS",
     "EDIT_CANDIDATE_MAX_LINE_CHARS",
     "EDIT_CANDIDATE_MIN_SCORE",
+    "EditDiffError",
+    "EditDiffResult",
     "EditNoChangeError",
     "EditOp",
-    "apply_edits",
+    "apply_edits_to_normalized_content",
+    "compute_edits_diff",
     "count_occurrences",
-    "create_unified_patch",
     "detect_line_ending",
     "fuzzy_find_text",
+    "generate_diff_string",
+    "generate_unified_patch",
     "levenshtein_distance",
     "normalize_for_fuzzy_match",
     "normalize_to_lf",
     "restore_line_endings",
+    "split_no_op_edits",
     "strip_bom",
+    "validate_no_op_edit_targets",
     # Phase 6.10c — file mutation queue
     "with_file_mutation_queue",
     # Phase 6.10c — read
@@ -260,10 +310,18 @@ __all__ = [
     "create_write_tool_definition",
     "write_file",
     # Phase 6.10c — edit
-    "EditResult",
+    "EDIT_MISMATCH_HINT_LIMIT",
+    "EDIT_MISMATCH_MESSAGE",
+    "EditOperations",
+    "EditToolOptions",
+    "append_mismatch_hint",
     "create_edit_tool",
     "create_edit_tool_definition",
-    "edit_file",
+    "default_edit_operations",
+    "did_edit_likely_apply",
+    "prepare_edit_arguments",
+    "remove_exact_occurrences",
+    "validate_edit_input",
     # Phase 6.10d — bash operations
     "BashExecOptions",
     "BashOperations",

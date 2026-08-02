@@ -234,7 +234,16 @@ class AgentSessionExtensions(AgentSessionExecution):
                 extensions_result.runtime.flagValues[name] = value
         # Default active tool names.
         default_active = ["read", "bash", "edit", "write"]
-        base_active = options.get("activeToolNames") or default_active
+        # Mirrors the OpenClaw source's
+        # ``options.activeToolNames ?? defaultActiveToolNames``
+        # (nullish coalescing — an
+        # empty list passes through,
+        # not the default).
+        explicit_active = options.get("activeToolNames")
+        if explicit_active is None:
+            base_active = default_active
+        else:
+            base_active = explicit_active
         self._refresh_tool_registry(
             active_tool_names=base_active,
             include_all_extension_tools=options.get(
@@ -688,7 +697,7 @@ class AgentSessionExtensions(AgentSessionExecution):
                 "definition": definition,
                 "sourceInfo": create_synthetic_source_info(
                     f"<sdk:{definition.get('name', 'unknown')}>",
-                    source="sdk",
+                    {"source": "sdk"},
                 ),
             })
         # Filter by the allowlist.
@@ -708,7 +717,7 @@ class AgentSessionExtensions(AgentSessionExecution):
                 definition=definition,
                 sourceInfo=create_synthetic_source_info(
                     f"<builtin:{name}>",
-                    source="builtin",
+                    {"source": "builtin"},
                 ),
             )
         for tool in custom:
