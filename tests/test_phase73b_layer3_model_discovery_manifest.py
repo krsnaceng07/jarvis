@@ -377,6 +377,14 @@ class TestResolveManifestModelCatalogProviderTransport:
         set_is_plugin_eligible_hook(lambda p, c: True)
         set_provider_id_normalizer(lambda v: (v or "").strip().lower())
 
+    def teardown_method(self) -> None:
+        # Reset hooks so the last test's plugin-override does not leak
+        # into 7.3d's `TestReExports` (which asserts no transport).
+        set_get_current_plugin_metadata_snapshot_hook(lambda **_: None)
+        set_load_plugin_manifest_registry_hook(lambda **_: {"plugins": []})
+        set_is_plugin_eligible_hook(lambda p, c: True)
+        set_provider_id_normalizer(lambda v: (v or "").strip().lower())
+
     def test_no_transport(self) -> None:
         result = resolve_manifest_model_catalog_provider_transport(provider="openai")
         assert result is None
