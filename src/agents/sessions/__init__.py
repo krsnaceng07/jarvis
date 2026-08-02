@@ -38,6 +38,37 @@ from .auth_guidance import (
     format_no_models_available_message,
     get_provider_login_help,
 )
+from .footer_data_provider import (
+    FooterDataProvider,
+    ReadonlyFooterDataProvider,
+    find_git_paths,
+)
+from .frontmatter import (
+    parse_frontmatter,
+    parseFrontmatter,
+    strip_frontmatter,
+    stripFrontmatter,
+)
+from .manual_compaction_preflight import (
+    preflight_manual_session_compaction,
+    preflightManualSessionCompaction,
+)
+from .prompt_templates import (
+    PromptTemplate,
+    expand_prompt_template,
+    expandPromptTemplate,
+    load_prompt_templates,
+    loadPromptTemplates,
+)
+from .session_file_parser import (
+    parse_session_file_entries_with_warnings,
+    parseSessionFileEntriesWithWarnings,
+)
+from .system_prompt import (
+    BuildSystemPromptOptions,
+    build_system_prompt,
+    buildSystemPrompt,
+)
 from .bash_executor import (
     BashExecutorOptions,
     BashOperations,
@@ -271,6 +302,31 @@ __all__ = [
     "BashOperations",
     "BashOperationsExecResult",
     "BashResult",
+    # footer_data_provider
+    "FooterDataProvider",
+    "ReadonlyFooterDataProvider",
+    "find_git_paths",
+    # frontmatter
+    "parse_frontmatter",
+    "parseFrontmatter",
+    "strip_frontmatter",
+    "stripFrontmatter",
+    # manual_compaction_preflight
+    "preflight_manual_session_compaction",
+    "preflightManualSessionCompaction",
+    # prompt_templates
+    "PromptTemplate",
+    "expand_prompt_template",
+    "expandPromptTemplate",
+    "load_prompt_templates",
+    "loadPromptTemplates",
+    # session_file_parser
+    "parse_session_file_entries_with_warnings",
+    "parseSessionFileEntriesWithWarnings",
+    # system_prompt
+    "BuildSystemPromptOptions",
+    "build_system_prompt",
+    "buildSystemPrompt",
     "OutputAccumulator",
     "create_streaming_binary_output_sanitizer",
     "execute_bash_with_operations",

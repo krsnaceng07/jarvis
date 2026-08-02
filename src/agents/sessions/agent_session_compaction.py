@@ -101,6 +101,9 @@ from typing import (
 )
 
 from .agent_session_inspection import AgentSessionInspection
+from .manual_compaction_preflight import (
+    preflight_manual_session_compaction,
+)
 from .runtime_helpers import is_context_overflow
 from .session_manager_codec import get_latest_compaction_entry
 
@@ -215,35 +218,17 @@ def _preflight_manual_session_compaction(
     path_entries: list,
     settings: dict,
 ) -> dict:
-    """Focused minimal port of
-    :func:`preflightManualSessionCompaction`
-    (``manual-compaction-preflight.ts:13-72``).
-
-    The OpenClaw source uses
-    :func:`prepareCompaction` to
-    compute the compaction
-    preparation; the full
-    implementation lands in 6.13+.
-
-    Returns
-    -------
-    dict
-        ``{"compactable": bool,
-        "reason"?: str, "preparation"?:
-        dict}``.
-    """
-    if not path_entries:
-        return {
-            "compactable": False,
-            "reason": "No session entries to compact",
-        }
-    return {
-        "compactable": True,
-        "preparation": {
-            "pathEntries": list(path_entries),
-            "settings": dict(settings),
-        },
-    }
+    """Stub — the real impl is in
+    :mod:`jarvis.agents.sessions.manual_compaction_preflight`
+    (Phase 6.13a). This shim remains
+    for backwards compatibility with
+    any callers that imported it
+    directly from the compaction
+    module."""
+    from .manual_compaction_preflight import (
+        preflight_manual_session_compaction as _impl,
+    )
+    return _impl(path_entries, settings)
 
 
 class AgentSessionCompaction(AgentSessionInspection):
@@ -727,7 +712,7 @@ class AgentSessionCompaction(AgentSessionInspection):
             )
         preparation: Optional[dict] = None
         if is_manual:
-            preflight = _preflight_manual_session_compaction(
+            preflight = preflight_manual_session_compaction(
                 path_entries, options.get("settings") or {}
             )
             if not preflight.get("compactable", False):
