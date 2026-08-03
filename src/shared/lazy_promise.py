@@ -39,51 +39,58 @@ def get_or_create_promise(
 
 
 class LazyPromiseLoader(Generic[T]):
-    """Manual-control promise cache for lazy runtime resources."""
+    """Manual-control promise cache for lazy runtime resources.
+
+    The Python port stores the resolved value (or a wrapper that re-emits it)
+    so multiple ``load()`` calls return awaitables that can each be awaited.
+    """
 
     def __init__(self, load: Callable[[], Union[T, Awaitable[T]]], cache_rejections: bool = False) -> None:
         self._load = load
         self._cache_rejections = cache_rejections
-        self._promise: Optional[Any] = None
+        self._resolved: Optional[T] = None
+        self._resolved_sentinel = object()
+        self._has_resolved = False
+        self._rejected: Optional[BaseException] = None
+        self._has_rejected = False
 
-    def _create_promise(self) -> Any:
-        if asyncio.iscoroutinefunction(self._load):
-            coro = self._load()
-            try:
-                running_loop = asyncio.get_running_loop()
-            except RuntimeError:
-                running_loop = None
-            if running_loop is not None:
-                # Bind to the currently running loop for proper task semantics.
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore", DeprecationWarning)
-                    loaded = asyncio.ensure_future(coro)
-            else:
-                # No running loop (sync test/script context). Return the raw
-                # coroutine — the caller can `await` it on any loop later.
-                loaded = coro
+    async def _awaitable_for(self) -> T:
+        if self._has_resolved:
+            return self._resolved  # type: ignore[return-value]
+        if self._has_rejected and self._cache_rejections:
+            raise self._rejected  # type: ignore[misc]
+        loaded = self._load()
+        if asyncio.iscoroutine(loaded) or asyncio.isfuture(loaded):
+            value = await loaded
         else:
-            loaded = self._load()
-        if not self._cache_rejections:
-            def _on_reject(_exc: Any) -> None:
-                if self._promise is loaded:
-                    self._promise = None
-            try:
-                loaded.add_done_callback(_on_reject)
-            except AttributeError:
-                pass
-        return loaded
+            value = loaded
+        if not self._cache_rejections and isinstance(value, BaseException):
+            self._has_rejected = True
+            self._rejected = value
+            raise value
+        self._resolved = value
+        self._has_resolved = True
+        return value
 
-    def load(self) -> Any:
-        if self._promise is None:
-            self._promise = self._create_promise()
-        return self._promise
+    def load(self) -> "asyncio.Future[T] | Awaitable[T]":
+        return self._awaitable_for()
 
     def peek(self) -> Optional[Any]:
-        return self._promise
+        """Return the resolved value (if any) for inspection, else None.
+
+        Mirrors ``loader.peek()`` in OpenClaw, where the underlying promise
+        is the resolved value once settled.
+        """
+        if self._has_resolved:
+            return self._resolved
+        return None
 
     def clear(self) -> None:
-        self._promise = None
+        """Drop the cached value so the next ``load()`` calls the loader again."""
+        self._resolved = None
+        self._has_resolved = False
+        self._rejected = None
+        self._has_rejected = False
 
 
 def create_lazy_promise_loader(

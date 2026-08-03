@@ -1,29 +1,88 @@
-"""Lazy runtime-module loading for heavy, optional runtime boundaries.
+"""jarvis.shared.lazy_runtime — lazy runtime surface helpers.
 
-OpenClaw parity: ``src/shared/lazy-runtime.ts`` \u2014
-``createLazyRuntimeModule`` caches one dynamic import per loader so the
-embedded runner graph gains no source-level static edges.
+OpenClaw parity: mirrors ``openclaw-main/src/shared/lazy-runtime.ts``.
 """
 from __future__ import annotations
 
-import importlib
-from typing import Any, Callable
+from typing import Awaitable, Callable, Generic, TypeVar
 
-__all__ = ["create_lazy_runtime_module"]
+from .lazy_promise import create_lazy_promise_loader
 
-
-def create_lazy_runtime_module(load: Callable[[], Any]) -> Callable[[], Any]:
-    """Cache one dynamic module load; ``load`` runs at most once."""
-    cache: dict[str, Any] = {}
-
-    def resolve() -> Any:
-        if "module" not in cache:
-            cache["module"] = load()
-        return cache["module"]
-
-    return resolve
+TModule = TypeVar("TModule")
+TSurface = TypeVar("TSurface")
+TKey = TypeVar("TKey")
 
 
-def import_runtime_module(name: str) -> Any:
-    """Import helper used by lazy loaders (kept separate for test patching)."""
-    return importlib.import_module(name)
+async def _resolve_runtime_surface(
+    importer: Callable[[], Awaitable[TModule]],
+    select: Callable[[TModule], TSurface],
+) -> TSurface:
+    return select(await importer())
+
+
+def create_lazy_runtime_surface(
+    importer: Callable[[], Awaitable[TModule]],
+    select: Callable[[TModule], TSurface],
+) -> Callable[[], Awaitable[TSurface]]:
+    """Cache a dynamic-import runtime surface behind a stable loader.
+
+    Mirrors :func:`createLazyRuntimeSurface` (``shared/lazy-runtime.ts``).
+    """
+    return create_lazy_promise_loader(
+        lambda: _resolve_runtime_surface(importer, select),
+        cache_rejections=True,
+    ).load
+
+
+def create_lazy_runtime_module(
+    importer: Callable[[], Awaitable[TModule]],
+) -> Callable[[], Awaitable[TModule]]:
+    """Cache the raw dynamically imported runtime module.
+
+    Mirrors :func:`createLazyRuntimeModule` (``shared/lazy-runtime.ts``).
+    """
+    return create_lazy_runtime_surface(importer, lambda m: m)
+
+
+def create_lazy_runtime_named_export(
+    importer: Callable[[], Awaitable[TModule]],
+    key: TKey,
+) -> Callable[[], Awaitable[TModule]]:
+    """Cache a single named runtime export.
+
+    Mirrors :func:`createLazyRuntimeNamedExport``
+    (``shared/lazy-runtime.ts``).
+    """
+    return create_lazy_runtime_surface(importer, lambda m: m[key])
+
+
+def create_lazy_runtime_method(load, select):
+    """Build a method that lazily loads a surface then invokes the selector.
+
+    Mirrors :func:`createLazyRuntimeMethod` (``shared/lazy-runtime.ts``).
+    """
+    async def invoke(*args):
+        surface = await load()
+        method = select(surface)
+        return await method(*args)
+    return invoke
+
+
+def create_lazy_runtime_method_binder(load):
+    """Bind a method factory to a fixed lazy surface loader.
+
+    Mirrors :func:`createLazyRuntimeMethodBinder``
+    (``shared/lazy-runtime.ts``).
+    """
+    def binder(select):
+        return create_lazy_runtime_method(load, select)
+    return binder
+
+
+__all__ = [
+    "create_lazy_runtime_surface",
+    "create_lazy_runtime_module",
+    "create_lazy_runtime_named_export",
+    "create_lazy_runtime_method",
+    "create_lazy_runtime_method_binder",
+]
