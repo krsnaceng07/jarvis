@@ -80,6 +80,9 @@ workspace/
 # These are created by the JARVIS setup overlay on first run.
 config/
 config/*.local.json
+!src/config/
+!src/config/*.py
+!src/config/**/__init__.py
 apps/**/config/api_keys.json
 apps/**/config/*.local.json
 *.local.json
