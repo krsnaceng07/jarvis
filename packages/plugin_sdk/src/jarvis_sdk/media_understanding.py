@@ -21,6 +21,22 @@ from typing import Any, Optional
 LOGGER = logging.getLogger(__name__)
 
 
+def _empty_any_dict() -> dict[str, Any]:
+    return {}
+
+
+def _empty_string_dict() -> dict[str, str]:
+    return {}
+
+
+def _empty_int_dict() -> dict[str, int]:
+    return {}
+
+
+def _empty_string_list() -> list[str]:
+    return []
+
+
 @dataclass(frozen=True, slots=True)
 class AudioTranscriptionRequest:
     """Input to ``transcribe_openai_compatible_audio``.
@@ -45,7 +61,7 @@ class AudioTranscriptionRequest:
     language: Optional[str] = None
     prompt: Optional[str] = None
     temperature: Optional[float] = None
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=_empty_any_dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,7 +76,7 @@ class AudioTranscriptionResult:
     language: Optional[str] = None
     model: Optional[str] = None
     provider: Optional[str] = None
-    raw: dict[str, Any] = field(default_factory=dict)
+    raw: dict[str, Any] = field(default_factory=_empty_any_dict)
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,11 +96,11 @@ class MediaUnderstandingProvider:
     """
 
     id: str
-    capabilities: list[str] = field(default_factory=list)
-    default_models: dict[str, str] = field(default_factory=dict)
-    auto_priority: dict[str, int] = field(default_factory=dict)
+    capabilities: list[str] = field(default_factory=_empty_string_list)
+    default_models: dict[str, str] = field(default_factory=_empty_string_dict)
+    auto_priority: dict[str, int] = field(default_factory=_empty_int_dict)
     transcribe_audio: Any = None
-    metadata: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=_empty_any_dict)
 
 
 async def transcribe_openai_compatible_audio(
@@ -103,7 +119,17 @@ async def transcribe_openai_compatible_audio(
     throws; the Python port returns a degraded result
     so callers can decide whether to retry.
     """
-    import httpx
+    import importlib
+
+    try:
+        httpx = importlib.import_module("httpx")
+    except ModuleNotFoundError:
+        return AudioTranscriptionResult(
+            text="",
+            model=params.default_model,
+            provider=params.provider,
+            raw={"error": "httpx is not available"},
+        )
 
     base_url = (params.base_url or params.default_base_url).rstrip("/")
     model = params.model or params.default_model

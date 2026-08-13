@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import os
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Any, Optional
 
 
 _VALID_TZ_CACHE: dict = {}
@@ -51,11 +51,20 @@ def _format_offset(td: Any) -> str:
     return f"{sign}{hours:02d}:{minutes:02d}"
 
 
+def _resolve_tzinfo(tz: str) -> Any:
+    if tz.upper() in {"UTC", "GMT"}:
+        return timezone.utc
+    try:
+        from zoneinfo import ZoneInfo
+
+        return ZoneInfo(tz)
+    except Exception:
+        return timezone.utc
+
+
 def _format_iso_like(date: datetime, tz: str) -> str:
     """Render a date as ``YYYY-MM-DDTHH:MM:SS.mmm+HH:MM`` in ``tz``."""
-    from zoneinfo import ZoneInfo
-
-    target = date.astimezone(ZoneInfo(tz))
+    target = date.astimezone(_resolve_tzinfo(tz))
     offset = _format_offset(target.utcoffset())
     return (
         f"{target.year:04d}-{target.month:02d}-{target.day:02d}"
@@ -79,11 +88,9 @@ def format_timestamp(date: Optional[datetime] = None, options: Optional[dict] = 
     if target.tzinfo is None:
         target = target.replace(tzinfo=timezone.utc)
     try:
-        from zoneinfo import ZoneInfo
-
-        localized = target.astimezone(ZoneInfo(effective_tz))
+        localized = target.astimezone(_resolve_tzinfo(effective_tz))
     except Exception:
-        localized = target
+        localized = target.astimezone(timezone.utc)
     offset = _format_offset(localized.utcoffset())
     if style == "short":
         return f"{localized.hour:02d}:{localized.minute:02d}:{localized.second:02d}{offset}"

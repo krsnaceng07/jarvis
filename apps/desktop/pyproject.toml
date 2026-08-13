@@ -80,10 +80,6 @@ all = [
     "jarvis-desktop[windows,macos,linux]",
 ]
 
-[project.scripts]
-# Entry point — `uv run jarvis_desktop` runs this.
-jarvis_desktop = "jarvis_desktop.app:main"
-
 [project.urls]
 Homepage = "https://github.com/jarvis-ai/jarvis"
 Documentation = "https://github.com/jarvis-ai/jarvis/tree/main/apps/desktop"

@@ -16,6 +16,9 @@ from src.config.config_journal_snapshot import (
     CONFIG_JOURNAL_REDACTION_MARKER,
     config_snapshot_audit_record_matches_path,
     fingerprint_config_snapshot_authored_config,
+    read_latest_config_snapshot_audit_record,
+    restore_config_snapshot_audit_record,
+    upsert_config_snapshot_audit_record,
 )
 from src.config.env_substitution import (
     MissingEnvVarError,
@@ -177,6 +180,31 @@ class TestConfigJournalSnapshot:
 
     def test_match_null(self) -> None:
         assert not config_snapshot_audit_record_matches_path(None, "/x/config.json")
+
+    def test_round_trip_without_audit_store_backend(self, tmp_path) -> None:
+        env = {"JARVIS_STATE_DIR": str(tmp_path)}
+        snapshot = {
+            "configPath": "/tmp/config.json",
+            "rawHash": "abc123",
+            "fingerprintedAuthoredConfig": {"a": 1},
+        }
+
+        written = upsert_config_snapshot_audit_record(
+            config_path="/tmp/config.json",
+            raw_hash="abc123",
+            authored_config={"a": 1},
+            env=env,
+        )
+        assert written is not None
+        assert written["configPath"] == "/tmp/config.json"
+
+        latest = read_latest_config_snapshot_audit_record(env=env)
+        assert latest is not None
+        assert latest["configPath"] == "/tmp/config.json"
+        assert latest["rawHash"] == "abc123"
+
+        restore_config_snapshot_audit_record(snapshot=None, env=env)
+        assert read_latest_config_snapshot_audit_record(env=env) is None
 
 
 # ============================================================================

@@ -603,8 +603,8 @@ class DevicePairingPlugin(Plugin):
                     "description": (
                         "Generate setup codes and approve device pairing requests."
                     ),
-                    "acceptsArgs": True,
-                    "requiredScopes": ["operator.pairing"],
+                    "accepts_args": True,
+                    "expose_sender_is_owner": True,
                     "handler": _handler,
                 }
             )

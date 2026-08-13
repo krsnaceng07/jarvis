@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import os
 import sqlite3
-from typing import Any, Callable, Optional, TypeVar
+from typing import Callable, Optional, TypeVar
 
 from .contract import (
     SQLITE_BUSY_TIMEOUT_MS,

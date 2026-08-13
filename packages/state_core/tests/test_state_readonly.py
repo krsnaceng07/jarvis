@@ -11,13 +11,10 @@ from __future__ import annotations
 
 import os
 import sqlite3
-import threading
 
 import pytest
 
-from jarvis_state_core.contract import STATE_SCHEMA_VERSION
 from jarvis_state_core.readonly import with_state_database_read_only
-from jarvis_state_core.paths import resolve_state_sqlite_path
 
 
 @pytest.fixture

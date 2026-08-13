@@ -12,6 +12,7 @@ instead of a background extraction pass.
 
 from __future__ import annotations
 
+import logging
 import sys
 from pathlib import Path
 
@@ -27,9 +28,9 @@ if hasattr(sys.stderr, "reconfigure"):
 # This mirrors the desktop host's bootstrap path.
 _WORKSPACE_ROOT = Path(__file__).resolve().parents[4]
 if str(_WORKSPACE_ROOT) not in sys.path:
-    sys.path.insert(0, str(_WORKSPACE_ROOT))
+    sys.path.append(str(_WORKSPACE_ROOT))
 _SRC_DIR = _WORKSPACE_ROOT / "src"
 if _SRC_DIR.exists() and str(_SRC_DIR) not in sys.path:
-    sys.path.insert(0, str(_SRC_DIR))
+    sys.path.append(str(_SRC_DIR))  # append so stdlib logging is not shadowed
 
 __version__ = "0.1.0-rc1"

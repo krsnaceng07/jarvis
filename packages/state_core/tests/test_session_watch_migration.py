@@ -16,7 +16,6 @@ from __future__ import annotations
 
 import sqlite3
 
-import pytest
 
 from jarvis_state_core.session_watch_migration import (
     LEGACY_AMBIENT_GROUP_WATCH_MARKER_PREFIX,

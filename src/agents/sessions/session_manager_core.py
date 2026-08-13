@@ -209,14 +209,15 @@ class SessionManagerCore:
         )
 
     def _sqlite_load_events(self, marker: dict) -> list[FileEntry]:
-        """Stub loader for SQLite-backed sessions.
+        from jarvis_state_core import load_agent_session_entries, open_agent_database
 
-        Mirrors the OpenClaw source's
-        ``loadTranscriptEventsSync(marker) as FileEntry[]``
-        callback. Phase 6.5 wires the full
-        transcript-DB read.
-        """
-        return []
+        handle = open_agent_database(
+            {
+                "agent_id": str(marker.get("agent_id", "")),
+                "path": str(marker.get("store_path", "")),
+            }
+        )
+        return load_agent_session_entries(handle, str(marker.get("session_id", "")))
 
     # ------------------------------------------------------------------
     # setLoadedSessionFile
@@ -391,11 +392,19 @@ class SessionManagerCore:
         self.flushed = False
 
         if self.should_persist:
-            file_timestamp = timestamp.replace(":", "-").replace(".", "-")
-            self.session_file = os.path.join(
-                self.get_session_dir(),
-                f"{file_timestamp}_{self.session_id}.jsonl",
-            )
+            if self.sqlite_persistence:
+                agent_id = self.sqlite_persistence.get("agent_id", "")
+                store_path = self.sqlite_persistence.get("store_path", "")
+                self.session_file = f"sqlite:{agent_id}:{self.session_id}:{store_path}"
+                persist_sqlite_record = getattr(self, "_persist_sqlite_record", None)
+                if callable(persist_sqlite_record):
+                    persist_sqlite_record(header)
+            else:
+                file_timestamp = timestamp.replace(":", "-").replace(".", "-")
+                self.session_file = os.path.join(
+                    self.get_session_dir(),
+                    f"{file_timestamp}_{self.session_id}.jsonl",
+                )
         return self.session_file
 
     # ------------------------------------------------------------------

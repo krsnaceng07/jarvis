@@ -30,40 +30,49 @@ EmbeddedAttemptPromptContext = Dict[str, Any]
 
 #: Hook for the resolve-boundary-timestamp step.
 _RESOLVE_BOUNDARY_TIMESTAMP: Callable[[Dict[str, Any]], Any] = lambda _p: None
+_DEFAULT_RESOLVE_BOUNDARY_TIMESTAMP = _RESOLVE_BOUNDARY_TIMESTAMP
 
 
 def set_resolve_boundary_timestamp_hook(
-    hook: Callable[[Dict[str, Any]], Any],
+    hook: Callable[[Dict[str, Any]], Any] | None,
 ) -> None:
     """Install a custom resolve-boundary-timestamp hook."""
     global _RESOLVE_BOUNDARY_TIMESTAMP
-    _RESOLVE_BOUNDARY_TIMESTAMP = hook
+    _RESOLVE_BOUNDARY_TIMESTAMP = (
+        _DEFAULT_RESOLVE_BOUNDARY_TIMESTAMP if hook is None else hook
+    )
 
 
 #: Hook for the resolve-user-message-boundary step.
 _RESOLVE_USER_MESSAGE_BOUNDARY: Callable[[Dict[str, Any]], Any] = lambda _p: {}
+_DEFAULT_RESOLVE_USER_MESSAGE_BOUNDARY = _RESOLVE_USER_MESSAGE_BOUNDARY
 
 
 def set_resolve_user_message_boundary_hook(
-    hook: Callable[[Dict[str, Any]], Any],
+    hook: Callable[[Dict[str, Any]], Any] | None,
 ) -> None:
     """Install a custom resolve-user-message-boundary hook."""
     global _RESOLVE_USER_MESSAGE_BOUNDARY
-    _RESOLVE_USER_MESSAGE_BOUNDARY = hook
+    _RESOLVE_USER_MESSAGE_BOUNDARY = (
+        _DEFAULT_RESOLVE_USER_MESSAGE_BOUNDARY if hook is None else hook
+    )
 
 
 #: Hook for the build-tool-result-prompt-projection step.
 _BUILD_TOOL_RESULT_PROMPT_PROJECTION: Callable[
     [Dict[str, Any]], Any
 ] = lambda _p: {}
+_DEFAULT_BUILD_TOOL_RESULT_PROMPT_PROJECTION = _BUILD_TOOL_RESULT_PROMPT_PROJECTION
 
 
 def set_build_tool_result_prompt_projection_hook(
-    hook: Callable[[Dict[str, Any]], Any],
+    hook: Callable[[Dict[str, Any]], Any] | None,
 ) -> None:
     """Install a custom build-tool-result-prompt-projection hook."""
     global _BUILD_TOOL_RESULT_PROMPT_PROJECTION
-    _BUILD_TOOL_RESULT_PROMPT_PROJECTION = hook
+    _BUILD_TOOL_RESULT_PROMPT_PROJECTION = (
+        _DEFAULT_BUILD_TOOL_RESULT_PROMPT_PROJECTION if hook is None else hook
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -5,6 +5,30 @@ from typing import Any, Dict, List, Optional
 
 import pytest
 
+from src.agents.embedded_agent_runner.runs import (
+    ACTIVE_EMBEDDED_RUNS,
+    ACTIVE_EMBEDDED_RUNS_BY_RUN_ID,
+    ACTIVE_EMBEDDED_RUN_SESSION_IDS_BY_FILE,
+    ACTIVE_EMBEDDED_RUN_SESSION_IDS_BY_KEY,
+    ABANDONED_EMBEDDED_RUNS_BY_SESSION_ID,
+    ABANDONED_EMBEDDED_RUN_SESSION_IDS_BY_FILE,
+    ABANDONED_EMBEDDED_RUN_SESSION_IDS_BY_KEY,
+    RETAINED_EMBEDDED_RUN_ABORTABILITY_RUN_IDS,
+)
+
+
+@pytest.fixture(autouse=True)
+def _reset_embedded_run_state() -> None:
+    ACTIVE_EMBEDDED_RUNS.clear()
+    ACTIVE_EMBEDDED_RUNS_BY_RUN_ID.clear()
+    ACTIVE_EMBEDDED_RUN_SESSION_IDS_BY_FILE.clear()
+    ACTIVE_EMBEDDED_RUN_SESSION_IDS_BY_KEY.clear()
+    ABANDONED_EMBEDDED_RUNS_BY_SESSION_ID.clear()
+    ABANDONED_EMBEDDED_RUN_SESSION_IDS_BY_FILE.clear()
+    ABANDONED_EMBEDDED_RUN_SESSION_IDS_BY_KEY.clear()
+    RETAINED_EMBEDDED_RUN_ABORTABILITY_RUN_IDS.clear()
+
+
 from src.agents.embedded_agent_runner.compact import (
     compact_embedded_agent_session_direct,
     register_testing_helpers,
@@ -76,9 +100,10 @@ class TestResolveManualCompactionActiveRunSessionId:
             register_active_embedded_run,
         )
 
+        handle = {"kind": "embedded"}
         register_active_embedded_run(
             session_id="sess-1",
-            handle={"kind": "embedded"},
+            handle=handle,
         )
         try:
             result = resolve_manual_compaction_active_run_session_id(
@@ -92,7 +117,7 @@ class TestResolveManualCompactionActiveRunSessionId:
 
             unregister_active_embedded_run(
                 session_id="sess-1",
-                handle={"kind": "embedded"},
+                handle=handle,
             )
 
     def test_session_key_active(self) -> None:
@@ -101,9 +126,10 @@ class TestResolveManualCompactionActiveRunSessionId:
             unregister_active_embedded_run,
         )
 
+        handle = {"kind": "embedded"}
         register_active_embedded_run(
             session_id="sess-other",
-            handle={"kind": "embedded"},
+            handle=handle,
             session_key="key-1",
         )
         try:
@@ -114,7 +140,7 @@ class TestResolveManualCompactionActiveRunSessionId:
         finally:
             unregister_active_embedded_run(
                 session_id="sess-other",
-                handle={"kind": "embedded"},
+                handle=handle,
                 session_key="key-1",
             )
 
@@ -124,9 +150,10 @@ class TestResolveManualCompactionActiveRunSessionId:
             unregister_active_embedded_run,
         )
 
+        handle = {"kind": "embedded"}
         register_active_embedded_run(
             session_id="sess-f",
-            handle={"kind": "embedded"},
+            handle=handle,
             session_file="/f",
         )
         try:
@@ -141,7 +168,7 @@ class TestResolveManualCompactionActiveRunSessionId:
         finally:
             unregister_active_embedded_run(
                 session_id="sess-f",
-                handle={"kind": "embedded"},
+                handle=handle,
                 session_file="/f",
             )
 
@@ -490,9 +517,10 @@ class TestCompactEmbeddedAgentSession:
             unregister_active_embedded_run,
         )
 
+        handle = {"kind": "embedded"}
         register_active_embedded_run(
             session_id="sess-1",
-            handle={"kind": "embedded"},
+            handle=handle,
         )
         try:
             result = await compact_embedded_agent_session(
@@ -504,7 +532,7 @@ class TestCompactEmbeddedAgentSession:
         finally:
             unregister_active_embedded_run(
                 session_id="sess-1",
-                handle={"kind": "embedded"},
+                handle=handle,
             )
 
     @pytest.mark.asyncio

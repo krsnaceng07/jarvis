@@ -125,13 +125,14 @@ class TestJarvisDesktopImport:
         """`from jarvis_desktop.app import main, JarvisLive, TOOL_DECLARATIONS` works."""
         from jarvis_desktop.app import TOOL_DECLARATIONS, JarvisLive, main
 
-        # Phase 4.3h: 3 hardcoded (agent_task, shutdown_jarvis, save_memory)
+        # Phase 4.3h: 2 hardcoded (shutdown_jarvis, save_memory)
         # + 5 from OpenClaw extensions (memory_search, memory_get,
-        # cron_schedule, cron_list, cron_cancel) = 8 total.
+        # cron_schedule, cron_list, cron_cancel) = 7 total.
         # The 6 JARVIS-original tools (tool_weather, tool_reminder, tool_open_app,
         # tool_web_search, tool_send_message, tool_youtube_video) were removed in
         # Phase 4.3h per the "same to same" architect rule (none exist in OpenClaw).
-        assert len(TOOL_DECLARATIONS) >= 8
+        assert len(TOOL_DECLARATIONS) >= 7
+        assert "agent_task" not in [d["name"] for d in TOOL_DECLARATIONS]
         assert callable(main)
         assert JarvisLive.__name__ == "JarvisLive"
 
@@ -158,15 +159,16 @@ class TestPluginSdkLoader:
     carry ``http_handlers`` and ``channel`` registrations.
     """
 
-    def test_load_plugins_returns_ten_collections(self) -> None:
-        """_load_plugins returns the 10-tuple
+    def test_load_plugins_returns_eleven_collections(self) -> None:
+        """_load_plugins returns the 11-tuple
         ``(decls, dispatch, commands, cli, skills, hooks, cron,
-        doctor, http_handlers, channel)`` (Phase 3 added http+channel)."""
+        doctor, http_handlers, gateway_methods, channel)``
+        (Phase 3 added http+channel; Phase 5 added gateway_methods)."""
         from jarvis_desktop.app import _load_plugins
 
         result = _load_plugins()
         assert isinstance(result, tuple)
-        assert len(result) == 10
+        assert len(result) == 11
         (
             tool_decls,
             dispatch,
@@ -177,6 +179,7 @@ class TestPluginSdkLoader:
             cron_jobs,
             doctor_contracts,
             http_handlers,
+            gateway_methods,
             channel,
         ) = result
         assert isinstance(tool_decls, list)
@@ -204,6 +207,7 @@ class TestPluginSdkLoader:
             _cron,
             _doctor,
             _http,
+            _gateway_methods,
             _channel,
         ) = _load_plugins()
         for tool_name, value in dispatch.items():
@@ -227,6 +231,7 @@ class TestPluginSdkLoader:
             _cron,
             _doctor,
             _http,
+            _gateway_methods,
             _channel,
         ) = _load_plugins()
         for d in tool_decls:
@@ -272,6 +277,7 @@ class TestAppManifestLoader:
             _cron,
             _doctor,
             _http,
+            _gateway_methods,
             _channel,
         ) = _load_plugins()
         for d in tool_decls:
@@ -292,6 +298,7 @@ class TestAppManifestLoader:
             _cron,
             _doctor,
             _http,
+            _gateway_methods,
             _channel,
         ) = _load_plugins()
         # Phase 4.3h: removed 6 JARVIS-original tools (none in OpenClaw).

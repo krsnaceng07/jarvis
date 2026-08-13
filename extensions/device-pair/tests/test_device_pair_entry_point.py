@@ -475,8 +475,8 @@ class TestDevicePairingPlugin:
         assert len(api.commands) == 1
         cmd = api.commands[0]
         assert cmd["name"] == "pair"
-        assert cmd["acceptsArgs"] is True
-        assert cmd["requiredScopes"] == ["operator.pairing"]
+        assert cmd["accepts_args"] is True
+        assert cmd["expose_sender_is_owner"] is True
         assert callable(cmd["handler"])
 
 

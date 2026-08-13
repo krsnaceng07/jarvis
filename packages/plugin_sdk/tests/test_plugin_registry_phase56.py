@@ -234,8 +234,7 @@ def test_plugin_registry_shape() -> None:
     assert "sessionSchedulerJobs" in registry
     assert "sessionActions" in registry
 
-
-# -- plugin_registry_state — resolve_plugin_registration_capabilities -
+# -- plugin_registry_state - resolve_plugin_registration_capabilities -
 
 
 def test_resolve_capabilities_full() -> None:
@@ -278,7 +277,7 @@ def test_resolve_capabilities_setup_only() -> None:
     assert caps["runtimeChannel"] is False
 
 
-# -- plugin_registry_state — resolve_typed_hook_timeout_ms -----------
+# -- plugin_registry_state ï¿½ resolve_typed_hook_timeout_ms -----------
 
 
 def test_resolve_timeout_from_policy_timeouts() -> None:
@@ -326,7 +325,7 @@ def test_resolve_timeout_rejects_non_positive() -> None:
         ) is None
 
 
-# -- plugin_registry_state — create_plugin_registry_state ----------
+# -- plugin_registry_state ï¿½ create_plugin_registry_state ----------
 
 
 def test_create_state_returns_empty_registry() -> None:
@@ -405,7 +404,7 @@ def test_create_state_get_host_cron_service_default_none() -> None:
     assert state["getHostCronService"]() is None
 
 
-# -- plugin_registry_registrars — composition -----------------------
+# -- plugin_registry_registrars ï¿½ composition -----------------------
 
 
 def test_create_plugin_registrars_returns_full_shape() -> None:

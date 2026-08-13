@@ -14,8 +14,7 @@ Key port decisions:
 """
 from __future__ import annotations
 
-import re
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, TypedDict, cast
 
 # Re-export the ``normalize_lowercase_string_or_empty`` helper from
 # the SDK. The TS source uses ``@openclaw/normalization-core/string-coerce``;
@@ -112,7 +111,7 @@ def _normalize_memory_multimodal_modalities(
 
 
 def normalize_memory_multimodal_settings(
-    raw: dict | None,
+    raw: object,
 ) -> MemoryMultimodalSettings:
     """Normalize user multimodal settings.
 
@@ -121,17 +120,23 @@ def normalize_memory_multimodal_settings(
     ``maxFileBytes`` is floored to ``>= 1``; defaults to 10 MB.
     ``None`` is treated as an empty settings dict.
     """
-    safe_raw = raw if isinstance(raw, dict) else {}
+    safe_raw = cast(dict[str, object], raw if isinstance(raw, dict) else {})
     enabled = safe_raw.get("enabled") is True
     max_file_bytes_raw = safe_raw.get("maxFileBytes")
     if isinstance(max_file_bytes_raw, (int, float)) and max_file_bytes_raw == max_file_bytes_raw:  # NaN check
         max_file_bytes = max(1, int(max_file_bytes_raw))
     else:
         max_file_bytes = DEFAULT_MEMORY_MULTIMODAL_MAX_FILE_BYTES
+    modalities_raw = safe_raw.get("modalities")
+    modalities = (
+        cast(list[MemoryMultimodalSelection] | None, modalities_raw if isinstance(modalities_raw, list) else None)
+        if enabled
+        else None
+    )
     return {
         "enabled": enabled,
         "modalities": (
-            _normalize_memory_multimodal_modalities(safe_raw.get("modalities"))
+            _normalize_memory_multimodal_modalities(modalities)
             if enabled
             else []
         ),

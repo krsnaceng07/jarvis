@@ -105,8 +105,15 @@ def read_last_cache_ttl_timestamp(
     if not callable(get_entries):
         return None
     try:
-        entries = get_entries() or []
+        raw_entries = get_entries()
     except Exception:
+        return None
+    entries: list[object]
+    if raw_entries is None:
+        entries = []
+    elif isinstance(raw_entries, (list, tuple)):
+        entries = list(raw_entries)
+    else:
         return None
     last: Optional[int] = None
     for entry in reversed(entries):

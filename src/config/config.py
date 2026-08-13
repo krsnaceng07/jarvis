@@ -11,6 +11,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from src.config.io import get_runtime_config as _get_runtime_config
+from src.config.io import load_config as _load_config
+from src.config.io import write_config_file as _write_config_file
+
 
 def load_config(*args, **kwargs) -> Any:
     """Load the active config.
@@ -18,17 +22,17 @@ def load_config(*args, **kwargs) -> Any:
     Focused minimal port; the full implementation is wired as the IO
     subsystem lands.
     """
-    raise NotImplementedError("load_config: wire as the config-IO port lands")
+    return _load_config(*args, **kwargs)
 
 
 def get_runtime_config(*args, **kwargs) -> Any:
     """Get the runtime config snapshot."""
-    raise NotImplementedError("get_runtime_config: wire as the runtime-snapshot port lands")
+    return _get_runtime_config(*args, **kwargs)
 
 
 def write_config_file(*args, **kwargs) -> Any:
     """Persist a config write."""
-    raise NotImplementedError("write_config_file: wire as the config-IO port lands")
+    return _write_config_file(*args, **kwargs)
 
 
 __all__ = ["load_config", "get_runtime_config", "write_config_file"]

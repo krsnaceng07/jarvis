@@ -54,7 +54,9 @@ def build(build_options: dict[str, Any] | None = None) -> str:
 
     try:
         runtime = MemoryRuntime.default()
-        rows = runtime.search_substring("", limit=10) if agent_id else runtime.recent(limit=40)
+        rows = runtime.recent(limit=40)
+        if agent_id and not rows:
+            rows = runtime.search_text("", limit=10)
     except Exception:
         return ""
 

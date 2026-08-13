@@ -32,15 +32,22 @@ EmbeddedAttemptPromptAssembly = Dict[str, Any]
 #: Hook for the assemble-prompt step.
 _ASSEMBLE_PROMPT: Callable[
     [Dict[str, Any]], Awaitable[Any]
-] = lambda _p: asyncio.sleep(0)
+] = lambda input_obj: {
+        "systemPromptText": input_obj.get("systemPromptText"),
+        "messages": input_obj.get("messages") or [],
+        "tools": input_obj.get("tools") or [],
+        "prompt": input_obj.get("prompt"),
+        "report": input_obj.get("report") or {},
+    }
+_DEFAULT_ASSEMBLE_PROMPT = _ASSEMBLE_PROMPT
 
 
 def set_assemble_prompt_hook(
-    hook: Callable[[Dict[str, Any]], Awaitable[Any]],
+    hook: Callable[[Dict[str, Any]], Awaitable[Any]] | None,
 ) -> None:
     """Install a custom assemble-prompt hook."""
     global _ASSEMBLE_PROMPT
-    _ASSEMBLE_PROMPT = hook
+    _ASSEMBLE_PROMPT = _DEFAULT_ASSEMBLE_PROMPT if hook is None else hook
 
 
 # ---------------------------------------------------------------------------

@@ -10,7 +10,9 @@ inherits the bug.
 
 from __future__ import annotations
 
+import re
 import string
+from pathlib import Path
 
 import pytest
 from hypothesis import given, strategies as st
@@ -214,6 +216,222 @@ def test_plugin_api_grouped_facades_present() -> None:
     assert api.agent is not None
     assert api.run_context is not None
     assert api.lifecycle is not None
+
+
+def test_plugin_api_register_context_engine_round_trips_read_back() -> None:
+    """PluginApi keeps the new context-engine registration contract stable."""
+    ctx = PluginContext(plugin_id="t", plugin_kind="tool")
+    api = PluginApi(ctx)
+
+    def factory(ctx: object | None = None):
+        return {"ok": True}
+
+    api.register_context_engine(
+        {
+            "id": "lossless-claw",
+            "factory": factory,
+            "info": {"id": "lossless-claw", "name": "Lossless Claw"},
+        }
+    )
+
+    assert len(api.context_engines) == 1
+    engine = api.context_engines[0]
+    assert engine["id"] == "lossless-claw"
+    assert engine["factory"] is factory
+    assert engine["_owner_id"] == "t"
+
+
+def test_plugin_api_register_compaction_provider_round_trips_read_back() -> None:
+    """PluginApi exposes the compaction-provider registration contract."""
+    ctx = PluginContext(plugin_id="t", plugin_kind="tool")
+    api = PluginApi(ctx)
+
+    async def compact(_params: dict[str, object]) -> dict[str, object]:
+        return {"ok": True}
+
+    api.register_compaction_provider(
+        {
+            "id": "lossless-compact",
+            "compact": compact,
+            "meta": {"name": "Lossless compact"},
+        }
+    )
+
+    assert len(api.compaction_providers) == 1
+    provider = api.compaction_providers[0]
+    assert provider["id"] == "lossless-compact"
+    assert provider["compact"] is compact
+    assert provider["_owner_id"] == "t"
+
+
+def test_plugin_api_register_operation_domains_round_trip() -> None:
+    """PluginApi exposes the operation-domain OpenClaw registrar names."""
+    ctx = PluginContext(plugin_id="t", plugin_kind="tool")
+    api = PluginApi(ctx)
+
+    async def catalog_handler(_ctx: object) -> dict[str, object]:
+        return {"ok": True}
+
+    api.register_session_catalog({"id": "catalog-a", "handler": catalog_handler})
+    api.register_cli_backend({"id": "cli-a", "handler": lambda *_args, **_kwargs: None})
+    api.register_text_transform({"id": "transform-a", "handler": lambda value: value})
+    api.register_session_extension({"id": "ext-a", "handler": lambda *_args, **_kwargs: None})
+    api.register_codex_app_server_extension_factory(
+        {"id": "codex-a", "factory": lambda *_args, **_kwargs: None}
+    )
+    api.register_interactive_handler({"id": "interactive-a", "handler": lambda *_args, **_kwargs: None})
+
+    assert len(api.session_catalogs) == 1
+    assert len(api.cli_backends) == 1
+    assert len(api.text_transforms) == 1
+    assert len(api.session_extensions) == 1
+    assert len(api.codex_app_server_extension_factories) == 1
+    assert len(api.interactive_handlers) == 1
+
+
+def test_plugin_api_remaining_openclaw_registrars_exist() -> None:
+    """The capability/host-side OpenClaw registrar names survive at the API boundary."""
+    ctx = PluginContext(plugin_id="t", plugin_kind="tool")
+    api = PluginApi(ctx)
+
+    api.register_runtime_lifecycle({"id": "lifecycle-a", "start": lambda *_args, **_kwargs: None})
+    api.register_control_ui_descriptor({"id": "ui-a", "label": "UI A"})
+    api.register_tool_metadata({"id": "tool-meta-a", "label": "Tool meta"})
+    api.register_trusted_tool_policy({"id": "trusted-policy-a", "allow": True})
+    api.register_session_scheduler_job({"id": "job-a", "run": lambda *_args, **_kwargs: None})
+    api.register_session_action({"id": "action-a", "run": lambda *_args, **_kwargs: None})
+    api.register_agent_event_subscription({"id": "subscription-a", "run": lambda *_args, **_kwargs: None})
+    api.register_memory_embedding_provider({"id": "memory-embed-a", "provider": object()})
+    api.register_conversation_binding_resolved_handler(
+        {"id": "binding-a", "handler": lambda *_args, **_kwargs: None}
+    )
+
+    assert len(api.runtime_lifecycles) == 1
+    assert len(api.control_ui_descriptors) == 1
+    assert len(api.tool_metadata) == 1
+    assert len(api.trusted_tool_policies) == 1
+    assert len(api.session_scheduler_jobs) == 1
+    assert len(api.session_actions) == 1
+    assert len(api.agent_event_subscriptions) == 1
+    assert len(api.memory_embedding_providers) == 1
+    assert len(api.conversation_binding_resolved_handlers) == 1
+
+
+def test_plugin_api_memory_host_registrars_round_trip() -> None:
+    """The host-side memory API contract for OpenClaw is a real PluginApi readback."""
+    ctx = PluginContext(plugin_id="memory-plugin", plugin_kind="memory")
+    api = PluginApi(ctx)
+
+    def builder(_params: object) -> list[str]:
+        return ["memory-builder"]
+
+    async def preparer(_params: object) -> list[str]:
+        return ["memory-preparer"]
+
+    def resolver(_params: dict[str, object] | None = None) -> dict[str, object]:
+        return {"ok": True}
+
+    api.register_memory_capability(
+        {"id": "memory-slot", "promptBuilder": builder, "runtime": object()}
+    )
+    api.register_memory_prompt_section(builder)
+    api.register_memory_prompt_supplement(builder)
+    api.register_memory_prompt_preparation(preparer)
+    api.register_memory_corpus_supplement({"id": "wiki", "body": "memory"})
+    api.register_memory_flush_plan(resolver)
+    api.register_memory_runtime(object())
+
+    assert api.memory_capability is not None
+    assert len(api.memory_prompt_sections) == 1
+    assert len(api.memory_prompt_supplements) == 1
+    assert len(api.memory_prompt_preparations) == 1
+    assert len(api.memory_corpus_supplements) == 1
+    assert len(api.memory_flush_plans) == 1
+    assert len(api.memory_runtimes) == 1
+
+
+def test_plugin_api_remaining_network_registrars_exist() -> None:
+    """The network/host side of the OpenClaw registrar vocabulary is callable on PluginApi."""
+    ctx = PluginContext(plugin_id="n", plugin_kind="tool")
+    api = PluginApi(ctx)
+
+    api.register_hosted_media_resolver(
+        {"id": "media-resolver-a", "resolve": lambda *_args, **_kwargs: None}
+    )
+    api.register_mcp_server_connection_resolver(
+        {"id": "mcp-a", "resolve": lambda *_args, **_kwargs: None}
+    )
+    api.register_reload({"id": "reload-a", "handler": lambda *_args, **_kwargs: None})
+    api.register_node_host_command({"id": "node-a", "handler": lambda *_args, **_kwargs: None})
+    api.register_security_audit_collector(
+        {"id": "audit-a", "collect": lambda *_args, **_kwargs: None}
+    )
+
+    assert len(api.hosted_media_resolvers) == 1
+    assert len(api.mcp_server_connection_resolvers) == 1
+    assert len(api.reload_handlers) == 1
+    assert len(api.node_host_commands) == 1
+    assert len(api.security_audit_collectors) == 1
+
+
+def test_plugin_api_openclaw_compatibility_aliases_round_trip() -> None:
+    """Compatibility aliases preserve their OpenClaw registry contracts."""
+    ctx = PluginContext(plugin_id="t", plugin_kind="tool")
+    api = PluginApi(ctx)
+
+    api.register_http_route(
+        {"path": "/health", "handler": lambda *_args, **_kwargs: {"status": "ok"}}
+    )
+    api.register_text_transforms(
+        {"id": "transform-a", "handler": lambda value: value}
+    )
+    api.register_typed_hook(
+        {"name": "validate", "handler": lambda *_args, **_kwargs: None}
+    )
+    api.register_model_catalog_provider(
+        {"provider": "model-catalog"}, {"id": "catalog-a"}
+    )
+    api.register_agent_tool_result_middleware(
+        {"id": "middleware-a", "handler": lambda *_args, **_kwargs: None}
+    )
+
+    assert len(api.http_handlers) == 1
+    assert len(api.text_transforms) == 1
+    assert len(api.hooks) == 1
+    assert len(api.model_catalog_providers) == 1
+    assert len(api.agent_tool_result_middlewares) == 1
+
+
+def test_plugin_api_has_expected_openclaw_registrar_equivalents() -> None:
+    """PluginApi exposes the same OpenClaw registrar names as the registrar composer."""
+    api_text = Path("packages/plugin_sdk/src/jarvis_sdk/api.py").read_text(encoding="utf-8")
+    api_names = set(re.findall(r"def\s+(register_[A-Za-z0-9_]+)\(", api_text))
+
+    def snake_to_camel(name: str) -> str:
+        parts = name.split("_")
+        return parts[0] + "".join(p.title() for p in parts[1:])
+
+    api_camel = {snake_to_camel(name) for name in api_names}
+
+    registrar_paths = [
+        Path("packages/plugin_sdk/src/jarvis_sdk/plugin_registry_registrars.py"),
+        Path("src/plugins/registrars.py"),
+    ]
+    sdk_only_extras = {
+        "registerCron",
+        "registerDoctorContract",
+        "registerHttpHandler",
+        "registerSkill",
+        "registerTextTransform",
+    }
+
+    for path in registrar_paths:
+        registrar_text = path.read_text(encoding="utf-8")
+        registrar_names = {match.group(1) for match in re.finditer(r'"(register[A-Za-z0-9_]+)"', registrar_text)}
+        missing = sorted(registrar_names - api_camel)
+        extra = sorted(api_camel - registrar_names - sdk_only_extras)
+        assert not missing, f"Missing PluginApi aliases for {path}: {missing}"
+        assert not extra, f"Unexpected API names not in {path}: {extra}"
 
 
 # ── define_plugin_entry property tests ───────────────────────────────

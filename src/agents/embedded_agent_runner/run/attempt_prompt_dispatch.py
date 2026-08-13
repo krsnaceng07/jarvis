@@ -23,14 +23,15 @@ EmbeddedAttemptPromptDispatch = Dict[str, Any]
 _DISPATCH_PROMPT: Callable[
     [Dict[str, Any]], Awaitable[Any]
 ] = lambda _p: asyncio.sleep(0)
+_DEFAULT_DISPATCH_PROMPT = _DISPATCH_PROMPT
 
 
 def set_dispatch_prompt_hook(
-    hook: Callable[[Dict[str, Any]], Awaitable[Any]],
+    hook: Callable[[Dict[str, Any]], Awaitable[Any]] | None,
 ) -> None:
     """Install a custom dispatch-prompt hook."""
     global _DISPATCH_PROMPT
-    _DISPATCH_PROMPT = hook
+    _DISPATCH_PROMPT = _DEFAULT_DISPATCH_PROMPT if hook is None else hook
 
 
 # ---------------------------------------------------------------------------

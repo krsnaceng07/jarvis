@@ -8,6 +8,13 @@ long the host will wait.
 
 Mirrors OpenClaw's ``src/hooks/internal-hook-types.ts`` + the
 ``api.on(hookName, handler, opts)`` registration surface.
+
+Wave 13 additions:
+  - ``src/hooks/types.py``        — Hook, HookEntry, HookSource, InternalHookEvent, …
+  - ``src/hooks/policy.py``       — HOOK_SOURCE_POLICIES, resolve_hook_entries, …
+  - ``src/hooks/plugin_hooks.py`` — resolve_plugin_hook_dirs
+  - ``src/hooks/loader.py``       — load_hooks (bundled + plugin + workspace)
+  - ``src/hooks/bundled/``        — session_memory + compaction_notifier
 """
 
 from __future__ import annotations
@@ -115,4 +122,55 @@ def fire_sync(bus: HookBus, name: str, payload: Any = None) -> None:
     return
 
 
-__all__ = ["HookBus", "fire_sync"]
+# ── W13: re-export new hook subsystem modules ────────────────────────
+
+from .loader import load_hook_handler, load_hooks  # noqa: E402
+from .plugin_hooks import PluginHookDirEntry, resolve_plugin_hook_dirs  # noqa: E402
+from .policy import (  # noqa: E402
+    HookEnableState,
+    HookResolutionCollision,
+    resolve_hook_config,
+    resolve_hook_enable_state,
+    resolve_hook_entries,
+)
+from .types import (  # noqa: E402
+    Hook,
+    HookEligibilityContext,
+    HookEntry,
+    HookMetadata,
+    HookSource,
+    InternalHookEvent,
+    InternalHookEventType,
+    InternalHookHandler,
+    KNOWN_INTERNAL_HOOK_EVENT_KEYS,
+    is_known_hook_event_key,
+)
+
+__all__ = [
+    # HookBus
+    "HookBus",
+    "fire_sync",
+    # W13: types
+    "Hook",
+    "HookEligibilityContext",
+    "HookEnableState",
+    "HookEntry",
+    "HookMetadata",
+    "HookResolutionCollision",
+    "HookSource",
+    "InternalHookEvent",
+    "InternalHookEventType",
+    "InternalHookHandler",
+    "KNOWN_INTERNAL_HOOK_EVENT_KEYS",
+    "is_known_hook_event_key",
+    # W13: policy
+    "resolve_hook_config",
+    "resolve_hook_enable_state",
+    "resolve_hook_entries",
+    # W13: plugin hooks
+    "PluginHookDirEntry",
+    "resolve_plugin_hook_dirs",
+    # W13: loader
+    "load_hook_handler",
+    "load_hooks",
+]

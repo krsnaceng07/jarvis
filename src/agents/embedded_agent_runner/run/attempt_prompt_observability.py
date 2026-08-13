@@ -42,26 +42,30 @@ CacheTrace = Dict[str, Any]
 
 #: Hook for the recordStage cache-trace step.
 _RECORD_STAGE: Callable[[Dict[str, Any]], None] = lambda _p: None
+_DEFAULT_RECORD_STAGE = _RECORD_STAGE
 
 
 def set_record_stage_attempt_prompt_hook(
-    hook: Callable[[Dict[str, Any]], None],
+    hook: Callable[[Dict[str, Any]], None] | None,
 ) -> None:
     """Install a custom recordStage hook."""
     global _RECORD_STAGE
-    _RECORD_STAGE = hook
+    _RECORD_STAGE = _DEFAULT_RECORD_STAGE if hook is None else hook
 
 
 #: Hook for the prompt-cache-changes step.
 _RESOLVE_PROMPT_CACHE_CHANGES: Callable[[Dict[str, Any]], Any] = lambda _p: None
+_DEFAULT_RESOLVE_PROMPT_CACHE_CHANGES = _RESOLVE_PROMPT_CACHE_CHANGES
 
 
 def set_resolve_prompt_cache_changes_hook(
-    hook: Callable[[Dict[str, Any]], Any],
+    hook: Callable[[Dict[str, Any]], Any] | None,
 ) -> None:
     """Install a custom resolve-prompt-cache-changes hook."""
     global _RESOLVE_PROMPT_CACHE_CHANGES
-    _RESOLVE_PROMPT_CACHE_CHANGES = hook
+    _RESOLVE_PROMPT_CACHE_CHANGES = (
+        _DEFAULT_RESOLVE_PROMPT_CACHE_CHANGES if hook is None else hook
+    )
 
 
 # ---------------------------------------------------------------------------

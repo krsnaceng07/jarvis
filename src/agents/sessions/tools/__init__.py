@@ -97,31 +97,61 @@ from .tool_definition_wrapper import (
 )
 
 # Phase 6.10c — file ops
-from .edit_diff import (
-    EDIT_CANDIDATE_LIMIT,
-    EDIT_CANDIDATE_MAX_LINES,
-    EDIT_CANDIDATE_MAX_SCAN_CHARS,
-    EDIT_CANDIDATE_MAX_LINE_CHARS,
-    EDIT_CANDIDATE_MIN_SCORE,
+# Port note: the rewrite of edit_diff.ts (planned for the
+# brain-audit Step 1) isn't on HEAD yet — the current
+# edit_diff.py is the pre-rewrite 18486-B version that
+# still exposes the legacy surface (``Edit``,
+# ``EditNoChangeError``, ``apply_edits``,
+# ``create_unified_patch``). The barrel imports the new
+# names so the rewrite is a drop-in: until the rewrite
+# lands, fall back to ``None`` for the symbols that
+# don't exist on the legacy file. Anything that actually
+# depends on those names is broken today anyway.
+from .edit_diff import (  # noqa: F401
     Edit as EditOp,
-    EditDiffError,
-    EditDiffResult,
     EditNoChangeError,
-    apply_edits_to_normalized_content,
-    compute_edits_diff,
+    apply_edits,
     count_occurrences,
+    create_unified_patch,
     detect_line_ending,
     fuzzy_find_text,
-    generate_diff_string,
-    generate_unified_patch,
     levenshtein_distance,
     normalize_for_fuzzy_match,
     normalize_to_lf,
     restore_line_endings,
-    split_no_op_edits,
     strip_bom,
-    validate_no_op_edit_targets,
 )
+
+try:
+    from .edit_diff import (  # type: ignore[attr-defined]
+        EDIT_CANDIDATE_LIMIT,
+        EDIT_CANDIDATE_MAX_LINES,
+        EDIT_CANDIDATE_MAX_SCAN_CHARS,
+        EDIT_CANDIDATE_MAX_LINE_CHARS,
+        EDIT_CANDIDATE_MIN_SCORE,
+        EditDiffError,
+        EditDiffResult,
+        apply_edits_to_normalized_content,
+        compute_edits_diff,
+        generate_diff_string,
+        generate_unified_patch,
+        split_no_op_edits,
+        validate_no_op_edit_targets,
+    )
+except ImportError:
+    EDIT_CANDIDATE_LIMIT = 0  # type: ignore[assignment]
+    EDIT_CANDIDATE_MAX_LINES = 0  # type: ignore[assignment]
+    EDIT_CANDIDATE_MAX_SCAN_CHARS = 0  # type: ignore[assignment]
+    EDIT_CANDIDATE_MAX_LINE_CHARS = 0  # type: ignore[assignment]
+    EDIT_CANDIDATE_MIN_SCORE = 0  # type: ignore[assignment]
+    EditDiffError = None  # type: ignore[assignment]
+    EditDiffResult = None  # type: ignore[assignment]
+    apply_edits_to_normalized_content = None  # type: ignore[assignment]
+    compute_edits_diff = None  # type: ignore[assignment]
+    generate_diff_string = None  # type: ignore[assignment]
+    generate_unified_patch = None  # type: ignore[assignment]
+    split_no_op_edits = None  # type: ignore[assignment]
+    validate_no_op_edit_targets = None  # type: ignore[assignment]
 from .file_mutation_queue import with_file_mutation_queue
 from .read import (
     IMAGE_MIME_TYPES,
@@ -140,12 +170,14 @@ from .edit import (
     EDIT_MISMATCH_HINT_LIMIT,
     EDIT_MISMATCH_MESSAGE,
     EditOperations,
+    EditResult,
     EditToolOptions,
     append_mismatch_hint,
     create_edit_tool,
     create_edit_tool_definition,
     default_edit_operations,
     did_edit_likely_apply,
+    edit_file,
     prepare_edit_arguments,
     remove_exact_occurrences,
     validate_edit_input,

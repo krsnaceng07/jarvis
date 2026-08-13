@@ -12,11 +12,9 @@ from __future__ import annotations
 
 import sqlite3
 
-import pytest
 
 from jarvis_state_core.audit_migration import (
     AUDIT_EVENT_LEGACY_COLUMNS,
-    AUDIT_EVENT_STATE_SCHEMA_VERSION,
     AUDIT_EVENT_V2_COLUMNS,
     can_repair_legacy_audit_events_schema,
     has_canonical_audit_events_schema,

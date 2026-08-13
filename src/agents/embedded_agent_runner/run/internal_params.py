@@ -27,13 +27,15 @@ from .params import RunEmbeddedAgentParams
 #: The orchestrator-internal parameter shape. Mirrors
 #: :class:`RunEmbeddedAgentInternalParams``
 #: (``internal-params.ts:5-10``).
-RunEmbeddedAgentInternalParams = Dict[str, Any]
+class RunEmbeddedAgentInternalParams(dict[str, Any]):
+    """Constructible dict-like container for internal run params."""
 
 
 #: The internal parameter shape with a resolved session file.
 #: Mirrors :class:`RunEmbeddedAgentParamsWithSessionFile``
 #: (``internal-params.ts:12-14``).
-RunEmbeddedAgentParamsWithSessionFile = Dict[str, Any]
+class RunEmbeddedAgentParamsWithSessionFile(dict[str, Any]):
+    """Constructible dict-like container for run params with a session file."""
 
 
 # Field names that the orchestrator injects into

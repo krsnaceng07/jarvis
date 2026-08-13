@@ -15,6 +15,7 @@ happens in Phase 1.
 
 from __future__ import annotations
 
+import logging
 import asyncio
 import os
 import threading
@@ -22,6 +23,7 @@ import json
 import sys
 import traceback
 from pathlib import Path
+from typing import Any
 
 import sounddevice as sd
 from google import genai
@@ -32,6 +34,14 @@ from .memory_bridge import (
     update_memory,
     format_memory_for_prompt,
 )
+from .host import (
+    create_doctor_runner,
+    create_gateway,
+    skills_to_prompt_section,
+    start_gateway,
+)
+from jarvis_sdk import DEFAULT_AGENT_ID, normalize_agent_id
+from jarvis_sdk.loader import load_all_plugins_from_workspace
 
 # Phase 2: the legacy `actions/` directory has been removed entirely.
 # All 17 actions have been migrated to `extensions/<id>/` (Phases 1A-1C)
@@ -45,7 +55,6 @@ from .memory_bridge import (
 # Phase 4.3h: removed 6 JARVIS-original tools (tool_weather, tool_reminder,
 # tool_open_app, tool_web_search, tool_send_message, tool_youtube_video)
 # per the "same to same" architect rule — none of these exist in OpenClaw.
-
 
 def get_base_dir() -> Path:
     """Workspace root, not the script's directory.
@@ -123,155 +132,7 @@ def _load_system_prompt() -> str:
 # is called inline when the model wants to remember something. This
 # matches OpenClaw's memory-core flow and removes the `or_client`
 # dependency from the host.
-#
-# Plugin manifest loader (PR 1B — full SDK-driven plugin loader)
-#
-# Reads every `extensions/*/openclaw.plugin.json` and returns the tool
-# declarations declared in each manifest. Used to extend TOOL_DECLARATIONS
-# below. Mirrors OpenClaw's `src/plugins/loader.ts`. Phase 1C hardens
-# the SDK with strict `PluginManifest` typed schema (Phase 4.3h
-# removed the original 2 consumer-feedback tools, but the contract
-# itself is unchanged).
 # ─────────────────────────────────────────────────────────────────────
-def _load_plugins() -> (
-    tuple[
-        "list[dict]",  # tool_decls
-        "dict[str, tuple]",  # plugin_dispatch
-        "list",  # commands (list[CommandDecl])
-        "list[tuple]",  # cli_handlers
-        "list",  # skills (list[SkillDecl])
-        "list",  # hooks (list[HookRegistration])
-        "list",  # cron_jobs (list[CronDecl])
-        "list[dict]",  # doctor_contracts (raw dicts)
-        "list[dict]",  # http_handlers (Phase 3, raw dicts)
-        "dict | None",  # channel (Phase 3, single-active-slot)
-    ]
-):
-    """Discover + register every extension's plugin entry via the SDK.
-
-    Mirrors OpenClaw's `src/plugins/loader.ts` pattern. For each
-    ``extensions/<id>/openclaw.plugin.json``:
-      1. dynamically import ``extensions.<id>``
-      2. call ``entry.register(api)`` with a real ``PluginApi``
-      3. collect tools / commands / cli / skills / hooks / cron /
-         doctor contracts / http_handlers / channel
-
-    Returns the 10-tuple
-    ``(tool_decls, dispatch, commands, cli, skills, hooks, cron,
-    doctor, http_handlers, channel)``. ``channel`` is single-slot
-    (the last plugin to register wins; matches OpenClaw).
-    """
-    import json as _json
-    import importlib
-    from pathlib import Path as _Path
-
-    from jarvis_sdk import PluginApi, PluginContext, Result  # noqa: F401
-
-    workspace = _Path(__file__).resolve().parents[4]  # jarvis_desktop/src/jarvis_desktop/app.py
-    extensions_dir = workspace / "extensions"
-    if not extensions_dir.exists():
-        return [], {}, [], [], [], [], [], [], [], None
-
-    tool_decls: "list[dict]" = []
-    plugin_dispatch: "dict[str, tuple]" = {}
-    commands: list = []  # list[CommandDecl]
-    cli_handlers: "list[tuple]" = []
-    skills: list = []  # list[SkillDecl]
-    hooks: list = []  # list[HookRegistration]
-    cron_jobs: list = []  # list[CronDecl]
-    doctor_contracts: "list[dict]" = []
-    http_handlers: "list[dict]" = []  # Phase 3
-    channel: "dict | None" = None  # Phase 3, single-active-slot
-
-    for manifest_path in sorted(extensions_dir.glob("*/openclaw.plugin.json")):
-        ext_name = manifest_path.parent.name
-        try:
-            manifest_obj = _json.loads(manifest_path.read_text(encoding="utf-8"))
-        except (OSError, _json.JSONDecodeError) as e:
-            print(f"[WARN] Could not read manifest {manifest_path}: {e}")
-            continue
-
-        try:
-            entry_module = importlib.import_module(f"extensions.{ext_name}")
-            entry = entry_module.entry
-        except (ImportError, AttributeError) as e:
-            print(f"[WARN] Could not load extensions.{ext_name} entry: {e}")
-            continue
-
-        ctx = PluginContext(
-            plugin_id=entry.id,
-            plugin_kind=entry.kind,
-            data_dir=_Path.home() / ".jarvis" / "extensions" / ext_name,
-            workspace=workspace,
-        )
-        api = PluginApi(ctx)
-        # Wire the manifest's `contracts.tools` declaration so the API
-        # can validate plugin tool registrations against the declared
-        # tool names. Mirrors the OpenClaw SDK ``PluginContext.set_manifest``
-        # contract: tools not in ``contracts.tools`` are skipped at
-        # ``register_tool`` time (4.3h contract).
-        try:
-            api.set_manifest(manifest_obj)
-        except Exception as e:
-            print(f"[WARN] {ext_name} set_manifest() failed: {e}")
-        try:
-            entry.register(api)
-        except Exception as e:
-            print(f"[WARN] {ext_name}.register() failed: {e}")
-            continue
-
-        for tool_inst in api.tool_instances:
-            decls = getattr(tool_inst, "tools", [tool_inst] if hasattr(tool_inst, "name") else [])
-            for tool_decl in decls:
-                if not hasattr(tool_decl, "name") or not hasattr(tool_decl, "parameters"):
-                    continue
-                params: dict = {
-                    "type": "OBJECT",
-                    "properties": {},
-                    "required": [],
-                }
-                for p in getattr(tool_decl, "parameters", []):
-                    params["properties"][p.name] = {
-                        "type": getattr(p, "type", "string").upper(),
-                        "description": getattr(p, "description", ""),
-                    }
-                    if getattr(p, "required", False):
-                        params["required"].append(p.name)
-                tool_decls.append(
-                    {
-                        "name": tool_decl.name,
-                        "description": getattr(tool_decl, "description", ""),
-                        "parameters": params,
-                    }
-                )
-                plugin_dispatch[tool_decl.name] = (tool_inst, tool_decl.name)
-
-        commands.extend(api.commands)
-        cli_handlers.extend(api.cli_handlers)
-        skills.extend(api.skills)
-        hooks.extend(api.hooks)
-        cron_jobs.extend(api.cron_jobs)
-        doctor_contracts.extend(api.doctor_contracts)
-        http_handlers.extend(api.http_handlers)
-        # Channel is single-active-slot (last writer wins, matches
-        # OpenClaw's behavior). We keep the surface small: one
-        # channel per process, the gateway and host route to it.
-        if api.channel is not None:
-            channel = api.channel
-
-    return (
-        tool_decls,
-        plugin_dispatch,
-        commands,
-        cli_handlers,
-        skills,
-        hooks,
-        cron_jobs,
-        doctor_contracts,
-        http_handlers,
-        channel,
-    )
-
 
 def _unwrap_result(result) -> str:
     """Convert a plugin's Result return to a string for the LLM."""
@@ -293,25 +154,7 @@ TOOL_DECLARATIONS = [
     # below are JARVIS-internal and stay. The 6 + 5 plugin tools
     # (weather, reminder, open_app, web_search, send_message, youtube_video,
     # memory_search, memory_get, cron_schedule, cron_list, cron_cancel)
-    # are loaded dynamically by _load_plugins().
-    {
-        "name": "agent_task",
-        "description": (
-            "Queue a long-running task for background execution. "
-            "Returns the task id; poll via the same id."
-        ),
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "goal": {"type": "STRING", "description": "What the task should accomplish."},
-                "priority": {
-                    "type": "STRING",
-                    "description": "low | normal | high (default: normal)",
-                },
-            },
-            "required": ["goal"],
-        },
-    },
+    # are loaded dynamically by the SDK loader.
     {
         "name": "shutdown_jarvis",
         "description": "Shuts down the JARVIS session cleanly.",
@@ -356,11 +199,44 @@ TOOL_DECLARATIONS = [
 ]
 
 
+def _load_plugins() -> tuple[
+    list[dict[str, Any]],
+    dict[str, tuple[Any, str]],
+    list[Any],
+    list[Any],
+    list[Any],
+    list[Any],
+    list[Any],
+    list[Any],
+    list[Any],
+    list[dict[str, Any]],
+    dict[str, Any] | None,
+]:
+    """Return the OpenClaw-shaped plugin load tuple used by the desktop host.
+
+    This keeps the host contract stable for smoke tests and command wiring while
+    the canonical discovery logic still lives in ``jarvis_sdk.loader``.
+    """
+    result = load_all_plugins_from_workspace(BASE_DIR)
+    return (
+        result.tool_decls,
+        result.plugin_dispatch,
+        result.commands,
+        result.cli_handlers,
+        result.skills,
+        result.hooks,
+        result.cron_jobs,
+        result.doctor_contracts,
+        result.http_handlers,
+        result.gateway_methods,
+        result.channel,
+    )
+
+
 # ── Extend TOOL_DECLARATIONS with plugin-loaded tools ──────────────
-# PR 1B: SDK-driven plugin loader. Discovers extensions, imports each
-# entry, calls register(api), collects tool declarations and a dispatch
-# map. Phase 2+ migrates the remaining 15 actions to extensions; the
-# hardcoded list below shrinks as that happens.
+# PR 1B: SDK-driven plugin loader. Uses the canonical package-level
+# loader implementation rather than host-local discovery logic.
+_PLUGIN_LOAD_RESULT = _load_plugins()
 (
     _PLUGIN_TOOL_DECLS,
     _PLUGIN_DISPATCH,
@@ -370,9 +246,10 @@ TOOL_DECLARATIONS = [
     _PLUGIN_HOOKS,
     _PLUGIN_CRON_JOBS,
     _PLUGIN_DOCTOR_CONTRACTS,
-    _PLUGIN_HTTP_HANDLERS,  # Phase 3
-    _PLUGIN_CHANNEL,  # Phase 3, single-active-slot
-) = _load_plugins()
+    _PLUGIN_HTTP_HANDLERS,
+    _PLUGIN_GATEWAY_METHODS,
+    _PLUGIN_CHANNEL,
+) = _PLUGIN_LOAD_RESULT
 TOOL_DECLARATIONS.extend(_PLUGIN_TOOL_DECLS)
 
 # ── Phase 2: wire skills / hooks / cron / doctor into host subsystems ───
@@ -380,13 +257,11 @@ TOOL_DECLARATIONS.extend(_PLUGIN_TOOL_DECLS)
 # at agent-loop boundaries (before_agent_start, agent_end, etc.).
 # Cron is started in a background thread by the host on first use;
 # the doctor runner is exposed for the CLI (jarvis doctor).
-from src.hooks import HookBus  # noqa: E402
-from src.doctor import DoctorRunner  # noqa: E402
+from jarvis_hooks import HookBus  # noqa: E402
 
 _PLUGIN_HOOK_BUS = HookBus()
 _PLUGIN_HOOK_BUS.register_all(_PLUGIN_HOOKS)
-_PLUGIN_DOCTOR = DoctorRunner()
-_PLUGIN_DOCTOR.add_raws(_PLUGIN_DOCTOR_CONTRACTS)
+_PLUGIN_DOCTOR = create_doctor_runner(_PLUGIN_DOCTOR_CONTRACTS)
 
 # ── Phase 3: gateway + channel wiring ────────────────────────────
 # The gateway exposes plugin-registered HTTP routes on
@@ -395,22 +270,12 @@ _PLUGIN_DOCTOR.add_raws(_PLUGIN_DOCTOR_CONTRACTS)
 # server in a background thread. If the port is busy, we log a
 # warning and skip — the desktop host shouldn't refuse to start
 # just because another JARVIS instance is already running.
-from src.gateway import Gateway, GatewayLockError  # noqa: E402
 
-_GATEWAY = Gateway()
-for _raw in _PLUGIN_HTTP_HANDLERS:
-    try:
-        _GATEWAY.add_raw(_raw)
-    except (ValueError, TypeError) as e:
-        print(f"[WARN] gateway: bad route {_raw.get('path', '?')!r}: {e}")
-
+_GATEWAY = create_gateway(_PLUGIN_HTTP_HANDLERS, gateway_methods=_PLUGIN_GATEWAY_METHODS)
 try:
-    _GATEWAY.start()
-except GatewayLockError as e:
-    # Another JARVIS instance is already holding 7433 — that's
-    # fine; the operator can route to that one instead. We do not
-    # crash the host for this.
-    print(f"[WARN] gateway: {e}")
+    start_gateway(_GATEWAY)
+except Exception:
+    pass
 
 # Phase 3 channel framework (simplified): if a plugin registered
 # a channel, we expose it as a class-level singleton the slash
@@ -441,8 +306,8 @@ class JarvisLive:
         self.ui.on_text_command = self._on_text_command
 
         # ── Plugin initialization ──────────────────────────
-        # Plugin dispatch is built once at import time by `_load_plugins()`
-        # (PR 1B). The UI handle is passed to each plugin lazily inside
+        # Plugin dispatch is built once at import time by the SDK loader.
+        # The UI handle is passed to each plugin lazily inside
         # `_execute_tool` via `PluginContext`, so no eager init is needed
         # here. PR 1A's direct WeatherPlugin import was removed in 1B.
 
@@ -454,10 +319,28 @@ class JarvisLive:
         if text.lstrip().startswith("/"):
             asyncio.run_coroutine_threadsafe(self._handle_slash_command(text), self._loop)
             return
-        asyncio.run_coroutine_threadsafe(
-            self.session.send_client_content(turns={"parts": [{"text": text}]}, turn_complete=True),
-            self._loop,
-        )
+        self._submit_text_turn(text)
+
+    def _submit_text_turn(self, text: str) -> None:
+        """Submit a text turn using the Live API's typed content contract."""
+        future = asyncio.run_coroutine_threadsafe(self._send_text_turn(text), self._loop)
+
+        def report_failure(done) -> None:
+            error = done.exception()
+            if error is not None:
+                print(f"[JARVIS] ❌ Text send: {type(error).__name__}: {error}")
+
+        future.add_done_callback(report_failure)
+
+    async def _send_text_turn(self, text: str) -> None:
+        async with self._ws_send_lock:
+            await self.session.send_client_content(
+                turns=types.Content(
+                    role="user",
+                    parts=[types.Part(text=text)],
+                ),
+                turn_complete=True,
+            )
 
     async def _handle_slash_command(self, text: str) -> None:
         """Dispatch a slash command via the ``CommandRouter``.
@@ -489,10 +372,7 @@ class JarvisLive:
     def speak(self, text: str):
         if not self._loop or not self.session:
             return
-        asyncio.run_coroutine_threadsafe(
-            self.session.send_client_content(turns={"parts": [{"text": text}]}, turn_complete=True),
-            self._loop,
-        )
+        self._submit_text_turn(text)
 
     def speak_error(self, tool_name: str, error: str):
         short = str(error)[:120]
@@ -506,7 +386,7 @@ class JarvisLive:
         # the system prompt (e.g. inject a skill, add context) before
         # the LLM session opens. Fire-and-forget — we don't block the
         # build on plugin hooks.
-        from src.hooks import fire_sync
+        from jarvis_hooks import fire_sync
 
         fire_sync(
             _PLUGIN_HOOK_BUS,
@@ -530,8 +410,6 @@ class JarvisLive:
         # Each skill's body becomes a labeled section. This is
         # the same one-shot the OpenClaw host does before
         # ``client.aio.live.connect``.
-        from src.skills import skills_to_prompt_section
-
         skills_section = skills_to_prompt_section(_PLUGIN_SKILLS)
 
         parts = [time_ctx]
@@ -634,22 +512,7 @@ class JarvisLive:
             )
 
         try:
-            if name == "agent_task":
-                # Phase 3.5: the legacy ``agent/task_queue.py`` is
-                # gone (not in OpenClaw). The ``agent_task`` tool
-                # stays in TOOL_DECLARATIONS for LLM compatibility
-                # but always returns a clear "not yet available"
-                # answer; the user-facing answer is what the model
-                # surfaces to the operator.
-                result = (
-                    "The agent_task system has been removed in Phase 3.5. "
-                    "It was a legacy JARVIS feature with no OpenClaw "
-                    "equivalent; use `cron_schedule` for delayed jobs, "
-                    "`reminder` for short-term nudges, or describe the "
-                    "goal as a fresh prompt."
-                )
-
-            elif name == "shutdown_jarvis":
+            if name == "shutdown_jarvis":
                 self.ui.write_log("SYS: Shutdown requested.")
                 self.speak("Goodbye, sir.")
 
@@ -707,17 +570,19 @@ class JarvisLive:
         while True:
             msg = await self.out_queue.get()
             if isinstance(msg, dict):
-                await self.session.send_realtime_input(
-                    audio=types.Blob(
-                        data=msg.get("data"),
-                        mime_type=msg.get("mime_type") or "audio/pcm",
+                mime = msg.get("mime_type") or f"audio/pcm;rate={SEND_SAMPLE_RATE}"
+                if mime == "audio/pcm":
+                    mime = f"audio/pcm;rate={SEND_SAMPLE_RATE}"
+                async with self._ws_send_lock:
+                    await self.session.send_realtime_input(
+                        audio=types.Blob(
+                            data=msg.get("data"),
+                            mime_type=mime,
+                        )
                     )
-                )
             else:
-                # Defensive: pass the dict / Blob straight
-                # through if the producer was already a
-                # Blob (future-proof).
-                await self.session.send_realtime_input(audio=msg)
+                async with self._ws_send_lock:
+                    await self.session.send_realtime_input(audio=msg)
 
     async def _listen_audio(self):
         print("[JARVIS] 🎤 Mic started")
@@ -728,9 +593,12 @@ class JarvisLive:
                 jarvis_speaking = self._is_speaking
             if not jarvis_speaking and not self.ui.muted:
                 data = indata.tobytes()
-                loop.call_soon_threadsafe(
-                    self.out_queue.put_nowait, {"data": data, "mime_type": "audio/pcm"}
-                )
+                frame = {"data": data, "mime_type": f"audio/pcm;rate={SEND_SAMPLE_RATE}"}
+                try:
+                    loop.call_soon_threadsafe(self.out_queue.put_nowait, frame)
+                except Exception:
+                    # Queue full during network back-pressure — silently drop frame.
+                    pass
 
         try:
             with sd.InputStream(
@@ -792,7 +660,7 @@ class JarvisLive:
                             # Phase 3: fire `agent_end` hook after each
                             # complete turn. Plugins can persist state
                             # (memory flush, metric emission, etc.).
-                            from src.hooks import fire_sync
+                            from jarvis_hooks import fire_sync
 
                             fire_sync(
                                 _PLUGIN_HOOK_BUS,
@@ -806,7 +674,8 @@ class JarvisLive:
                             print(f"[JARVIS] 📞 {fc.name}")
                             fr = await self._execute_tool(fc)
                             fn_responses.append(fr)
-                        await self.session.send_tool_response(function_responses=fn_responses)
+                        async with self._ws_send_lock:
+                            await self.session.send_tool_response(function_responses=fn_responses)
 
         except Exception as e:
             print(f"[JARVIS] ❌ Recv: {e}")
@@ -897,6 +766,7 @@ class JarvisLive:
                     self._loop = asyncio.get_event_loop()
                     self.audio_in_queue = asyncio.Queue()
                     self.out_queue = asyncio.Queue(maxsize=10)
+                    self._ws_send_lock = asyncio.Lock()
 
                     print(f"[JARVIS] ✅ Connected ({active_model}).")
                     self.ui.set_state("LISTENING")
@@ -909,6 +779,9 @@ class JarvisLive:
 
             except Exception as e:
                 print(f"[JARVIS] ⚠️ {e}")
+                if isinstance(e, BaseExceptionGroup):
+                    for child in e.exceptions:
+                        print(f"[JARVIS]   task failure: {type(child).__name__}: {child}")
                 if self._is_model_not_found_error(e):
                     # Walk the fallback chain. If we already
                     # used it, give up with a clear message.

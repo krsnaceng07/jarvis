@@ -349,9 +349,11 @@ class TestIssueLocation:
 
 
 class TestIoFactory:
-    def test_create_raises(self) -> None:
-        with pytest.raises(NotImplementedError):
-            create_config_io()
+    def test_create_delegates_to_io(self, tmp_path) -> None:
+        cfg = tmp_path / "jarvis.json"
+        cfg.write_text('{"a": 1}', encoding="utf-8")
+        io = create_config_io(config_path=str(cfg), env={})
+        assert io.readConfigFileSnapshot()["config"] == {"a": 1}
 
     def test_make_deps_defaults(self) -> None:
         deps = make_deps()

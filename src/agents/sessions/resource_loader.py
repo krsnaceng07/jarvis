@@ -79,7 +79,7 @@ from .prompt_templates import (
     PromptTemplate,
     loadPromptTemplates,
 )
-from .settings_manager import SettingsManager
+from .settings_manager import SettingsManager, resolve_project_config_dir
 from .skills_loader import LoadSkillsResult, Skill, loadSkills
 from .theme_loader import Theme, loadThemeFromPath
 
@@ -99,6 +99,11 @@ _CONTEXT_FILE_CANDIDATES: tuple[str, ...] = (
     "AGENTS.MD",
     "CLAUDE.md",
     "CLAUDE.MD",
+    "SOUL.md",
+    "IDENTITY.md",
+    "USER.md",
+    "BOOTSTRAP.md",
+    "MEMORY.md",
 )
 
 
@@ -658,7 +663,7 @@ class DefaultResourceLoader:
         first, then global). Mirrors
         ``discoverSystemPromptFile``
         (``resource-loader.ts:960-972``)."""
-        project = os.path.join(self.cwd, CONFIG_DIR_NAME, "SYSTEM.md")
+        project = os.path.join(resolve_project_config_dir(self.cwd), "SYSTEM.md")
         if os.path.isfile(project):
             return project
         global_path = os.path.join(self.agent_dir, "SYSTEM.md")
@@ -672,7 +677,7 @@ class DefaultResourceLoader:
         Mirrors
         ``discoverAppendSystemPromptFile``
         (``resource-loader.ts:974-986``)."""
-        project = os.path.join(self.cwd, CONFIG_DIR_NAME, "APPEND_SYSTEM.md")
+        project = os.path.join(resolve_project_config_dir(self.cwd), "APPEND_SYSTEM.md")
         if os.path.isfile(project):
             return project
         global_path = os.path.join(self.agent_dir, "APPEND_SYSTEM.md")
@@ -790,20 +795,61 @@ class DefaultResourceLoader:
 
 
 def load_context_file_from_dir(dir_path: str) -> Optional[AgentsFile]:
-    """Load the first matching
-    ``AGENTS.md``-style file in ``dir``.
+    """Return the highest-priority ``AGENTS.md``-style file in ``dir``.
+
+    The singular API is used by the higher-level tests and matches the OpenClaw
+    project naming convention (``loadContextFileFromDir`` from the TS port). The
+    plural helper continues to return the full list for ancestor walkers.
+    """
+    for filename in _CONTEXT_FILE_CANDIDATES:
+        file_path = os.path.join(dir_path, filename)
+        if not os.path.isfile(file_path):
+            continue
+        try:
+            with open(file_path, "r", encoding="utf-8") as fh:
+                content = fh.read().strip()
+        except OSError as exc:
+            _LOG.warning("Could not read %s: %s", file_path, exc)
+            continue
+        if not content:
+            continue
+        if len(content) > 100000:
+            content = content[:100000] + f"\n\n<!-- [truncated: {filename} is too large] -->"
+        return AgentsFile(path=file_path, content=content)
+    return None
+
+
+def load_context_files_from_dir(dir_path: str) -> list[AgentsFile]:
+    """Load the matching ``AGENTS.md``-style files in ``dir``.
     Mirrors ``loadContextFileFromDir``
     (``resource-loader.ts:72-88``)."""
+    files: list[AgentsFile] = []
+
+    # Track if we found any AGENTS.md variant
+    found_agents_md = False
+
     for filename in _CONTEXT_FILE_CANDIDATES:
         file_path = os.path.join(dir_path, filename)
         if os.path.isfile(file_path):
+            if filename in ("AGENTS.md", "AGENTS.MD", "CLAUDE.md", "CLAUDE.MD"):
+                if found_agents_md:
+                    continue  # Only load the first found variant of AGENTS.md
+                found_agents_md = True
+
             try:
                 with open(file_path, "r", encoding="utf-8") as fh:
-                    return AgentsFile(path=file_path, content=fh.read())
+                    content = fh.read().strip()
+                    if not content:
+                        continue  # Skip blank files
+
+                    # Truncate large files
+                    if len(content) > 100000:
+                        content = content[:100000] + f"\n\n<!-- [truncated: {filename} is too large] -->"
+
+                    files.append(AgentsFile(path=file_path, content=content))
             except OSError as exc:
                 _LOG.warning("Could not read %s: %s", file_path, exc)
-                return None
-    return None
+    return files
 
 
 def load_project_context_files(
@@ -818,20 +864,21 @@ def load_project_context_files(
     seen_paths: set[str] = set()
 
     # 1. Agent dir (highest priority).
-    global_context = load_context_file_from_dir(agent_dir)
-    if global_context is not None:
-        context_files.append(global_context)
-        seen_paths.add(global_context.path)
+    global_context = load_context_files_from_dir(agent_dir)
+    for f in global_context:
+        context_files.append(f)
+        seen_paths.add(f.path)
 
     # 2. Walk from cwd up to the filesystem root.
     ancestor_files: list[AgentsFile] = []
     current = os.path.realpath(cwd)
     root = os.path.realpath(os.sep)
     while True:
-        context_file = load_context_file_from_dir(current)
-        if context_file is not None and context_file.path not in seen_paths:
-            ancestor_files.insert(0, context_file)
-            seen_paths.add(context_file.path)
+        current_files = load_context_files_from_dir(current)
+        for f in current_files:
+            if f.path not in seen_paths:
+                ancestor_files.insert(0, f)
+                seen_paths.add(f.path)
         if current == root:
             break
         parent = os.path.dirname(current)
@@ -851,5 +898,6 @@ __all__ = [
     "ResourceExtensionPaths",
     "ResourceLoader",
     "load_context_file_from_dir",
+    "load_context_files_from_dir",
     "load_project_context_files",
 ]

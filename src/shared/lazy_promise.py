@@ -14,7 +14,17 @@ from __future__ import annotations
 
 import asyncio
 import warnings
-from typing import Any, Awaitable, Callable, Dict, Generic, Optional, TypeVar, Union
+from typing import (
+    Any,
+    Awaitable,
+    Callable,
+    Dict,
+    Generic,
+    Optional,
+    TypeVar,
+    Union,
+    cast,
+)
 
 
 K = TypeVar("K")
@@ -53,40 +63,52 @@ class LazyPromiseLoader(Generic[T]):
         self._has_resolved = False
         self._rejected: Optional[BaseException] = None
         self._has_rejected = False
+        self._promise: Optional[Awaitable[T]] = None
 
     async def _awaitable_for(self) -> T:
-        if self._has_resolved:
-            return self._resolved  # type: ignore[return-value]
-        if self._has_rejected and self._cache_rejections:
-            raise self._rejected  # type: ignore[misc]
-        loaded = self._load()
-        if asyncio.iscoroutine(loaded) or asyncio.isfuture(loaded):
-            value = await loaded
-        else:
-            value = loaded
-        if not self._cache_rejections and isinstance(value, BaseException):
-            self._has_rejected = True
-            self._rejected = value
-            raise value
-        self._resolved = value
-        self._has_resolved = True
-        return value
+        try:
+            if self._has_resolved:
+                return self._resolved  # type: ignore[return-value]
+            if self._has_rejected and self._cache_rejections:
+                raise self._rejected  # type: ignore[misc]
+            loaded = self._load()
+            if asyncio.iscoroutine(loaded) or asyncio.isfuture(loaded):
+                value = cast(T, await loaded)
+            else:
+                value = cast(T, loaded)
+            if not self._cache_rejections and isinstance(value, BaseException):
+                self._has_rejected = True
+                self._rejected = value
+                raise value
+            self._resolved = value
+            self._has_resolved = True
+            return value
+        finally:
+            # Keep only the in-flight coroutine. Once it resolves, a later
+            # caller may await the cached value from a different event loop.
+            self._promise = None
 
-    def load(self) -> "asyncio.Future[T] | Awaitable[T]":
-        return self._awaitable_for()
+    def load(self) -> Awaitable[T]:
+        if self._promise is not None:
+            return self._promise
+        self._promise = self._awaitable_for()
+        return self._promise
 
     def peek(self) -> Optional[Any]:
-        """Return the resolved value (if any) for inspection, else None.
+        """Return the current in-flight promise when present, else the resolved value.
 
-        Mirrors ``loader.peek()`` in OpenClaw, where the underlying promise
-        is the resolved value once settled.
+        Mirrors ``loader.peek()`` in OpenClaw, where the underlying promise is
+        exposed until the loader is cleared.
         """
+        if self._promise is not None:
+            return self._promise
         if self._has_resolved:
             return self._resolved
         return None
 
     def clear(self) -> None:
         """Drop the cached value so the next ``load()`` calls the loader again."""
+        self._promise = None
         self._resolved = None
         self._has_resolved = False
         self._rejected = None

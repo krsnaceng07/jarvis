@@ -413,7 +413,7 @@ def open_plugin_state_keyed_store(
 # tuple so that ``open_plugin_state_keyed_store``
 # called twice with the same options returns
 # the same backing store.
-_in_memory_singletons: dict[tuple, _InMemoryKeyedStore[Any]] = {}
+_in_memory_singletons: dict[tuple[object, ...], _InMemoryKeyedStore[Any]] = {}
 
 
 def _get_or_create_in_memory_singleton(

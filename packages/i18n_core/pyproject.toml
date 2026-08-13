@@ -1,0 +1,14 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jarvis-i18n-core"
+version = "0.1.0"
+description = "JARVIS i18n core package"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jarvis_i18n"]

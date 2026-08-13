@@ -19,14 +19,17 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional
 _SUBMIT_EMBEDDED_ATTEMPT_PROMPT: Callable[
     [Dict[str, Any]], Awaitable[Any]
 ] = lambda _p: asyncio.sleep(0)
+_DEFAULT_SUBMIT_EMBEDDED_ATTEMPT_PROMPT = _SUBMIT_EMBEDDED_ATTEMPT_PROMPT
 
 
 def set_submit_embedded_attempt_prompt_hook(
-    hook: Callable[[Dict[str, Any]], Awaitable[Any]],
+    hook: Callable[[Dict[str, Any]], Awaitable[Any]] | None,
 ) -> None:
     """Install a custom submitEmbeddedAttemptPrompt hook."""
     global _SUBMIT_EMBEDDED_ATTEMPT_PROMPT
-    _SUBMIT_EMBEDDED_ATTEMPT_PROMPT = hook
+    _SUBMIT_EMBEDDED_ATTEMPT_PROMPT = (
+        _DEFAULT_SUBMIT_EMBEDDED_ATTEMPT_PROMPT if hook is None else hook
+    )
 
 
 # ---------------------------------------------------------------------------

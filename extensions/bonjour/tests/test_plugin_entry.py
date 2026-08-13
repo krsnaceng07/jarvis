@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import sys
 from unittest import mock
 
 import pytest
@@ -33,12 +34,18 @@ def _make_api() -> tuple[PluginApi, dict]:
 class TestBonjourPluginEntry:
     def test_register_lazy_loads_advertiser(self) -> None:
         """The plugin registers a discovery service but doesn't start the advertiser yet."""
+        for name in list(sys.modules):
+            if name.startswith("extensions.bonjour.src.advertiser") or "zeroconf" in name:
+                sys.modules.pop(name, None)
+
         api, captured = _make_api()
         bonjour_plugin.register(api)
         assert "service" in captured
         service = captured["service"]
         assert service["id"] == "bonjour"
         assert callable(service["advertise"])
+        assert not any(m.startswith("extensions.bonjour.src.advertiser") for m in sys.modules)
+        assert not any("zeroconf" in m for m in sys.modules)
 
     def test_advertise_starts_with_mdns_advertiser(self) -> None:
         """``advertise()`` starts the mDNS advertiser with formatted instance name."""

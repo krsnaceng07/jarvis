@@ -188,7 +188,9 @@ def _cmd_memory_search(args: argparse.Namespace) -> int:
         print(f"memory search: could not open runtime ({exc})")
         return 1
     try:
-        rows = rt.search_substring(args.query, limit=getattr(args, "limit", 20))
+        rows = rt.search_text(args.query, limit=getattr(args, "limit", 20))
+        if not rows:
+            rows = rt.search_substring(args.query, limit=getattr(args, "limit", 20))
         if not rows:
             print(f"No memory entries match {args.query!r}.")
             return 1

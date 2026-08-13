@@ -21,7 +21,10 @@ classifiers = [
 ]
 
 # Runtime deps live in member apps/packages/extensions. Root has none.
-dependencies = []
+dependencies = [
+    "tzdata>=2026.3",
+    "websockets>=16.1.1",
+]
 
 [project.urls]
 Homepage = "https://github.com/jarvis-ai/jarvis"
@@ -39,9 +42,8 @@ schema_state = 1
 schema_agent = 1
 schema_config = 1
 schema_memory = 1
-# Entrypoints per app (jarvis_desktop.app:main, jarvis_cli.app:main).
-entrypoint_desktop = "jarvis_desktop.app:main"
-entrypoint_cli = "jarvis_cli.app:main"
+# Single global entrypoint for JARVIS
+entrypoint = "jarvis_cli.main:main"
 default_gateway_port = 7433
 
 # ─────────────────────────────────────────────────────────────────────
@@ -66,6 +68,11 @@ jarvis-retry = { workspace = true }
 jarvis-llm-client = { workspace = true }
 jarvis-agent-runtime = { workspace = true }
 jarvis-state-core = { workspace = true }
+jarvis-channels-core = { workspace = true }
+jarvis-config-core = { workspace = true }
+jarvis-gateway-protocol = { workspace = true }
+jarvis-hooks-core = { workspace = true }
+jarvis-i18n-core = { workspace = true }
 jarvis = { workspace = true }
 
 # Modern dependency groups (PEP 735). Replaces deprecated [tool.uv.dev-dependencies].
@@ -240,6 +247,24 @@ include = [
     "examples",
 ]
 exclude = [
+    "**/__pycache__",
+    "**/.git",
+    "**/.hg",
+    "**/.svn",
+    "**/.mypy_cache",
+    "**/.pytest_cache",
+    "**/.ipynb_checkpoints",
+    "**/.venv",
+    "**/venv",
+    "**/__pycache__",
+    "**/*.pyc",
+    "**/*.pyo",
+    "**/*.pyd",
+    "**/node_modules",
+    "**/site-packages",
+    "**/bower_components",
+    "**/CVS",
+    "**/.DS_Store",
     "**/legacy_*",
     "openclaw-main",
     ".venv",
@@ -261,7 +286,7 @@ pythonVersion = "3.12"
 typeCheckingMode = "standard"
 useLibraryCodeForTypes = true
 reportMissingImports = "error"
-reportMissingTypeStubs = "false"
+reportMissingTypeStubs = false
 reportUnusedImport = "warning"
 reportUnusedVariable = "warning"
 reportUnknownMemberType = "warning"

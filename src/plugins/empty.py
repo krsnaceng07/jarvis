@@ -81,6 +81,9 @@ def create_empty_plugin_registry() -> PluginRegistry:
         "sessionSchedulerJobs": [],
         "sessionActions": [],
         "conversationBindingResolvedHandlers": [],
+        "cronJobs": [],
+        "doctorContracts": [],
+        "skills": [],
         "diagnostics": [],
     }
 

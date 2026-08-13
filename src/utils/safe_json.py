@@ -45,7 +45,10 @@ def safe_json_stringify(value: Any) -> Optional[str]:
     Mirrors :func:`safeJsonStringify` (``utils/safe-json.ts``).
     """
     try:
-        return json.dumps(_safe_replacer("", value), default=_safe_replacer)
+        return json.dumps(
+            _safe_replacer("", value),
+            default=lambda obj: _safe_replacer("", obj),
+        )
     except Exception:
         return None
 

@@ -36,7 +36,7 @@ from .legacy_backfills import (
     repair_legacy_task_agent_attribution,
     repair_legacy_task_delivery_statuses,
 )
-from .schema_helpers import ensure_column, table_exists
+from .schema_helpers import ensure_column
 
 
 def ensure_additive_state_columns(conn: sqlite3.Connection) -> None:
@@ -103,6 +103,33 @@ def ensure_additive_state_columns(conn: sqlite3.Connection) -> None:
     ensure_column(
         conn, "device_pairing_paired", "pending_node_surface_json TEXT"
     )
+
+    # ── channel_pairing_requests / allow_entries ───────────
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS channel_pairing_requests (
+            channel TEXT NOT NULL,
+            account_id TEXT NOT NULL,
+            sender_id TEXT NOT NULL,
+            pairing_code TEXT NOT NULL,
+            created_at INTEGER NOT NULL,
+            expires_at INTEGER NOT NULL,
+            PRIMARY KEY (channel, account_id, sender_id)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS channel_pairing_allow_entries (
+            channel TEXT NOT NULL,
+            account_id TEXT NOT NULL,
+            sender_id TEXT NOT NULL,
+            approved_at INTEGER NOT NULL,
+            PRIMARY KEY (channel, account_id, sender_id)
+        )
+        """
+    )
+    ensure_column(conn, "channel_pairing_requests", "expires_at INTEGER NOT NULL DEFAULT 0")
 
     # ── cron_run_logs ──────────────────────────────────────
     ensure_column(conn, "cron_run_logs", "status TEXT")

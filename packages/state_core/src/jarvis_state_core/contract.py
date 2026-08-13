@@ -19,7 +19,7 @@ Public surface:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Literal, Optional, TypedDict
+from typing import Any, Literal, TypedDict
 
 # Current canonical schema version. Bumping this is a
 # breaking change and must follow the user-discussion rule

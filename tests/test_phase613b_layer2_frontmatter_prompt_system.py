@@ -388,6 +388,40 @@ class TestBuildSystemPrompt:
         assert "AGENTS.md" in prompt
         assert "use Python 3.12" in prompt
 
+    def test_custom_prompt_with_bootstrap_context_first_turn(self) -> None:
+        prompt = build_system_prompt({
+            "cwd": "/tmp/proj",
+            "customPrompt": "CUSTOM",
+            "contextFiles": [
+                {
+                    "path": "BOOTSTRAP.md",
+                    "content": "priority bootstrap instructions",
+                },
+            ],
+            "isFirstTurn": True,
+        })
+        assert "CUSTOM" in prompt
+        assert "BOOTSTRAP.md" in prompt
+        assert "priority bootstrap instructions" in prompt
+        assert "A BOOTSTRAP.md file is present and this is the first turn of the session." in prompt
+
+    def test_custom_prompt_with_bootstrap_context_not_first_turn(self) -> None:
+        prompt = build_system_prompt({
+            "cwd": "/tmp/proj",
+            "customPrompt": "CUSTOM",
+            "contextFiles": [
+                {
+                    "path": "BOOTSTRAP.md",
+                    "content": "priority bootstrap instructions",
+                },
+            ],
+            "isFirstTurn": False,
+        })
+        assert "CUSTOM" in prompt
+        assert "BOOTSTRAP.md" in prompt
+        assert "priority bootstrap instructions" in prompt
+        assert "A BOOTSTRAP.md file is present and this is the first turn of the session." not in prompt
+
     def test_custom_prompt_with_skills(self) -> None:
         prompt = build_system_prompt({
             "cwd": "/tmp/proj",

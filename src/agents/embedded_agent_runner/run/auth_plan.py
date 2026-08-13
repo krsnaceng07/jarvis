@@ -63,8 +63,17 @@ def set_resolve_external_cli_auth_overlay_scope_hook(
 
 
 #: Hook for :func:`ensureAuthProfileStore` from ``model-auth.ts``.
+
+def _default_ensure_auth_profile_store(params: Dict[str, Any]) -> Any:
+    from src.agents.embedded_agent_runner.run.auth_store import (
+        create_scoped_auth_profile_store,
+    )
+
+    return create_scoped_auth_profile_store(dict(params or {}))
+
+
 _ENSURE_AUTH_PROFILE_STORE: Callable[[Dict[str, Any]], Any] = (
-    lambda _params: {"version": 1, "profiles": {}}
+    _default_ensure_auth_profile_store
 )
 
 
@@ -79,7 +88,7 @@ def set_ensure_auth_profile_store_hook(
 #: Hook for :func:`ensureAuthProfileStoreWithoutExternalProfiles` from
 #: ``model-auth.ts``.
 _ENSURE_AUTH_PROFILE_STORE_WITHOUT_EXTERNAL: Callable[[Dict[str, Any]], Any] = (
-    lambda _params: {"version": 1, "profiles": {}}
+    _default_ensure_auth_profile_store
 )
 
 

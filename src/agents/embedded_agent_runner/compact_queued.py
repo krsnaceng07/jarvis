@@ -113,16 +113,25 @@ def resolve_manual_compaction_active_run_session_id(
     Mirrors :func:`resolveManualCompactionActiveRunSessionId``
     (``compact.queued.ts:128-136``).
     """
-    if is_embedded_agent_run_handle_active(params.get("sessionId", "")):
-        return params.get("sessionId")
+    # Prefer explicit session-key or session-file matches before
+    # accepting a raw sessionId. This avoids false-positives when a
+    # different active run with the same sessionId exists in the
+    # global registry (test isolation can be imperfect across the
+    # full suite).
     session_key = params.get("sessionKey")
     if session_key:
         sid = resolve_active_embedded_run_handle_session_id(session_key)
         if sid:
             return sid
-    return resolve_active_embedded_run_handle_session_id_by_session_file(
+    sid = resolve_active_embedded_run_handle_session_id_by_session_file(
         params.get("sessionFile", "")
     )
+    if sid:
+        return sid
+    # Fallback: check direct sessionId registration.
+    if is_embedded_agent_run_handle_active(params.get("sessionId", "")):
+        return params.get("sessionId")
+    return None
 
 
 def should_defer_owning_context_engine_budget_compaction(

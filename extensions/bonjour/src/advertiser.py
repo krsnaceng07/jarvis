@@ -26,8 +26,6 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, Optional
 
-from zeroconf import ServiceInfo, Zeroconf
-
 from .ciao import classify_ciao_process_error
 from .env_helpers import (
     is_disabled_by_env,
@@ -180,6 +178,8 @@ def start_gateway_bonjour_advertiser(
     Mirrors ``startGatewayBonjourAdvertiser`` in OpenClaw's
     ``extensions/bonjour/src/advertiser.ts``.
     """
+    from zeroconf import ServiceInfo, Zeroconf
+
     if is_disabled_by_env():
         # Disabled path — return a no-op advertiser.
         # Build an unopened Zeroconf stub; .close() on a

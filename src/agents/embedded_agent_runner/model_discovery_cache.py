@@ -203,10 +203,10 @@ def _auth_fingerprint(agent_dir: str) -> Dict[str, Any]:
     """
     return {
         "authProfilesSqlite": _FILE_FINGERPRINT(
-            os.path.join(agent_dir, "openclaw-agent.sqlite")
+            os.path.join(agent_dir, "jarvis-agent.sqlite")
         ),
         "authProfilesSqliteWal": _FILE_FINGERPRINT(
-            os.path.join(agent_dir, "openclaw-agent.sqlite-wal")
+            os.path.join(agent_dir, "jarvis-agent.sqlite-wal")
         ),
     }
 

@@ -725,14 +725,63 @@ class TestSystemPrompt:
         )
         assert "claude-sonnet-4" in out
         assert "anthropic" in out
-        assert "read" in out
-        assert "write" in out
+        assert "Current date:" in out
+        assert "Current working directory:" in out
         assert "/tmp" in out
 
     def test_build_with_hook(self) -> None:
         set_build_embedded_system_prompt_hook(lambda _p: "hooked")
         out = build_embedded_system_prompt({})
         assert out == "hooked"
+
+    def test_build_with_session_builder_default(self) -> None:
+        out = build_embedded_system_prompt(
+            {
+                "workspaceDir": "/tmp",
+                "runtimeInfo": {
+                    "model": "claude-sonnet-4",
+                    "provider": "anthropic",
+                    "host": "local",
+                },
+                "tools": [{"name": "read"}, {"name": "write"}],
+                "appendSystemPrompt": "extra",
+                "contextFiles": [
+                    {"path": "README.md", "content": "readme content"}
+                ],
+            }
+        )
+        assert "Current date:" in out
+        assert "Available tools" in out
+        assert "extra" in out
+        assert "README.md" in out
+
+    def test_build_embedded_system_prompt_bootstrap_first_turn(self) -> None:
+        out = build_embedded_system_prompt(
+            {
+                "workspaceDir": "/tmp",
+                "contextFiles": [
+                    {"path": "BOOTSTRAP.md", "content": "important bootstrap step"}
+                ],
+                "isFirstTurn": True,
+            }
+        )
+        assert "BOOTSTRAP.md" in out
+        assert "important bootstrap step" in out
+        assert "A BOOTSTRAP.md file is present and this is the first turn of the session." in out
+
+    def test_build_embedded_system_prompt_bootstrap_not_first_turn(self) -> None:
+        out = build_embedded_system_prompt(
+            {
+                "workspaceDir": "/tmp",
+                "contextFiles": [
+                    {"path": "BOOTSTRAP.md", "content": "important bootstrap step"}
+                ],
+                "isFirstTurn": False,
+            }
+        )
+        assert "BOOTSTRAP.md" in out
+        assert "important bootstrap step" in out
+        assert "A BOOTSTRAP.md file is present and this is the first turn of the session." not in out
 
     def test_apply_to_session(self) -> None:
         class _S:

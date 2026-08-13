@@ -1,240 +1,419 @@
-"""Doctor — runs every plugin's ``register_doctor_contract`` detections.
+"""Doctor contract runner — executes plugin doctor contracts.
 
-Mirrors OpenClaw's ``openclaw doctor`` command. A plugin registers a
-doctor contract via ``api.register_doctor_contract(...)``; the host's
-doctor runner calls each contract's ``detect(state_dir, config)`` and
-prints a human-readable report.
+Mirrors OpenClaw's ``src/doctor/doctor-runner.ts`` +
+``src/doctor/contract.ts``.
 
-The contracts live alongside plugins (each plugin owns its own
-detection logic). The runner is the only place that knows how to
-collect them all.
+Each plugin can optionally ship a ``doctor_contract`` — a callable
+that checks the plugin's health / config and returns a list of
+``DoctorFinding`` items.
 
-Phase 2 shape: 100% mirror of OpenClaw's doctor runner. The
-runner-side API is ``DoctorRunner.run_all()``; CLI side is in
-``apps/cli/src/jarvis_cli/doctor.py`` (Phase 2.5).
+The ``DoctorRunner`` collects all plugin doctor contracts from
+``LoadResult.doctor_contracts`` and runs them on demand (via
+``jarvis doctor`` CLI or the desktop Doctor status panel).
+
+Findings are classified by severity:
+  - ``ok``      — all good, no action needed
+  - ``warning`` — optional but recommended action
+  - ``error``   — required fix before the plugin works correctly
+  - ``fix``     — the runner applied an automatic fix
+
+Phase W3: sync execution only. Async doctor contracts land in Wave 4.
 """
 
 from __future__ import annotations
 
-import asyncio
 import inspect
 import logging
+import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from enum import Enum
+from pathlib import Path
+from typing import Any
 
-if TYPE_CHECKING:
-    from pathlib import Path
+_log = logging.getLogger("jarvis.doctor")
 
-_log = logging.getLogger("src.doctor")
+
+# ── Finding severity ───────────────────────────────────────────────────
+
+
+class Severity(str, Enum):
+    OK = "ok"
+    WARNING = "warning"
+    ERROR = "error"
+    FIX = "fix"
+
+
+# ── Finding ────────────────────────────────────────────────────────────
 
 
 @dataclass(frozen=True, slots=True)
 class DoctorFinding:
-    """A single legacy-data finding reported by a plugin.
+    """One finding from a doctor contract.
 
-    Mirrors OpenClaw's ``MigrationDetection`` shape. Plugins return
-    these from their contract's ``detect(state_dir, config)`` call.
+    Mirrors OpenClaw's ``DoctorFinding`` from
+    ``src/doctor/contract.ts``.
+
+    Attributes
+    ----------
+    plugin_id : str
+        The extension that produced this finding.
+    label : str
+        Optional check label or legacy contract label.
+    path : Path | str | None
+        Optional file path associated with the finding.
+    count : int | None
+        Optional numeric count for legacy doctor checks.
+    severity : Severity
+        How serious the finding is.
+    message : str
+        Human-readable description.
+    detail : str | None
+        Optional extended detail / stack trace.
+    details : dict[str, Any] | None
+        Legacy compatibility payload used by old doctor checks.
+    fix_applied : bool
+        True when the runner automatically applied a fix.
     """
 
-    label: str
-    """Human-readable description (e.g. 'Legacy MARK XXXIX-OR reminders')."""
-
-    path: Path
-    """The file path the legacy data was found at."""
-
-    count: int = 0
-    """How many legacy items were found (0 means nothing to migrate)."""
-
-    details: dict[str, Any] = field(default_factory=dict)
-    """Optional structured details (timestamps, schema versions, etc.)."""
+    plugin_id: str = ""
+    label: str = ""
+    path: Path | str | None = None
+    count: int | None = None
+    severity: Severity = Severity.OK
+    message: str = ""
+    detail: str | None = None
+    details: dict[str, Any] | None = None
+    fix_applied: bool = False
 
 
-@dataclass(frozen=True, slots=True)
+# ── DoctorContract compatibility shape ──────────────────────────────
+
+
+@dataclass(slots=True)
 class DoctorContract:
-    """A plugin-registered doctor contract.
+    """OpenClaw-compatible doctor contract descriptor.
 
-    Mirrors OpenClaw's ``PluginDoctorStateMigration``. The runner
-    calls ``detect(state_dir, config)`` for each registered contract.
+    The runtime accepts both the high-level parsed shape (``id`` / ``version`` /
+    ``detect`` / ``apply``) and the normalized runner shape (``plugin_id`` /
+    ``check`` / ``fix``). This dataclass is consumed by ``DoctorRunner.add()``
+    and by tests that instantiate a contract inline.
     """
 
-    id: str
-    version: int
-    detect: Any  # Callable[[Path, dict], list[DoctorFinding]]
-    apply: Any | None = None  # Callable[[Path, dict], list[Change]]; optional
-    owner_id: str = ""
+    id: str = ""
+    version: int = 1
+    detect: Callable[..., Any] | None = None
+    apply: Callable[[], None] | None = None
+    enabled: bool = True
 
 
-@dataclass(frozen=True, slots=True)
+# ── DoctorReport ──────────────────────────────────────────────────────
+
+
+@dataclass
 class DoctorReport:
-    """The aggregate result of running every doctor contract."""
+    """Aggregated results from running all doctor contracts.
 
-    findings: tuple[DoctorFinding, ...]
-    contracts_run: tuple[str, ...]
-    contract_errors: dict[str, str]  # contract_id -> error message
+    Attributes
+    ----------
+    findings : list[DoctorFinding]
+        All findings in order.
+    duration_ms : int
+        Wall-clock time of the full run in milliseconds.
+    plugin_count : int
+        Number of plugins whose contracts were executed.
+    """
 
-    def to_text(self) -> str:
-        """Render as a human-readable multi-line report."""
-        lines: list[str] = []
-        lines.append("=== JARVIS Doctor ===\n")
-        lines.append(f"Contracts run: {len(self.contracts_run)}")
-        lines.append(f"Findings: {len(self.findings)}")
-        if self.contract_errors:
-            lines.append(f"Errors: {len(self.contract_errors)}")
-        lines.append("")
+    findings: list[DoctorFinding] = field(default_factory=list)
+    duration_ms: int = 0
+    plugin_count: int = 0
+    contracts_run: list[str] = field(default_factory=list)
+    contract_errors: list[str] = field(default_factory=list)
 
-        if self.findings:
-            lines.append("## Findings\n")
-            for f in self.findings:
-                lines.append(f"  - {f.label}")
-                lines.append(f"    path: {f.path}")
-                if f.count:
-                    lines.append(f"    count: {f.count}")
-                if f.details:
-                    for k, v in f.details.items():
-                        lines.append(f"    {k}: {v}")
-                lines.append("")
+    @property
+    def errors(self) -> list[DoctorFinding]:
+        return [f for f in self.findings if f.severity == Severity.ERROR]
 
-        if self.contract_errors:
-            lines.append("## Contract errors\n")
-            for cid, err in self.contract_errors.items():
-                lines.append(f"  - {cid}: {err}")
-            lines.append("")
+    @property
+    def warnings(self) -> list[DoctorFinding]:
+        return [f for f in self.findings if f.severity == Severity.WARNING]
 
-        if not self.findings and not self.contract_errors:
-            lines.append("No legacy data found. Workspace is clean.\n")
+    @property
+    def fixes(self) -> list[DoctorFinding]:
+        return [f for f in self.findings if f.fix_applied]
 
-        return "\n".join(lines)
+    @property
+    def is_healthy(self) -> bool:
+        return len(self.errors) == 0
+
+    def summary(self) -> str:
+        parts = [f"{self.plugin_count} plugins checked in {self.duration_ms}ms"]
+        if self.errors:
+            parts.append(f"{len(self.errors)} error(s)")
+        if self.warnings:
+            parts.append(f"{len(self.warnings)} warning(s)")
+        if self.fixes:
+            parts.append(f"{len(self.fixes)} fix(es) applied")
+        if self.is_healthy and not self.warnings:
+            parts.append("all ok")
+        return " · ".join(parts)
+
+
+# ── DoctorRunner ───────────────────────────────────────────────────────
 
 
 class DoctorRunner:
-    """Runs every registered doctor contract and aggregates findings.
+    """Executes plugin doctor contracts and aggregates findings.
 
-    Phase 2 host. Created once at session start; the host feeds it
-    every contract collected from ``_load_plugins()``. The CLI
-    (``jarvis doctor``) calls ``run_all()`` to produce a report.
+    Mirrors OpenClaw's ``DoctorRunner`` from
+    ``src/doctor/doctor-runner.ts``.
+
+    Parameters
+    ----------
+    contracts : list[dict[str, Any]] | None
+        The raw doctor contract dicts from ``LoadResult.doctor_contracts``.
+        Each dict must have:
+          - ``plugin_id`` (str)
+          - ``check`` (callable[[], list[DoctorFinding] | DoctorFinding | None])
+        Optionally:
+          - ``fix``       (callable[[], None] | None)
+          - ``enabled``   (bool, default True)
     """
 
-    def __init__(self) -> None:
-        self._contracts: dict[str, DoctorContract] = {}
+    def __init__(self, contracts: list[dict[str, Any]] | None = None) -> None:
+        contracts = contracts or []
+        self._contracts: list[dict[str, Any]] = []
+        for c in contracts:
+            if isinstance(c, DoctorContract):
+                self.add(c)
+            elif isinstance(c, dict):
+                self.add(c)
+            else:
+                continue
 
-    def add(self, contract: DoctorContract) -> None:
-        self._contracts[contract.id] = contract
-
-    def add_raw(self, raw: dict[str, Any]) -> None:
-        """Add a contract from a raw plugin dict (mirrors OpenClaw's API shape).
-
-        Expects keys: ``id``, ``version``, ``detect``, optionally ``apply``.
-        Stamps ``owner_id`` from the dict's ``_owner_id`` (set by
-        the SDK's ``register_doctor_contract``).
-        """
-        if "id" not in raw or "version" not in raw or "detect" not in raw:
-            raise ValueError(f"doctor contract missing required keys (id, version, detect): {raw}")
-        contract = DoctorContract(
-            id=raw["id"],
-            version=int(raw["version"]),
-            detect=raw["detect"],
-            apply=raw.get("apply"),
-            owner_id=raw.get("_owner_id", ""),
+        _log.info(
+            "doctor_runner: loaded %d contract(s) from %d raw entries",
+            len(self._contracts),
+            len(contracts),
         )
-        self.add(contract)
+
+    def add(self, contract: DoctorContract | dict[str, Any]) -> None:
+        raw = contract if isinstance(contract, dict) else _doctor_contract_to_dict(contract)
+        canonical = _coerce_contract_dict(raw)
+        if canonical is None:
+            _log.debug("doctor: skipping invalid contract: %s", raw)
+            return
+        self._contracts.append(canonical)
 
     def add_raws(self, raws: list[dict[str, Any]]) -> None:
-        for r in raws:
-            try:
-                self.add_raw(r)
-            except ValueError as e:
-                _log.warning("doctor: skipping bad contract: %s", e)
+        for raw in raws:
+            if not isinstance(raw, dict):
+                continue
+            self.add(raw)
 
     def list_ids(self) -> list[str]:
-        return sorted(self._contracts.keys())
+        return [contract["plugin_id"] for contract in self._contracts]
 
-    def run_all(self, state_dir: Path, config: dict[str, Any] | None = None) -> DoctorReport:
-        """Run every contract's ``detect()`` and collect findings.
-
-        Supports two contract signatures (introspected at call time):
-        - JARVIS style: ``detect(state_dir, config) -> list[DoctorFinding]``
-        - OpenClaw style: ``detect(params: dict) -> list[DoctorFinding] | DoctorPreview``
-        Same for ``apply()``. The runner auto-detects which style each
-        contract uses.
-        """
-        cfg = config or {}
-        findings: list[DoctorFinding] = []
-        contracts_run: list[str] = []
-        contract_errors: dict[str, str] = {}
-
-        for cid, contract in self._contracts.items():
-            try:
-                detect_result = _call_contract(contract.detect, state_dir, cfg)
-                contract_findings: list[DoctorFinding] = list(detect_result or [])
-            except Exception as e:
-                _log.warning("doctor: contract %s raised: %s", cid, e)
-                contract_errors[cid] = str(e)
-                continue
-            contracts_run.append(cid)
-            findings.extend(contract_findings)
-
-        return DoctorReport(
-            findings=tuple(findings),
-            contracts_run=tuple(contracts_run),
-            contract_errors=contract_errors,
-        )
+    def run_all(self, state_dir: Path, config: Any | None = None) -> DoctorReport:
+        return self.run(state_dir=state_dir, config=config)
 
     def run_one(
         self,
-        contract_id: str,
+        plugin_id: str,
         state_dir: Path,
-        config: dict[str, Any] | None = None,
+        config: Any | None = None,
     ) -> DoctorReport:
-        """Run a single contract by id."""
-        if contract_id not in self._contracts:
-            return DoctorReport(
-                findings=(),
-                contracts_run=(),
-                contract_errors={contract_id: f"unknown contract: {contract_id!r}"},
+        index = next(
+            (i for i, c in enumerate(self._contracts) if c["plugin_id"] == plugin_id),
+            None,
+        )
+        if index is None:
+            report = DoctorReport(
+                findings=[],
+                duration_ms=0,
+                plugin_count=len(self._contracts),
+                contract_errors=[plugin_id],
             )
-        # Wrap a single contract in a fresh runner so the report
-        # attributes reflect just that contract.
-        single = DoctorRunner()
-        single.add(self._contracts[contract_id])
-        return single.run_all(state_dir, config)
+            return report
+        contract = self._contracts[index]
+        return self._run_contracts([contract], state_dir, config)
+
+    def run(
+        self,
+        state_dir: Path | None = None,
+        config: Any | None = None,
+        *,
+        apply_fixes: bool = False,
+    ) -> DoctorReport:
+        """Run all doctor contracts synchronously.
+
+        Parameters
+        ----------
+        apply_fixes : bool
+            If True, also call each contract's ``fix`` function when
+            it is provided and the check produced errors.
+        """
+        return self._run_contracts(self._contracts, state_dir, config, apply_fixes=apply_fixes)
+
+    def _run_contracts(
+        self,
+        contracts: list[dict[str, Any]],
+        state_dir: Path | None,
+        config: Any | None,
+        apply_fixes: bool = False,
+    ) -> DoctorReport:
+        start = time.monotonic()
+        all_findings: list[DoctorFinding] = []
+        contract_errors: list[str] = []
+        contracts_run: list[str] = []
+
+        for contract in contracts:
+            plugin_id = contract["plugin_id"]
+            contracts_run.append(plugin_id)
+            check_fn = contract["check"]
+            fix_fn = contract.get("fix")
+            enabled = contract.get("enabled", True)
+
+            if not enabled:
+                all_findings.append(
+                    DoctorFinding(
+                        plugin_id=plugin_id,
+                        severity=Severity.OK,
+                        message="doctor contract disabled",
+                    )
+                )
+                continue
+
+            try:
+                raw = _invoke_check(check_fn, state_dir, config)
+                findings = _normalize_findings(plugin_id, raw)
+            except Exception as e:  # noqa: BLE001
+                _log.warning("doctor: %s check() raised: %s", plugin_id, e)
+                findings = [
+                    DoctorFinding(
+                        plugin_id=plugin_id,
+                        severity=Severity.ERROR,
+                        message=f"doctor check raised: {type(e).__name__}: {e}",
+                        detail=str(e),
+                    )
+                ]
+                contract_errors.append(plugin_id)
+
+            has_errors = any(f.severity == Severity.ERROR for f in findings)
+            if apply_fixes and has_errors and callable(fix_fn):
+                try:
+                    fix_fn()
+                    _log.info("doctor: %s fix() applied", plugin_id)
+                    findings = [
+                        DoctorFinding(
+                            plugin_id=f.plugin_id,
+                            severity=f.severity,
+                            message=f.message,
+                            detail=f.detail,
+                            fix_applied=True,
+                        )
+                        for f in findings
+                    ]
+                except Exception as fix_exc:  # noqa: BLE001
+                    _log.warning("doctor: %s fix() raised: %s", plugin_id, fix_exc)
+                    findings.append(
+                        DoctorFinding(
+                            plugin_id=plugin_id,
+                            severity=Severity.ERROR,
+                            message=f"fix() raised: {fix_exc}",
+                        )
+                    )
+                    contract_errors.append(plugin_id)
+
+            all_findings.extend(findings)
+
+        elapsed_ms = int((time.monotonic() - start) * 1000)
+        report = DoctorReport(
+            findings=all_findings,
+            duration_ms=elapsed_ms,
+            plugin_count=len(self._contracts),
+            contracts_run=contracts_run,
+            contract_errors=contract_errors,
+        )
+        _log.info("doctor: %s", report.summary())
+        return report
 
 
-def _call_contract(
-    fn: Any,
-    state_dir: Path,
-    config: dict[str, Any],
+def _coerce_contract_dict(raw: dict[str, Any]) -> dict[str, Any] | None:
+    """Normalize the OpenClaw contract dict and legacy Phase-2 shapes."""
+    if not isinstance(raw, dict):
+        return None
+
+    plugin_id = raw.get("plugin_id") or raw.get("id")
+    if not plugin_id:
+        return None
+
+    check = raw.get("check") or raw.get("detect")
+    if not callable(check):
+        return None
+
+    fix = raw.get("fix") or raw.get("apply")
+    enabled = raw.get("enabled", True)
+    return {
+        "plugin_id": str(plugin_id),
+        "check": check,
+        "fix": fix if callable(fix) else None,
+        "enabled": bool(enabled),
+    }
+
+
+def _doctor_contract_to_dict(contract: DoctorContract) -> dict[str, Any]:
+    return {
+        "plugin_id": contract.id,
+        "check": contract.detect,
+        "fix": contract.apply,
+        "enabled": contract.enabled,
+    }
+
+
+def _invoke_check(
+    check_fn: Callable[..., Any],
+    state_dir: Path | None,
+    config: Any | None,
 ) -> Any:
-    """Call a doctor contract with the right signature.
-
-    Supports two styles (auto-detected via ``inspect.signature``):
-    - JARVIS style: ``detect(state_dir, config)`` or ``apply(state_dir, config)``
-    - OpenClaw style: ``detect(params: dict)`` or ``apply(params: dict)``
-
-    OpenClaw's params dict carries ``{state_dir, config, env, context, ...}``.
-    For the simple JARVIS runner we build a minimal params dict.
-    """
+    if state_dir is None and config is None:
+        return check_fn()
     try:
-        sig = inspect.signature(fn)
-        params = list(sig.parameters.values())
-    except (TypeError, ValueError):
-        params = []
+        return check_fn(state_dir, config)
+    except TypeError:
+        return check_fn()
 
-    if len(params) == 1:
-        # OpenClaw style: single params dict
-        params_dict = {
-            "state_dir": state_dir,
-            "config": config,
-            "env": {},
-        }
-        result = fn(params_dict)
-    else:
-        # JARVIS style: (state_dir, config)
-        result = fn(state_dir, config)
 
-    # If the contract is async, the runner is sync, so we run it.
-    if inspect.iscoroutine(result):
-        result = asyncio.run(result)
-    return result
+def _normalize_findings(
+    plugin_id: str, raw: Any
+) -> list[DoctorFinding]:
+    """Normalize a contract check() return value to a list of findings."""
+    if raw is None:
+        return [DoctorFinding(plugin_id=plugin_id, severity=Severity.OK, message="ok")]
+    if isinstance(raw, DoctorFinding):
+        return [raw]
+    if isinstance(raw, list):
+        result = []
+        for item in raw:
+            if isinstance(item, DoctorFinding):
+                result.append(item)
+            elif isinstance(item, dict):
+                result.append(
+                    DoctorFinding(
+                        plugin_id=item.get("plugin_id", plugin_id),
+                        label=item.get("label", ""),
+                        path=item.get("path"),
+                        count=item.get("count"),
+                        severity=Severity(item.get("severity", "ok")),
+                        message=item.get("message", ""),
+                        detail=item.get("detail"),
+                        details=item.get("details"),
+                        fix_applied=item.get("fix_applied", False),
+                    )
+                )
+        return result or [DoctorFinding(plugin_id=plugin_id, severity=Severity.OK, message="ok")]
+    # Treat any truthy value as ok.
+    return [DoctorFinding(plugin_id=plugin_id, severity=Severity.OK, message=str(raw))]
 
 
 __all__ = [
@@ -242,4 +421,5 @@ __all__ = [
     "DoctorFinding",
     "DoctorReport",
     "DoctorRunner",
+    "Severity",
 ]

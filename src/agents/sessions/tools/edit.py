@@ -29,9 +29,10 @@ Adaptations
 """
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional, Protocol, runtime_checkable
 
 from ..extensions.types import AgentToolResult, ToolDefinition
 from .edit_diff import (
@@ -42,6 +43,47 @@ from .edit_diff import (
 )
 from .file_mutation_queue import with_file_mutation_queue
 from .path_utils import resolve_to_cwd
+
+
+# ============================================================================
+# EditOperations protocol — mirrors OpenClaw EditOperations interface
+# ============================================================================
+
+
+@runtime_checkable
+class EditOperations(Protocol):
+    """Pluggable filesystem operations for the edit tool.
+
+    Override to delegate file editing to remote systems (e.g. SSH).
+    """
+
+    async def read_file(self, absolute_path: str) -> bytes: ...
+    async def write_file(self, absolute_path: str, content: str) -> None: ...
+    async def access(self, absolute_path: str) -> None: ...
+
+
+class _LocalEditOperations:
+    """Default local filesystem implementation of EditOperations."""
+
+    async def read_file(self, absolute_path: str) -> bytes:
+        return Path(absolute_path).read_bytes()
+
+    async def write_file(self, absolute_path: str, content: str) -> None:
+        Path(absolute_path).write_text(content, encoding="utf-8")
+
+    async def access(self, absolute_path: str) -> None:
+        if not os.access(absolute_path, os.R_OK | os.W_OK):
+            raise PermissionError(f"File is not readable+writable: {absolute_path}")
+
+
+default_edit_operations = _LocalEditOperations()
+
+
+class EditToolOptions:
+    """Options for create_edit_tool_definition."""
+
+    def __init__(self, operations: Any = None) -> None:
+        self.operations = operations or default_edit_operations
 
 
 # ============================================================================
@@ -242,9 +284,152 @@ async def create_edit_tool_definition(
 create_edit_tool = create_edit_tool_definition
 
 
+# ============================================================================
+# Constants (mirrors openclaw edit.ts)
+# ============================================================================
+
+#: Maximum number of surrounding-context lines to include in the mismatch hint
+#: shown to the model when an oldContent block does not match the file.
+EDIT_MISMATCH_HINT_LIMIT: int = 5
+
+#: Error message prefix emitted to the model when oldContent does not match.
+EDIT_MISMATCH_MESSAGE: str = (
+    "The content to replace was not found in the file. "
+    "Ensure oldContent exactly matches a contiguous block of lines in the file."
+)
+
+
+# ============================================================================
+# edit_file_returning_diff — convenience wrapper
+# ============================================================================
+
+
+async def edit_file_returning_diff(
+    file_path: str,
+    edits: list[Edit],
+    cwd: Optional[str] = None,
+) -> tuple[EditResult, str | None, int | None]:
+    """Apply edits and return (result, unified_diff, first_changed_line).
+
+    Mirrors OpenClaw's ``editFileReturningDiff``:
+    - If no content changed: returns (result, None, None).
+    - If content changed: returns (result, diff_text, first_changed_line).
+    """
+    result = await edit_file(file_path, edits, cwd=cwd)
+    if not result.get("changed"):
+        return result, None, None
+    return result, result.get("patch") or result.get("diff"), result.get("firstChangedLine")
+
+
+# ============================================================================
+# Helper functions — mirrors OpenClaw edit.ts helpers
+# ============================================================================
+
+
+def prepare_edit_arguments(input_raw: Any) -> dict[str, Any]:
+    """Normalise raw tool input to {path, edits}.
+
+    Some models send ``edits`` as a JSON string; others use the legacy
+    ``oldText``/``newText`` top-level fields. This function tolerates both.
+    """
+    if not input_raw or not isinstance(input_raw, dict):
+        return input_raw  # type: ignore[return-value]
+
+    args: dict[str, Any] = dict(input_raw)
+
+    # Some models send edits as a JSON string instead of an array.
+    if isinstance(args.get("edits"), str):
+        try:
+            parsed = json.loads(args["edits"])
+            if isinstance(parsed, list):
+                args["edits"] = parsed
+        except Exception:
+            pass
+
+    # Legacy single-edit top-level fields.
+    old_text = args.get("oldText")
+    new_text = args.get("newText")
+    if isinstance(old_text, str) and isinstance(new_text, str):
+        existing = args.get("edits") or []
+        if not isinstance(existing, list):
+            existing = []
+        args["edits"] = [*existing, {"oldText": old_text, "newText": new_text}]
+
+    # Keep only canonical fields; strip extra metadata.
+    edits = args.get("edits")
+    if isinstance(edits, list):
+        args["edits"] = [
+            {"oldText": e.get("oldText", ""), "newText": e.get("newText", "")}
+            for e in edits
+            if isinstance(e, dict)
+        ]
+
+    return {"path": args.get("path"), "edits": args.get("edits")}
+
+
+def validate_edit_input(input_data: dict[str, Any]) -> tuple[str, list[dict[str, str]]]:
+    """Validate edit tool input. Returns (path, edits) or raises ValueError."""
+    edits = input_data.get("edits")
+    if not isinstance(edits, list) or len(edits) == 0:
+        raise ValueError("Edit tool input is invalid. edits must contain at least one replacement.")
+    path = input_data.get("path") or ""
+    return path, edits
+
+
+def remove_exact_occurrences(content: str, needle: str) -> str:
+    """Remove all exact occurrences of needle from content."""
+    if not needle:
+        return content
+    return content.replace(needle, "")
+
+
+def did_edit_likely_apply(
+    original_content: str,
+    current_content: str,
+    edits: list[dict[str, str]],
+) -> bool:
+    """Heuristic: did the edits likely get applied to current_content?"""
+    if not edits:
+        return False
+    if original_content == current_content:
+        return False
+
+    without_inserted = current_content
+    for edit in edits:
+        new_text = edit.get("newText", "")
+        if new_text and new_text not in current_content:
+            return False
+        without_inserted = remove_exact_occurrences(without_inserted, new_text)
+
+    return all(edit.get("oldText", "") not in without_inserted for edit in edits)
+
+
+def append_mismatch_hint(error: Exception, current_content: str) -> Exception:
+    """Append a snippet of current file content to a mismatch error."""
+    snippet = (
+        current_content
+        if len(current_content) <= EDIT_MISMATCH_HINT_LIMIT
+        else current_content[:EDIT_MISMATCH_HINT_LIMIT] + "…"
+    )
+    new_msg = f"{error}\n\nFile content (snippet):\n{snippet}"
+    return type(error)(new_msg)
+
+
 __all__ = [
+    "EDIT_MISMATCH_HINT_LIMIT",
+    "EDIT_MISMATCH_MESSAGE",
+    "Edit",
+    "EditOperations",
     "EditResult",
+    "EditToolOptions",
+    "append_mismatch_hint",
     "create_edit_tool",
     "create_edit_tool_definition",
+    "default_edit_operations",
+    "did_edit_likely_apply",
     "edit_file",
+    "edit_file_returning_diff",
+    "prepare_edit_arguments",
+    "remove_exact_occurrences",
+    "validate_edit_input",
 ]

@@ -213,6 +213,7 @@ class CreateAgentSessionOptions(TypedDict, total=False):
     settingsManager: Optional[SettingsManager]
     sessionStartEvent: Optional[SessionStartEvent]
     withSessionWriteLock: Optional[Callable[..., Awaitable[Any]]]
+    skipBootstrap: Optional[bool]
 
 
 class CreateAgentSessionResult(TypedDict):
@@ -667,8 +668,14 @@ async def create_agent_session(
         default_session_dir = get_default_session_dir(
             cwd, agent_dir
         )
+        agent_id = os.path.basename(os.path.normpath(agent_dir)) or "default"
         session_manager = SessionManager.create(
-            cwd=cwd, session_dir=default_session_dir
+            cwd=cwd,
+            session_dir=default_session_dir,
+            sqlite_persistence={
+                "agent_id": agent_id,
+                "store_path": os.path.join(agent_dir, "agent.sqlite"),
+            },
         )
 
     # 6. Create the resource loader
@@ -682,6 +689,7 @@ async def create_agent_session(
                 cwd=cwd,
                 agent_dir=agent_dir,
                 settings_manager=settings_manager,
+                no_context_files=options.get("skipBootstrap", False),
             )
         )
         reload = getattr(resource_loader, "reload", None)

@@ -29,7 +29,7 @@ Key port decisions:
 """
 from __future__ import annotations
 
-from typing import TypedDict
+from typing import TypedDict, cast
 
 from jarvis_normalization_core.text_utility import truncate_utf16_safe
 
@@ -189,12 +189,15 @@ def build_memory_read_result_from_slice(
     else:
         text = fitted_text
 
-    result: MemoryReadResult = {
-        "text": text,
-        "path": rel_path,
-        "from": start,
-        "lines": included_lines,
-    }
+    result = cast(
+        MemoryReadResult,
+        {
+            "text": text,
+            "path": rel_path,
+            "from": start,
+            "lines": included_lines,
+        },
+    )
     if truncated:
         result["truncated"] = True
     if isinstance(next_from, int):

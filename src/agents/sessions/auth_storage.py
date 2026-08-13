@@ -703,6 +703,16 @@ class AuthStorage:
 # ============================================================================
 
 
+def _canonicalize_provider_id(provider: str) -> str:
+    """Normalize legacy provider ids to the canonical provider namespace."""
+    normalized = (provider or "").strip()
+    if normalized.lower() == "openai-codex":
+        return "openai"
+    if normalized.lower().startswith("openai-codex:"):
+        return "openai"
+    return normalized
+
+
 def get_env_api_key(provider: str) -> Optional[str]:
     """Return the env-var API key for
     ``provider``.
@@ -715,11 +725,12 @@ def get_env_api_key(provider: str) -> Optional[str]:
     provider-specific override (e.g.
     ``ANTHROPIC_API_KEY``,
     ``OPENAI_API_KEY``)."""
-    canonical = f"{provider.upper()}_API_KEY"
+    canonical_provider = _canonicalize_provider_id(provider)
+    canonical = f"{canonical_provider.upper()}_API_KEY"
     if canonical in os.environ:
         return os.environ[canonical]
     # Some providers use ``_AUTH_TOKEN``.
-    auth_token = f"{provider.upper()}_AUTH_TOKEN"
+    auth_token = f"{canonical_provider.upper()}_AUTH_TOKEN"
     if auth_token in os.environ:
         return os.environ[auth_token]
     return None
@@ -733,10 +744,11 @@ def find_env_keys(provider: str) -> list[str]:
     ``findEnvKeys``.
     """
     keys: list[str] = []
-    canonical = f"{provider.upper()}_API_KEY"
+    canonical_provider = _canonicalize_provider_id(provider)
+    canonical = f"{canonical_provider.upper()}_API_KEY"
     if canonical in os.environ:
         keys.append(canonical)
-    auth_token = f"{provider.upper()}_AUTH_TOKEN"
+    auth_token = f"{canonical_provider.upper()}_AUTH_TOKEN"
     if auth_token in os.environ:
         keys.append(auth_token)
     return keys

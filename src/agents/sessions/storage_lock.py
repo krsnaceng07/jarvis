@@ -97,7 +97,15 @@ def _try_acquire_posix(path: str) -> UnlockFn | None:
             return None
         raise
 
+    unlocked = [False]
+
     def unlock() -> None:
+        # Idempotent — the UnlockFn contract says
+        # calling it twice is a no-op (mirrors the
+        # Windows branch's guard).
+        if unlocked[0]:
+            return
+        unlocked[0] = True
         try:
             fcntl.flock(fd, fcntl.LOCK_UN)
         finally:

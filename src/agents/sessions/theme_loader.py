@@ -1,4 +1,4 @@
-"""jarvis.agents.sessions.theme_loader — theme loader (stub).
+"""jarvis.agents.sessions.theme_loader — theme loader.
 
 OpenClaw parity: mirrors
 ``openclaw-main/src/agents/modes/interactive/theme/theme.ts``.
@@ -10,15 +10,16 @@ Public surface (matches the OpenClaw source):
   definitions).
 - :func:`loadThemeFromPath` — parse a
   theme file from disk.
-
-Phase 6.11b — STUB. ``loadThemeFromPath``
-raises ``NotImplementedError`` for now;
-the full JSON parsing lands in Phase 6.12+.
 """
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
-from typing import Optional, TypedDict
+from typing import Optional, TypedDict, cast
+
+
+def _empty_theme_mapping() -> dict[str, object]:
+    return {}
 
 
 class ThemeSourceInfo(TypedDict, total=False):
@@ -42,8 +43,13 @@ class Theme:
     name : str | None
         Theme name (from the JSON's
         ``name`` field).
+    description : str | None
+        Optional human-readable description.
     source_path : str | None
         Filesystem path of the theme file.
+    file_path : str | None
+        Alias for the theme file path used by
+        the session resource tests and loaders.
     colors : dict
         Color palette (foreground /
         background / accent / etc.).
@@ -56,9 +62,11 @@ class Theme:
     """
 
     name: Optional[str] = None
+    description: Optional[str] = None
     source_path: Optional[str] = None
-    colors: dict = field(default_factory=dict)
-    styles: dict = field(default_factory=dict)
+    file_path: Optional[str] = None
+    colors: dict[str, object] = field(default_factory=_empty_theme_mapping)
+    styles: dict[str, object] = field(default_factory=_empty_theme_mapping)
     source_info: Optional[ThemeSourceInfo] = None
 
 
@@ -67,13 +75,45 @@ def loadThemeFromPath(file_path: str) -> Theme:
     on disk. Mirrors ``loadThemeFromPath``
     (``theme.ts``).
 
-    Phase 6.11b — STUB. Raises
-    :class:`NotImplementedError`; the full
-    JSON parser lands in Phase 6.12+.
+    The parser is intentionally small and
+    dependency-free: it reads the JSON object,
+    preserves the color palette, and applies
+    reasonable defaults for missing fields.
     """
-    raise NotImplementedError(
-        "loadThemeFromPath is a Phase 6.11b stub — "
-        "the full theme JSON parser lands in Phase 6.12+."
+    with open(file_path, "r", encoding="utf-8") as handle:
+        payload = json.load(handle)
+
+    if not isinstance(payload, dict):
+        raise ValueError("theme file must contain a JSON object")
+
+    payload = cast(dict[str, object], payload)
+    name = payload.get("name", "")
+    description = payload.get("description", "")
+    colors_raw: object = payload.get("colors", {})
+    styles_raw: object = payload.get("styles", {})
+
+    if not isinstance(colors_raw, dict):
+        raise ValueError("theme 'colors' must be an object")
+    if not isinstance(styles_raw, dict):
+        raise ValueError("theme 'styles' must be an object")
+
+    colors_raw_dict = cast(dict[object, object], colors_raw)
+    styles_raw_dict = cast(dict[object, object], styles_raw)
+    colors: dict[str, object] = {}
+    styles: dict[str, object] = {}
+    for raw_key, raw_value in colors_raw_dict.items():
+        colors[str(raw_key)] = raw_value
+    for raw_key, raw_value in styles_raw_dict.items():
+        styles[str(raw_key)] = raw_value
+
+    return Theme(
+        name=name if isinstance(name, str) else "",
+        description=description if isinstance(description, str) else "",
+        source_path=file_path,
+        file_path=file_path,
+        colors=colors,
+        styles=styles,
+        source_info=None,
     )
 
 

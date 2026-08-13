@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import pytest
 
@@ -268,19 +268,15 @@ class TestPrepareEmbeddedAttemptAgentSession:
 
 @pytest.fixture(autouse=True)
 def _reset_system_prompt_hooks() -> None:
-    set_build_attempt_system_prompt_hook(
-        lambda _p: {"text": "", "report": {}}
-    )
+    set_build_attempt_system_prompt_hook(None)
     yield
-    set_build_attempt_system_prompt_hook(
-        lambda _p: {"text": "", "report": {}}
-    )
+    set_build_attempt_system_prompt_hook(None)
 
 
 class TestBuildAttemptSystemPrompt:
     def test_basic(self) -> None:
         result = build_attempt_system_prompt({})
-        assert result["text"] == ""
+        assert isinstance(result["text"], str)
         assert result["report"] == {}
 
     def test_with_hook(self) -> None:
@@ -293,6 +289,22 @@ class TestBuildAttemptSystemPrompt:
         result = build_attempt_system_prompt({})
         assert result["text"] == "you are a helper"
         assert result["report"]["tokens"] == 50
+
+    def test_with_wrapped_params(self) -> None:
+        result = build_attempt_system_prompt(
+            {
+                "params": {
+                    "workspaceDir": "/tmp",
+                    "tools": [{"name": "read"}],
+                },
+                "runtimeInfo": {"model": "m1", "provider": "openai"},
+            }
+        )
+        assert isinstance(result["text"], str)
+        assert "/tmp" in result["text"]
+        assert "Current date:" in result["text"]
+        assert "model=m1" in result["text"]
+        assert "provider=openai" in result["text"]
 
     def test_non_dict(self) -> None:
         set_build_attempt_system_prompt_hook(lambda _p: None)

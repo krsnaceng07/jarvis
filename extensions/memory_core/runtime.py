@@ -26,6 +26,22 @@ CREATE TABLE IF NOT EXISTS memory (
 );
 CREATE INDEX IF NOT EXISTS idx_memory_category ON memory(category);
 CREATE INDEX IF NOT EXISTS idx_memory_updated  ON memory(updated_at);
+CREATE VIRTUAL TABLE IF NOT EXISTS memory_fts USING fts5(
+    key,
+    value,
+    category,
+    content='memory'
+);
+CREATE TRIGGER IF NOT EXISTS memory_ai AFTER INSERT ON memory BEGIN
+    INSERT INTO memory_fts(rowid, key, value, category) VALUES (new.rowid, new.key, new.value, new.category);
+END;
+CREATE TRIGGER IF NOT EXISTS memory_ad AFTER DELETE ON memory BEGIN
+    INSERT INTO memory_fts(memory_fts, rowid, key, value, category) VALUES('delete', old.rowid, old.key, old.value, old.category);
+END;
+CREATE TRIGGER IF NOT EXISTS memory_au AFTER UPDATE ON memory BEGIN
+    INSERT INTO memory_fts(memory_fts, rowid, key, value, category) VALUES('delete', old.rowid, old.key, old.value, old.category);
+    INSERT INTO memory_fts(rowid, key, value, category) VALUES (new.rowid, new.key, new.value, new.category);
+END;
 """
 
 
@@ -51,7 +67,9 @@ class MemoryRuntime:
         )
         self._conn.row_factory = sqlite3.Row
         self._conn.executescript(_SCHEMA)
+        self._conn.execute("PRAGMA foreign_keys = ON")
         self._conn_lock = threading.Lock()
+        self.rebuild_index()
 
     @classmethod
     def default(cls) -> MemoryRuntime:
@@ -80,6 +98,7 @@ class MemoryRuntime:
                 """,
                 (key, value, category, datetime.datetime.now().isoformat(timespec="seconds")),
             )
+            self._rebuild_index_locked()
 
     def get(self, key: str) -> str | None:
         with self._conn_lock:
@@ -89,6 +108,7 @@ class MemoryRuntime:
     def delete(self, key: str) -> bool:
         with self._conn_lock:
             cur = self._conn.execute("DELETE FROM memory WHERE key = ?", (key,))
+            self._rebuild_index_locked()
             return cur.rowcount > 0
 
     def count(self) -> int:
@@ -119,6 +139,38 @@ class MemoryRuntime:
             ).fetchall()
         return [dict(r) for r in rows]
 
+    def search_text(self, query: str, limit: int = 20) -> list[dict[str, Any]]:
+        """Search the FTS index using a phrase-oriented query."""
+        if not query.strip():
+            return []
+        quoted = f'"{query.replace("\"", "\"\"").strip()}"'
+        with self._conn_lock:
+            rows = self._conn.execute(
+                """
+                SELECT key, value, category
+                FROM memory_fts
+                WHERE memory_fts MATCH ?
+                ORDER BY bm25(memory_fts)
+                LIMIT ?
+                """,
+                (quoted, limit),
+            ).fetchall()
+        return [dict(r) for r in rows]
+
+    def _rebuild_index_locked(self) -> None:
+        self._conn.execute("DELETE FROM memory_fts")
+        self._conn.execute(
+            """
+            INSERT INTO memory_fts(rowid, key, value, category)
+            SELECT rowid, key, value, category FROM memory
+            """
+        )
+
+    def rebuild_index(self) -> None:
+        """Rebuild the FTS index from the canonical memory table."""
+        with self._conn_lock:
+            self._rebuild_index_locked()
+
     # ── Bulk import (used by the doctor apply path) ────────────────
 
     def bulk_set(self, entries: list[dict[str, str]]) -> int:
@@ -139,6 +191,7 @@ class MemoryRuntime:
                     ),
                 )
                 n += 1
+            self._rebuild_index_locked()
         return n
 
     def close(self) -> None:

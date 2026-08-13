@@ -23,14 +23,21 @@ EmbeddedAttemptPromptErrorOutcome = Dict[str, Any]
 _HANDLE_EMBEDDED_ATTEMPT_PROMPT_ERROR: Callable[
     [Dict[str, Any]], Awaitable[Any]
 ] = lambda _p: asyncio.sleep(0)
+_DEFAULT_HANDLE_EMBEDDED_ATTEMPT_PROMPT_ERROR = (
+    _HANDLE_EMBEDDED_ATTEMPT_PROMPT_ERROR
+)
 
 
 def set_handle_embedded_attempt_prompt_error_hook(
-    hook: Callable[[Dict[str, Any]], Awaitable[Any]],
+    hook: Callable[[Dict[str, Any]], Awaitable[Any]] | None,
 ) -> None:
     """Install a custom handleEmbeddedAttemptPromptError hook."""
     global _HANDLE_EMBEDDED_ATTEMPT_PROMPT_ERROR
-    _HANDLE_EMBEDDED_ATTEMPT_PROMPT_ERROR = hook
+    _HANDLE_EMBEDDED_ATTEMPT_PROMPT_ERROR = (
+        _DEFAULT_HANDLE_EMBEDDED_ATTEMPT_PROMPT_ERROR
+        if hook is None
+        else hook
+    )
 
 
 # ---------------------------------------------------------------------------

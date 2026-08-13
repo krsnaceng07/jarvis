@@ -412,15 +412,25 @@ class SessionManagerPersistence(SessionManagerCore):
         entry: Any,
         options: Optional[AppendPersistenceOptions] = None,
     ) -> None:
-        """SQLite-persist stub. Mirrors
-        ``persistSqliteRecord``
-        (``session-manager-persistence.ts:216-245``).
+        """Append one session entry to the per-agent SQLite database."""
+        from jarvis_state_core import append_agent_session_entry, open_agent_database
 
-        Phase 6.4b ships a no-op; the full
-        transcript-DB append lands in Phase 6.5
-        with the AgentSession family.
-        """
-        return
+        if not isinstance(entry, dict):
+            raise TypeError("SQLite session entries must be dictionaries")
+        handle = open_agent_database(
+            {
+                "agent_id": str(self.sqlite_persistence.get("agent_id", "")),
+                "path": str(self.sqlite_persistence.get("store_path", "")),
+            }
+        )
+        session_id = str(self.sqlite_persistence.get("session_id") or self.session_id)
+        timestamp = str(entry.get("timestamp") or "")
+        if entry.get("type") == "session":
+            from jarvis_state_core import ensure_agent_session
+
+            ensure_agent_session(handle, session_id, self.cwd, timestamp)
+            return
+        append_agent_session_entry(handle, session_id, entry, timestamp)
 
     # ------------------------------------------------------------------
     # syncSnapshotAfterHeaderRewrite

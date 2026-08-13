@@ -49,6 +49,11 @@ from src.agents.embedded_agent_runner import (
     run_prepared_embedded_loop,
     unregister_active_embedded_run,
 )
+from src.agents.embedded_agent_runner.run_orchestrator import (
+    capture_agent_run_lifecycle_generation,
+    get_agent_event_lifecycle_generation,
+    with_agent_run_lifecycle_generation,
+)
 from src.agents.embedded_agent_runner.run.internal_params import (
     RunEmbeddedAgentInternalParams as InternalParams,
 )
@@ -313,6 +318,58 @@ class TestAbortability:
         )
         retain_embedded_agent_run_abortability_for_run_id("run-1")
         assert "run-1" in RETAINED_EMBEDDED_RUN_ABORTABILITY_RUN_IDS
+
+
+class TestLifecycleConfigParity:
+    def test_runtime_config_and_lifecycle_generation_are_resolved(self, monkeypatch) -> None:
+        captured: list[dict] = []
+
+        async def fake_loop(input: PreparedEmbeddedRunInput) -> dict:
+            captured.append(
+                {
+                    "provider": input.provider,
+                    "modelId": input.model_id,
+                    "config": input.run_params.get("config"),
+                    "lifecycleGeneration": input.lifecycle_generation,
+                }
+            )
+            return {"meta": {}}
+
+        monkeypatch.setattr(
+            "src.agents.embedded_agent_runner.run_orchestrator.get_runtime_config_snapshot",
+            lambda: {"provider": "anthropic", "model": "claude-3-5-sonnet"},
+        )
+        monkeypatch.setattr(
+            "src.agents.embedded_agent_runner.run_orchestrator.run_prepared_embedded_loop",
+            fake_loop,
+        )
+
+        result = run_embedded_agent(
+            {
+                "runId": "run-123",
+                "prompt": "Hello",
+            }
+        )
+
+        assert result["meta"] == {}
+        assert len(captured) == 1
+        assert captured[0]["provider"] == "anthropic"
+        assert captured[0]["modelId"] == "claude-3-5-sonnet"
+        assert captured[0]["config"] == {
+            "provider": "anthropic",
+            "model": "claude-3-5-sonnet",
+        }
+        assert captured[0]["lifecycleGeneration"] >= 1
+
+    def test_lifecycle_generation_helpers(self) -> None:
+        generation = capture_agent_run_lifecycle_generation("run-abc")
+        assert generation >= 1
+        assert get_agent_event_lifecycle_generation() == generation
+
+        with with_agent_run_lifecycle_generation(generation + 1):
+            assert get_agent_event_lifecycle_generation() == generation + 1
+
+        assert get_agent_event_lifecycle_generation() == generation
 
 
 class TestAbort:

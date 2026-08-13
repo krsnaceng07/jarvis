@@ -224,11 +224,20 @@ def _spawn(
     exit codes.
     """
     creationflags = 0
+    start_new_session = False
     if sys.platform == "win32":
         # 0x00000200 = ``CREATE_NEW_PROCESS_GROUP``;
         # the symbolic name is only available on
         # Python 3.13+, so use the literal.
         creationflags |= 0x00000200
+    else:
+        # POSIX: mirrors ``detached: process.platform
+        # !== "win32"`` (``exec.ts:96``) — the child
+        # leads a new process group so the pgid kill
+        # in ``_kill_process_tree`` takes down the
+        # child + descendants without touching the
+        # caller's own group.
+        start_new_session = True
 
     return subprocess.Popen(
         [command, *args],
@@ -239,6 +248,7 @@ def _spawn(
         bufsize=0,  # equivalent to ``buffer: false``
         shell=False,
         creationflags=creationflags,
+        start_new_session=start_new_session,
     )
 
 

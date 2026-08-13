@@ -12,6 +12,9 @@ from src.agents.embedded_agent_runner.run.abortable import (
     is_aborted,
     make_abortable,
 )
+from src.agents.embedded_agent_runner.run.auth_controller import (
+    create_embedded_run_auth_controller,
+)
 from src.agents.embedded_agent_runner.run.auth_profile_failure_policy import (
     format_auth_profile_failure_message,
     resolve_auth_profile_failure_reason,
@@ -325,6 +328,75 @@ class TestCreateScopedAuthProfileStore:
         result = create_scoped_auth_profile_store({})
         assert result["version"] == 2
         assert result["profiles"] == {"a": 1}
+
+    def test_persists_to_agent_dir(self, tmp_path: Any) -> None:
+        agent_dir = tmp_path / "agent"
+        agent_dir.mkdir()
+
+        store = create_scoped_auth_profile_store({"agentDir": str(agent_dir)})
+        store["profiles"]["p1"] = {
+            "provider": "openai",
+            "label": "primary",
+            "active": True,
+        }
+
+        persisted = create_scoped_auth_profile_store({"agentDir": str(agent_dir)})
+        assert persisted["profiles"]["p1"]["provider"] == "openai"
+        assert (agent_dir / "auth-profiles.json").exists()
+
+    def test_runtime_key_from_provider_scoped_profile(self) -> None:
+        store = create_scoped_auth_profile_store({})
+        store["profiles"]["openai:p1"] = {
+            "provider": "openai",
+            "label": "primary",
+            "active": True,
+            "apiKey": "sk-test-openai-123",
+        }
+
+        captured: List[tuple[str, str]] = []
+        controller = create_embedded_run_auth_controller(
+            {
+                "authStorage": {"setRuntimeApiKey": lambda provider, key: captured.append((provider, key))},
+                "authStore": {"profiles": {"openai:p1": {"provider": "openai", "apiKey": "sk-test-openai-123"}}},
+                "profileCandidates": ["openai:p1"],
+                "lockedProfileId": None,
+                "getProvider": lambda: "openai",
+                "getModelId": lambda: "gpt-4o-mini",
+                "getProfileIndex": lambda: 0,
+                "setProfileIndex": lambda index: None,
+                "setLastProfileId": lambda _profile_id: None,
+            }
+        )
+
+        controller.apply_auth_profile_candidate("openai:p1")
+        assert captured == [("openai", "sk-test-openai-123")]
+
+    def test_runtime_key_from_legacy_openai_codex_profile_alias(self) -> None:
+        store = create_scoped_auth_profile_store({})
+        store["profiles"]["openai-codex:p1"] = {
+            "provider": "openai",
+            "label": "legacy codex",
+            "active": True,
+            "apiKey": "sk-test-openai-codex-456",
+        }
+
+        captured: List[tuple[str, str]] = []
+        controller = create_embedded_run_auth_controller(
+            {
+                "authStorage": {"setRuntimeApiKey": lambda provider, key: captured.append((provider, key))},
+                "authStore": {"profiles": {"openai-codex:p1": {"provider": "openai", "apiKey": "sk-test-openai-codex-456"}}},
+                "profileCandidates": ["openai:p1"],
+                "lockedProfileId": None,
+                "getProvider": lambda: "openai",
+                "getModelId": lambda: "gpt-4o-mini",
+                "getProfileIndex": lambda: 0,
+                "setProfileIndex": lambda index: None,
+                "setLastProfileId": lambda _profile_id: None,
+            }
+        )
+
+        controller.apply_auth_profile_candidate("openai:p1")
+        assert captured == [("openai", "sk-test-openai-codex-456")]
 
     def test_non_dict(self) -> None:
         set_create_scoped_auth_profile_store_hook(lambda _p: None)

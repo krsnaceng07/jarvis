@@ -274,6 +274,46 @@ def resolve_embedded_auth_cooldown_probe_policy(
     }
 
 
+def _read_profile_api_key(value: Any) -> Optional[str]:
+    """Resolve an API key from a nested profile entry."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        trimmed = value.strip()
+        return trimmed or None
+    if isinstance(value, dict):
+        for key in ("apiKey", "api_key", "key", "token", "accessToken", "refreshToken"):
+            nested = value.get(key)
+            extracted = _read_profile_api_key(nested)
+            if extracted is not None:
+                return extracted
+        for key in ("credential", "credentials", "auth"):
+            extracted = _read_profile_api_key(value.get(key))
+            if extracted is not None:
+                return extracted
+    return None
+
+
+def _profile_aliases(profile_id: Optional[str]) -> set[str]:
+    """Return equivalent auth-profile aliases for canonical/legacy OpenAI IDs."""
+    ids: set[str] = set()
+    if not isinstance(profile_id, str):
+        return ids
+
+    normalized = profile_id.strip()
+    if not normalized:
+        return ids
+    ids.add(normalized)
+
+    if normalized.startswith("openai:"):
+        suffix = normalized.split(":", 1)[1]
+        ids.add(f"openai-codex:{suffix}")
+    elif normalized.startswith("openai-codex:"):
+        suffix = normalized.split(":", 1)[1]
+        ids.add(f"openai:{suffix}")
+    return ids
+
+
 class EmbeddedRunAuthController:
     """Auth-controller handle returned by :func:`create_embedded_run_auth_controller`.
 
@@ -343,6 +383,54 @@ class EmbeddedRunAuthController:
             return get_state()
         return None
 
+    def _resolve_runtime_api_key_for_profile(self, profile_id: Optional[str]) -> str:
+        """Resolve the runtime API key for a selected provider profile."""
+        if not profile_id:
+            return ""
+
+        def _scan_store(store: Any) -> Optional[str]:
+            if not isinstance(store, dict):
+                return None
+            profiles = store.get("profiles")
+            if isinstance(profiles, dict):
+                aliases = _profile_aliases(profile_id)
+                for key in profiles:
+                    if key in aliases and isinstance(profiles[key], dict):
+                        api_key = _read_profile_api_key(profiles[key])
+                        if api_key is not None:
+                            return api_key
+                profile = profiles.get(profile_id)
+                if isinstance(profile, dict):
+                    api_key = _read_profile_api_key(profile)
+                    if api_key is not None:
+                        return api_key
+            return None
+
+        for store_name in ("authStore", "authProfileStore", "profileStore", "store"):
+            value = self._params.get(store_name)
+            api_key = _scan_store(value)
+            if api_key is not None:
+                return api_key
+
+        for value in self._params.values():
+            if isinstance(value, dict):
+                api_key = _scan_store(value)
+                if api_key is not None:
+                    return api_key
+
+        auth_storage = self._params.get("authStorage")
+        if hasattr(auth_storage, "data"):
+            data = getattr(auth_storage, "data", None)
+            if isinstance(data, dict):
+                provider = self._get_provider()
+                if provider:
+                    credential = data.get(provider)
+                    api_key = _read_profile_api_key(credential)
+                    if api_key is not None:
+                        return api_key
+
+        return ""
+
     # ------------------------------------------------------------------
     # Public methods
     # ------------------------------------------------------------------
@@ -361,8 +449,9 @@ class EmbeddedRunAuthController:
             self._set_profile_index(int(attempt_index))
         set_api_key = (self._params.get("authStorage") or {}).get("setRuntimeApiKey")
         set_last_profile_id = self._params.get("setLastProfileId")
+        resolved_api_key = self._resolve_runtime_api_key_for_profile(profile_id)
         if callable(set_api_key):
-            set_api_key(self._get_provider(), "")
+            set_api_key(self._get_provider(), resolved_api_key)
         if callable(set_last_profile_id):
             set_last_profile_id(profile_id)
 

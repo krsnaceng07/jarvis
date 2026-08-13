@@ -26,7 +26,7 @@ class _VectorStateResult(TypedDict, total=False):
 
 
 def resolve_memory_vector_state(
-    vector: dict,
+    vector: dict[str, object],
 ) -> _VectorStateResult:
     """Resolve vector indexing state from enabled + availability flags.
 
@@ -49,7 +49,7 @@ class _FtsStateResult(TypedDict, total=False):
     state: Literal["ready", "unavailable", "disabled"]
 
 
-def resolve_memory_fts_state(fts: dict) -> _FtsStateResult:
+def resolve_memory_fts_state(fts: dict[str, object]) -> _FtsStateResult:
     """Resolve full-text-search state from enabled + availability flags.
 
     Mirrors OpenClaw's ``resolveMemoryFtsState``. When ``enabled`` is
@@ -71,7 +71,7 @@ class _CacheSummaryResult(TypedDict, total=False):
     text: str
 
 
-def resolve_memory_cache_summary(cache: dict) -> _CacheSummaryResult:
+def resolve_memory_cache_summary(cache: dict[str, object]) -> _CacheSummaryResult:
     """Format cache state as concise status text with optional entry count.
 
     Mirrors OpenClaw's ``resolveMemoryCacheSummary``. When

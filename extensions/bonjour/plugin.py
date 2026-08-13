@@ -21,14 +21,6 @@ from typing import Any, Awaitable, Callable
 
 from jarvis_sdk import Plugin, PluginApi
 
-from .src.advertiser import (
-    DEFAULT_SERVICE_TYPE,
-    BonjourAdvertiserDeps,
-    GatewayBonjourAdvertiseOpts,
-    format_bonjour_instance_name,
-    start_gateway_bonjour_advertiser,
-)
-
 
 @dataclass(slots=True)
 class BonjourDiscoveryPlugin(Plugin):
@@ -68,6 +60,13 @@ class BonjourDiscoveryPlugin(Plugin):
             delegates to ``start_gateway_bonjour_advertiser``
             from ``src/advertiser.py``.
             """
+            from .src.advertiser import (
+                BonjourAdvertiserDeps,
+                GatewayBonjourAdvertiseOpts,
+                format_bonjour_instance_name,
+                start_gateway_bonjour_advertiser,
+            )
+
             # Translate the TS context into our opts dataclass.
             opts = GatewayBonjourAdvertiseOpts(
                 instance_name=format_bonjour_instance_name(

@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import sqlite3
 
-import pytest
 
 from jarvis_state_core.schema_additive import ensure_additive_state_columns
 

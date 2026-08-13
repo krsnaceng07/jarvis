@@ -23,14 +23,17 @@ EmbeddedAttemptPromptExecution = Dict[str, Any]
 _PREPARE_PROMPT_EXECUTION: Callable[
     [Dict[str, Any]], Awaitable[Any]
 ] = lambda _p: asyncio.sleep(0)
+_DEFAULT_PREPARE_PROMPT_EXECUTION = _PREPARE_PROMPT_EXECUTION
 
 
 def set_prepare_prompt_execution_hook(
-    hook: Callable[[Dict[str, Any]], Awaitable[Any]],
+    hook: Callable[[Dict[str, Any]], Awaitable[Any]] | None,
 ) -> None:
     """Install a custom prepare-embedded-attempt-prompt-execution hook."""
     global _PREPARE_PROMPT_EXECUTION
-    _PREPARE_PROMPT_EXECUTION = hook
+    _PREPARE_PROMPT_EXECUTION = (
+        _DEFAULT_PREPARE_PROMPT_EXECUTION if hook is None else hook
+    )
 
 
 # ---------------------------------------------------------------------------

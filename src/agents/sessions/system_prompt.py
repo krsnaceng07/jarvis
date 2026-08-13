@@ -98,6 +98,7 @@ class BuildSystemPromptOptions(TypedDict, total=False):
     cwd: str
     contextFiles: Optional[list[dict]]
     skills: Optional[list[SkillDict]]
+    isFirstTurn: Optional[bool]
 
 
 # ============================================================================
@@ -229,6 +230,7 @@ def build_system_prompt(options: BuildSystemPromptOptions) -> str:
     cwd = options.get("cwd", "")
     context_files = options.get("contextFiles") or []
     skills = options.get("skills") or []
+    is_first_turn = options.get("isFirstTurn", False)
 
     # The OpenClaw source's
     # ``resolvedCwd.replace(/\\/g, "/")``
@@ -250,6 +252,13 @@ def build_system_prompt(options: BuildSystemPromptOptions) -> str:
         if context_files:
             prompt += "\n\n<project_context>\n\n"
             prompt += "Project-specific instructions and guidelines:\n\n"
+            has_bootstrap = any(
+                os.path.basename(entry.get("path", "")) == "BOOTSTRAP.md"
+                for entry in context_files
+            )
+            if has_bootstrap and is_first_turn:
+                prompt += "> [!IMPORTANT]\n> A BOOTSTRAP.md file is present and this is the first turn of the session.\n> You MUST prioritize and execute the instructions in BOOTSTRAP.md immediately before fulfilling the user's explicit request.\n\n"
+
             for entry in context_files:
                 file_path = entry.get("path", "")
                 content = entry.get("content", "")
@@ -346,6 +355,15 @@ def build_system_prompt(options: BuildSystemPromptOptions) -> str:
         sections.append("")
         sections.append("# Project context")
         sections.append("")
+        has_bootstrap = any(
+            os.path.basename(entry.get("path", "")) == "BOOTSTRAP.md"
+            for entry in context_files
+        )
+        if has_bootstrap and is_first_turn:
+            sections.append(
+                "> [!IMPORTANT]\n> A BOOTSTRAP.md file is present and this is the first turn of the session.\n> You MUST prioritize and execute the instructions in BOOTSTRAP.md immediately before fulfilling the user's explicit request.\n"
+            )
+
         for entry in context_files:
             file_path = entry.get("path", "")
             content = entry.get("content", "")

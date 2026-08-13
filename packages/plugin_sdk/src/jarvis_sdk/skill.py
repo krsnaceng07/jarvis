@@ -28,7 +28,6 @@ The frontmatter keys we honor:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,7 +43,7 @@ class SkillDecl:
     body: str
     emoji: str = ""
     requires_bins: tuple[str, ...] = ()
-    raw_frontmatter: dict[str, Any] = field(default_factory=dict)
+    raw_frontmatter: dict[str, object] = field(default_factory=dict)
     source_path: str = ""
 
 

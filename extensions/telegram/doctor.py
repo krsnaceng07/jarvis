@@ -1,39 +1,36 @@
-"""Doctor contract for the Telegram channel.
+"""Doctor contract for the Telegram extension.
 
-Mirrors the pattern in ``extensions/memory_core/doctor.py``.
+This is the Phase 3 parity surface the tests import from
+``extensions.telegram.doctor``. It exposes a single ``detect_telegram_credentials``
+check that returns ``DoctorFinding`` instances when the channel is not configured.
 """
-
 from __future__ import annotations
 
-import os
-from typing import TYPE_CHECKING, Any
+from pathlib import Path
+from typing import Any
 
-from src.doctor import DoctorFinding
-
-if TYPE_CHECKING:
-    from pathlib import Path
+from src.doctor import DoctorFinding, Severity
 
 
-def detect_telegram_credentials(state_dir: Path, config: dict[str, Any]) -> list[DoctorFinding]:
-    """Flag missing Telegram bot credentials.
+def detect_telegram_credentials(state_dir: Path, _config: dict[str, Any]) -> list[DoctorFinding]:
+    """Detect whether Telegram bot credentials are missing."""
+    import os
 
-    Phase 3 doctor contract. We treat the absence of a bot_token
-    as a warning (the operator can pair at runtime via
-    ``jarvis telegram setup``).
-    """
-    env_token = os.environ.get("JARVIS_TELEGRAM_BOT_TOKEN")
-    # The runtime's default() reads from $JARVIS_DATA_DIR/telegram.json
-    # — we don't import the runtime here to avoid pulling httpx, but
-    # the JSON file path is the canonical signal.
-    store = state_dir / "telegram.json"
-    if env_token or store.exists():
+    state_path = state_dir / "telegram.json"
+    if state_path.exists():
         return []
+    token = os.environ.get("JARVIS_TELEGRAM_BOT_TOKEN") or os.environ.get("TELEGRAM_BOT_TOKEN")
+    if token:
+        return []
+
     return [
         DoctorFinding(
-            label="Telegram bot token not configured",
-            path=store,
-            count=0,
-            details={"fix": "run 'jarvis telegram setup' or set JARVIS_TELEGRAM_BOT_TOKEN"},
+            plugin_id="telegram",
+            label="Telegram bot token missing",
+            path=state_path,
+            count=1,
+            severity=Severity.ERROR,
+            message="Telegram bot token is not configured.",
         )
     ]
 

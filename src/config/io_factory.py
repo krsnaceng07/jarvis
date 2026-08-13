@@ -9,32 +9,39 @@ those subsystems land.
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Optional, cast
+
+from src.config.io import create_config_io as _create_config_io
 
 
-def create_config_io(*args, **kwargs):  # pragma: no cover
+def create_config_io(*args: Any, **kwargs: Any) -> Any:  # pragma: no cover
     """Build a configured ``ConfigIO`` instance for the active runtime.
 
     Mirrors :func:`createConfigIO`
-    (``shared/config/io.factory.ts`).
+    (``shared/config/io.factory.ts``).
+
+    In the minimal port, this delegates to the concrete local ``ConfigIO``
+    implementation so callers can exercise the stable read/write facade
+    without requiring a full runtime installation.
     """
-    raise NotImplementedError(
-        "createConfigIO facade — install via runtime hooks",
-    )
+    if args or kwargs:
+        _create_config_io_callable = cast(Callable[..., Any], _create_config_io)
+        return _create_config_io_callable(*args, **kwargs)
+    raise NotImplementedError("createConfigIO facade — install via runtime hooks")
 
 
 def make_deps(
     *,
     fs: Any = None,
     json5: Any = None,
-    env: Any = None,
-    lower_precedence_env: Any = None,
+    env: dict[str, Any] | None = None,
+    lower_precedence_env: dict[str, Any] | None = None,
     homedir_fn: Optional[Callable[[], str]] = None,
     config_path: Optional[str] = None,
     logger: Any = None,
-    measure: Optional[Callable] = None,
+    measure: Optional[Callable[..., Any]] = None,
     observe: bool = True,
-) -> dict:
+) -> dict[str, Any]:
     """Build a config-IO deps dict with sensible defaults for the missing fields."""
     return {
         "fs": fs,

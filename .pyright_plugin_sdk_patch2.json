@@ -1,0 +1,958 @@
+{
+    "version": "1.1.411",
+    "time": "1786269630412",
+    "generalDiagnostics": [
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_config_utils.py",
+            "severity": "warning",
+            "message": "Type of \"entry\" is unknown",
+            "range": {
+                "start": {
+                    "line": 86,
+                    "character": 41
+                },
+                "end": {
+                    "line": 86,
+                    "character": 46
+                }
+            },
+            "rule": "reportUnknownVariableType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_config_utils.py",
+            "severity": "warning",
+            "message": "Type of \"get\" is partially unknown\n  Type of \"get\" is \"Overload[(key: Unknown, default: None = None, /) -> (Unknown | None), (key: Unknown, default: Unknown, /) -> Unknown, (key: Unknown, default: _T@get, /) -> (Unknown | _T@get)]\"",
+            "range": {
+                "start": {
+                    "line": 155,
+                    "character": 42
+                },
+                "end": {
+                    "line": 155,
+                    "character": 54
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_config_utils.py",
+            "severity": "warning",
+            "message": "Argument type is partially unknown\n  Argument corresponds to parameter \"value\" in function \"_normalize_optional_string\"\n  Argument type is \"Unknown | None\"",
+            "range": {
+                "start": {
+                    "line": 155,
+                    "character": 42
+                },
+                "end": {
+                    "line": 155,
+                    "character": 67
+                }
+            },
+            "rule": "reportUnknownArgumentType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_config_utils.py",
+            "severity": "warning",
+            "message": "Type of \"default_limits\" is partially unknown\n  Type of \"default_limits\" is \"Unknown | None\"",
+            "range": {
+                "start": {
+                    "line": 187,
+                    "character": 4
+                },
+                "end": {
+                    "line": 187,
+                    "character": 18
+                }
+            },
+            "rule": "reportUnknownVariableType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_config_utils.py",
+            "severity": "warning",
+            "message": "Type of \"get\" is partially unknown\n  Type of \"get\" is \"Overload[(key: Unknown, default: None = None, /) -> (Unknown | None), (key: Unknown, default: Unknown, /) -> Unknown, (key: Unknown, default: _T@get, /) -> (Unknown | _T@get)]\"",
+            "range": {
+                "start": {
+                    "line": 187,
+                    "character": 21
+                },
+                "end": {
+                    "line": 187,
+                    "character": 33
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_config_utils.py",
+            "severity": "error",
+            "message": "Type \"dict[Unknown, Unknown] | None\" is not assignable to return type \"AgentContextLimitsConfig | None\"\n  Type \"dict[Unknown, Unknown] | None\" is not assignable to type \"AgentContextLimitsConfig | None\"\n    Type \"dict[Unknown, Unknown]\" is not assignable to type \"AgentContextLimitsConfig | None\"\n      \"dict[Unknown, Unknown]\" is not assignable to \"AgentContextLimitsConfig\"\n      \"dict[Unknown, Unknown]\" is not assignable to \"None\"",
+            "range": {
+                "start": {
+                    "line": 189,
+                    "character": 15
+                },
+                "end": {
+                    "line": 189,
+                    "character": 75
+                }
+            },
+            "rule": "reportReturnType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_config_utils.py",
+            "severity": "warning",
+            "message": "Return type, \"dict[Unknown, Unknown] | None\", is partially unknown",
+            "range": {
+                "start": {
+                    "line": 189,
+                    "character": 15
+                },
+                "end": {
+                    "line": 189,
+                    "character": 75
+                }
+            },
+            "rule": "reportUnknownVariableType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_config_utils.py",
+            "severity": "warning",
+            "message": "Could not access item in TypedDict\n  \"contextLimits\" is not a required key in \"AgentConfig\", so access may result in runtime exception",
+            "range": {
+                "start": {
+                    "line": 192,
+                    "character": 46
+                },
+                "end": {
+                    "line": 192,
+                    "character": 68
+                }
+            },
+            "rule": "reportTypedDictNotRequiredAccess"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_config_utils.py",
+            "severity": "warning",
+            "message": "Type of \"default_search\" is partially unknown\n  Type of \"default_search\" is \"Unknown | None\"",
+            "range": {
+                "start": {
+                    "line": 227,
+                    "character": 4
+                },
+                "end": {
+                    "line": 227,
+                    "character": 18
+                }
+            },
+            "rule": "reportUnknownVariableType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_config_utils.py",
+            "severity": "warning",
+            "message": "Type of \"get\" is partially unknown\n  Type of \"get\" is \"Overload[(key: Unknown, default: None = None, /) -> (Unknown | None), (key: Unknown, default: Unknown, /) -> Unknown, (key: Unknown, default: _T@get, /) -> (Unknown | _T@get)]\"",
+            "range": {
+                "start": {
+                    "line": 227,
+                    "character": 21
+                },
+                "end": {
+                    "line": 227,
+                    "character": 33
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_config_utils.py",
+            "severity": "warning",
+            "message": "Argument type is unknown\n  Argument corresponds to parameter \"o\" in function \"__new__\"",
+            "range": {
+                "start": {
+                    "line": 234,
+                    "character": 23
+                },
+                "end": {
+                    "line": 234,
+                    "character": 48
+                }
+            },
+            "rule": "reportUnknownArgumentType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_config_utils.py",
+            "severity": "warning",
+            "message": "Type of \"get\" is partially unknown\n  Type of \"get\" is \"Overload[(key: Unknown, default: None = None, /) -> (Unknown | None), (key: Unknown, default: Unknown, /) -> Unknown, (key: Unknown, default: _T@get, /) -> (Unknown | _T@get)]\"",
+            "range": {
+                "start": {
+                    "line": 239,
+                    "character": 14
+                },
+                "end": {
+                    "line": 239,
+                    "character": 32
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_config_utils.py",
+            "severity": "warning",
+            "message": "Argument type is partially unknown\n  Argument corresponds to parameter \"o\" in function \"__new__\"\n  Argument type is \"Unknown | bool\"",
+            "range": {
+                "start": {
+                    "line": 246,
+                    "character": 12
+                },
+                "end": {
+                    "line": 248,
+                    "character": 20
+                }
+            },
+            "rule": "reportUnknownArgumentType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_config_utils.py",
+            "severity": "warning",
+            "message": "Type of \"get\" is partially unknown\n  Type of \"get\" is \"Overload[(key: Unknown, default: None = None, /) -> (Unknown | None), (key: Unknown, default: Unknown, /) -> Unknown, (key: Unknown, default: _T@get, /) -> (Unknown | _T@get)]\"",
+            "range": {
+                "start": {
+                    "line": 247,
+                    "character": 16
+                },
+                "end": {
+                    "line": 247,
+                    "character": 34
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Expected type arguments for generic class \"dict\"",
+            "range": {
+                "start": {
+                    "line": 87,
+                    "character": 11
+                },
+                "end": {
+                    "line": 87,
+                    "character": 15
+                }
+            },
+            "rule": "reportMissingTypeArgument"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Return type, \"dict[Unknown, Unknown] | None\", is partially unknown",
+            "range": {
+                "start": {
+                    "line": 232,
+                    "character": 4
+                },
+                "end": {
+                    "line": 232,
+                    "character": 50
+                }
+            },
+            "rule": "reportUnknownParameterType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Expected type arguments for generic class \"dict\"",
+            "range": {
+                "start": {
+                    "line": 234,
+                    "character": 5
+                },
+                "end": {
+                    "line": 234,
+                    "character": 9
+                }
+            },
+            "rule": "reportMissingTypeArgument"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Type of \"normalized_results\" is partially unknown\n  Type of \"normalized_results\" is \"list[dict[Unknown, Unknown]]\"",
+            "range": {
+                "start": {
+                    "line": 274,
+                    "character": 8
+                },
+                "end": {
+                    "line": 274,
+                    "character": 26
+                }
+            },
+            "rule": "reportUnknownVariableType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Expected type arguments for generic class \"dict\"",
+            "range": {
+                "start": {
+                    "line": 274,
+                    "character": 33
+                },
+                "end": {
+                    "line": 274,
+                    "character": 37
+                }
+            },
+            "rule": "reportMissingTypeArgument"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Type of \"entry\" is partially unknown\n  Type of \"entry\" is \"dict[Unknown, Unknown]\"",
+            "range": {
+                "start": {
+                    "line": 294,
+                    "character": 12
+                },
+                "end": {
+                    "line": 294,
+                    "character": 17
+                }
+            },
+            "rule": "reportUnknownVariableType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Expected type arguments for generic class \"dict\"",
+            "range": {
+                "start": {
+                    "line": 294,
+                    "character": 19
+                },
+                "end": {
+                    "line": 294,
+                    "character": 23
+                }
+            },
+            "rule": "reportMissingTypeArgument"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Type of \"append\" is partially unknown\n  Type of \"append\" is \"(object: dict[Unknown, Unknown], /) -> None\"",
+            "range": {
+                "start": {
+                    "line": 302,
+                    "character": 12
+                },
+                "end": {
+                    "line": 302,
+                    "character": 37
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Type of \"normalized\" is partially unknown\n  Type of \"normalized\" is \"dict[Unknown, Unknown]\"",
+            "range": {
+                "start": {
+                    "line": 305,
+                    "character": 12
+                },
+                "end": {
+                    "line": 305,
+                    "character": 22
+                }
+            },
+            "rule": "reportUnknownVariableType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Expected type arguments for generic class \"dict\"",
+            "range": {
+                "start": {
+                    "line": 305,
+                    "character": 24
+                },
+                "end": {
+                    "line": 305,
+                    "character": 28
+                }
+            },
+            "rule": "reportMissingTypeArgument"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Type of \"r\" is partially unknown\n  Type of \"r\" is \"dict[Unknown, Unknown]\"",
+            "range": {
+                "start": {
+                    "line": 317,
+                    "character": 24
+                },
+                "end": {
+                    "line": 317,
+                    "character": 25
+                }
+            },
+            "rule": "reportUnknownVariableType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Type of \"normalized\" is partially unknown\n  Type of \"normalized\" is \"dict[Unknown, Unknown]\"",
+            "range": {
+                "start": {
+                    "line": 321,
+                    "character": 12
+                },
+                "end": {
+                    "line": 321,
+                    "character": 22
+                }
+            },
+            "rule": "reportUnknownVariableType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Type of \"r\" is partially unknown\n  Type of \"r\" is \"dict[Unknown, Unknown]\"",
+            "range": {
+                "start": {
+                    "line": 336,
+                    "character": 24
+                },
+                "end": {
+                    "line": 336,
+                    "character": 25
+                }
+            },
+            "rule": "reportUnknownVariableType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Return type, \"dict[Unknown, Unknown]\", is partially unknown",
+            "range": {
+                "start": {
+                    "line": 343,
+                    "character": 19
+                },
+                "end": {
+                    "line": 343,
+                    "character": 29
+                }
+            },
+            "rule": "reportUnknownVariableType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Return type, \"dict[Unknown, Unknown]\", is partially unknown",
+            "range": {
+                "start": {
+                    "line": 346,
+                    "character": 15
+                },
+                "end": {
+                    "line": 346,
+                    "character": 70
+                }
+            },
+            "rule": "reportUnknownVariableType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Type of \"candidates\" is partially unknown\n  Type of \"candidates\" is \"list[dict[Unknown, Unknown]]\"",
+            "range": {
+                "start": {
+                    "line": 364,
+                    "character": 8
+                },
+                "end": {
+                    "line": 364,
+                    "character": 18
+                }
+            },
+            "rule": "reportUnknownVariableType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Expected type arguments for generic class \"dict\"",
+            "range": {
+                "start": {
+                    "line": 364,
+                    "character": 25
+                },
+                "end": {
+                    "line": 364,
+                    "character": 29
+                }
+            },
+            "rule": "reportMissingTypeArgument"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Type of \"append\" is partially unknown\n  Type of \"append\" is \"(object: dict[Unknown, Unknown], /) -> None\"",
+            "range": {
+                "start": {
+                    "line": 384,
+                    "character": 12
+                },
+                "end": {
+                    "line": 384,
+                    "character": 29
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Type of \"normalized\" is partially unknown\n  Type of \"normalized\" is \"dict[Unknown, Unknown]\"",
+            "range": {
+                "start": {
+                    "line": 394,
+                    "character": 8
+                },
+                "end": {
+                    "line": 394,
+                    "character": 18
+                }
+            },
+            "rule": "reportUnknownVariableType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Return type, \"dict[Unknown, Unknown]\", is partially unknown",
+            "range": {
+                "start": {
+                    "line": 405,
+                    "character": 19
+                },
+                "end": {
+                    "line": 405,
+                    "character": 29
+                }
+            },
+            "rule": "reportUnknownVariableType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Return type, \"dict[Unknown, Unknown]\", is partially unknown",
+            "range": {
+                "start": {
+                    "line": 406,
+                    "character": 15
+                },
+                "end": {
+                    "line": 406,
+                    "character": 73
+                }
+            },
+            "rule": "reportUnknownVariableType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Type of \"normalized\" is partially unknown\n  Type of \"normalized\" is \"dict[Unknown, Unknown]\"",
+            "range": {
+                "start": {
+                    "line": 451,
+                    "character": 8
+                },
+                "end": {
+                    "line": 451,
+                    "character": 18
+                }
+            },
+            "rule": "reportUnknownVariableType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Return type, \"dict[Unknown, Unknown]\", is partially unknown",
+            "range": {
+                "start": {
+                    "line": 468,
+                    "character": 15
+                },
+                "end": {
+                    "line": 468,
+                    "character": 25
+                }
+            },
+            "rule": "reportUnknownVariableType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Type of \"state\" is partially unknown\n  Type of \"state\" is \"dict[str, dict[Unknown, Unknown]]\"",
+            "range": {
+                "start": {
+                    "line": 490,
+                    "character": 8
+                },
+                "end": {
+                    "line": 490,
+                    "character": 13
+                }
+            },
+            "rule": "reportUnknownVariableType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Return type, \"dict[str, dict[Unknown, Unknown]] | dict[str, Any]\", is partially unknown",
+            "range": {
+                "start": {
+                    "line": 492,
+                    "character": 11
+                },
+                "end": {
+                    "line": 492,
+                    "character": 16
+                }
+            },
+            "rule": "reportUnknownVariableType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Type of parameter \"value\" is partially unknown\n  Parameter type is \"dict[Unknown, Unknown]\"",
+            "range": {
+                "start": {
+                    "line": 506,
+                    "character": 34
+                },
+                "end": {
+                    "line": 506,
+                    "character": 39
+                }
+            },
+            "rule": "reportUnknownParameterType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Expected type arguments for generic class \"dict\"",
+            "range": {
+                "start": {
+                    "line": 506,
+                    "character": 41
+                },
+                "end": {
+                    "line": 506,
+                    "character": 45
+                }
+            },
+            "rule": "reportMissingTypeArgument"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Return type, \"list[dict[Unknown, Unknown]]\", is partially unknown",
+            "range": {
+                "start": {
+                    "line": 522,
+                    "character": 4
+                },
+                "end": {
+                    "line": 522,
+                    "character": 23
+                }
+            },
+            "rule": "reportUnknownParameterType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Expected type arguments for generic class \"dict\"",
+            "range": {
+                "start": {
+                    "line": 524,
+                    "character": 10
+                },
+                "end": {
+                    "line": 524,
+                    "character": 14
+                }
+            },
+            "rule": "reportMissingTypeArgument"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Return type, \"list[dict[Unknown, Unknown]]\", is partially unknown",
+            "range": {
+                "start": {
+                    "line": 537,
+                    "character": 11
+                },
+                "end": {
+                    "line": 540,
+                    "character": 5
+                }
+            },
+            "rule": "reportUnknownVariableType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Type of parameter \"event\" is partially unknown\n  Parameter type is \"dict[Unknown, Unknown] | Unknown\"",
+            "range": {
+                "start": {
+                    "line": 549,
+                    "character": 4
+                },
+                "end": {
+                    "line": 549,
+                    "character": 9
+                }
+            },
+            "rule": "reportUnknownParameterType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Expected type arguments for generic class \"dict\"",
+            "range": {
+                "start": {
+                    "line": 549,
+                    "character": 11
+                },
+                "end": {
+                    "line": 549,
+                    "character": 15
+                }
+            },
+            "rule": "reportMissingTypeArgument"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "error",
+            "message": "\"MemoryHostEventRecord\" is not defined",
+            "range": {
+                "start": {
+                    "line": 549,
+                    "character": 18
+                },
+                "end": {
+                    "line": 549,
+                    "character": 39
+                }
+            },
+            "rule": "reportUndefinedVariable"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Type of parameter \"env\" is partially unknown\n  Parameter type is \"dict[Unknown, Unknown] | None\"",
+            "range": {
+                "start": {
+                    "line": 550,
+                    "character": 4
+                },
+                "end": {
+                    "line": 550,
+                    "character": 7
+                }
+            },
+            "rule": "reportUnknownParameterType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Expected type arguments for generic class \"dict\"",
+            "range": {
+                "start": {
+                    "line": 550,
+                    "character": 9
+                },
+                "end": {
+                    "line": 550,
+                    "character": 13
+                }
+            },
+            "rule": "reportMissingTypeArgument"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Type of \"normalized\" is partially unknown\n  Type of \"normalized\" is \"dict[Unknown, Unknown] | None\"",
+            "range": {
+                "start": {
+                    "line": 559,
+                    "character": 4
+                },
+                "end": {
+                    "line": 559,
+                    "character": 14
+                }
+            },
+            "rule": "reportUnknownVariableType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Type of \"_\" is partially unknown\n  Type of \"_\" is \"dict[Unknown, Unknown] | None\"",
+            "range": {
+                "start": {
+                    "line": 566,
+                    "character": 4
+                },
+                "end": {
+                    "line": 566,
+                    "character": 5
+                }
+            },
+            "rule": "reportUnknownVariableType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Type of parameter \"env\" is partially unknown\n  Parameter type is \"dict[Unknown, Unknown] | None\"",
+            "range": {
+                "start": {
+                    "line": 599,
+                    "character": 4
+                },
+                "end": {
+                    "line": 599,
+                    "character": 7
+                }
+            },
+            "rule": "reportUnknownParameterType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Expected type arguments for generic class \"dict\"",
+            "range": {
+                "start": {
+                    "line": 599,
+                    "character": 9
+                },
+                "end": {
+                    "line": 599,
+                    "character": 13
+                }
+            },
+            "rule": "reportMissingTypeArgument"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Type of \"_\" is partially unknown\n  Type of \"_\" is \"dict[Unknown, Unknown] | None\"",
+            "range": {
+                "start": {
+                    "line": 608,
+                    "character": 4
+                },
+                "end": {
+                    "line": 608,
+                    "character": 5
+                }
+            },
+            "rule": "reportUnknownVariableType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Type of \"raw\" is partially unknown\n  Type of \"raw\" is \"list[dict[Unknown, Unknown]]\"",
+            "range": {
+                "start": {
+                    "line": 615,
+                    "character": 4
+                },
+                "end": {
+                    "line": 615,
+                    "character": 7
+                }
+            },
+            "rule": "reportUnknownVariableType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Type of \"raw_entry\" is partially unknown\n  Type of \"raw_entry\" is \"dict[Unknown, Unknown]\"",
+            "range": {
+                "start": {
+                    "line": 624,
+                    "character": 8
+                },
+                "end": {
+                    "line": 624,
+                    "character": 17
+                }
+            },
+            "rule": "reportUnknownVariableType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Type of \"get\" is partially unknown\n  Type of \"get\" is \"Overload[(k: Literal['kind']) -> (Literal['event'] | None), (k: Literal['kind'], default: __TDefault@StoredMemoryHostEvent | Literal['event']) -> (__TDefault@StoredMemoryHostEvent | Literal['event']), (k: Literal['event']) -> (dict[Unknown, Unknown] | None), (k: Literal['event'], default: dict[Unknown, Unknown] | __TDefault@StoredMemoryHostEvent) -> (dict[Unknown, Unknown] | __TDefault@StoredMemoryHostEvent), (k: Literal['recordedAt']) -> (int | None), (k: Literal['recordedAt'], default: int | __TDefault@StoredMemoryHostEvent) -> (int | __TDefault@StoredMemoryHostEvent), (k: Literal['sequence']) -> (int | None), (k: Literal['sequence'], default: int | __TDefault@StoredMemoryHostEvent) -> (int | __TDefault@StoredMemoryHostEvent), (k: str) -> (Any | None), (k: str, default: Any | __TDefault@StoredMemoryHostEvent) -> (Any | __TDefault@StoredMemoryHostEvent)]\"",
+            "range": {
+                "start": {
+                    "line": 626,
+                    "character": 11
+                },
+                "end": {
+                    "line": 626,
+                    "character": 20
+                }
+            },
+            "rule": "reportUnknownMemberType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Argument type is unknown\n  Argument corresponds to parameter \"key\" in function \"__init__\"",
+            "range": {
+                "start": {
+                    "line": 629,
+                    "character": 24
+                },
+                "end": {
+                    "line": 629,
+                    "character": 40
+                }
+            },
+            "rule": "reportUnknownArgumentType"
+        },
+        {
+            "file": "e:\\jarvis\\packages\\plugin_sdk\\src\\jarvis_sdk\\memory_host_event_store.py",
+            "severity": "warning",
+            "message": "Argument type is unknown\n  Argument corresponds to parameter \"createdAt\" in function \"__init__\"",
+            "range": {
+                "start": {
+                    "line": 631,
+                    "character": 30
+                },
+                "end": {
+                    "line": 631,
+                    "character": 52
+                }
+            },
+            "rule": "reportUnknownArgumentType"
+        }
+    ],
+    "summary": {
+        "filesAnalyzed": 3,
+        "errorCount": 2,
+        "warningCount": 57,
+        "informationCount": 0,
+        "timeInSec": 1.76
+    }
+}
+

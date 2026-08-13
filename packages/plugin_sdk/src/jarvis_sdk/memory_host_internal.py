@@ -51,7 +51,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-from typing import TYPE_CHECKING, Any, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, TypedDict, cast
 
 from .memory_host_cjk_chars import CHARS_PER_TOKEN_ESTIMATE, estimate_string_chars
 from .memory_host_concurrency import run_with_concurrency
@@ -63,6 +63,7 @@ from .memory_host_embedding_inputs import (
     build_text_embedding_input,
 )
 from .memory_host_fs_utils import (
+    WalkDirectoryEntry,
     is_file_missing_error,
     read_regular_file,
     stat_regular_file,
@@ -77,7 +78,9 @@ from .memory_host_multimodal import (
     normalize_memory_multimodal_settings,
 )
 from .memory_host_read_retry import retry_transient_memory_read
-from .memory_host_runtime_io import detect_mime, truncate_utf16_safe
+from jarvis_normalization_core.text_utility import truncate_utf16_safe
+
+from .memory_host_runtime_io import detect_mime
 from .memory_host_runtime_memory import (
     CANONICAL_ROOT_MEMORY_FILENAME as _CANONICAL_ROOT_MEMORY_FILENAME,
     resolve_canonical_root_memory_file,
@@ -291,7 +294,7 @@ def _is_allowed_memory_file_path(
 
 
 def _should_descend_memory_entry(
-    entry: dict[str, Any],
+    entry: WalkDirectoryEntry,
     should_skip_path: Callable[[str], bool] | None = None,
 ) -> bool:
     """Whether to descend into a directory during a memory walk.
@@ -434,7 +437,7 @@ async def build_file_entry(
     that exceeds the size cap, or when its MIME type doesn't
     match the expected modality prefix.
     """
-    settings = normalize_memory_multimodal_settings(multimodal)
+    settings = normalize_memory_multimodal_settings(multimodal if multimodal is not None else None)
     regular_file = stat_regular_file(abs_path)
     if regular_file["missing"]:
         return None
@@ -448,7 +451,7 @@ async def build_file_entry(
         if stat.st_size > settings["maxFileBytes"]:
             return None
 
-        async def _do_read_multimodal() -> dict:
+        async def _do_read_multimodal() -> dict[str, bytes]:
             return read_regular_file(
                 file_path=abs_path, max_bytes=settings["maxFileBytes"]
             )
@@ -462,6 +465,7 @@ async def build_file_entry(
             if is_file_missing_error(err):
                 return None
             raise
+        read_result = cast(dict[str, bytes], read_result)
         buffer = read_result["buffer"]
         mime_type = detect_mime(buffer=buffer[:512], file_path=abs_path)
         if not mime_type or not mime_type.startswith(f"{modality}/"):
@@ -478,21 +482,24 @@ async def build_file_entry(
                 }
             )
         )
-        return {
-            "path": normalized_path,
-            "absPath": abs_path,
-            "mtimeMs": stat.st_mtime,
-            "size": stat.st_size,
-            "hash": chunk_hash,
-            "dataHash": data_hash,
-            "kind": "multimodal",
-            "contentText": content_text,
-            "modality": modality,
-            "mimeType": mime_type,
-        }
+        return cast(
+            MemoryFileEntry,
+            {
+                "path": normalized_path,
+                "absPath": abs_path,
+                "mtimeMs": stat.st_mtime,
+                "size": stat.st_size,
+                "hash": chunk_hash,
+                "dataHash": data_hash,
+                "kind": "multimodal",
+                "contentText": content_text,
+                "modality": modality,
+                "mimeType": mime_type,
+            },
+        )
     # Markdown branch.
 
-    async def _do_read_markdown() -> dict:
+    async def _do_read_markdown() -> dict[str, bytes]:
         return read_regular_file(file_path=abs_path)
 
     try:
@@ -504,15 +511,19 @@ async def build_file_entry(
         if is_file_missing_error(err):
             return None
         raise
+    read_result = cast(dict[str, bytes], read_result)
     content = read_result["buffer"].decode("utf-8")
-    return {
-        "path": normalized_path,
-        "absPath": abs_path,
-        "mtimeMs": stat.st_mtime,
-        "size": stat.st_size,
-        "hash": hash_text(content),
-        "kind": "markdown",
-    }
+    return cast(
+        MemoryFileEntry,
+        {
+            "path": normalized_path,
+            "absPath": abs_path,
+            "mtimeMs": stat.st_mtime,
+            "size": stat.st_size,
+            "hash": hash_text(content),
+            "kind": "markdown",
+        },
+    )
 
 
 async def _load_multimodal_embedding_input(
@@ -542,8 +553,8 @@ async def _load_multimodal_embedding_input(
         return None
     try:
 
-        async def _do_read() -> dict:
-            return read_regular_file(file_path=abs_path, max_bytes=entry["size"])
+        async def _do_read() -> dict[str, bytes]:
+            return read_regular_file(file_path=abs_path, max_bytes=entry.get("size", 0))
 
         read_result = await retry_transient_memory_read(
             _do_read,
@@ -553,13 +564,16 @@ async def _load_multimodal_embedding_input(
         if is_file_missing_error(err):
             return None
         raise
+    read_result = cast(dict[str, bytes], read_result)
     buffer = read_result["buffer"]
     data_hash = _sha256_hex(buffer)
     entry_data_hash = entry.get("dataHash")
     if entry_data_hash and entry_data_hash != data_hash:
         return None
-    mime_type = entry["mimeType"]
-    content_text = entry["contentText"]
+    mime_type = entry.get("mimeType")
+    content_text = entry.get("contentText")
+    if not mime_type or not content_text:
+        return None
     return {
         "text": content_text,
         "parts": [
@@ -581,11 +595,14 @@ async def build_multimodal_chunk_for_indexing(
     embedding_input = await _load_multimodal_embedding_input(entry)
     if not embedding_input:
         return None
+    embedding_input_text = embedding_input.get("text")
+    if not isinstance(embedding_input_text, str) or not embedding_input_text:
+        return None
     return {
         "chunk": {
             "startLine": 1,
             "endLine": 1,
-            "text": entry.get("contentText", embedding_input["text"]),
+            "text": entry.get("contentText", embedding_input_text),
             "hash": entry.get("hash", ""),
             "embeddingInput": embedding_input,
         },
@@ -722,8 +739,9 @@ def parse_embedding(raw: str) -> list[float]:
         return []
     if not isinstance(parsed, list):
         return []
+    parsed_list = cast(list[object], parsed)
     out: list[float] = []
-    for value in parsed:
+    for value in parsed_list:
         if isinstance(value, (int, float)) and not isinstance(value, bool):
             out.append(float(value))
     return out

@@ -24,7 +24,10 @@ Key port decisions:
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING
+from collections.abc import Sequence
+from typing import Any, TypeVar, cast
+
+_T = TypeVar("_T")
 
 # Re-export the event types from the dedicated module so callers can
 # import them from this single path. Mirrors OpenClaw's barrel
@@ -44,6 +47,7 @@ from .memory_host_event_types import (
 # the implementation to ``memory_host_event_store.py`` and import
 # from there.
 from .memory_host_event_store import (
+    StoredMemoryHostEvent,
     list_stored_memory_host_events,
     normalize_memory_host_event_record_for_storage,
     register_memory_host_event,
@@ -96,8 +100,8 @@ def resolve_memory_host_event_log_path(workspace_dir: str) -> str:
 
 
 def _apply_memory_host_event_limit(
-    events: list, limit: int | None
-) -> list:
+    events: Sequence[_T], limit: int | None
+) -> list[_T]:
     """Apply a tail-limit to a list of events.
 
     Mirrors OpenClaw's ``applyMemoryHostEventLimit``: when
@@ -105,18 +109,18 @@ def _apply_memory_host_event_limit(
     0, returns ``[]``; otherwise slices the last ``limit`` items.
     """
     if limit is None:
-        return events
+        return list(events)
     if not isinstance(limit, (int, float)) or limit != limit:  # NaN
-        return events
+        return list(events)
     normalized = max(0, int(limit))
-    return events[-normalized:] if normalized > 0 else []
+    return list(events[-normalized:]) if normalized > 0 else []
 
 
 async def append_memory_host_event(
     workspace_dir: str,
     event: MemoryHostEventRecord,
     *,
-    env: dict | None = None,
+    env: dict[str, Any] | None = None,
 ) -> None:
     """Append one memory host event to shared SQLite plugin state.
 
@@ -130,8 +134,8 @@ async def append_memory_host_event(
 def _read_memory_host_event_records_raw(
     workspace_dir: str,
     limit: int | None = None,
-    env: dict | None = None,
-) -> list:
+    env: dict[str, Any] | None = None,
+) -> list[MemoryHostEventRecord]:
     """Read recent memory host event records, with no filtering.
 
     Mirrors OpenClaw's internal ``readMemoryHostEventRecordsRaw``.
@@ -140,15 +144,16 @@ def _read_memory_host_event_records_raw(
         workspace_dir=workspace_dir, limit=limit, env=env
     )
     # ``entries`` is a list of PersistedMemoryHostEvent-shaped dicts;
-    # extract the inner ``event`` field.
-    return [entry["value"]["event"] for entry in entries]
+    # extract the inner ``event`` field and preserve the declared
+    # MemoryHostEventRecord payload shape.
+    return [cast(StoredMemoryHostEvent, entry["value"])["event"] for entry in entries]
 
 
 async def read_memory_host_events(
     workspace_dir: str,
     *,
     limit: int | None = None,
-    env: dict | None = None,
+    env: dict[str, Any] | None = None,
 ) -> list[MemoryHostEvent]:
     """Read recent memory host events, excluding opt-in diagnostic variants.
 
@@ -157,7 +162,11 @@ async def read_memory_host_events(
     before applying the limit.
     """
     raw = _read_memory_host_event_records_raw(workspace_dir, limit=None, env=env)
-    legacy = [e for e in raw if e.get("type") != "memory.recall.skipped"]
+    legacy: list[MemoryHostEvent] = [
+        cast(MemoryHostEvent, e)
+        for e in raw
+        if e.get("type") != "memory.recall.skipped"
+    ]
     return _apply_memory_host_event_limit(legacy, limit)
 
 
@@ -165,7 +174,7 @@ async def read_memory_host_event_records(
     workspace_dir: str,
     *,
     limit: int | None = None,
-    env: dict | None = None,
+    env: dict[str, Any] | None = None,
 ) -> list[MemoryHostEventRecord]:
     """Read recent memory host event records, including diagnostic variants.
 

@@ -119,7 +119,7 @@ def as_date_timestamp_ms(value: object) -> int | None:
 
 def resolve_expires_at_ms_from_duration_ms(
     duration_ms: object,
-    options: dict | None = None,
+    options: dict[str, object] | None = None,
 ) -> int | None:
     """Resolve an expiry timestamp from a duration.
 

@@ -180,11 +180,13 @@ class MemoryCorePlugin(ToolPlugin):
         min_score = float(args.get("minScore") or 0.0)
         corpus = str(args.get("corpus") or "memory").strip() or "memory"
 
-        # Phase 4.0 ships substring search via SQLite. The
-        # score is the row's "match strength" — for now a
+        # Phase 4.0 uses the SQLite FTS index for text recall.
+        # The score is the row's "match strength" — for now a
         # simple per-row cap of 0.95 if the trigger matched
-        # exactly, 0.5 if it's a substring match.
-        rows = runtime.search_substring(query, limit=max_results)
+        # exactly, 0.5 if it's an FTS match.
+        rows = runtime.search_text(query, limit=max_results)
+        if not rows:
+            rows = runtime.search_substring(query, limit=max_results)
         if not rows:
             # If the query looks like a memory trigger, suggest
             # the LLM save it via save_memory (the host tool).

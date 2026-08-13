@@ -16,17 +16,21 @@ The OpenClaw bootstrap is an interactive ritual; JARVIS's is a
 best-effort non-interactive seeder (the operator can edit the seeded
 files post-hoc). This is intentional — JARVIS is a single-operator
 desktop assistant, not a multi-channel agent platform.
+
+For full OpenClaw parity, use ``bootstrap_with_ritual()`` to run the
+interactive three-beat identity ceremony after seeding.
 """
 
 from __future__ import annotations
 
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from jarvis_config_core import JarvisConfig
     from pathlib import Path
 
 _log = logging.getLogger("src.bootstrap")
@@ -94,6 +98,22 @@ Operator's notification style: voice (speak) + on-screen log
 <!-- seeded by src.bootstrap; edit me -->
 """
 
+STARTER_AGENTS_MD = """# Agent Instructions
+
+Follow the workspace instructions in this file and any more specific
+AGENTS.md file found below the current working directory.
+
+<!-- seeded by src.bootstrap; edit me -->
+"""
+
+STARTER_BOOTSTRAP_MD = """# First-run setup
+
+Complete the identity, user profile, and memory setup before normal
+conversation. Delete this file when the ritual is complete.
+
+<!-- seeded by src.bootstrap; edit me -->
+"""
+
 
 @dataclass(frozen=True, slots=True)
 class BootstrapResult:
@@ -106,13 +126,20 @@ class BootstrapResult:
     user_path: Path
     seeded: list[str]  # list of paths the seeder created or refreshed
     skipped: list[str]  # list of paths the user already had
+    root_seeded: list[str] = field(default_factory=list)
+    root_skipped: list[str] = field(default_factory=list)
+    root_removed: list[str] = field(default_factory=list)
 
 
-def seed_workspace(workspace: Path) -> BootstrapResult:
+def seed_workspace(workspace: Path, skip_bootstrap: bool = False) -> BootstrapResult:
     """Seed the workspace's first-run files. Idempotent.
 
     ``workspace`` is the JARVIS workspace root. The seeder respects
     existing files: a user-edited IDENTITY.md is not touched.
+
+    ``skip_bootstrap`` mirrors OpenClaw's ``--skip-bootstrap`` path: it
+    keeps the workspace bootstrapped without creating the temporary
+    ``BOOTSTRAP.md`` ritual marker.
     """
     config_dir = workspace / "config"
     core_dir = workspace / "core"
@@ -127,6 +154,43 @@ def seed_workspace(workspace: Path) -> BootstrapResult:
 
     seeded: list[str] = []
     skipped: list[str] = []
+    root_seeded: list[str] = []
+    root_skipped: list[str] = []
+    root_removed: list[str] = []
+
+    workspace_configured = _is_workspace_configured(workspace)
+
+    # OpenClaw's agent workspace is the canonical context root. Keep the
+    # existing ``core/`` files for current JARVIS app consumers, but seed the
+    # root contract so new agent sessions do not depend on that legacy layout.
+    root_candidates = (
+        workspace / "AGENTS.md",
+        workspace / "SOUL.md",
+        workspace / "IDENTITY.md",
+        workspace / "USER.md",
+        workspace / "MEMORY.md",
+    )
+    root_starters = (
+        (workspace / "AGENTS.md", STARTER_AGENTS_MD),
+        (workspace / "SOUL.md", STARTER_SOUL_MD),
+        (workspace / "IDENTITY.md", STARTER_IDENTITY_MD),
+        (workspace / "USER.md", STARTER_USER_MD),
+        (workspace / "MEMORY.md", STARTER_MEMORY_MD),
+    )
+    brand_new_workspace = not any(path.exists() for path in root_candidates)
+    for path, body in root_starters:
+        if not path.exists():
+            path.write_text(_seed_with_marker(body), encoding="utf-8")
+            root_seeded.append(str(path))
+        else:
+            root_skipped.append(str(path))
+    bootstrap_path = workspace / "BOOTSTRAP.md"
+    if not skip_bootstrap and brand_new_workspace and not bootstrap_path.exists():
+        bootstrap_path.write_text(_seed_with_marker(STARTER_BOOTSTRAP_MD), encoding="utf-8")
+        root_seeded.append(str(bootstrap_path))
+    elif bootstrap_path.exists() and workspace_configured:
+        bootstrap_path.unlink()
+        root_removed.append(str(bootstrap_path))
 
     # config/jarvis.json — always (re)write; it's generated, not authored.
     if not config_path.exists():
@@ -158,7 +222,25 @@ def seed_workspace(workspace: Path) -> BootstrapResult:
         user_path=user_path,
         seeded=seeded,
         skipped=skipped,
+        root_seeded=root_seeded,
+        root_skipped=root_skipped,
+        root_removed=root_removed,
     )
+
+
+def _is_workspace_configured(workspace: Path) -> bool:
+    """True when the user has completed the first-run identity ritual."""
+    for path in (
+        workspace / "core" / "IDENTITY.md",
+        workspace / "core" / "SOUL.md",
+        workspace / "core" / "USER.md",
+        workspace / "IDENTITY.md",
+        workspace / "SOUL.md",
+        workspace / "USER.md",
+    ):
+        if path.exists() and not _is_pristine(path):
+            return True
+    return False
 
 
 def _is_pristine(path: Path) -> bool:
@@ -203,4 +285,55 @@ def _seed_config(path: Path) -> None:
     path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
-__all__ = ["BootstrapResult", "seed_workspace"]
+def bootstrap_with_ritual(
+    workspace: Path,
+    config: JarvisConfig,
+    *,
+    skip_bootstrap: bool = False,
+) -> tuple[BootstrapResult, JarvisConfig]:
+    """Full OpenClaw-parity bootstrap: seed workspace, run ritual, persist config.
+
+    This implements the three-beat identity ceremony:
+    1. Ask for agent name
+    2. Ask for soul/vibe
+    3. Ask for plugin preference
+
+    Then persists choices to IDENTITY.md, SOUL.md, and config.json.
+
+    Args:
+        workspace: JARVIS workspace root
+        config: Current JarvisConfig (will be updated with agent identity)
+        skip_bootstrap: If True, skip the BOOTSTRAP.md marker but still run ritual
+
+    Returns:
+        Tuple of (BootstrapResult, updated JarvisConfig)
+    """
+    from .interactive import (
+        run_bootstrap_ritual,
+        persist_bootstrap_to_identity_files,
+        persist_bootstrap_to_config,
+    )
+
+    # Step 1: Seed workspace files
+    result = seed_workspace(workspace, skip_bootstrap=skip_bootstrap)
+
+    # Step 2: Run interactive ritual (only on brand-new workspace)
+    if not _is_workspace_configured(workspace):
+        ritual_choices = run_bootstrap_ritual(workspace)
+
+        # Step 3: Persist to identity files
+        persist_bootstrap_to_identity_files(workspace, ritual_choices)
+
+        # Step 4: Persist to config
+        config = persist_bootstrap_to_config(config, ritual_choices)
+
+        print("\n✓ Bootstrap ritual complete.")
+        print(f"  Agent name: {ritual_choices['agent_name']}")
+        print(f"  Soul: {ritual_choices['agent_soul'][:50]}...")
+        print(f"  Plugin set: {'Minimal' if ritual_choices['minimal_plugins'] else 'Convenient'}")
+        print()
+
+    return result, config
+
+
+__all__ = ["BootstrapResult", "seed_workspace", "bootstrap_with_ritual"]

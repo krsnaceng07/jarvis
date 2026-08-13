@@ -3,29 +3,13 @@
 A skill is a single ``SKILL.md`` file with YAML frontmatter + a
 free-form body that the LLM reads as part of the system prompt.
 Skills augment, they don't replace, code-backed tools.
-
-OpenClaw's canonical example is ``skills/weather/SKILL.md``::
-
-    ---
-    name: weather
-    description: "Get current weather and forecasts (no API key needed)."
-    metadata: { "openclaw": { "emoji": "🌤️" } }
-    ---
-
-    # Weather
-    Use when the user asks about weather, temperature, rain...
-
-    ## Quick start
-    ...
 """
 
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING, cast
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 from jarvis_sdk import SkillDecl
 from src.frontmatter import split_skill_file
@@ -34,13 +18,7 @@ _log = logging.getLogger("src.skills")
 
 
 def discover_skills(skills_dir: Path) -> list[SkillDecl]:
-    """Discover and parse every ``<skills_dir>/<name>/SKILL.md`` file.
-
-    Mirrors OpenClaw's skills loader. Each subdirectory of
-    ``skills_dir`` is expected to contain a ``SKILL.md`` with valid
-    frontmatter. Invalid skills are logged and skipped (we never
-    raise on a single bad skill — we want partial success).
-    """
+    """Discover and parse every ``<skills_dir>/<name>/SKILL.md`` file."""
     if not skills_dir.exists():
         return []
 
@@ -62,10 +40,7 @@ def discover_skills(skills_dir: Path) -> list[SkillDecl]:
 
 
 def parse_skill(skill_md: Path) -> SkillDecl | None:
-    """Parse one ``SKILL.md`` into a ``SkillDecl``.
-
-    Returns ``None`` if the file is missing ``name`` or ``description``.
-    """
+    """Parse one ``SKILL.md`` into a ``SkillDecl``."""
     parsed = split_skill_file(skill_md)
     if parsed is None:
         return None
@@ -103,13 +78,7 @@ def parse_skill(skill_md: Path) -> SkillDecl | None:
 
 
 def skills_to_prompt_section(skills: list[SkillDecl]) -> str:
-    """Render a list of skills as a system-prompt section.
-
-    Mirrors the way OpenClaw injects skills into the system prompt:
-    each skill's name + description + body becomes a block. The
-    description drives the LLM's "when to use" decision; the body
-    is the reference card.
-    """
+    """Render a list of skills as a system-prompt section."""
     if not skills:
         return ""
     parts = ["# Skills\n"]
@@ -118,12 +87,46 @@ def skills_to_prompt_section(skills: list[SkillDecl]) -> str:
         parts.append(f"{s.description}\n")
         if s.body:
             parts.append(f"{s.body}\n")
-        parts.append("")  # blank line between skills
+        parts.append("")
     return "\n".join(parts).strip()
 
 
+# Wave 14 exports
+from .types import (
+    Skill,
+    SkillEligibilityContext,
+    SkillEntry,
+    SkillExposure,
+    SkillInstallSpec,
+    SkillInvocationPolicy,
+    SkillMetadata,
+    SkillSnapshot,
+    SkillTelemetrySource,
+)
+from .discovery.scanner import discover_all_skills, scan_skills_directory
+from .loading.loader import load_skill_from_dir
+from .runtime.executor import resolve_active_skills, skills_to_snapshot
+from .security.validator import validate_skill_eligibility, validate_skill_path_containment
+
 __all__ = [
+    "Skill",
+    "SkillDecl",
+    "SkillEligibilityContext",
+    "SkillEntry",
+    "SkillExposure",
+    "SkillInstallSpec",
+    "SkillInvocationPolicy",
+    "SkillMetadata",
+    "SkillSnapshot",
+    "SkillTelemetrySource",
+    "discover_all_skills",
     "discover_skills",
+    "load_skill_from_dir",
     "parse_skill",
+    "resolve_active_skills",
+    "scan_skills_directory",
     "skills_to_prompt_section",
+    "skills_to_snapshot",
+    "validate_skill_eligibility",
+    "validate_skill_path_containment",
 ]

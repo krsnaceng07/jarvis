@@ -134,11 +134,30 @@ class SettingsStorage:
         raise NotImplementedError
 
 
-#: Config dir name (matches the OpenClaw source's
-#: ``CONFIG_DIR_NAME``). Phase 6.8a ships the
-#: OpenClaw default (``.jarvis``); the LLM-side
-#: constant lands in 6.8+.
-CONFIG_DIR_NAME = ".jarvis"
+#: Config dir names. Mirrors OpenClaw's
+#: ``CONFIG_DIR_NAME`` (``.openclaw``) while
+#: preserving JARVIS primary storage in
+#: ``.jarvis``.
+CONFIG_DIR_NAME_PRIMARY = ".jarvis"
+CONFIG_DIR_NAME_ALIAS = ".openclaw"
+CONFIG_DIR_NAMES = (CONFIG_DIR_NAME_PRIMARY, CONFIG_DIR_NAME_ALIAS)
+CONFIG_DIR_NAME = CONFIG_DIR_NAME_PRIMARY
+
+
+def resolve_project_config_dir(cwd: str) -> str:
+    """Resolve the project config dir using the JARVIS primary name first,
+    with the OpenClaw alias as a compatibility fallback.
+
+    The OpenClaw source uses a single config-dir name from the app config;
+    the Python port preserves JARVIS's primary storage in ``.jarvis`` while
+    still honoring ``.openclaw`` when present.
+    """
+    resolved_cwd = os.path.realpath(cwd)
+    for name in CONFIG_DIR_NAMES:
+        candidate = os.path.join(resolved_cwd, name)
+        if os.path.exists(candidate):
+            return candidate
+    return os.path.join(resolved_cwd, CONFIG_DIR_NAME_PRIMARY)
 
 
 def _default_agent_dir() -> str:

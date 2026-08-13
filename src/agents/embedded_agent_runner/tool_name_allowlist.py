@@ -60,6 +60,12 @@ def _add_name(names: set, value: Any) -> None:
         names.add(trimmed)
 
 
+def _tool_name(tool: Any) -> Any:
+    if isinstance(tool, dict):
+        return tool.get("name")
+    return getattr(tool, "name", None)
+
+
 def collect_allowed_tool_names(
     tools: Iterable[Any],
     client_tools: Optional[Iterable[Any]] = None,
@@ -71,7 +77,7 @@ def collect_allowed_tool_names(
     (``tool-name-allowlist.ts:23-35``)."""
     names: set = set()
     for tool in tools or []:
-        _add_name(names, getattr(tool, "name", None))
+        _add_name(names, _tool_name(tool))
     for tool in client_tools or []:
         function = tool.get("function") if isinstance(tool, dict) else None
         if function is None:
@@ -90,7 +96,7 @@ def collect_registered_tool_names(
     (``tool-name-allowlist.ts:40-46``)."""
     names: set = set()
     for tool in tools or []:
-        _add_name(names, getattr(tool, "name", None))
+        _add_name(names, _tool_name(tool))
     return names
 
 
@@ -108,7 +114,7 @@ def collect_core_builtin_tool_names(
     for tool in tools or []:
         if is_plugin_tool and is_plugin_tool(tool):
             continue
-        _add_name(names, getattr(tool, "name", None))
+        _add_name(names, _tool_name(tool))
     return names
 
 

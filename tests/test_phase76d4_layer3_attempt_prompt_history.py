@@ -122,6 +122,49 @@ class TestPrepareEmbeddedAttemptSystemPrompt:
         assert result["systemPromptText"] == "you are a helper"
         assert result["systemPromptReport"]["tokens"] == 50
 
+    def test_default_build_system_prompt(self) -> None:
+        async def _default_build(_p: Any) -> Any:
+            from src.agents.embedded_agent_runner.run.attempt_system_prompt import build_attempt_system_prompt
+
+            return build_attempt_system_prompt(_p)
+
+        set_build_system_prompt_hook(_default_build)
+        result = asyncio.run(
+            prepare_embedded_attempt_system_prompt(
+                {
+                    "runtimeInfo": {"model": "m1", "provider": "openai"},
+                    "workspaceDir": "/tmp",
+                    "tools": [{"name": "read"}],
+                }
+            )
+        )
+        assert isinstance(result["systemPromptText"], str)
+        assert "Current date:" in result["systemPromptText"]
+        assert "read" in result["systemPromptText"] or "Available tools" in result["systemPromptText"]
+
+    def test_default_build_system_prompt_with_wrapped_params(self) -> None:
+        async def _default_build(_p: Any) -> Any:
+            from src.agents.embedded_agent_runner.run.attempt_system_prompt import (
+                build_attempt_system_prompt,
+            )
+
+            return build_attempt_system_prompt(_p)
+
+        set_build_system_prompt_hook(_default_build)
+        result = asyncio.run(
+            prepare_embedded_attempt_system_prompt(
+                {
+                    "workspaceDir": "/tmp",
+                    "tools": [{"name": "read"}],
+                    "runtimeInfo": {"model": "m1", "provider": "openai"},
+                }
+            )
+        )
+        assert isinstance(result["systemPromptText"], str)
+        assert "/tmp" in result["systemPromptText"]
+        assert "Current date:" in result["systemPromptText"]
+        assert "read" in result["systemPromptText"] or "Available tools" in result["systemPromptText"]
+
     def test_with_runtime_info_and_identity(self) -> None:
         async def _build(_p: Any) -> Any:
             return {"text": "x"}
@@ -171,6 +214,26 @@ class TestPrepareEmbeddedAttemptPromptAssembly:
             }
 
         set_assemble_prompt_hook(_assemble)
+        result = asyncio.run(
+            prepare_embedded_attempt_prompt_assembly({})
+        )
+        assert result["systemPromptText"] == "sp"
+        assert len(result["messages"]) == 1
+        assert len(result["tools"]) == 1
+        assert result["prompt"] == "full-prompt"
+        assert result["report"]["tokens"] == 100
+
+    def test_default_assembly_pass_through(self) -> None:
+        async def _build(_p: Any) -> Any:
+            return {
+                "systemPromptText": "sp",
+                "messages": [{"role": "user", "content": "hi"}],
+                "tools": [{"name": "read"}],
+                "prompt": "full-prompt",
+                "report": {"tokens": 100},
+            }
+
+        set_assemble_prompt_hook(_build)
         result = asyncio.run(
             prepare_embedded_attempt_prompt_assembly({})
         )

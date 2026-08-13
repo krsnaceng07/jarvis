@@ -28,7 +28,7 @@ Key port decisions:
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 from .memory_host_config_utils import (
     OpenClawConfig,
@@ -161,19 +161,25 @@ async def read_memory_file(
     if stat_result["missing"]:
         return {"text": "", "path": rel}
 
-    async def _do_read() -> dict:
-        return read_regular_file(abs_path)
+    async def _do_read() -> dict[str, Any]:
+        return cast(dict[str, Any], read_regular_file(abs_path))
 
     try:
-        read_result = await retry_transient_memory_read(
-            _do_read,
-            f"read memory file {abs_path}",
+        read_result = cast(
+            dict[str, Any],
+            await retry_transient_memory_read(
+                _do_read,
+                f"read memory file {abs_path}",
+            ),
         )
     except Exception as err:  # noqa: BLE001
         if _is_file_disappeared_during_read_error(err):
             return {"text": "", "path": rel}
         raise
-    content = read_result["buffer"].decode("utf-8")
+    raw_buffer = read_result.get("buffer")
+    if not isinstance(raw_buffer, (bytes, bytearray)):
+        raise TypeError("memory file read result had no binary buffer")
+    content = bytes(raw_buffer).decode("utf-8")
     return build_memory_read_result(
         content,
         rel,

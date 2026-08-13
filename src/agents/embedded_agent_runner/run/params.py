@@ -47,13 +47,15 @@ CurrentInboundPromptContext = Dict[str, Any]
 
 #: Run-embedded-agent params. Mirrors
 #: :class:`RunEmbeddedAgentParams`` (``params.ts:69-...``).
-RunEmbeddedAgentParams = Dict[str, Any]
+class RunEmbeddedAgentParams(dict[str, Any]):
+    """Constructible dict-like container for embedded-run params."""
 
 
 #: Internal run-embedded-agent params. Mirrors
 #: :class:`RunEmbeddedAgentInternalParams``. The Python port
 #: exposes the same fields as a dict-typed alias.
-RunEmbeddedAgentInternalParams = Dict[str, Any]
+class RunEmbeddedAgentInternalParams(dict[str, Any]):
+    """Constructible dict-like container for internal run params."""
 
 
 #: Reasoning-stream payload shape (mirrors the OpenClaw source

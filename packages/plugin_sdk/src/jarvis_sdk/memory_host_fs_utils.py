@@ -59,7 +59,7 @@ if TYPE_CHECKING:
 _MISSING_FILE_CODES: frozenset[str] = frozenset({"ENOENT", "ENOTDIR", "not-found"})
 
 
-class WalkDirectoryEntry(TypedDict, total=False):
+class WalkDirectoryEntry(TypedDict):
     """One entry emitted by ``walk_directory``.
 
     Mirrors OpenClaw's ``WalkDirectoryEntry`` type. The
@@ -144,8 +144,8 @@ def _walk_entries(
     returns ``True`` to recurse; ``include`` receives each
     entry and returns ``True`` to yield it.
     """
-    descend_fn = descend or (lambda _entry: True)
-    include_fn = include or (lambda _entry: True)
+    descend_fn = descend if descend is not None else (lambda _entry: True)
+    include_fn = include if include is not None else (lambda _entry: True)
     root_path = Path(directory)
     if not root_path.exists():
         return
@@ -181,9 +181,17 @@ def _walk_entries(
             )
 
 
+class WalkDirectoryOptions(TypedDict, total=False):
+    """Typed options for ``walk_directory``."""
+
+    symlinks: str
+    descend: Callable[[WalkDirectoryEntry], bool]
+    include: Callable[[WalkDirectoryEntry], bool]
+
+
 def walk_directory(
     directory: str,
-    options: dict[str, Any] | None = None,
+    options: WalkDirectoryOptions | None = None,
 ) -> dict[str, list[WalkDirectoryEntry]]:
     """Walk a directory, returning ``{"entries": [...]}``.
 

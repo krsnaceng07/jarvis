@@ -168,7 +168,11 @@ class SessionManager(SessionManagerBranching):
     # ------------------------------------------------------------------
 
     @staticmethod
-    def create(cwd: str, session_dir: Optional[str] = None) -> "SessionManager":
+    def create(
+        cwd: str,
+        session_dir: Optional[str] = None,
+        sqlite_persistence: Optional[dict] = None,
+    ) -> "SessionManager":
         """Create a new in-memory + on-disk
         session for ``cwd``. Mirrors
         ``SessionManager.create``
@@ -179,6 +183,7 @@ class SessionManager(SessionManagerBranching):
             session_dir=directory,
             session_file=None,
             persist=True,
+            sqlite_persistence=sqlite_persistence,
         )
 
     @staticmethod
@@ -360,13 +365,15 @@ def _json_dumps(value: Any) -> str:
 
 
 def _sqlite_load_events_stub(marker: dict) -> list[FileEntry]:
-    """Stub loader for SQLite-backed sessions
-    in :meth:`SessionManager.open`. Phase 6.5+
-    wires the full transcript-DB read; the
-    file-only path remains functional via the
-    file-loader fallback in :meth:`SessionManager.open`.
-    """
-    return []
+    from jarvis_state_core import load_agent_session_entries, open_agent_database
+
+    handle = open_agent_database(
+        {
+            "agent_id": str(marker.get("agent_id", "")),
+            "path": str(marker.get("store_path", "")),
+        }
+    )
+    return load_agent_session_entries(handle, str(marker.get("session_id", "")))
 
 
 # ----------------------------------------------------------------------------

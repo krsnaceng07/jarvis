@@ -8,6 +8,7 @@ into the embedded runner graph exists; tests monkeypatch
 """
 from __future__ import annotations
 
+import importlib
 import math
 import os
 from typing import Any, Awaitable, Callable
@@ -20,7 +21,6 @@ from src.plugins.memory_state import (
     prepare_memory_prompt_section,
 )
 from src.sessions.session_transcript_runtime import parse_sqlite_session_file_marker
-from src.shared.lazy_runtime import create_lazy_runtime_module, import_runtime_module
 from src.shared.structured_prompt_section import normalize_structured_prompt_section
 
 __all__ = [
@@ -29,14 +29,22 @@ __all__ = [
     "prepare_memory_system_prompt_addition",
 ]
 
+# Port note: the source builds ``loadCompactRuntime`` with
+# ``createLazyRuntimeModule(() => import("../agents/embedded-agent-runner/compact.runtime.js"))``
+# (delegate.ts:19-21) — a cached dynamic import kept out of the static module
+# graph. Python has no async import; ``importlib.import_module`` is already
+# synchronous and idempotent (sys.modules caches), so the lazy boundary is a
+# plain memoized loader. Tests monkeypatch ``_load_compact_runtime`` exactly
+# as the TS tests ``vi.mock`` the runtime module.
+_compact_runtime_cache: dict[str, Any] = {}
 
-def _import_compact_runtime() -> Any:
-    # Load through the dedicated runtime boundary without introducing another
-    # source-level static edge into the embedded runner graph.
-    return import_runtime_module("src.agents.embedded_agent_runner.compact_runtime")
 
-
-_load_compact_runtime = create_lazy_runtime_module(_import_compact_runtime)
+def _load_compact_runtime() -> Any:
+    if "module" not in _compact_runtime_cache:
+        _compact_runtime_cache["module"] = importlib.import_module(
+            "src.agents.embedded_agent_runner.compact_runtime"
+        )
+    return _compact_runtime_cache["module"]
 
 
 def _build_compaction_result_session_target(

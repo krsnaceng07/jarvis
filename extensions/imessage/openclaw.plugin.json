@@ -1,31 +1,32 @@
 {
   "id": "imessage",
-  "name": "iMessage",
-  "description": "OpenClaw iMessage channel plugin port (Phase 5.15 stub).",
-  "activation": {
-    "onStartup": false
+  "activation": "on_startup",
+  "kind": "channel",
+  "contracts": {
+    "channel": true
   },
-  "enabledByDefault": true,
-  "channels": [
-    "imessage"
-  ],
-  "channelEnvVars": {
-    "imessage": [
-      "IMESSAGE_BRIDGE_URL",
-      "IMESSAGE_BRIDGE_TOKEN"
-    ]
-  },
+  "permissions": ["network:outbound", "process:spawn"],
   "configSchema": {
     "type": "object",
-    "additionalProperties": false,
     "properties": {
-      "bot_token": {
-        "type": "string"
+      "cliPath": { "type": "string", "description": "Path to imsg CLI executable or SSH wrapper." },
+      "dbPath": { "type": "string", "description": "Optional iMessage database path override." },
+      "dmPolicy": { "type": "string", "enum": ["pairing", "allowlist"], "default": "pairing" },
+      "allowFrom": { "type": "array", "items": { "type": "string" }, "default": [] },
+      "groupPolicy": { "type": "string", "enum": ["allowlist"], "default": "allowlist" },
+      "groupAllowFrom": { "type": "array", "items": { "type": "string" }, "default": [] },
+      "groups": { 
+        "type": "object", 
+        "additionalProperties": {
+            "type": "object",
+            "properties": {
+                "requireMention": { "type": "boolean" }
+            }
+        },
+        "default": {} 
       },
-      "polling_interval_sec": {
-        "type": "integer",
-        "default": 5
-      }
+      "includeAttachments": { "type": "boolean", "default": false }
     }
-  }
+  },
+  "entrypoint": "src.jarvis_imessage.plugin:plugin"
 }

@@ -22,14 +22,21 @@ PromptSubmissionSkipReason = Dict[str, Any]
 _RESOLVE_PROMPT_SUBMISSION_SKIP_REASON: Callable[
     [Dict[str, Any]], Any
 ] = lambda _p: None
+_DEFAULT_RESOLVE_PROMPT_SUBMISSION_SKIP_REASON = (
+    _RESOLVE_PROMPT_SUBMISSION_SKIP_REASON
+)
 
 
 def set_resolve_prompt_submission_skip_reason_hook(
-    hook: Callable[[Dict[str, Any]], Any],
+    hook: Callable[[Dict[str, Any]], Any] | None,
 ) -> None:
     """Install a custom resolvePromptSubmissionSkipReason hook."""
     global _RESOLVE_PROMPT_SUBMISSION_SKIP_REASON
-    _RESOLVE_PROMPT_SUBMISSION_SKIP_REASON = hook
+    _RESOLVE_PROMPT_SUBMISSION_SKIP_REASON = (
+        _DEFAULT_RESOLVE_PROMPT_SUBMISSION_SKIP_REASON
+        if hook is None
+        else hook
+    )
 
 
 # ---------------------------------------------------------------------------

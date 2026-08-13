@@ -66,7 +66,11 @@ from .path_utils import (
     is_local_path,
     to_posix_path,
 )
-from .settings_manager import SettingsManager, SettingsScope
+from .settings_manager import (
+    SettingsManager,
+    SettingsScope,
+    resolve_project_config_dir,
+)
 
 
 _log = logging.getLogger("jarvis.agents.sessions.package_manager")
@@ -801,7 +805,7 @@ class DefaultPackageManager(PackageManager):
         package_sources = self._dedupe_packages(all_packages)
         await self._resolve_package_sources(package_sources, accumulator, on_missing)
         global_base_dir = self.agent_dir
-        project_base_dir = os.path.join(self.cwd, CONFIG_DIR_NAME_PRIMARY)
+        project_base_dir = self._resolve_project_config_dir()
         for resource_type in RESOURCE_TYPES:
             target = self._get_target_map(accumulator, resource_type)
             global_entries = global_settings.get(resource_type) or []
@@ -1036,7 +1040,10 @@ class DefaultPackageManager(PackageManager):
             )
         if scope == "project":
             return os.path.join(
-                self.cwd, CONFIG_DIR_NAME_PRIMARY, "npm", "node_modules", source["name"]
+                self._resolve_project_config_dir(),
+                "npm",
+                "node_modules",
+                source["name"],
             )
         return os.path.join(self.agent_dir, "npm", "node_modules", source["name"])
 
@@ -1048,7 +1055,10 @@ class DefaultPackageManager(PackageManager):
             return self._get_temporary_dir(f"git-{source.host}", source.path)
         if scope == "project":
             return os.path.join(
-                self.cwd, CONFIG_DIR_NAME_PRIMARY, "git", source.host, source.path
+                self._resolve_project_config_dir(),
+                "git",
+                source.host,
+                source.path,
             )
         return os.path.join(self.agent_dir, "git", source.host, source.path)
 
@@ -1071,10 +1081,13 @@ class DefaultPackageManager(PackageManager):
         scope. Mirrors ``getBaseDirForScope``
         (``package-manager.ts:962-970``)."""
         if scope == "project":
-            return os.path.join(self.cwd, CONFIG_DIR_NAME_PRIMARY)
+            return self._resolve_project_config_dir()
         if scope == "user":
             return self.agent_dir
         return self.cwd
+
+    def _resolve_project_config_dir(self) -> str:
+        return resolve_project_config_dir(self.cwd)
 
     def _resolve_path(self, input_path: str) -> str:
         return self._resolve_path_from_base(input_path, self.cwd)

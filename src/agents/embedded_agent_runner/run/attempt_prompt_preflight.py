@@ -40,40 +40,51 @@ EmbeddedAttemptPromptPreflight = Dict[str, Any]
 _BUILD_PRE_PROMPT_CONTEXT_BUDGET_STATUS: Callable[
     [Dict[str, Any]], Any
 ] = lambda _p: {}
+_DEFAULT_BUILD_PRE_PROMPT_CONTEXT_BUDGET_STATUS = (
+    _BUILD_PRE_PROMPT_CONTEXT_BUDGET_STATUS
+)
 
 
 def set_build_pre_prompt_context_budget_status_preflight_hook(
-    hook: Callable[[Dict[str, Any]], Any],
+    hook: Callable[[Dict[str, Any]], Any] | None,
 ) -> None:
     """Install a custom build-pre-prompt-context-budget-status hook."""
     global _BUILD_PRE_PROMPT_CONTEXT_BUDGET_STATUS
-    _BUILD_PRE_PROMPT_CONTEXT_BUDGET_STATUS = hook
+    _BUILD_PRE_PROMPT_CONTEXT_BUDGET_STATUS = (
+        _DEFAULT_BUILD_PRE_PROMPT_CONTEXT_BUDGET_STATUS if hook is None else hook
+    )
 
 
 #: Hook for the format-pre-prompt-precheck-log step.
 _FORMAT_PRE_PROMPT_PRECHECK_LOG: Callable[[Dict[str, Any]], str] = lambda _p: ""
+_DEFAULT_FORMAT_PRE_PROMPT_PRECHECK_LOG = _FORMAT_PRE_PROMPT_PRECHECK_LOG
 
 
 def set_format_pre_prompt_precheck_log_preflight_hook(
-    hook: Callable[[Dict[str, Any]], str],
+    hook: Callable[[Dict[str, Any]], str] | None,
 ) -> None:
     """Install a custom format-pre-prompt-precheck-log hook."""
     global _FORMAT_PRE_PROMPT_PRECHECK_LOG
-    _FORMAT_PRE_PROMPT_PRECHECK_LOG = hook
+    _FORMAT_PRE_PROMPT_PRECHECK_LOG = (
+        _DEFAULT_FORMAT_PRE_PROMPT_PRECHECK_LOG if hook is None else hook
+    )
 
 
 #: Hook for the run-mid-turn-precheck step.
 _RUN_MID_TURN_PRECHECK: Callable[
     [Dict[str, Any]], Awaitable[Any]
 ] = lambda _p: asyncio.sleep(0)
+_DEFAULT_RUN_MID_TURN_PRECHECK = _RUN_MID_TURN_PRECHECK
 
 
 def set_run_mid_turn_precheck_hook(
-    hook: Callable[[Dict[str, Any]], Awaitable[Any]],
+    hook: Callable[[Dict[str, Any]], Awaitable[Any]] | None,
 ) -> None:
     """Install a custom run-mid-turn-precheck hook."""
     global _RUN_MID_TURN_PRECHECK
-    _RUN_MID_TURN_PRECHECK = hook
+    _RUN_MID_TURN_PRECHECK = (
+        _DEFAULT_RUN_MID_TURN_PRECHECK if hook is None else hook
+    )
 
 
 # ---------------------------------------------------------------------------

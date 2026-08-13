@@ -205,6 +205,44 @@ class TestGatewayRouteDispatch:
         assert r.match == "prefix"
         assert r.owner_id == "test_plugin"
 
+    def test_add_gateway_method_registers_rpc_handler(self) -> None:
+        from jarvis_gateway_protocol import GatewayRequest
+
+        gw, _ = self._setup()
+
+        def handler(payload: dict[str, object]) -> None:
+            respond = payload["respond"]  # type: ignore[index]
+            params = payload["params"]  # type: ignore[index]
+            assert params == {"foo": "bar"}
+            respond(True, {"echo": params})
+
+        gw.add_gateway_method("plugin.echo", handler)
+        assert "plugin.echo" in gw._dispatcher.registered_methods()
+
+        response = gw._dispatcher.dispatch(
+            GatewayRequest(method="plugin.echo", id="1", params={"foo": "bar"})
+        )
+        assert response.ok is True
+        assert response.payload == {"echo": {"foo": "bar"}}
+
+    def test_create_gateway_registers_plugin_gateway_methods(self) -> None:
+        from jarvis_desktop.host import create_gateway
+
+        def handler(payload: dict[str, object]) -> None:
+            respond = payload["respond"]  # type: ignore[index]
+            params = payload["params"]  # type: ignore[index]
+            assert params == {"ping": "pong"}
+            respond(True, {"pong": params})
+
+        gw = create_gateway(
+            [],
+            gateway_methods=[
+                {"method": "plugin.ping", "handler": handler},
+            ],
+        )
+
+        assert "plugin.ping" in gw._dispatcher.registered_methods()
+
 
 # ── Gateway: token persistence + EADDRINUSE retry ─────────────────
 

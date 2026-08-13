@@ -45,7 +45,9 @@ Parity
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
+
+PluginConfigMap = dict[str, Any]
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -83,15 +85,21 @@ def resolve_live_plugin_config_object(
         return None
     if not isinstance(live, dict):
         return None
-    plugins = live.get("plugins") if isinstance(live.get("plugins"), dict) else None
+    live_config = cast(PluginConfigMap, live)
+    plugins_raw = live_config.get("plugins")
+    plugins = cast(PluginConfigMap | None, plugins_raw if isinstance(plugins_raw, dict) else None)
     if not plugins:
         return None
-    entries = plugins.get("entries") if isinstance(plugins.get("entries"), dict) else None
+    plugins_config = cast(PluginConfigMap, plugins)
+    entries_raw = plugins_config.get("entries")
+    entries = cast(PluginConfigMap | None, entries_raw if isinstance(entries_raw, dict) else None)
     if not isinstance(entries, dict):
         return None
-    live_plugin = entries.get(plugin_id)
+    entries_config = cast(PluginConfigMap, entries)
+    live_plugin = entries_config.get(plugin_id)
     if not isinstance(live_plugin, dict):
         return None
+    live_plugin = cast(PluginConfigMap, live_plugin)
 
     # Merge: static first, then live overrides. Live wins.
     merged: dict[str, Any] = {}
@@ -116,17 +124,21 @@ def resolve_plugin_config_object(
     """
     if not isinstance(config, dict):
         return None
-    plugins = config.get("plugins")
+    config_map = cast(PluginConfigMap, config)
+    plugins = config_map.get("plugins")
     if not isinstance(plugins, dict):
         return None
-    entries = plugins.get("entries")
+    plugins_map = cast(PluginConfigMap, plugins)
+    entries = plugins_map.get("entries")
     if not isinstance(entries, dict):
         return None
-    entry = entries.get(plugin_id)
+    entries_map = cast(PluginConfigMap, entries)
+    entry = entries_map.get(plugin_id)
     if not isinstance(entry, dict):
         return None
-    inner = entry.get("config")
-    return inner if isinstance(inner, dict) else entry
+    entry_map = cast(PluginConfigMap, entry)
+    inner = entry_map.get("config")
+    return cast(dict[str, Any], inner) if isinstance(inner, dict) else cast(dict[str, Any], entry_map)
 
 
 @dataclass(frozen=True, slots=True)
@@ -154,31 +166,34 @@ def normalize_plugins_config(plugins: Any) -> PluginsConfig:
     """
     if not isinstance(plugins, dict):
         return PluginsConfig()
-    raw_enabled = plugins.get("enabled")
+    plugins_config = cast(dict[str, object], plugins)
+    raw_enabled = plugins_config.get("enabled")
     enabled = True if raw_enabled is None else bool(raw_enabled) is True
-    raw_allow = plugins.get("allow")
+    raw_allow = plugins_config.get("allow")
     allow = (
         tuple(sorted({str(x).strip() for x in raw_allow if isinstance(x, str) and x.strip()}))
         if isinstance(raw_allow, list | tuple)
         else ()
     )
-    raw_deny = plugins.get("deny")
+    raw_deny = plugins_config.get("deny")
     deny = (
         tuple(sorted({str(x).strip() for x in raw_deny if isinstance(x, str) and x.strip()}))
         if isinstance(raw_deny, list | tuple)
         else ()
     )
-    raw_entries = plugins.get("entries")
+    raw_entries = plugins_config.get("entries")
     entries: dict[str, dict[str, Any]] = {}
     if isinstance(raw_entries, dict):
-        for key, value in raw_entries.items():
+        raw_entries_map = cast(PluginConfigMap, raw_entries)
+        for key, value in raw_entries_map.items():
             if not isinstance(key, str) or not isinstance(value, dict):
                 continue
-            entries[key] = dict(value)
-    raw_slots = plugins.get("slots")
+            entries[key] = cast(dict[str, Any], dict(value))
+    raw_slots = plugins_config.get("slots")
     slots: dict[str, str] = {}
     if isinstance(raw_slots, dict):
-        for key, value in raw_slots.items():
+        raw_slots_map = cast(PluginConfigMap, raw_slots)
+        for key, value in raw_slots_map.items():
             if not isinstance(key, str) or not isinstance(value, str):
                 continue
             slots[key] = value

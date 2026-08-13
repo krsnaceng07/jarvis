@@ -1,0 +1,1136 @@
+ M .vscode/extensions.json
+ D OPENCLAW_MIGRATION_PLAN.md
+ M apps/cli/src/jarvis_cli/main.py
+ M apps/desktop/pyproject.toml
+ M apps/desktop/src/jarvis_desktop/__init__.py
+ M apps/desktop/src/jarvis_desktop/app.py
+ M apps/desktop/src/jarvis_desktop/ui.py
+ M core/IDENTITY.md
+ M core/MEMORY.md
+ M core/SOUL.md
+ M core/USER.md
+ M core/memory.sqlite
+ M core/prompt.txt
+ D docs/OPENCLAW_BRAIN_PORT_PLAN_V2.md
+ D docs/OPENCLAW_FULL_BRAIN_PORT_PLAN.md
+ D docs/OPENCLAW_STRUCTURE_MISMATCH.md
+ D docs/OPENCLAW_VERIFICATION_4.3J.md
+ D docs/OPENCLAW_VERIFICATION_4.4.md
+ D docs/OPENCLAW_VS_JARVIS_AUDIT_4.3F.md
+ D docs/OPENCLAW_VS_JARVIS_AUDIT_4.3G.md
+ M extensions/acpx/AGENTS.md
+ M extensions/acpx/__init__.py
+ M extensions/acpx/openclaw.plugin.json
+ M extensions/acpx/pyproject.toml
+ M extensions/active_memory/config.py
+ M extensions/active_memory/recall_state.py
+ M extensions/active_memory/tests/test_active_memory_phase4.py
+ M extensions/active_memory/types.py
+ M extensions/admin-http-rpc/AGENTS.md
+ M extensions/admin-http-rpc/__init__.py
+ M extensions/admin-http-rpc/openclaw.plugin.json
+ M extensions/admin-http-rpc/plugin.py
+ M extensions/admin-http-rpc/pyproject.toml
+ M extensions/alibaba/AGENTS.md
+ M extensions/alibaba/__init__.py
+ M extensions/alibaba/openclaw.plugin.json
+ M extensions/alibaba/plugin.py
+ M extensions/alibaba/pyproject.toml
+ M extensions/amazon-bedrock-mantle/AGENTS.md
+ M extensions/amazon-bedrock-mantle/__init__.py
+ M extensions/amazon-bedrock-mantle/openclaw.plugin.json
+ M extensions/amazon-bedrock-mantle/plugin.py
+ M extensions/amazon-bedrock-mantle/pyproject.toml
+ M extensions/amazon-bedrock/AGENTS.md
+ M extensions/amazon-bedrock/__init__.py
+ M extensions/amazon-bedrock/openclaw.plugin.json
+ M extensions/amazon-bedrock/plugin.py
+ M extensions/amazon-bedrock/pyproject.toml
+ M extensions/anthropic-vertex/AGENTS.md
+ M extensions/anthropic-vertex/__init__.py
+ M extensions/anthropic-vertex/openclaw.plugin.json
+ M extensions/anthropic-vertex/plugin.py
+ M extensions/anthropic-vertex/pyproject.toml
+ M extensions/arcee/AGENTS.md
+ M extensions/arcee/__init__.py
+ M extensions/arcee/openclaw.plugin.json
+ M extensions/arcee/plugin.py
+ M extensions/arcee/pyproject.toml
+ M extensions/azure-speech/AGENTS.md
+ M extensions/azure-speech/__init__.py
+ M extensions/azure-speech/openclaw.plugin.json
+ M extensions/azure-speech/plugin.py
+ M extensions/azure-speech/pyproject.toml
+ M extensions/baseten/AGENTS.md
+ M extensions/baseten/__init__.py
+ M extensions/baseten/openclaw.plugin.json
+ M extensions/baseten/plugin.py
+ M extensions/baseten/pyproject.toml
+ M extensions/bonjour/AGENTS.md
+ M extensions/bonjour/__init__.py
+ M extensions/bonjour/openclaw.plugin.json
+ M extensions/bonjour/plugin.py
+ M extensions/bonjour/pyproject.toml
+ M extensions/bonjour/src/advertiser.py
+ M extensions/bonjour/tests/test_plugin_entry.py
+ M extensions/brave/AGENTS.md
+ M extensions/brave/__init__.py
+ M extensions/brave/openclaw.plugin.json
+ M extensions/brave/plugin.py
+ M extensions/brave/pyproject.toml
+ M extensions/browser/AGENTS.md
+ M extensions/browser/__init__.py
+ M extensions/browser/openclaw.plugin.json
+ M extensions/browser/plugin.py
+ M extensions/browser/pyproject.toml
+ M extensions/byteplus/AGENTS.md
+ M extensions/byteplus/__init__.py
+ M extensions/byteplus/openclaw.plugin.json
+ M extensions/byteplus/plugin.py
+ M extensions/byteplus/pyproject.toml
+ M extensions/canvas/AGENTS.md
+ M extensions/canvas/__init__.py
+ M extensions/canvas/openclaw.plugin.json
+ M extensions/canvas/plugin.py
+ M extensions/canvas/pyproject.toml
+ M extensions/cerebras/AGENTS.md
+ M extensions/cerebras/__init__.py
+ M extensions/cerebras/openclaw.plugin.json
+ M extensions/cerebras/plugin.py
+ M extensions/cerebras/pyproject.toml
+ M extensions/chutes/AGENTS.md
+ M extensions/chutes/__init__.py
+ M extensions/chutes/openclaw.plugin.json
+ M extensions/chutes/plugin.py
+ M extensions/chutes/pyproject.toml
+ M extensions/clawrouter/AGENTS.md
+ M extensions/clawrouter/__init__.py
+ M extensions/clawrouter/openclaw.plugin.json
+ M extensions/clawrouter/plugin.py
+ M extensions/clawrouter/pyproject.toml
+ D extensions/clickclack/AGENTS.md
+ D extensions/clickclack/__init__.py
+ D extensions/clickclack/doctor.py
+ D extensions/clickclack/openclaw.plugin.json
+ D extensions/clickclack/plugin.py
+ D extensions/clickclack/pyproject.toml
+ D extensions/clickclack/runtime.py
+ M extensions/cloudflare-ai-gateway/AGENTS.md
+ M extensions/cloudflare-ai-gateway/__init__.py
+ M extensions/cloudflare-ai-gateway/openclaw.plugin.json
+ M extensions/cloudflare-ai-gateway/plugin.py
+ M extensions/cloudflare-ai-gateway/pyproject.toml
+ M extensions/codex/AGENTS.md
+ M extensions/codex/__init__.py
+ M extensions/codex/openclaw.plugin.json
+ M extensions/codex/plugin.py
+ M extensions/codex/pyproject.toml
+ M extensions/cohere/AGENTS.md
+ M extensions/cohere/__init__.py
+ M extensions/cohere/openclaw.plugin.json
+ M extensions/cohere/plugin.py
+ M extensions/cohere/pyproject.toml
+ M extensions/comfy/AGENTS.md
+ M extensions/comfy/__init__.py
+ M extensions/comfy/openclaw.plugin.json
+ M extensions/comfy/plugin.py
+ M extensions/comfy/pyproject.toml
+ M extensions/copilot-proxy/AGENTS.md
+ M extensions/copilot-proxy/__init__.py
+ M extensions/copilot-proxy/openclaw.plugin.json
+ M extensions/copilot-proxy/plugin.py
+ M extensions/copilot-proxy/pyproject.toml
+ M extensions/copilot/AGENTS.md
+ M extensions/copilot/__init__.py
+ M extensions/copilot/openclaw.plugin.json
+ M extensions/copilot/plugin.py
+ M extensions/copilot/pyproject.toml
+ M extensions/crabbox/AGENTS.md
+ M extensions/crabbox/__init__.py
+ M extensions/crabbox/openclaw.plugin.json
+ M extensions/crabbox/plugin.py
+ M extensions/crabbox/pyproject.toml
+ M extensions/deepgram/AGENTS.md
+ M extensions/deepgram/__init__.py
+ M extensions/deepgram/openclaw.plugin.json
+ M extensions/deepgram/plugin.py
+ M extensions/deepgram/pyproject.toml
+ M extensions/deepinfra/AGENTS.md
+ M extensions/deepinfra/__init__.py
+ M extensions/deepinfra/openclaw.plugin.json
+ M extensions/deepinfra/plugin.py
+ M extensions/deepinfra/pyproject.toml
+ M extensions/deepseek/AGENTS.md
+ M extensions/deepseek/__init__.py
+ M extensions/deepseek/openclaw.plugin.json
+ M extensions/deepseek/plugin.py
+ M extensions/deepseek/pyproject.toml
+ M extensions/device-pair/AGENTS.md
+ M extensions/device-pair/openclaw.plugin.json
+ M extensions/device-pair/pyproject.toml
+ M extensions/diagnostics-otel/AGENTS.md
+ M extensions/diagnostics-otel/__init__.py
+ M extensions/diagnostics-otel/openclaw.plugin.json
+ M extensions/diagnostics-otel/plugin.py
+ M extensions/diagnostics-otel/pyproject.toml
+ M extensions/diagnostics-prometheus/AGENTS.md
+ M extensions/diagnostics-prometheus/__init__.py
+ M extensions/diagnostics-prometheus/openclaw.plugin.json
+ M extensions/diagnostics-prometheus/plugin.py
+ M extensions/diagnostics-prometheus/pyproject.toml
+ M extensions/diffs-language-pack/AGENTS.md
+ M extensions/diffs-language-pack/__init__.py
+ M extensions/diffs-language-pack/openclaw.plugin.json
+ M extensions/diffs-language-pack/plugin.py
+ M extensions/diffs-language-pack/pyproject.toml
+ M extensions/diffs/AGENTS.md
+ M extensions/diffs/__init__.py
+ M extensions/diffs/openclaw.plugin.json
+ M extensions/diffs/plugin.py
+ M extensions/diffs/pyproject.toml
+ M extensions/document-extract/AGENTS.md
+ M extensions/document-extract/__init__.py
+ M extensions/document-extract/openclaw.plugin.json
+ M extensions/document-extract/plugin.py
+ M extensions/document-extract/pyproject.toml
+ M extensions/duckduckgo/AGENTS.md
+ M extensions/duckduckgo/__init__.py
+ M extensions/duckduckgo/openclaw.plugin.json
+ M extensions/duckduckgo/plugin.py
+ M extensions/duckduckgo/pyproject.toml
+ M extensions/elevenlabs/AGENTS.md
+ M extensions/elevenlabs/__init__.py
+ M extensions/elevenlabs/openclaw.plugin.json
+ M extensions/elevenlabs/plugin.py
+ M extensions/elevenlabs/pyproject.toml
+ M extensions/exa/AGENTS.md
+ M extensions/exa/__init__.py
+ M extensions/exa/openclaw.plugin.json
+ M extensions/exa/plugin.py
+ M extensions/exa/pyproject.toml
+ M extensions/fal/AGENTS.md
+ M extensions/fal/__init__.py
+ M extensions/fal/openclaw.plugin.json
+ M extensions/fal/plugin.py
+ M extensions/fal/pyproject.toml
+ M extensions/featherless-x/AGENTS.md
+ M extensions/featherless-x/__init__.py
+ M extensions/featherless-x/openclaw.plugin.json
+ M extensions/featherless-x/plugin.py
+ M extensions/featherless-x/pyproject.toml
+ M extensions/featherless/AGENTS.md
+ M extensions/featherless/__init__.py
+ M extensions/featherless/openclaw.plugin.json
+ M extensions/featherless/plugin.py
+ M extensions/featherless/pyproject.toml
+ M extensions/feishu/AGENTS.md
+ M extensions/feishu/__init__.py
+ M extensions/feishu/doctor.py
+ M extensions/feishu/openclaw.plugin.json
+ M extensions/feishu/plugin.py
+ M extensions/feishu/pyproject.toml
+ M extensions/feishu/runtime.py
+ M extensions/file-transfer/AGENTS.md
+ M extensions/file-transfer/__init__.py
+ M extensions/file-transfer/openclaw.plugin.json
+ M extensions/file-transfer/plugin.py
+ M extensions/file-transfer/pyproject.toml
+ M extensions/firecrawl/AGENTS.md
+ M extensions/firecrawl/__init__.py
+ M extensions/firecrawl/openclaw.plugin.json
+ M extensions/firecrawl/plugin.py
+ M extensions/firecrawl/pyproject.toml
+ M extensions/fireworks/AGENTS.md
+ M extensions/fireworks/__init__.py
+ M extensions/fireworks/openclaw.plugin.json
+ M extensions/fireworks/plugin.py
+ M extensions/fireworks/pyproject.toml
+ M extensions/github-copilot-2/AGENTS.md
+ M extensions/github-copilot-2/__init__.py
+ M extensions/github-copilot-2/openclaw.plugin.json
+ M extensions/github-copilot-2/plugin.py
+ M extensions/github-copilot-2/pyproject.toml
+ M extensions/github-copilot/AGENTS.md
+ M extensions/github-copilot/__init__.py
+ M extensions/github-copilot/openclaw.plugin.json
+ M extensions/github-copilot/plugin.py
+ M extensions/github-copilot/pyproject.toml
+ M extensions/gmi/AGENTS.md
+ M extensions/gmi/__init__.py
+ M extensions/gmi/openclaw.plugin.json
+ M extensions/gmi/plugin.py
+ M extensions/gmi/pyproject.toml
+ M extensions/google-meet/AGENTS.md
+ M extensions/google-meet/__init__.py
+ M extensions/google-meet/openclaw.plugin.json
+ M extensions/google-meet/plugin.py
+ M extensions/google-meet/pyproject.toml
+ M extensions/google/AGENTS.md
+ M extensions/google/__init__.py
+ M extensions/google/openclaw.plugin.json
+ M extensions/google/plugin.py
+ M extensions/google/pyproject.toml
+ D extensions/googlechat/AGENTS.md
+ D extensions/googlechat/__init__.py
+ D extensions/googlechat/doctor.py
+ D extensions/googlechat/openclaw.plugin.json
+ D extensions/googlechat/plugin.py
+ D extensions/googlechat/pyproject.toml
+ D extensions/googlechat/runtime.py
+ M extensions/gradium/AGENTS.md
+ M extensions/gradium/__init__.py
+ M extensions/gradium/openclaw.plugin.json
+ M extensions/gradium/plugin.py
+ M extensions/gradium/pyproject.toml
+ M extensions/groq/AGENTS.md
+ M extensions/groq/__init__.py
+ M extensions/groq/openclaw.plugin.json
+ M extensions/groq/plugin.py
+ M extensions/groq/pyproject.toml
+ M extensions/huggingface/AGENTS.md
+ M extensions/huggingface/__init__.py
+ M extensions/huggingface/openclaw.plugin.json
+ M extensions/huggingface/plugin.py
+ M extensions/huggingface/pyproject.toml
+ M extensions/image-generation-core/AGENTS.md
+ M extensions/image-generation-core/pyproject.toml
+ D extensions/imessage/AGENTS.md
+ D extensions/imessage/__init__.py
+ D extensions/imessage/doctor.py
+ M extensions/imessage/openclaw.plugin.json
+ D extensions/imessage/plugin.py
+ M extensions/imessage/pyproject.toml
+ D extensions/imessage/runtime.py
+ M extensions/inworld/AGENTS.md
+ M extensions/inworld/__init__.py
+ M extensions/inworld/openclaw.plugin.json
+ M extensions/inworld/plugin.py
+ M extensions/inworld/pyproject.toml
+ D extensions/irc/AGENTS.md
+ D extensions/irc/__init__.py
+ D extensions/irc/doctor.py
+ D extensions/irc/openclaw.plugin.json
+ D extensions/irc/plugin.py
+ D extensions/irc/pyproject.toml
+ D extensions/irc/runtime.py
+ M extensions/kilocode/AGENTS.md
+ M extensions/kilocode/__init__.py
+ M extensions/kilocode/openclaw.plugin.json
+ M extensions/kilocode/plugin.py
+ M extensions/kilocode/pyproject.toml
+ M extensions/kimi-coding/AGENTS.md
+ M extensions/kimi-coding/__init__.py
+ M extensions/kimi-coding/openclaw.plugin.json
+ M extensions/kimi-coding/plugin.py
+ M extensions/kimi-coding/pyproject.toml
+ D extensions/line/AGENTS.md
+ D extensions/line/__init__.py
+ D extensions/line/doctor.py
+ D extensions/line/openclaw.plugin.json
+ D extensions/line/plugin.py
+ D extensions/line/pyproject.toml
+ D extensions/line/runtime.py
+ M extensions/linux-canvas/AGENTS.md
+ M extensions/linux-canvas/__init__.py
+ M extensions/linux-canvas/openclaw.plugin.json
+ M extensions/linux-canvas/plugin.py
+ M extensions/linux-canvas/pyproject.toml
+ M extensions/linux-node/AGENTS.md
+ M extensions/linux-node/__init__.py
+ M extensions/linux-node/openclaw.plugin.json
+ M extensions/linux-node/plugin.py
+ M extensions/linux-node/pyproject.toml
+ M extensions/litellm/AGENTS.md
+ M extensions/litellm/__init__.py
+ M extensions/litellm/openclaw.plugin.json
+ M extensions/litellm/plugin.py
+ M extensions/litellm/pyproject.toml
+ M extensions/llama-cpp/AGENTS.md
+ M extensions/llama-cpp/__init__.py
+ M extensions/llama-cpp/openclaw.plugin.json
+ M extensions/llama-cpp/plugin.py
+ M extensions/llama-cpp/pyproject.toml
+ M extensions/llm-task/AGENTS.md
+ M extensions/llm-task/__init__.py
+ M extensions/llm-task/openclaw.plugin.json
+ M extensions/llm-task/pyproject.toml
+ M extensions/lmstudio/AGENTS.md
+ M extensions/lmstudio/__init__.py
+ M extensions/lmstudio/openclaw.plugin.json
+ M extensions/lmstudio/plugin.py
+ M extensions/lmstudio/pyproject.toml
+ M extensions/lobster/AGENTS.md
+ M extensions/lobster/__init__.py
+ M extensions/lobster/openclaw.plugin.json
+ M extensions/lobster/plugin.py
+ M extensions/lobster/pyproject.toml
+ M extensions/logbook/AGENTS.md
+ M extensions/logbook/__init__.py
+ M extensions/logbook/openclaw.plugin.json
+ M extensions/logbook/pyproject.toml
+ M extensions/longcat/AGENTS.md
+ M extensions/longcat/__init__.py
+ M extensions/longcat/openclaw.plugin.json
+ M extensions/longcat/plugin.py
+ M extensions/longcat/pyproject.toml
+ M extensions/matrix/AGENTS.md
+ M extensions/matrix/__init__.py
+ M extensions/matrix/doctor.py
+ M extensions/matrix/openclaw.plugin.json
+ M extensions/matrix/plugin.py
+ M extensions/matrix/pyproject.toml
+ M extensions/matrix/runtime.py
+ D extensions/mattermost/AGENTS.md
+ D extensions/mattermost/__init__.py
+ D extensions/mattermost/doctor.py
+ D extensions/mattermost/openclaw.plugin.json
+ D extensions/mattermost/plugin.py
+ D extensions/mattermost/pyproject.toml
+ D extensions/mattermost/runtime.py
+ M extensions/media-understanding-core/AGENTS.md
+ M extensions/media-understanding-core/pyproject.toml
+ M extensions/memory_core/cli.py
+ M extensions/memory_core/plugin.py
+ M extensions/memory_core/prompt_section.py
+ M extensions/memory_core/runtime.py
+ M extensions/memory_lancedb/config.py
+ M extensions/memory_lancedb/embeddings.py
+ M extensions/memory_lancedb/plugin.py
+ M extensions/memory_wiki/obsidian.py
+ M extensions/memory_wiki/prompt_section.py
+ M extensions/memory_wiki/source_page_shared.py
+ M extensions/memory_wiki/tests/test_compile_render_phase4.py
+ M extensions/memory_wiki/tests/test_gateway_phase4.py
+ M extensions/memory_wiki/tests/test_prompt_section_phase4.py
+ M extensions/meta/AGENTS.md
+ M extensions/meta/__init__.py
+ M extensions/meta/openclaw.plugin.json
+ M extensions/meta/plugin.py
+ M extensions/meta/pyproject.toml
+ M extensions/microsoft-foundry/AGENTS.md
+ M extensions/microsoft-foundry/__init__.py
+ M extensions/microsoft-foundry/openclaw.plugin.json
+ M extensions/microsoft-foundry/plugin.py
+ M extensions/microsoft-foundry/pyproject.toml
+ M extensions/microsoft/AGENTS.md
+ M extensions/microsoft/__init__.py
+ M extensions/microsoft/openclaw.plugin.json
+ M extensions/microsoft/plugin.py
+ M extensions/microsoft/pyproject.toml
+ M extensions/migrate-claude/AGENTS.md
+ M extensions/migrate-claude/__init__.py
+ M extensions/migrate-claude/openclaw.plugin.json
+ M extensions/migrate-claude/plugin.py
+ M extensions/migrate-claude/pyproject.toml
+ M extensions/migrate-hermes/AGENTS.md
+ M extensions/migrate-hermes/__init__.py
+ M extensions/migrate-hermes/openclaw.plugin.json
+ M extensions/migrate-hermes/plugin.py
+ M extensions/migrate-hermes/pyproject.toml
+ M extensions/minimax/AGENTS.md
+ M extensions/minimax/__init__.py
+ M extensions/minimax/openclaw.plugin.json
+ M extensions/minimax/plugin.py
+ M extensions/minimax/pyproject.toml
+ M extensions/mistral/AGENTS.md
+ M extensions/mistral/__init__.py
+ M extensions/mistral/openclaw.plugin.json
+ M extensions/mistral/plugin.py
+ M extensions/mistral/pyproject.toml
+ M extensions/moonshot/AGENTS.md
+ M extensions/moonshot/__init__.py
+ M extensions/moonshot/openclaw.plugin.json
+ M extensions/moonshot/plugin.py
+ M extensions/moonshot/pyproject.toml
+ M extensions/msteams/AGENTS.md
+ M extensions/msteams/__init__.py
+ M extensions/msteams/openclaw.plugin.json
+ M extensions/msteams/plugin.py
+ M extensions/msteams/pyproject.toml
+ M extensions/mxc/AGENTS.md
+ M extensions/mxc/__init__.py
+ M extensions/mxc/openclaw.plugin.json
+ M extensions/mxc/plugin.py
+ M extensions/mxc/pyproject.toml
+ D extensions/nextcloud-talk/AGENTS.md
+ D extensions/nextcloud-talk/__init__.py
+ D extensions/nextcloud-talk/doctor.py
+ D extensions/nextcloud-talk/openclaw.plugin.json
+ D extensions/nextcloud-talk/plugin.py
+ D extensions/nextcloud-talk/pyproject.toml
+ D extensions/nextcloud-talk/runtime.py
+ D extensions/nostr/AGENTS.md
+ D extensions/nostr/__init__.py
+ D extensions/nostr/doctor.py
+ D extensions/nostr/openclaw.plugin.json
+ D extensions/nostr/plugin.py
+ D extensions/nostr/pyproject.toml
+ D extensions/nostr/runtime.py
+ M extensions/novita/AGENTS.md
+ M extensions/novita/__init__.py
+ M extensions/novita/openclaw.plugin.json
+ M extensions/novita/plugin.py
+ M extensions/novita/pyproject.toml
+ M extensions/nvidia/AGENTS.md
+ M extensions/nvidia/__init__.py
+ M extensions/nvidia/openclaw.plugin.json
+ M extensions/nvidia/plugin.py
+ M extensions/nvidia/pyproject.toml
+ M extensions/oc-path/AGENTS.md
+ M extensions/oc-path/__init__.py
+ M extensions/oc-path/openclaw.plugin.json
+ M extensions/oc-path/plugin.py
+ M extensions/oc-path/pyproject.toml
+ M extensions/ollama/AGENTS.md
+ M extensions/ollama/__init__.py
+ M extensions/ollama/openclaw.plugin.json
+ M extensions/ollama/plugin.py
+ M extensions/ollama/pyproject.toml
+ M extensions/onepassword/AGENTS.md
+ M extensions/onepassword/__init__.py
+ M extensions/onepassword/openclaw.plugin.json
+ M extensions/onepassword/plugin.py
+ M extensions/onepassword/pyproject.toml
+ M extensions/open-prose/AGENTS.md
+ M extensions/open-prose/__init__.py
+ M extensions/open-prose/openclaw.plugin.json
+ M extensions/open-prose/plugin.py
+ M extensions/open-prose/pyproject.toml
+ M extensions/opencode-go/AGENTS.md
+ M extensions/opencode-go/__init__.py
+ M extensions/opencode-go/openclaw.plugin.json
+ M extensions/opencode-go/plugin.py
+ M extensions/opencode-go/pyproject.toml
+ M extensions/opencode/AGENTS.md
+ M extensions/opencode/__init__.py
+ M extensions/opencode/openclaw.plugin.json
+ M extensions/opencode/plugin.py
+ M extensions/opencode/pyproject.toml
+ M extensions/openrouter/AGENTS.md
+ M extensions/openrouter/__init__.py
+ M extensions/openrouter/openclaw.plugin.json
+ M extensions/openrouter/plugin.py
+ M extensions/openrouter/pyproject.toml
+ M extensions/openshell/AGENTS.md
+ M extensions/openshell/__init__.py
+ M extensions/openshell/openclaw.plugin.json
+ M extensions/openshell/plugin.py
+ M extensions/openshell/pyproject.toml
+ M extensions/parallel/AGENTS.md
+ M extensions/parallel/__init__.py
+ M extensions/parallel/openclaw.plugin.json
+ M extensions/parallel/plugin.py
+ M extensions/parallel/pyproject.toml
+ M extensions/perplexity/AGENTS.md
+ M extensions/perplexity/__init__.py
+ M extensions/perplexity/openclaw.plugin.json
+ M extensions/perplexity/plugin.py
+ M extensions/perplexity/pyproject.toml
+ M extensions/phone-control/AGENTS.md
+ M extensions/phone-control/__init__.py
+ M extensions/phone-control/openclaw.plugin.json
+ M extensions/phone-control/plugin.py
+ M extensions/phone-control/pyproject.toml
+ M extensions/pixverse/AGENTS.md
+ M extensions/pixverse/__init__.py
+ M extensions/pixverse/openclaw.plugin.json
+ M extensions/pixverse/plugin.py
+ M extensions/pixverse/pyproject.toml
+ M extensions/policy/AGENTS.md
+ M extensions/policy/__init__.py
+ M extensions/policy/openclaw.plugin.json
+ M extensions/policy/plugin.py
+ M extensions/policy/pyproject.toml
+ M extensions/qa-channel/AGENTS.md
+ M extensions/qa-channel/__init__.py
+ M extensions/qa-channel/doctor.py
+ M extensions/qa-channel/openclaw.plugin.json
+ M extensions/qa-channel/plugin.py
+ M extensions/qa-channel/pyproject.toml
+ M extensions/qa-channel/runtime.py
+ M extensions/qa-lab/AGENTS.md
+ M extensions/qa-lab/__init__.py
+ M extensions/qa-lab/openclaw.plugin.json
+ M extensions/qa-lab/plugin.py
+ M extensions/qa-lab/pyproject.toml
+ M extensions/qianfan/AGENTS.md
+ M extensions/qianfan/__init__.py
+ M extensions/qianfan/openclaw.plugin.json
+ M extensions/qianfan/plugin.py
+ M extensions/qianfan/pyproject.toml
+ D extensions/qqbot/AGENTS.md
+ D extensions/qqbot/__init__.py
+ D extensions/qqbot/doctor.py
+ D extensions/qqbot/openclaw.plugin.json
+ D extensions/qqbot/plugin.py
+ D extensions/qqbot/pyproject.toml
+ D extensions/qqbot/runtime.py
+ M extensions/qwen/AGENTS.md
+ M extensions/qwen/__init__.py
+ M extensions/qwen/openclaw.plugin.json
+ M extensions/qwen/plugin.py
+ M extensions/qwen/pyproject.toml
+ D extensions/raft/AGENTS.md
+ D extensions/raft/__init__.py
+ D extensions/raft/doctor.py
+ D extensions/raft/openclaw.plugin.json
+ D extensions/raft/plugin.py
+ D extensions/raft/pyproject.toml
+ D extensions/raft/runtime.py
+ D extensions/reef/AGENTS.md
+ D extensions/reef/__init__.py
+ D extensions/reef/doctor.py
+ D extensions/reef/openclaw.plugin.json
+ D extensions/reef/plugin.py
+ D extensions/reef/pyproject.toml
+ D extensions/reef/runtime.py
+ M extensions/runway/AGENTS.md
+ M extensions/runway/__init__.py
+ M extensions/runway/openclaw.plugin.json
+ M extensions/runway/plugin.py
+ M extensions/runway/pyproject.toml
+ M extensions/searxng/AGENTS.md
+ M extensions/searxng/__init__.py
+ M extensions/searxng/openclaw.plugin.json
+ M extensions/searxng/plugin.py
+ M extensions/searxng/pyproject.toml
+ M extensions/senseaudio/AGENTS.md
+ M extensions/senseaudio/openclaw.plugin.json
+ M extensions/senseaudio/pyproject.toml
+ M extensions/sglang/AGENTS.md
+ M extensions/sglang/__init__.py
+ M extensions/sglang/openclaw.plugin.json
+ M extensions/sglang/plugin.py
+ M extensions/sglang/pyproject.toml
+ M extensions/signal/AGENTS.md
+ M extensions/signal/__init__.py
+ M extensions/signal/doctor.py
+ M extensions/signal/openclaw.plugin.json
+ M extensions/signal/plugin.py
+ M extensions/signal/pyproject.toml
+ M extensions/signal/runtime.py
+ M extensions/slack/AGENTS.md
+ M extensions/slack/__init__.py
+ M extensions/slack/doctor.py
+ M extensions/slack/openclaw.plugin.json
+ M extensions/slack/plugin.py
+ M extensions/slack/pyproject.toml
+ M extensions/slack/runtime.py
+ M extensions/sms/AGENTS.md
+ M extensions/sms/__init__.py
+ M extensions/sms/doctor.py
+ M extensions/sms/openclaw.plugin.json
+ M extensions/sms/plugin.py
+ M extensions/sms/pyproject.toml
+ M extensions/sms/runtime.py
+ M extensions/stepfun/AGENTS.md
+ M extensions/stepfun/__init__.py
+ M extensions/stepfun/openclaw.plugin.json
+ M extensions/stepfun/plugin.py
+ M extensions/stepfun/pyproject.toml
+ D extensions/synology-chat/AGENTS.md
+ D extensions/synology-chat/__init__.py
+ D extensions/synology-chat/doctor.py
+ D extensions/synology-chat/openclaw.plugin.json
+ D extensions/synology-chat/plugin.py
+ D extensions/synology-chat/pyproject.toml
+ D extensions/synology-chat/runtime.py
+ M extensions/synthetic/AGENTS.md
+ M extensions/synthetic/__init__.py
+ M extensions/synthetic/openclaw.plugin.json
+ M extensions/synthetic/plugin.py
+ M extensions/synthetic/pyproject.toml
+ M extensions/talk-voice/AGENTS.md
+ M extensions/talk-voice/__init__.py
+ M extensions/talk-voice/openclaw.plugin.json
+ M extensions/talk-voice/plugin.py
+ M extensions/talk-voice/pyproject.toml
+ M extensions/tavily/AGENTS.md
+ M extensions/tavily/__init__.py
+ M extensions/tavily/openclaw.plugin.json
+ M extensions/tavily/plugin.py
+ M extensions/tavily/pyproject.toml
+ M extensions/teams-meetings/AGENTS.md
+ M extensions/teams-meetings/__init__.py
+ M extensions/teams-meetings/openclaw.plugin.json
+ M extensions/teams-meetings/plugin.py
+ M extensions/teams-meetings/pyproject.toml
+ M extensions/telegram/__init__.py
+ M extensions/telegram/doctor.py
+ M extensions/telegram/openclaw.plugin.json
+ M extensions/telegram/plugin.py
+ M extensions/telegram/pyproject.toml
+ M extensions/telegram/runtime.py
+ M extensions/tencent/AGENTS.md
+ M extensions/tencent/__init__.py
+ M extensions/tencent/openclaw.plugin.json
+ M extensions/tencent/plugin.py
+ M extensions/tencent/pyproject.toml
+ M extensions/thread-ownership/AGENTS.md
+ M extensions/thread-ownership/__init__.py
+ M extensions/thread-ownership/openclaw.plugin.json
+ M extensions/thread-ownership/plugin.py
+ M extensions/thread-ownership/pyproject.toml
+ D extensions/tlon/AGENTS.md
+ D extensions/tlon/__init__.py
+ D extensions/tlon/doctor.py
+ D extensions/tlon/openclaw.plugin.json
+ D extensions/tlon/plugin.py
+ D extensions/tlon/pyproject.toml
+ D extensions/tlon/runtime.py
+ M extensions/together/AGENTS.md
+ M extensions/together/__init__.py
+ M extensions/together/openclaw.plugin.json
+ M extensions/together/plugin.py
+ M extensions/together/pyproject.toml
+ M extensions/tokenjuice/AGENTS.md
+ M extensions/tokenjuice/__init__.py
+ M extensions/tokenjuice/openclaw.plugin.json
+ M extensions/tokenjuice/plugin.py
+ M extensions/tokenjuice/pyproject.toml
+ M extensions/tts-local-cli/AGENTS.md
+ M extensions/tts-local-cli/__init__.py
+ M extensions/tts-local-cli/openclaw.plugin.json
+ M extensions/tts-local-cli/pyproject.toml
+ D extensions/twitch/AGENTS.md
+ D extensions/twitch/__init__.py
+ D extensions/twitch/doctor.py
+ D extensions/twitch/openclaw.plugin.json
+ D extensions/twitch/plugin.py
+ D extensions/twitch/pyproject.toml
+ D extensions/twitch/runtime.py
+ M extensions/vault/AGENTS.md
+ M extensions/vault/__init__.py
+ M extensions/vault/openclaw.plugin.json
+ M extensions/vault/plugin.py
+ M extensions/vault/pyproject.toml
+ M extensions/venice/AGENTS.md
+ M extensions/venice/__init__.py
+ M extensions/venice/openclaw.plugin.json
+ M extensions/venice/plugin.py
+ M extensions/venice/pyproject.toml
+ M extensions/vercel-ai-gateway/AGENTS.md
+ M extensions/vercel-ai-gateway/__init__.py
+ M extensions/vercel-ai-gateway/openclaw.plugin.json
+ M extensions/vercel-ai-gateway/plugin.py
+ M extensions/vercel-ai-gateway/pyproject.toml
+ M extensions/video-generation-core/AGENTS.md
+ M extensions/video-generation-core/pyproject.toml
+ M extensions/vllm/AGENTS.md
+ M extensions/vllm/__init__.py
+ M extensions/vllm/openclaw.plugin.json
+ M extensions/vllm/plugin.py
+ M extensions/vllm/pyproject.toml
+ M extensions/voice-call/AGENTS.md
+ M extensions/voice-call/__init__.py
+ M extensions/voice-call/openclaw.plugin.json
+ M extensions/voice-call/plugin.py
+ M extensions/voice-call/pyproject.toml
+ M extensions/volcengine/AGENTS.md
+ M extensions/volcengine/__init__.py
+ M extensions/volcengine/openclaw.plugin.json
+ M extensions/volcengine/plugin.py
+ M extensions/volcengine/pyproject.toml
+ M extensions/voyage/AGENTS.md
+ M extensions/voyage/__init__.py
+ M extensions/voyage/openclaw.plugin.json
+ M extensions/voyage/plugin.py
+ M extensions/voyage/pyproject.toml
+ M extensions/vydra/AGENTS.md
+ M extensions/vydra/__init__.py
+ M extensions/vydra/openclaw.plugin.json
+ M extensions/vydra/plugin.py
+ M extensions/vydra/pyproject.toml
+ M extensions/web-readability/AGENTS.md
+ M extensions/web-readability/__init__.py
+ M extensions/web-readability/openclaw.plugin.json
+ M extensions/web-readability/plugin.py
+ M extensions/web-readability/pyproject.toml
+ M extensions/webhooks/AGENTS.md
+ M extensions/webhooks/__init__.py
+ M extensions/webhooks/openclaw.plugin.json
+ M extensions/webhooks/plugin.py
+ M extensions/webhooks/pyproject.toml
+ M extensions/whatsapp/AGENTS.md
+ M extensions/whatsapp/__init__.py
+ M extensions/whatsapp/doctor.py
+ M extensions/whatsapp/openclaw.plugin.json
+ M extensions/whatsapp/plugin.py
+ M extensions/whatsapp/pyproject.toml
+ M extensions/whatsapp/runtime.py
+ M extensions/workboard/AGENTS.md
+ M extensions/workboard/__init__.py
+ M extensions/workboard/openclaw.plugin.json
+ M extensions/workboard/plugin.py
+ M extensions/workboard/pyproject.toml
+ M extensions/xai/AGENTS.md
+ M extensions/xai/__init__.py
+ M extensions/xai/openclaw.plugin.json
+ M extensions/xai/plugin.py
+ M extensions/xai/pyproject.toml
+ M extensions/xiaomi/AGENTS.md
+ M extensions/xiaomi/__init__.py
+ M extensions/xiaomi/openclaw.plugin.json
+ M extensions/xiaomi/plugin.py
+ M extensions/xiaomi/pyproject.toml
+ M extensions/zai/AGENTS.md
+ M extensions/zai/__init__.py
+ M extensions/zai/openclaw.plugin.json
+ M extensions/zai/plugin.py
+ M extensions/zai/pyproject.toml
+ D extensions/zalo/AGENTS.md
+ D extensions/zalo/__init__.py
+ D extensions/zalo/doctor.py
+ D extensions/zalo/openclaw.plugin.json
+ D extensions/zalo/plugin.py
+ D extensions/zalo/pyproject.toml
+ D extensions/zalo/runtime.py
+ D extensions/zalouser/AGENTS.md
+ D extensions/zalouser/__init__.py
+ D extensions/zalouser/doctor.py
+ D extensions/zalouser/openclaw.plugin.json
+ D extensions/zalouser/plugin.py
+ D extensions/zalouser/pyproject.toml
+ D extensions/zalouser/runtime.py
+ M extensions/zoom-meetings/AGENTS.md
+ M extensions/zoom-meetings/__init__.py
+ M extensions/zoom-meetings/openclaw.plugin.json
+ M extensions/zoom-meetings/plugin.py
+ M extensions/zoom-meetings/pyproject.toml
+ M packages/plugin_sdk/src/jarvis_sdk/agent_runtime.py
+ M packages/plugin_sdk/src/jarvis_sdk/api.py
+ M packages/plugin_sdk/src/jarvis_sdk/media_understanding.py
+ M packages/plugin_sdk/src/jarvis_sdk/memory_host_config_utils.py
+ M packages/plugin_sdk/src/jarvis_sdk/memory_host_event_store.py
+ M packages/plugin_sdk/src/jarvis_sdk/memory_host_events.py
+ M packages/plugin_sdk/src/jarvis_sdk/memory_host_fs_utils.py
+ M packages/plugin_sdk/src/jarvis_sdk/memory_host_internal.py
+ M packages/plugin_sdk/src/jarvis_sdk/memory_host_multimodal.py
+ M packages/plugin_sdk/src/jarvis_sdk/memory_host_read_file.py
+ M packages/plugin_sdk/src/jarvis_sdk/memory_host_read_file_shared.py
+ M packages/plugin_sdk/src/jarvis_sdk/memory_host_secret_input.py
+ M packages/plugin_sdk/src/jarvis_sdk/memory_host_secret_input_utils.py
+ M packages/plugin_sdk/src/jarvis_sdk/memory_host_status_format.py
+ M packages/plugin_sdk/src/jarvis_sdk/number_runtime.py
+ M packages/plugin_sdk/src/jarvis_sdk/plugin_config.py
+ M packages/plugin_sdk/src/jarvis_sdk/plugin_registry.py
+ M packages/plugin_sdk/src/jarvis_sdk/plugin_registry_registrars.py
+ M packages/plugin_sdk/src/jarvis_sdk/plugin_registry_state.py
+ M packages/plugin_sdk/src/jarvis_sdk/plugin_state_keyed_store.py
+ M packages/plugin_sdk/src/jarvis_sdk/skill.py
+ M packages/plugin_sdk/tests/test_plugin_registry_phase56.py
+ M packages/plugin_sdk/tests/test_sdk.py
+ M packages/state_core/src/jarvis_state_core/__init__.py
+ M packages/state_core/src/jarvis_state_core/agent_db.py
+ M packages/state_core/src/jarvis_state_core/contract.py
+ M packages/state_core/src/jarvis_state_core/database.py
+ M packages/state_core/src/jarvis_state_core/lease.py
+ M packages/state_core/src/jarvis_state_core/readonly.py
+ M packages/state_core/src/jarvis_state_core/schema_additive.py
+ M packages/state_core/src/jarvis_state_core/schema_helpers.py
+ M packages/state_core/tests/test_schema_additive.py
+ M packages/state_core/tests/test_schema_helpers.py
+ M packages/state_core/tests/test_session_watch_migration.py
+ M packages/state_core/tests/test_state_audit_migration.py
+ M packages/state_core/tests/test_state_core.py
+ M packages/state_core/tests/test_state_lease.py
+ M packages/state_core/tests/test_state_paths.py
+ M packages/state_core/tests/test_state_readonly.py
+ M pyproject.toml
+ M pyrightconfig.json
+ M src/acp/__init__.py
+ M src/agents/embedded_agent_runner/cache_ttl.py
+ M src/agents/embedded_agent_runner/cli_backend_dispatch.py
+ M src/agents/embedded_agent_runner/compact_queued.py
+ M src/agents/embedded_agent_runner/model_discovery_cache.py
+ M src/agents/embedded_agent_runner/run/attempt_client_tools.py
+ M src/agents/embedded_agent_runner/run/attempt_prompt_assembly.py
+ M src/agents/embedded_agent_runner/run/attempt_prompt_context.py
+ M src/agents/embedded_agent_runner/run/attempt_prompt_dispatch.py
+ M src/agents/embedded_agent_runner/run/attempt_prompt_error.py
+ M src/agents/embedded_agent_runner/run/attempt_prompt_execution_prepare.py
+ M src/agents/embedded_agent_runner/run/attempt_prompt_observability.py
+ M src/agents/embedded_agent_runner/run/attempt_prompt_phase.py
+ M src/agents/embedded_agent_runner/run/attempt_prompt_preflight.py
+ M src/agents/embedded_agent_runner/run/attempt_prompt_skip.py
+ M src/agents/embedded_agent_runner/run/attempt_prompt_submit.py
+ M src/agents/embedded_agent_runner/run/attempt_system_prompt.py
+ M src/agents/embedded_agent_runner/run/attempt_system_prompt_prepare.py
+ M src/agents/embedded_agent_runner/run/incomplete_turn.py
+ M src/agents/embedded_agent_runner/run/internal_params.py
+ M src/agents/embedded_agent_runner/run/params.py
+ M src/agents/embedded_agent_runner/run_orchestrator.py
+ M src/agents/embedded_agent_runner/system_prompt.py
+ M src/agents/embedded_agent_runner/tool_name_allowlist.py
+ M src/agents/sessions/agent_session_extensions.py
+ M src/agents/sessions/exec.py
+ M src/agents/sessions/package_manager.py
+ M src/agents/sessions/resource_loader.py
+ M src/agents/sessions/sdk.py
+ M src/agents/sessions/session_manager.py
+ M src/agents/sessions/session_manager_core.py
+ M src/agents/sessions/session_manager_persistence.py
+ M src/agents/sessions/settings_manager.py
+ M src/agents/sessions/skills_loader.py
+ M src/agents/sessions/storage_lock.py
+ M src/agents/sessions/system_prompt.py
+ M src/agents/sessions/theme_loader.py
+ M src/agents/sessions/tools/__init__.py
+ M src/agents/sessions/tools/edit.py
+ M src/audit/__init__.py
+ D src/auto-reply/__init__.py
+ M src/bindings/__init__.py
+ M src/boards/__init__.py
+ M src/bootstrap/__init__.py
+ M src/canvas/__init__.py
+ M src/channels/__init__.py
+ M src/chat/__init__.py
+ M src/cli/__init__.py
+ M src/commands/__init__.py
+ M src/commitments/__init__.py
+ M src/compat/__init__.py
+ M src/config/__init__.py
+ M src/config/agent_dirs.py
+ M src/config/config.py
+ M src/config/config_journal_snapshot.py
+ M src/config/io.py
+ M src/config/io_factory.py
+ D src/context-engine/__init__.py
+ M src/context_engine/delegate.py
+ M src/daemon/__init__.py
+ M src/docs/__init__.py
+ M src/doctor/__init__.py
+ M src/fleet/__init__.py
+ M src/flows/__init__.py
+ M src/gateway/__init__.py
+ M src/hooks/__init__.py
+ M src/i18n/__init__.py
+ D src/image-generation/__init__.py
+ M src/interactive/__init__.py
+ D src/link-understanding/__init__.py
+ M src/logging/timestamps.py
+ M src/mcp/__init__.py
+ D src/media-generation/__init__.py
+ D src/media-understanding/__init__.py
+ M src/media/__init__.py
+ D src/meeting-bot/__init__.py
+ D src/model-catalog/__init__.py
+ D src/music-generation/__init__.py
+ D src/node-host/__init__.py
+ M src/pairing/__init__.py
+ D src/plugin-state/__init__.py
+ M src/plugins/empty.py
+ M src/plugins/registrars.py
+ M src/plugins/registry.py
+ M src/plugins/slots.py
+ M src/plugins/state.py
+ D src/provider-runtime/__init__.py
+ D src/proxy-capture/__init__.py
+ D src/realtime-transcription/__init__.py
+ M src/scripts/__init__.py
+ M src/shared/lazy_promise.py
+ M src/skills/__init__.py
+ M src/snapshot/__init__.py
+ M src/status/__init__.py
+ D src/system-agent/__init__.py
+ M src/talk/__init__.py
+ M src/tasks/__init__.py
+ D src/test-helpers/__init__.py
+ D src/test-utils/__init__.py
+ M src/tools/__init__.py
+ M src/trajectory/__init__.py
+ M src/tts/__init__.py
+ M src/tui/__init__.py
+ M src/utils/reaction_level.py
+ M src/utils/safe_json.py
+ D src/video-generation/__init__.py
+ D src/web-fetch/__init__.py
+ D src/web-search/__init__.py
+ M src/wizard/__init__.py
+ M src/worker/__init__.py
+ M tests/test_phase3.py
+ M tests/test_phase611a_layer2_package_manager.py
+ M tests/test_phase611b_layer2_resource_loader.py
+ M tests/test_phase613b_layer2_frontmatter_prompt_system.py
+ M tests/test_phase71_layer3_embedded_runner_orchestrator.py
+ M tests/test_phase72c2_layer3_compact_queued.py
+ M tests/test_phase76d2_layer3_attempt_medium_files.py
+ M tests/test_phase76d4_layer3_attempt_prompt_history.py
+ M tests/test_phase76h1_layer3_attempt_final_files.py
+ M tests/test_phase76h4_layer3_top_level_medium_files.py
+ M tests/test_phase76h6_layer3_harnesses.py
+ M tests/test_phase82b_layer4_config_medium.py
+ M tests/test_phase82j_layer4_config_small.py
+ M tests/test_smoke.py
+ M uv.lock
+?? .pyright_plugin_sdk_jds.txt
+?? .pyright_plugin_sdk_patch.json
+?? .pyright_plugin_sdk_patch2.json
+?? .pyright_plugin_sdk_patch3.json
+?? .pyright_plugin_sdk_src.json
+?? .pyright_target.txt
+?? IDENTITY.md
+?? MEMORY.md
+?? SOUL.md
+?? USER.md
+?? agent_runs.py
+?? apps/cli/src/jarvis_cli/host.py
+?? apps/desktop/src/jarvis_desktop/channel_llm_bridge.py
+?? apps/desktop/src/jarvis_desktop/host.py
+?? diff-sdk.txt
+?? docs/BRAIN_GAP_REPORT_2026-07-30.md
+?? docs/CONFIG_IO_MAPPING.md
+?? extensions/imessage/src/
+?? extensions/memory_core/tests/test_runtime_index_parity.py
+?? extensions/telegram/src/
+?? names.txt
+?? ok_continue_remaining.ipynb
+?? packages/agent_runtime/src/jarvis_agent/kill_tree.py
+?? packages/agent_runtime/src/jarvis_agent/terminal_outcome.py
+?? packages/channels_core/
+?? packages/config_core/
+?? packages/gateway_protocol/
+?? packages/hooks_core/
+?? packages/i18n_core/
+?? packages/normalization_core/README.md
+?? packages/plugin_sdk/src/jarvis_sdk/_plugin_api_impl.py
+?? packages/plugin_sdk/src/jarvis_sdk/host.py
+?? packages/plugin_sdk/src/jarvis_sdk/loader.py
+?? packages/plugin_sdk/src/jarvis_sdk/types.py
+?? packages/retry/README.md
+?? packages/state_core/README.md
+?? src/agents/config.py
+?? src/agents/embedded_agent_runner/README.md
+?? src/agents/embedded_agent_runner/run/attempt_session_lock_test_support.py
+?? src/agents/embedded_agent_runner/run/attempt_spawn_workspace_test_support.py
+?? src/agents/embedded_agent_runner/run/context_engine_maintenance.test_support.py
+?? src/agents/embedded_agent_runner/run/context_engine_maintenance_test_support.py
+?? src/agents/embedded_agent_runner/run/default_dispatch_hook.py
+?? src/agents/embedded_agent_runner/run/extra_params.test_support.py
+?? src/agents/embedded_agent_runner/run/extra_params_test_support.py
+?? src/agents/embedded_agent_runner/run/model.forward_compat.test_support.py
+?? src/agents/embedded_agent_runner/run/model.provider_runtime.test_support.py
+?? src/agents/embedded_agent_runner/run/model_discovery_cache.test_support.py
+?? src/agents/embedded_agent_runner/run/model_discovery_cache_test_support.py
+?? src/agents/embedded_agent_runner/run/model_forward_compat_test_support.py
+?? src/agents/embedded_agent_runner/run/model_provider_runtime_test_support.py
+?? src/agents/embedded_agent_runner/run/run_overflow_compaction_fixture.py
+?? src/agents/embedded_agent_runner/run/runs_test_support.py
+?? src/agents/embedded_agent_runner/run/session_manager_cache_test_support.py
+?? src/agents/embedded_agent_runner/run/session_target.py
+?? src/agents/embedded_agent_runner/run/workspace_run.py
+?? src/agents/embedded_agent_runner/sandbox_materialize.py
+?? src/agents/embedded_agent_runner/sandbox_runner.py
+?? src/agents/embedded_agent_runner/sandbox_runner_docker.py
+?? src/agents/promised_work_prompt.py
+?? src/agents/sessions/exec_approval_followup.py
+?? src/agents/sessions/exec_approval_request.py
+?? src/agents/tool_allowlist_guard.py
+?? src/agents/tool_catalog.py
+?? src/agents/tool_loop_detection.py
+?? src/agents/tool_policy.py
+?? src/agents/tool_replay_safety.py
+?? src/agents/tool_schema_projection.py
+?? src/agents/tool_search.py
+?? src/agents/utils/
+?? src/agents/worktrees/
+?? src/auto_reply/
+?? src/channels/binding_router.py
+?? src/channels/catalog.py
+?? src/channels/model_overrides.py
+?? src/channels/session_envelope.py
+?? src/channels/session_store.py
+?? src/channels/targets.py
+?? src/channels/thread.py
+?? src/channels/typing.py
+?? src/channels/webhook.py
+?? src/config/io_read_helpers.py
+?? src/config/types_agent_defaults.py
+?? src/config/types_gateway.py
+?? src/config/types_tools.py
+?? src/context_engine/resolver.py
+?? src/gateway/agent_runs.py
+?? src/gateway/live_state.py
+?? src/gateway/rpc_dispatcher.py
+?? src/gateway/subscriptions.py
+?? src/gateway/ws_server.py
+?? src/hooks/bundled/
+?? src/hooks/lifecycle.py
+?? src/hooks/loader.py
+?? src/hooks/plugin_hooks.py
+?? src/hooks/policy.py
+?? src/hooks/types.py
+?? src/memory/root_memory_files.py
+?? src/plugins/embedding_provider_config.py
+?? src/plugins/embedding_provider_runtime_shared.py
+?? src/plugins/memory_embedding_provider_runtime.py
+?? src/plugins/memory_embedding_providers.py
+?? src/plugins/memory_runtime.py
+?? src/plugins/provider_claude_thinking.py
+?? src/plugins/provider_thinking.py
+?? src/plugins/provider_thinking_active.py
+?? src/plugins/registry_api.py
+?? src/plugins/runtime_state_key.py
+?? src/routing/channel_route_targets.py
+?? src/secrets/
+?? src/sessions/channel_session_runner.py
+?? src/sessions/history_store.py
+?? src/skills/discovery/
+?? src/skills/loading/
+?? src/skills/runtime/
+?? src/skills/security/
+?? src/skills/types.py
+?? src/tools/async_dispatch.py
+?? src/tools/dispatch.py
+?? src/tools/hook_async_dispatch.py
+?? src/tools/hook_dispatch.py
+?? status.txt
+?? status_raw.txt
+?? tests/.p81_all.txt
+?? tests/test_agent_session_factory_sqlite.py
+?? tests/test_agent_session_sqlite_persistence.py
+?? tests/test_async_hook_dispatch.py
+?? tests/test_binding_router_w1.py
+?? tests/test_channels_w1.py
+?? tests/test_channels_w10.py
+?? tests/test_channels_w11.py
+?? tests/test_channels_w16.py
+?? tests/test_channels_w2.py
+?? tests/test_channels_w3.py
+?? tests/test_channels_w4.py
+?? tests/test_channels_w5.py
+?? tests/test_channels_w6.py
+?? tests/test_channels_w7.py
+?? tests/test_channels_w8.py
+?? tests/test_channels_w9.py
+?? tests/test_config_io.py
+?? tests/test_config_io_snapshot.py
+?? tests/test_exec_approval_w17.py
+?? tests/test_gateway_agent_runs.py
+?? tests/test_gateway_ws_w18.py
+?? tests/test_hooks_w13.py
+?? tests/test_host_registry_capture.py
+?? tests/test_loader_w0.py
+?? tests/test_location_normalization.py
+?? tests/test_memory_pipeline_m1.py
+?? tests/test_model_forward_compat_test_support.py
+?? tests/test_phase614b_auto_reply_thinking.py
+?? tests/test_phase76c2_layer3_assistant_prompt_failures.py
+?? tests/test_remaining_w20.py
+?? tests/test_run_attempt_integration.py
+?? tests/test_sandbox_materialize.py
+?? tests/test_sandbox_runner.py
+?? tests/test_sandbox_runner_docker.py
+?? tests/test_skills_w14.py
+?? tests/test_tool_catalog_w19.py
+?? tests/test_tool_policy_w15.py
+?? tests/test_tool_replay_safety.py
+?? tests/test_workspace_bootstrap_contract.py
+?? tests/test_worktrees_service.py
+?? tools/classify_embedded_mapping.py
+?? tools/count_notimplemented.py
+?? tools/create_all_runtime_stubs.py
+?? tools/create_runtime_stubs.py
+?? tools/generate_embedded_runner_mapping.py
+?? tools/generate_priority_list.py
+?? tools/split_plugin_api_runtime.py

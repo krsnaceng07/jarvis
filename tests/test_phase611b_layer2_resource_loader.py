@@ -23,6 +23,8 @@ Verifies:
 """
 from __future__ import annotations
 
+import asyncio
+import json
 import os
 from pathlib import Path
 
@@ -195,11 +197,38 @@ class TestTheme:
 
 
 class TestLoadThemeFromPathStub:
-    def test_raises_not_implemented(self, tmp_path: Path) -> None:
+    def test_parses_theme_from_json(self, tmp_path: Path) -> None:
         theme_file = tmp_path / "theme.json"
-        theme_file.write_text("{}")
-        with pytest.raises(NotImplementedError):
-            loadThemeFromPath(str(theme_file))
+        theme_file.write_text(
+            json.dumps(
+                {
+                    "name": "Ocean",
+                    "description": "A calm blue theme",
+                    "colors": {"primary": "#1d4ed8"},
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        theme = loadThemeFromPath(str(theme_file))
+
+        assert theme.name == "Ocean"
+        assert theme.description == "A calm blue theme"
+        assert theme.file_path == str(theme_file)
+        assert theme.colors == {"primary": "#1d4ed8"}
+        assert theme.source_info is None
+
+    def test_uses_defaults_when_fields_missing(self, tmp_path: Path) -> None:
+        theme_file = tmp_path / "theme.json"
+        theme_file.write_text(json.dumps({"colors": {"primary": "#111111"}}), encoding="utf-8")
+
+        theme = loadThemeFromPath(str(theme_file))
+
+        assert theme.name == ""
+        assert theme.description == ""
+        assert theme.file_path == str(theme_file)
+        assert theme.colors == {"primary": "#111111"}
+        assert theme.source_info is None
 
 
 # ============================================================================
@@ -211,6 +240,25 @@ class TestLoadContextFileFromDir:
     def test_no_file(self, tmp_path: Path) -> None:
         result = load_context_file_from_dir(str(tmp_path))
         assert result is None
+
+    def test_discovers_system_prompt_from_openclaw_config_dir(self, tmp_path: Path) -> None:
+        project_dir = tmp_path / ".openclaw"
+        project_dir.mkdir()
+        system_prompt = project_dir / "SYSTEM.md"
+        system_prompt.write_text("Project system prompt\n", encoding="utf-8")
+        append_prompt = project_dir / "APPEND_SYSTEM.md"
+        append_prompt.write_text("Appended prompt\n", encoding="utf-8")
+
+        loader = DefaultResourceLoader(
+            DefaultResourceLoaderOptions(
+                cwd=str(tmp_path),
+                agent_dir=str(tmp_path / "agent"),
+            )
+        )
+        asyncio.run(loader.reload())
+
+        assert loader.get_system_prompt() == "Project system prompt\n"
+        assert loader.get_append_system_prompt() == ["Appended prompt\n"]
 
     def test_agents_md(self, tmp_path: Path) -> None:
         agents = tmp_path / "AGENTS.md"
@@ -318,11 +366,26 @@ class TestLoadProjectContextFiles:
 # ============================================================================
 
 
-def _make_loader(tmp_path: Path, **overrides) -> DefaultResourceLoader:
+def _make_loader(
+    tmp_path: Path,
+    monkeypatch: Optional[pytest.MonkeyPatch] = None,
+    **overrides,
+) -> DefaultResourceLoader:
     """Build a DefaultResourceLoader with
     in-memory settings + a fake ``.git``
     in the cwd to bound the ancestor
-    walk-up."""
+    walk-up.
+
+    The loader also isolates the home directory
+    when ``monkeypatch`` is supplied so tests do
+    not pick up the operator's real ``~/.agents``
+    resources.
+    """
+    if monkeypatch is not None:
+        empty_home = tmp_path / "home"
+        empty_home.mkdir(exist_ok=True)
+        monkeypatch.setenv("HOME", str(empty_home))
+        monkeypatch.setenv("USERPROFILE", str(empty_home))
     sm = overrides.pop("settings_manager", None) or SettingsManager.in_memory()
     options = DefaultResourceLoaderOptions(
         cwd=str(tmp_path),
@@ -351,8 +414,10 @@ class TestDefaultResourceLoader:
         assert loader.no_extensions is False
         assert loader.no_skills is False
 
-    def test_initial_getters(self, tmp_path: Path) -> None:
-        loader = _make_loader(tmp_path)
+    def test_initial_getters(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        loader = _make_loader(tmp_path, monkeypatch)
         # Before reload, getters return the
         # initial empty state.
         ext_result = loader.get_extensions()
@@ -373,8 +438,10 @@ class TestDefaultResourceLoader:
         assert loader.get_append_system_prompt() == []
 
     @pytest.mark.asyncio
-    async def test_reload_empty(self, tmp_path: Path) -> None:
-        loader = _make_loader(tmp_path)
+    async def test_reload_empty(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        loader = _make_loader(tmp_path, monkeypatch)
         await loader.reload()
         # No skills / prompts / themes are
         # registered.
@@ -387,8 +454,10 @@ class TestDefaultResourceLoader:
         assert loader.get_append_system_prompt() == []
 
     @pytest.mark.asyncio
-    async def test_reload_loads_agents_md(self, tmp_path: Path) -> None:
-        loader = _make_loader(tmp_path)
+    async def test_reload_loads_agents_md(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        loader = _make_loader(tmp_path, monkeypatch)
         agents = tmp_path / "AGENTS.md"
         agents.write_text("# Test project\n")
         await loader.reload()
@@ -396,12 +465,14 @@ class TestDefaultResourceLoader:
         assert any(f.path == str(agents) for f in files)
 
     @pytest.mark.asyncio
-    async def test_reload_loads_agents_md_uppercase(self, tmp_path: Path) -> None:
+    async def test_reload_loads_agents_md_uppercase(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         if os.name == "nt":
             pytest.skip(
                 "case-insensitive filesystem: AGENTS.MD collides with AGENTS.md"
             )
-        loader = _make_loader(tmp_path)
+        loader = _make_loader(tmp_path, monkeypatch)
         agents = tmp_path / "AGENTS.MD"
         agents.write_text("# Upper\n")
         await loader.reload()
@@ -409,8 +480,10 @@ class TestDefaultResourceLoader:
         assert any(f.path == str(agents) for f in files)
 
     @pytest.mark.asyncio
-    async def test_reload_loads_claude_md(self, tmp_path: Path) -> None:
-        loader = _make_loader(tmp_path)
+    async def test_reload_loads_claude_md(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        loader = _make_loader(tmp_path, monkeypatch)
         claude = tmp_path / "CLAUDE.md"
         claude.write_text("# Claude\n")
         await loader.reload()
@@ -419,17 +492,19 @@ class TestDefaultResourceLoader:
 
     @pytest.mark.asyncio
     async def test_reload_skips_agents_files_when_disabled(
-        self, tmp_path: Path
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        loader = _make_loader(tmp_path, no_context_files=True)
+        loader = _make_loader(tmp_path, monkeypatch, no_context_files=True)
         agents = tmp_path / "AGENTS.md"
         agents.write_text("# Project\n")
         await loader.reload()
         assert loader.get_agents_files()["agentsFiles"] == []
 
     @pytest.mark.asyncio
-    async def test_reload_discovers_system_prompt(self, tmp_path: Path) -> None:
-        loader = _make_loader(tmp_path)
+    async def test_reload_discovers_system_prompt(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        loader = _make_loader(tmp_path, monkeypatch)
         # Project-level SYSTEM.md wins.
         system_md = tmp_path / CONFIG_DIR_NAME / "SYSTEM.md"
         system_md.parent.mkdir(parents=True)
@@ -439,9 +514,9 @@ class TestDefaultResourceLoader:
 
     @pytest.mark.asyncio
     async def test_reload_discovers_append_system_prompt(
-        self, tmp_path: Path
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        loader = _make_loader(tmp_path)
+        loader = _make_loader(tmp_path, monkeypatch)
         append_md = tmp_path / CONFIG_DIR_NAME / "APPEND_SYSTEM.md"
         append_md.parent.mkdir(parents=True)
         append_md.write_text("Extra instructions.\n")
@@ -449,8 +524,14 @@ class TestDefaultResourceLoader:
         assert loader.get_append_system_prompt() == ["Extra instructions.\n"]
 
     @pytest.mark.asyncio
-    async def test_reload_explicit_system_prompt_wins(self, tmp_path: Path) -> None:
-        loader = _make_loader(tmp_path, system_prompt="Explicit body")
+    async def test_reload_explicit_system_prompt_wins(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        loader = _make_loader(
+            tmp_path,
+            monkeypatch,
+            system_prompt="Explicit body",
+        )
         # Discovery should be skipped when
         # the constructor option is set.
         system_md = tmp_path / CONFIG_DIR_NAME / "SYSTEM.md"
@@ -459,8 +540,10 @@ class TestDefaultResourceLoader:
         await loader.reload()
         assert loader.get_system_prompt() == "Explicit body"
 
-    def test_extend_resources_adds_paths(self, tmp_path: Path) -> None:
-        loader = _make_loader(tmp_path)
+    def test_extend_resources_adds_paths(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        loader = _make_loader(tmp_path, monkeypatch)
         skill = tmp_path / "skill.md"
         prompt = tmp_path / "prompt.md"
         theme = tmp_path / "theme.json"

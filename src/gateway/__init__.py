@@ -1,93 +1,86 @@
-"""Gateway HTTP server — mirrors OpenClaw's ``src/gateway/server/``.
+"""Gateway server — mirrors OpenClaw's ``src/gateway/server/``.
 
-Phase 3. The gateway is a small stdlib HTTP server that:
+Phase 3. The gateway is a WebSocket and HTTP server that:
   - Listens on a configurable host:port (default ``127.0.0.1:7433`` —
     matches the JARVIS lock-in from the migration plan).
   - Retries on EADDRINUSE (20 x 500ms — same as OpenClaw's
     ``EADDRINUSE_MAX_RETRIES`` x ``EADDRINUSE_RETRY_INTERVAL_MS``).
-  - Raises ``GatewayLockError`` when the port is held by another
-    process (the OpenClaw diagnostic that powers
-    ``jarvis doctor``).
-  - Routes requests to plugin HTTP handlers (registered via
+  - Routes WebSocket clients (Control plane, Nodes) via OpenClaw wire format.
+  - Routes HTTP requests to plugin HTTP handlers (registered via
     ``api.register_http_handler({ path, handler, auth, match })``).
-  - Validates a shared bearer token from
-    ``~/.jarvis/gateway.token`` (auto-generated on first start).
-
-The gateway is a Phase 3 port, not a full OpenClaw rewrite. We
-keep the surface small (no websockets, no admin UI, no plugin
-reload) and let plugins register their own HTTP routes for
-LLM-facing endpoints.
 """
 
 from __future__ import annotations
 
+import asyncio
 import errno
 import json
 import logging
 import secrets
 import threading
-import time
 from dataclasses import dataclass
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, cast
 from urllib.parse import urlparse
 
+import websockets
+
+from .ws_server import GatewayWSConnection
+from .rpc_dispatcher import RPCDispatcher
+from .agent_runs import AgentRunService, Runner
+
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    pass
 
 _log = logging.getLogger("src.gateway")
 
-# Mirror OpenClaw's retry constants.
 EADDRINUSE_MAX_RETRIES = 20
 EADDRINUSE_RETRY_INTERVAL_MS = 500
 
-# JARVIS gateway lock-in (Phase 0 user decision).
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 7433
 
 
 class GatewayLockError(RuntimeError):
-    """Raised when the gateway port is held by another process.
+    """Raised when the gateway port is held by another process."""
 
-    Mirrors OpenClaw's ``GatewayLockError`` from
-    ``src/infra/gateway-lock.ts``. The doctor runner consumes
-    this error and emits a user-friendly finding.
+
+class _ServerAddressProxy:
+    """Expose the bound socket address for websockets.Server instances.
+
+    The upstream server object does not reliably support arbitrary attribute
+    assignment on all Python/websockets combinations, so we wrap it and keep the
+    bound address on the proxy itself while forwarding lifecycle calls.
     """
 
+    __slots__ = ("_server", "server_address")
 
-# ── Route registration (mirrors OpenClaw's registerHttpRoute) ───
+    def __init__(self, server: Any, server_address: tuple[str, int] | tuple[str, int, int, int]) -> None:
+        self._server = server
+        self.server_address = server_address
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._server, name)
+
+    def close(self) -> None:
+        return self._server.close()
+
+    def wait_closed(self) -> Any:
+        return self._server.wait_closed()
 
 
 @dataclass(frozen=True, slots=True)
 class HttpRoute:
-    """A single HTTP route registered by a plugin.
-
-    Mirrors OpenClaw's ``OpenClawPluginHttpRouteParams``:
-      - ``path``        URL path (e.g. ``"/v1/extensions/memory/search"``)
-      - ``handler``     callable ``(method, url, body) -> dict``
-      - ``auth``        ``"gateway"`` (default) or ``"plugin"``
-      - ``match``       ``"exact"`` (default) or ``"prefix"``
-    """
-
     path: str
     handler: Callable[..., Any]
-    auth: str = "gateway"  # "gateway" or "plugin"
-    match: str = "exact"  # "exact" or "prefix"
-    owner_id: str = ""  # set by SDK when registered
-
-
-# ── Gateway implementation ──────────────────────────────────────
+    auth: str = "gateway"
+    match: str = "exact"
+    owner_id: str = ""
 
 
 class Gateway:
-    """In-process HTTP server for plugin HTTP routes.
-
-    Phase 3 host. Created once at startup; plugins register routes
-    via ``api.register_http_handler(route)``. The host's CLI
-    (``jarvis gateway start``) starts the server in a background
-    thread; ``jarvis gateway stop`` stops it.
-    """
+    """In-process WebSocket and HTTP server."""
 
     def __init__(
         self,
@@ -95,14 +88,46 @@ class Gateway:
         host: str = DEFAULT_HOST,
         port: int = DEFAULT_PORT,
         token_path: Path | None = None,
+        agent_runner: Runner | None = None,
     ) -> None:
         self.host = host
         self.port = port
         self._token_path = token_path or (Path.home() / ".jarvis" / "gateway.token")
         self._routes: list[HttpRoute] = []
-        self._server: ThreadingHTTPServer | None = None
+
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._server: Any = None
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
+
+        # In OpenClaw, the RPC dispatcher handles standard JSON-RPC
+        # or the new `GatewayRequest` typed format.
+        self._agent_runs = AgentRunService(agent_runner or _unconfigured_agent_runner)
+        self._dispatcher = RPCDispatcher(
+            self,
+            handlers={
+                "agent": self._agent_runs.agent,
+                "agent.wait": self._agent_runs.wait,
+                "agent.abort": self._agent_runs.abort,
+            },
+        )
+        # Register host gateway handlers for managed worktrees
+        try:
+            from .worktrees import make_worktrees_handlers
+
+            for name, handler in make_worktrees_handlers().items():
+                self._dispatcher.register(name, handler)
+        except Exception:
+            # Defensive: if worktrees wiring fails, gateway still starts.
+            _log.exception("gateway: failed to register worktrees handlers")
+        # Register sessions handlers (supports sessions.create with worktree option)
+        try:
+            from .sessions_handlers import make_sessions_handlers
+
+            for name, handler in make_sessions_handlers().items():
+                self._dispatcher.register(name, handler)
+        except Exception:
+            _log.exception("gateway: failed to register sessions handlers")
 
     @property
     def token(self) -> str:
@@ -115,12 +140,12 @@ class Gateway:
         return self._token_path.read_text(encoding="utf-8").strip()
 
     def add_route(self, route: HttpRoute) -> None:
-        """Register a route. Last-registered wins for prefix matches."""
+        """Register an HTTP route."""
         with self._lock:
             self._routes.append(route)
 
     def add_raw(self, raw: dict[str, Any]) -> None:
-        """Add a route from a raw plugin dict (mirrors OpenClaw)."""
+        """Add a route from a raw plugin dict."""
         if "path" not in raw or "handler" not in raw:
             raise ValueError(f"http route missing path/handler: {raw!r}")
         route = HttpRoute(
@@ -132,6 +157,41 @@ class Gateway:
         )
         self.add_route(route)
 
+    def add_gateway_method(self, method: str, handler: Any) -> None:
+        """Register a gateway RPC method from a plugin or host integration."""
+        if not method or not isinstance(method, str):
+            raise ValueError("gateway method name must be a non-empty string")
+        if not callable(handler):
+            raise TypeError(
+                f"gateway method handler must be callable; got {type(handler).__name__}"
+            )
+
+        def _handler(params: dict[str, Any]) -> Any:
+            response: dict[str, Any] = {
+                "called": False,
+                "ok": False,
+                "payload": None,
+                "error": None,
+            }
+
+            def respond(ok: bool, payload: Any = None, error: Any = None) -> None:
+                if response["called"]:
+                    raise RuntimeError("respond() may only be called once")
+                response["called"] = True
+                response["ok"] = ok
+                response["payload"] = payload
+                response["error"] = error
+
+            result = handler({"params": params, "respond": respond})
+            if response["called"]:
+                if response["ok"]:
+                    return response["payload"]
+                raise RuntimeError(response["error"] or response["payload"])
+            return result
+
+        with self._lock:
+            self._dispatcher.register(method, _handler)
+
     def routes(self) -> list[HttpRoute]:
         with self._lock:
             return list(self._routes)
@@ -140,96 +200,191 @@ class Gateway:
         return self._server is not None
 
     def start(self, *, retry_eaddrinuse: bool = True) -> None:
-        """Start the gateway in a background thread.
-
-        Mirrors OpenClaw's ``listenGatewayHttpServer`` retry logic.
-        Raises ``GatewayLockError`` if the port is held by another
-        process and the retry window expires.
-        """
+        """Start the gateway in a background thread."""
         if self._thread is not None:
             return
+
+        self._loop = asyncio.new_event_loop()
+        self._thread = threading.Thread(
+            target=self._run_loop,
+            args=(retry_eaddrinuse,),
+            name="jarvis-gateway",
+            daemon=True,
+        )
+        self._thread.start()
+
+        # Wait until server is bound or thread dies
+        while not self.is_running() and self._thread.is_alive():
+            import time
+            time.sleep(0.01)
+
+        if not self.is_running():
+            raise GatewayLockError(f"failed to start gateway on {self.host}:{self.port}")
+
+    def _run_loop(self, retry_eaddrinuse: bool) -> None:
+        if self._loop is None:
+            return
+        asyncio.set_event_loop(self._loop)
+        try:
+            self._loop.run_until_complete(self._async_start(retry_eaddrinuse))
+            self._loop.run_forever()
+        except Exception as e:
+            _log.error("gateway: loop crashed: %s", e)
+
+    async def _async_start(self, retry_eaddrinuse: bool) -> None:
         max_retries = EADDRINUSE_MAX_RETRIES if retry_eaddrinuse else 0
         last_err: Exception | None = None
         for attempt in range(max_retries + 1):
             try:
-                self._server = _ThreadedGatewayServer(
-                    (self.host, self.port),
-                    _GatewayRequestHandler,
-                    gateway=self,
+                self._server = await websockets.serve(
+                    self._ws_handler,
+                    self.host,
+                    self.port,
+                    process_request=self._process_http_request
                 )
                 break
             except OSError as e:
                 last_err = e
                 if e.errno == errno.EADDRINUSE and attempt < max_retries:
-                    _log.info(
-                        "gateway: port %d in use, retry %d/%d",
-                        self.port,
-                        attempt + 1,
-                        max_retries,
-                    )
-                    time.sleep(EADDRINUSE_RETRY_INTERVAL_MS / 1000.0)
+                    _log.info("gateway: port %d in use, retry %d/%d", self.port, attempt + 1, max_retries)
+                    await asyncio.sleep(EADDRINUSE_RETRY_INTERVAL_MS / 1000.0)
                     continue
                 if e.errno == errno.EADDRINUSE:
-                    raise GatewayLockError(
-                        f"another gateway instance is already listening on "
-                        f"http://{self.host}:{self.port}",
-                        e,
-                    ) from e
-                raise GatewayLockError(
-                    f"failed to bind gateway socket on " f"http://{self.host}:{self.port}: {e}",
-                    e,
-                ) from e
+                    raise GatewayLockError(f"another gateway instance is already listening on ws://{self.host}:{self.port}", e) from e
+                raise GatewayLockError(f"failed to bind gateway socket on ws://{self.host}:{self.port}: {e}", e) from e
+
         if self._server is None:
-            # Exhausted retries without raising — should not happen.
             raise GatewayLockError(f"could not bind gateway on {self.host}:{self.port}: {last_err}")
-        self._thread = threading.Thread(
-            target=self._server.serve_forever,
-            name="jarvis-gateway",
-            daemon=True,
-        )
-        self._thread.start()
-        _log.info("gateway: listening on http://%s:%d", self.host, self.port)
+
+        # The websockets Server does not reliably expose a mutable
+        # ``server_address`` attribute across Python/websockets variants.
+        # Keep a stable bound-address snapshot on a thin proxy so both the
+        # runtime and tests can inspect the actual socket without relying on
+        # server-internal mutability.
+        bound: tuple[str, int] | tuple[str, int, int, int] = (self.host, self.port)
+        try:
+            sockets = cast(list[Any], getattr(self._server, "sockets", None) or [])
+            if sockets:
+                socket = cast(Any, sockets[0])
+                getsockname = getattr(socket, "getsockname", None)
+                if callable(getsockname):
+                    result = getsockname()
+                    if isinstance(result, tuple):
+                        result_tuple = cast(tuple[Any, ...], result)
+                        if len(result_tuple) in (2, 4) and isinstance(result_tuple[0], str) and isinstance(result_tuple[1], int):
+                            bound = cast(tuple[str, int] | tuple[str, int, int, int], result_tuple)
+        except Exception:
+            bound = (self.host, self.port)
+        self._server = _ServerAddressProxy(self._server, bound)
+
+        _log.info("gateway: listening on ws://%s:%d", self.host, self.port)
 
     def stop(self) -> None:
         """Stop the gateway cleanly."""
-        if self._server is not None:
-            self._server.shutdown()
-            self._server.server_close()
+        if self._server is not None and self._loop is not None:
+            self._server.close()
+            # Wait for it to close
+            future = asyncio.run_coroutine_threadsafe(self._server.wait_closed(), self._loop)
+            try:
+                future.result(timeout=2.0)
+            except Exception:
+                pass
+
+            self._loop.call_soon_threadsafe(self._loop.stop)
             self._server = None
+
         if self._thread is not None:
             self._thread.join(timeout=2.0)
             self._thread = None
+
+        self._loop = None
         _log.info("gateway: stopped")
+
+    async def _ws_handler(self, ws: Any) -> None:
+        """Handle an incoming WebSocket connection."""
+        conn = GatewayWSConnection(ws)
+        _log.debug("gateway: ws %s connected", conn.conn_id)
+
+        try:
+            # 1. Mandatory Handshake
+            try:
+                first_msg = await ws.recv()
+            except websockets.exceptions.ConnectionClosed:
+                return
+
+            if not await conn.handle_handshake(str(first_msg), self.token):
+                return
+
+            # 2. Main Event Loop
+            async for raw_message in ws:
+                await conn.handle_message(str(raw_message), self._dispatcher.dispatch)
+        except Exception as e:
+            _log.warning("gateway: ws %s error: %s", conn.conn_id, e)
+        finally:
+            conn.on_close()
+            _log.debug("gateway: ws %s disconnected", conn.conn_id)
+
+    def _process_http_request(self, connection: Any, request: Any) -> Any:
+        """Intercept plain HTTP requests before WS upgrade."""
+        # For websockets 12+, request is websockets.http11.Request
+        # Check for WS upgrade
+        headers = request.headers
+        if headers.get("Upgrade", "").lower() == "websocket":
+            return None # Proceed with WS upgrade
+
+        # Extract basic info
+        method = getattr(request, "method", "GET")
+        path = getattr(request, "path", "/")
+
+        # Websockets doesn't give us the HTTP body for POSTs easily in process_request,
+        # but for simple JARVIS HTTP routes this is an acceptable fallback.
+        body = b""
+
+        # Convert headers to dict for our handle_request
+        header_dict = dict(headers.items()) if hasattr(headers, "items") else {}
+
+        status, response_payload = self.handle_request(method, path, body, header_dict)
+
+        # Format response
+        resp_headers: list[tuple[str, str]] = []
+
+        if isinstance(response_payload, str):
+            resp_body = response_payload.encode("utf-8")
+            resp_headers.append(("Content-Type", "text/plain; charset=utf-8"))
+        else:
+            resp_body = json.dumps(response_payload).encode("utf-8")
+            resp_headers.append(("Content-Type", "application/json"))
+
+        resp_headers.append(("Content-Length", str(len(resp_body))))
+
+        # We must return an http11.Response object
+        try:
+            from websockets.datastructures import Headers
+            from websockets.http11 import Response
+            return Response(status, "OK", Headers(resp_headers), resp_body)
+        except ImportError:
+            # fallback for older websockets versions
+            return (status, resp_headers, resp_body)
 
     def handle_request(
         self, method: str, path: str, body: bytes, headers: dict[str, str]
     ) -> tuple[int, dict[str, Any] | str]:
-        """Route a single request through the registered plugins.
-
-        Returns ``(status, payload)``. Used by tests and by the
-        gateway's request handler. Plugin routes are tried in
-        registration order (last-registered wins for prefix matches).
-        """
-        # HTTP headers are case-insensitive (RFC 7230 §3.2). We
-        # normalize the lookup table once per request so plugins
-        # can also do case-insensitive header lookups by convention.
+        """Route a single HTTP request through the registered plugins."""
         norm_headers = {k.lower(): v for k, v in headers.items()}
 
-        # Built-in: /health
         if path == "/health":
             return 200, {"status": "ok"}
 
-        # Auth check
         auth_header = norm_headers.get("authorization", "")
         if not auth_header.startswith("Bearer "):
             return 401, {"error": "missing bearer token"}
         if not secrets.compare_digest(auth_header[len("Bearer ") :].strip(), self.token):
             return 403, {"error": "invalid token"}
 
-        # Plugin routes
         route = self._match_route(method, path)
         if route is None:
             return 404, {"error": "no route", "path": path}
+
         try:
             raw_payload: Any = route.handler(method, path, body, headers)
             if not isinstance(raw_payload, dict | list | str):
@@ -242,14 +397,8 @@ class Gateway:
             return 500, {"error": str(e)}
 
     def _match_route(self, method: str, path: str) -> HttpRoute | None:
-        """Find the best-matching route for ``(method, path)``.
-
-        Mirrors OpenClaw's match="exact" / match="prefix" resolution.
-        Exact matches win; prefix matches are tried in registration
-        order (last-registered wins, as in OpenClaw).
-        """
         parsed = urlparse(path)
-        path_only = parsed.path  # strip query string
+        path_only = parsed.path
         for r in reversed(self.routes()):
             if r.match == "exact" and r.path == path_only:
                 return r
@@ -259,83 +408,6 @@ class Gateway:
         return None
 
 
-# ── Internal: stdlib HTTP handler ───────────────────────────────
-
-
-class _ThreadedGatewayServer(ThreadingHTTPServer):
-    """A ThreadingHTTPServer that holds a reference to the Gateway.
-
-    We can't subclass cleanly without overriding the constructor,
-    so we attach the gateway as an attribute after construction.
-    """
-
-    gateway: Gateway  # type: ignore[assignment]
-
-    def __init__(self, addr: tuple[str, int], handler: type, *, gateway: Gateway) -> None:
-        super().__init__(addr, handler, bind_and_activate=False)
-        self.gateway = gateway
-        # Bind manually so we can retry on EADDRINUSE at the right layer.
-        # (The retry happens in Gateway.start; here we just bind.)
-        self.server_bind()
-        self.server_activate()
-
-
-class _GatewayRequestHandler(BaseHTTPRequestHandler):
-    """One HTTP request → one call to ``Gateway.handle_request``."""
-
-    # Quieter BaseHTTPRequestHandler — no per-request log line.
-    def log_message(self, format: str, *args: Any) -> None:
-        return
-
-    def _read_body(self) -> bytes:
-        length = int(self.headers.get("content-length", "0") or "0")
-        if length <= 0:
-            return b""
-        return self.rfile.read(length)
-
-    def _respond(self, status: int, payload: dict[str, Any] | str) -> None:
-        body: bytes
-        if isinstance(payload, str):
-            body = payload.encode("utf-8")
-            ctype = "text/plain; charset=utf-8"
-        else:
-            body = json.dumps(payload).encode("utf-8")
-            ctype = "application/json"
-        self.send_response(status)
-        self.send_header("Content-Type", ctype)
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
-
-    def _handle(self, method: str) -> None:
-        # server is bound on the gateway attr by _ThreadedGatewayServer.
-        gw: Gateway = cast("Gateway", self.server.gateway)  # type: ignore[attr-defined]
-        body = self._read_body()
-        try:
-            status_int: int
-            response_payload: dict[str, Any] | str
-            status_int, response_payload = gw.handle_request(
-                method, self.path, body, dict(self.headers.items())
-            )
-        except Exception as e:
-            _log.warning("gateway: handler crashed: %s", e)
-            self._respond(500, {"error": str(e)})
-            return
-        self._respond(status_int, response_payload)
-
-    def do_GET(self) -> None:  # noqa: N802
-        self._handle("GET")
-
-    def do_POST(self) -> None:  # noqa: N802
-        self._handle("POST")
-
-    def do_PUT(self) -> None:  # noqa: N802
-        self._handle("PUT")
-
-    def do_DELETE(self) -> None:  # noqa: N802
-        self._handle("DELETE")
-
-
 __all__ = [
     "DEFAULT_HOST",
     "DEFAULT_PORT",
@@ -343,3 +415,12 @@ __all__ = [
     "GatewayLockError",
     "HttpRoute",
 ]
+
+
+def _unconfigured_agent_runner(
+    params: dict[str, Any],
+    abort: threading.Event,
+    emit: Callable[[dict[str, Any]], None],
+) -> dict[str, Any]:
+    """Fail clearly until a host supplies its embedded runner."""
+    raise RuntimeError("embedded agent runner is not configured")

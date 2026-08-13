@@ -13,7 +13,7 @@ Phase 7.6h-4 — focused minimal port.
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 
 _log = logging.getLogger("agents.embedded_cli_dispatch")
@@ -40,10 +40,13 @@ def set_resolve_embedded_cli_backend_dispatch_hook(fn) -> None:
 # ---------------------------------------------------------------------------
 
 
+ResolveEligibility = Callable[[Dict[str, Any]], Optional[Dict[str, Any]]]
+
+
 def resolve_embedded_cli_backend_dispatch(
     params: Dict[str, Any],
     *,
-    resolve_eligibility: Optional[callable] = None,
+    resolve_eligibility: Optional[ResolveEligibility] = None,
 ) -> Optional[Dict[str, Any]]:
     """Apply the opt-in and transcript-path gates on top of shared eligibility.
 

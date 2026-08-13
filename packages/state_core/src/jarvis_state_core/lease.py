@@ -46,7 +46,7 @@ import sqlite3
 import threading
 import time
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable, Literal, Optional, TypedDict, Union
 
 from .contract import SQLITE_BUSY_TIMEOUT_MS

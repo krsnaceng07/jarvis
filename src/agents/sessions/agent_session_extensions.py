@@ -250,6 +250,68 @@ class AgentSessionExtensions(AgentSessionExecution):
                 "includeAllExtensionTools", False
             ),
         )
+        self._refresh_system_prompt()
+
+    # ------------------------------------------------------------------
+    # System prompt builder
+    # ------------------------------------------------------------------
+
+    def _refresh_system_prompt(self) -> None:
+        """Rebuild the system prompt from the current options + tools + context.
+        Mirrors OpenClaw's refreshSystemPrompt logic."""
+        from .system_prompt import build_system_prompt
+
+        from dataclasses import asdict
+
+        opts = asdict(self.base_system_prompt_options)
+
+        # Tools: use active tools.
+        opts["selectedTools"] = self.get_active_tool_names()
+        opts["toolSnippets"] = self.tool_prompt_snippets
+        opts["promptGuidelines"] = self.tool_prompt_guidelines
+
+        # Resource loader parts
+        if opts.get("include_project_context", True):
+            agents_files_result = self.session_resource_loader.get_agents_files()
+            if isinstance(agents_files_result, dict):
+                agents_files = agents_files_result.get("agentsFiles", [])
+                opts["contextFiles"] = [
+                    {"path": f.path, "content": f.content} if hasattr(f, "path") else f
+                    for f in agents_files
+                ]
+            else:
+                opts["contextFiles"] = []
+
+        if opts.get("has_append_system_prompt", False):
+            opts["appendSystemPrompt"] = "\n\n".join(self.session_resource_loader.get_append_system_prompt())
+
+        if opts.get("include_skills", True):
+            skills_result = self.session_resource_loader.get_skills()
+            if isinstance(skills_result, dict):
+                opts["skills"] = skills_result.get("skills", [])
+            else:
+                opts["skills"] = []
+
+        opts["customPrompt"] = self.exact_base_system_prompt
+
+        # Check if it's the first turn by looking at the agent's message history.
+        state = self.agent.state
+        if isinstance(state, dict):
+            messages = state.get("messages", [])
+        else:
+            messages = getattr(state, "messages", [])
+
+        # Consider it the first turn if there are no messages or just one pending user message.
+        opts["isFirstTurn"] = len(messages) <= 1
+
+        self.base_system_prompt = build_system_prompt(opts)
+
+        # If no override, apply to current agent state
+        if not self.system_prompt_override:
+            if isinstance(state, dict):
+                state["systemPrompt"] = self.base_system_prompt
+            else:
+                setattr(state, "systemPrompt", self.base_system_prompt)
 
     # ------------------------------------------------------------------
     # Tool registry (mirrors agent-session-base + extensions.ts)

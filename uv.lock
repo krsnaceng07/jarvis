@@ -27,14 +27,15 @@ members = [
     "jarvis-byteplus",
     "jarvis-canvas",
     "jarvis-cerebras",
+    "jarvis-channels-core",
     "jarvis-chutes",
     "jarvis-clawrouter",
     "jarvis-cli",
-    "jarvis-clickclack",
     "jarvis-cloudflare-ai-gateway",
     "jarvis-codex",
     "jarvis-cohere",
     "jarvis-comfy",
+    "jarvis-config-core",
     "jarvis-copilot",
     "jarvis-copilot-proxy",
     "jarvis-crabbox",
@@ -60,22 +61,22 @@ members = [
     "jarvis-file-transfer",
     "jarvis-firecrawl",
     "jarvis-fireworks",
+    "jarvis-gateway-protocol",
     "jarvis-github-copilot",
     "jarvis-github-copilot-2",
     "jarvis-gmi",
     "jarvis-google",
     "jarvis-google-meet",
-    "jarvis-googlechat",
     "jarvis-gradium",
     "jarvis-groq",
+    "jarvis-hooks-core",
     "jarvis-huggingface",
+    "jarvis-i18n-core",
     "jarvis-image-generation-core",
     "jarvis-imessage",
     "jarvis-inworld",
-    "jarvis-irc",
     "jarvis-kilocode",
     "jarvis-kimi-coding",
-    "jarvis-line",
     "jarvis-linux-canvas",
     "jarvis-linux-node",
     "jarvis-litellm",
@@ -87,7 +88,6 @@ members = [
     "jarvis-logbook",
     "jarvis-longcat",
     "jarvis-matrix",
-    "jarvis-mattermost",
     "jarvis-media-understanding-core",
     "jarvis-memory-core",
     "jarvis-memory-host-sdk",
@@ -103,9 +103,7 @@ members = [
     "jarvis-moonshot",
     "jarvis-msteams",
     "jarvis-mxc",
-    "jarvis-nextcloud-talk",
     "jarvis-normalization-core",
-    "jarvis-nostr",
     "jarvis-novita",
     "jarvis-nvidia",
     "jarvis-oc-path",
@@ -126,10 +124,7 @@ members = [
     "jarvis-qa-channel",
     "jarvis-qa-lab",
     "jarvis-qianfan",
-    "jarvis-qqbot",
     "jarvis-qwen",
-    "jarvis-raft",
-    "jarvis-reef",
     "jarvis-retry",
     "jarvis-runway",
     "jarvis-searxng",
@@ -140,7 +135,6 @@ members = [
     "jarvis-sms",
     "jarvis-state-core",
     "jarvis-stepfun",
-    "jarvis-synology-chat",
     "jarvis-synthetic",
     "jarvis-talk-voice",
     "jarvis-tavily",
@@ -148,12 +142,10 @@ members = [
     "jarvis-telegram",
     "jarvis-tencent",
     "jarvis-thread-ownership",
-    "jarvis-tlon",
     "jarvis-together",
     "jarvis-tokenjuice",
     "jarvis-tts-local-cli",
     "jarvis-tui",
-    "jarvis-twitch",
     "jarvis-vault",
     "jarvis-venice",
     "jarvis-vercel-ai-gateway",
@@ -170,8 +162,6 @@ members = [
     "jarvis-xai",
     "jarvis-xiaomi",
     "jarvis-zai",
-    "jarvis-zalo",
-    "jarvis-zalouser",
     "jarvis-zoom-meetings",
 ]
 
@@ -943,6 +933,10 @@ wheels = [
 name = "jarvis"
 version = "0.1.0rc1"
 source = { virtual = "." }
+dependencies = [
+    { name = "tzdata" },
+    { name = "websockets" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -957,6 +951,10 @@ dev = [
 ]
 
 [package.metadata]
+requires-dist = [
+    { name = "tzdata", specifier = ">=2026.3" },
+    { name = "websockets", specifier = ">=16.1.1" },
+]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1207,6 +1205,17 @@ requires-dist = [
 ]
 
 [[package]]
+name = "jarvis-channels-core"
+version = "0.1.0"
+source = { editable = "packages/channels_core" }
+dependencies = [
+    { name = "jarvis-plugin-sdk" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" }]
+
+[[package]]
 name = "jarvis-chutes"
 version = "0.1.0"
 source = { virtual = "extensions/chutes" }
@@ -1246,21 +1255,6 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" }]
-
-[[package]]
-name = "jarvis-clickclack"
-version = "0.1.0"
-source = { virtual = "extensions/clickclack" }
-dependencies = [
-    { name = "httpx" },
-    { name = "jarvis-plugin-sdk" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "httpx", specifier = ">=0.27.0" },
-    { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
-]
 
 [[package]]
 name = "jarvis-cloudflare-ai-gateway"
@@ -1321,6 +1315,11 @@ requires-dist = [
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
 ]
+
+[[package]]
+name = "jarvis-config-core"
+version = "0.1.0"
+source = { editable = "packages/config_core" }
 
 [[package]]
 name = "jarvis-copilot"
@@ -1695,6 +1694,11 @@ requires-dist = [
 ]
 
 [[package]]
+name = "jarvis-gateway-protocol"
+version = "0.1.0"
+source = { editable = "packages/gateway_protocol" }
+
+[[package]]
 name = "jarvis-github-copilot"
 version = "0.1.0"
 source = { virtual = "extensions/github-copilot" }
@@ -1766,21 +1770,6 @@ dependencies = [
 requires-dist = [{ name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" }]
 
 [[package]]
-name = "jarvis-googlechat"
-version = "0.1.0"
-source = { virtual = "extensions/googlechat" }
-dependencies = [
-    { name = "httpx" },
-    { name = "jarvis-plugin-sdk" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "httpx", specifier = ">=0.27.0" },
-    { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
-]
-
-[[package]]
 name = "jarvis-gradium"
 version = "0.1.0"
 source = { virtual = "extensions/gradium" }
@@ -1807,6 +1796,17 @@ requires-dist = [
 ]
 
 [[package]]
+name = "jarvis-hooks-core"
+version = "0.1.0"
+source = { editable = "packages/hooks_core" }
+dependencies = [
+    { name = "jarvis-plugin-sdk" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" }]
+
+[[package]]
 name = "jarvis-huggingface"
 version = "0.1.0"
 source = { virtual = "extensions/huggingface" }
@@ -1822,6 +1822,11 @@ requires-dist = [
 ]
 
 [[package]]
+name = "jarvis-i18n-core"
+version = "0.1.0"
+source = { editable = "packages/i18n_core" }
+
+[[package]]
 name = "jarvis-image-generation-core"
 version = "0.1.0"
 source = { virtual = "extensions/image-generation-core" }
@@ -1835,17 +1840,7 @@ requires-dist = [{ name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" 
 [[package]]
 name = "jarvis-imessage"
 version = "0.1.0"
-source = { virtual = "extensions/imessage" }
-dependencies = [
-    { name = "httpx" },
-    { name = "jarvis-plugin-sdk" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "httpx", specifier = ">=0.27.0" },
-    { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
-]
+source = { editable = "extensions/imessage" }
 
 [[package]]
 name = "jarvis-inworld"
@@ -1857,21 +1852,6 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" }]
-
-[[package]]
-name = "jarvis-irc"
-version = "0.1.0"
-source = { virtual = "extensions/irc" }
-dependencies = [
-    { name = "httpx" },
-    { name = "jarvis-plugin-sdk" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "httpx", specifier = ">=0.27.0" },
-    { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
-]
 
 [[package]]
 name = "jarvis-kilocode"
@@ -1892,21 +1872,6 @@ requires-dist = [
 name = "jarvis-kimi-coding"
 version = "0.1.0"
 source = { virtual = "extensions/kimi-coding" }
-dependencies = [
-    { name = "httpx" },
-    { name = "jarvis-plugin-sdk" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "httpx", specifier = ">=0.27.0" },
-    { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
-]
-
-[[package]]
-name = "jarvis-line"
-version = "0.1.0"
-source = { virtual = "extensions/line" }
 dependencies = [
     { name = "httpx" },
     { name = "jarvis-plugin-sdk" },
@@ -2054,21 +2019,6 @@ requires-dist = [
 name = "jarvis-matrix"
 version = "0.1.0"
 source = { virtual = "extensions/matrix" }
-dependencies = [
-    { name = "httpx" },
-    { name = "jarvis-plugin-sdk" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "httpx", specifier = ">=0.27.0" },
-    { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
-]
-
-[[package]]
-name = "jarvis-mattermost"
-version = "0.1.0"
-source = { virtual = "extensions/mattermost" }
 dependencies = [
     { name = "httpx" },
     { name = "jarvis-plugin-sdk" },
@@ -2274,21 +2224,6 @@ dependencies = [
 requires-dist = [{ name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" }]
 
 [[package]]
-name = "jarvis-nextcloud-talk"
-version = "0.1.0"
-source = { virtual = "extensions/nextcloud-talk" }
-dependencies = [
-    { name = "httpx" },
-    { name = "jarvis-plugin-sdk" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "httpx", specifier = ">=0.27.0" },
-    { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
-]
-
-[[package]]
 name = "jarvis-normalization-core"
 version = "0.1.0rc1"
 source = { editable = "packages/normalization_core" }
@@ -2298,21 +2233,6 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" }]
-
-[[package]]
-name = "jarvis-nostr"
-version = "0.1.0"
-source = { virtual = "extensions/nostr" }
-dependencies = [
-    { name = "httpx" },
-    { name = "jarvis-plugin-sdk" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "httpx", specifier = ">=0.27.0" },
-    { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
-]
 
 [[package]]
 name = "jarvis-novita"
@@ -2569,54 +2489,9 @@ requires-dist = [
 ]
 
 [[package]]
-name = "jarvis-qqbot"
-version = "0.1.0"
-source = { virtual = "extensions/qqbot" }
-dependencies = [
-    { name = "httpx" },
-    { name = "jarvis-plugin-sdk" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "httpx", specifier = ">=0.27.0" },
-    { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
-]
-
-[[package]]
 name = "jarvis-qwen"
 version = "0.1.0"
 source = { virtual = "extensions/qwen" }
-dependencies = [
-    { name = "httpx" },
-    { name = "jarvis-plugin-sdk" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "httpx", specifier = ">=0.27.0" },
-    { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
-]
-
-[[package]]
-name = "jarvis-raft"
-version = "0.1.0"
-source = { virtual = "extensions/raft" }
-dependencies = [
-    { name = "httpx" },
-    { name = "jarvis-plugin-sdk" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "httpx", specifier = ">=0.27.0" },
-    { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
-]
-
-[[package]]
-name = "jarvis-reef"
-version = "0.1.0"
-source = { virtual = "extensions/reef" }
 dependencies = [
     { name = "httpx" },
     { name = "jarvis-plugin-sdk" },
@@ -2753,21 +2628,6 @@ requires-dist = [
 ]
 
 [[package]]
-name = "jarvis-synology-chat"
-version = "0.1.0"
-source = { virtual = "extensions/synology-chat" }
-dependencies = [
-    { name = "httpx" },
-    { name = "jarvis-plugin-sdk" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "httpx", specifier = ">=0.27.0" },
-    { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
-]
-
-[[package]]
 name = "jarvis-synthetic"
 version = "0.1.0"
 source = { virtual = "extensions/synthetic" }
@@ -2821,10 +2681,14 @@ version = "0.1.0"
 source = { virtual = "extensions/telegram" }
 dependencies = [
     { name = "httpx" },
+    { name = "pydantic" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "httpx", specifier = ">=0.27.0" }]
+requires-dist = [
+    { name = "httpx", specifier = ">=0.27.0" },
+    { name = "pydantic", specifier = ">=2.7.0" },
+]
 
 [[package]]
 name = "jarvis-tencent"
@@ -2851,21 +2715,6 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [{ name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" }]
-
-[[package]]
-name = "jarvis-tlon"
-version = "0.1.0"
-source = { virtual = "extensions/tlon" }
-dependencies = [
-    { name = "httpx" },
-    { name = "jarvis-plugin-sdk" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "httpx", specifier = ">=0.27.0" },
-    { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
-]
 
 [[package]]
 name = "jarvis-together"
@@ -2908,21 +2757,6 @@ requires-dist = [{ name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" 
 name = "jarvis-tui"
 version = "0.0.1"
 source = { virtual = "apps/tui" }
-
-[[package]]
-name = "jarvis-twitch"
-version = "0.1.0"
-source = { virtual = "extensions/twitch" }
-dependencies = [
-    { name = "httpx" },
-    { name = "jarvis-plugin-sdk" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "httpx", specifier = ">=0.27.0" },
-    { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
-]
 
 [[package]]
 name = "jarvis-vault"
@@ -3125,36 +2959,6 @@ requires-dist = [
 name = "jarvis-zai"
 version = "0.1.0"
 source = { virtual = "extensions/zai" }
-dependencies = [
-    { name = "httpx" },
-    { name = "jarvis-plugin-sdk" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "httpx", specifier = ">=0.27.0" },
-    { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
-]
-
-[[package]]
-name = "jarvis-zalo"
-version = "0.1.0"
-source = { virtual = "extensions/zalo" }
-dependencies = [
-    { name = "httpx" },
-    { name = "jarvis-plugin-sdk" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "httpx", specifier = ">=0.27.0" },
-    { name = "jarvis-plugin-sdk", editable = "packages/plugin_sdk" },
-]
-
-[[package]]
-name = "jarvis-zalouser"
-version = "0.1.0"
-source = { virtual = "extensions/zalouser" }
 dependencies = [
     { name = "httpx" },
     { name = "jarvis-plugin-sdk" },
@@ -4342,6 +4146,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/55/e3/70399cb7dd41c10ac53367ae42139cf4b1ca5f36bb3dc6c9d33acdb43655/typing_inspection-0.4.2.tar.gz", hash = "sha256:ba561c48a67c5958007083d386c3295464928b01faa735ab8547c5692e87f464", size = 75949, upload-time = "2025-10-01T02:14:41.687Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/dc/9b/47798a6c91d8bdb567fe2698fe81e0c6b7cb7ef4d13da4114b41d239f65d/typing_inspection-0.4.2-py3-none-any.whl", hash = "sha256:4ed1cacbdc298c220f1bd249ed5287caa16f34d44ef4e9c3d0cbad5b521545e7", size = 14611, upload-time = "2025-10-01T02:14:40.154Z" },
+]
+
+[[package]]
+name = "tzdata"
+version = "2026.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/92/ff/5a28bdfd8c3ebec42564ac7d0e54ca3db65044a9314a97f9564fa7a1e926/tzdata-2026.3.tar.gz", hash = "sha256:4a1518b8993086a7982523e071643f3c0e5f213e75b21318e78bcabfff9d1415", size = 198674, upload-time = "2026-07-10T08:50:37.887Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e5/6d/b53b99a9f2766d095985947a5782f1702cabb129a34f7a802d7197af832f/tzdata-2026.3-py2.py3-none-any.whl", hash = "sha256:dc096730c87af6cab1b171c9d532be840741ff5d459015e7f6947bd7d7e54931", size = 348168, upload-time = "2026-07-10T08:50:36.46Z" },
 ]
 
 [[package]]

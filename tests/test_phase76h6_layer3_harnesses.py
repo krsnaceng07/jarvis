@@ -33,6 +33,14 @@ from src.agents.embedded_agent_runner.run_overflow_compaction_harness import (  
     use_openai_platform_auth_fixture,
     warm_run_overflow_compaction_harness,
 )
+from src.agents.embedded_agent_runner.run.run_overflow_compaction_fixture import (  # noqa: E402
+    DEFAULT_OVERFLOW_ERROR_MESSAGE,
+    make_attempt_result,
+    make_compaction_success,
+    make_overflow_error,
+    mock_overflow_retry_success,
+    queue_overflow_attempt_with_oversized_tool_output,
+)
 
 
 # ============================================================================
@@ -189,3 +197,55 @@ class TestRunOverflowCompactionHarness:
         assert "warmRunOverflowCompactionHarness" in run_overflow_compaction_test_api
         assert "overflowBaseRunParams" in run_overflow_compaction_test_api
         assert run_overflow_compaction_test_api["overflowBaseRunParams"] is overflow_base_run_params
+
+
+class _MockResolvedValueOnce:
+    def __init__(self) -> None:
+        self.values: List[Any] = []
+
+    def mock_resolved_value_once(self, value: Any) -> None:
+        self.values.append(value)
+
+
+class TestRunOverflowCompactionFixture:
+    def test_make_overflow_error(self) -> None:
+        err = make_overflow_error("boom")
+        assert isinstance(err, Exception)
+        assert str(err) == "boom"
+
+    def test_make_compaction_success(self) -> None:
+        result = make_compaction_success(
+            {
+                "summary": "Compacted",
+                "tokensBefore": 100,
+                "tokensAfter": 50,
+            }
+        )
+        assert result["ok"] is True
+        assert result["compacted"] is True
+        assert result["result"]["summary"] == "Compacted"
+        assert result["result"]["tokensBefore"] == 100
+        assert result["result"]["tokensAfter"] == 50
+
+    def test_make_attempt_result(self) -> None:
+        attempt = make_attempt_result({"promptError": None})
+        assert attempt["aborted"] is False
+        assert attempt["promptError"] is None
+        assert attempt["replayMetadata"]["replaySafe"] is True
+        assert attempt["toolMetas"] == []
+
+    def test_mock_overflow_retry_success(self) -> None:
+        run_attempt = _MockResolvedValueOnce()
+        compact_direct = _MockResolvedValueOnce()
+        err = mock_overflow_retry_success(run_attempt, compact_direct)
+        assert isinstance(err, Exception)
+        assert len(run_attempt.values) == 2
+        assert len(compact_direct.values) == 1
+        assert compact_direct.values[0]["ok"] is True
+
+    def test_queue_overflow_attempt_with_oversized_tool_output(self) -> None:
+        run_attempt = _MockResolvedValueOnce()
+        err = queue_overflow_attempt_with_oversized_tool_output(run_attempt)
+        assert isinstance(err, Exception)
+        assert len(run_attempt.values) == 1
+        assert run_attempt.values[0]["messagesSnapshot"][0]["content"][0]["text"].startswith("x")

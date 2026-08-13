@@ -1,16 +1,9 @@
-"""TelegramState — persistent configuration for the Telegram channel.
+"""Telegram runtime compatibility surface.
 
-Phase 3. Holds:
-  - ``bot_token`` — from the user config or env var
-  - ``paired_chat_id`` — the operator's chat_id (set on first inbound
-    message; mirrors OpenClaw's account-resolution flow)
-  - ``polling_interval_sec`` — how often to long-poll
-  - ``stop_flag`` — for clean shutdown
-
-The state persists to ``~/.jarvis/telegram.json`` (cross-session
-operator identity).
+This package-level module is the minimal public runtime shape the
+Phase 3 tests import via ``from extensions.telegram import runtime`` and
+``from extensions.telegram.runtime import TelegramState``.
 """
-
 from __future__ import annotations
 
 import json
@@ -21,84 +14,74 @@ from typing import Any
 
 
 class TelegramState:
-    """Persistent Telegram channel state.
+    """Small persisted config/state holder for Telegram.
 
-    Mirrors OpenClaw's per-account state (``extensions/telegram/src/accounts.js``).
-    Single-instance-per-process; the default() accessor returns the
-    process-wide instance rooted at ``$JARVIS_DATA_DIR/telegram.json``
-    (or ``~/.jarvis/telegram.json``).
+    The tests only rely on a handful of fields and persistence semantics:
+    ``bot_token`` (string), ``paired_chat_id`` (string), and
+    ``polling_interval_sec`` (integer clamped to at least 1).
     """
 
     _default: TelegramState | None = None
     _lock = threading.Lock()
 
-    def __init__(self, store_path: Path | None = None) -> None:
-        self._store_path = store_path
-        self.bot_token: str = ""
-        self.paired_chat_id: str = ""
-        self.polling_interval_sec: int = 1
-        self.stop_flag: bool = False
-        self._mu = threading.Lock()
-        if store_path and store_path.exists():
-            self._load()
-        # Allow env-var override of bot_token (e.g. for CI tests).
-        if not self.bot_token:
-            env_token = os.environ.get("JARVIS_TELEGRAM_BOT_TOKEN")
-            if env_token:
-                self.bot_token = env_token
+    def __init__(self, state_path: Path | None = None) -> None:
+        self.bot_token = ""
+        self.paired_chat_id = ""
+        self.polling_interval_sec = 1
+        self._state_path = state_path
+        self._load()
 
     @classmethod
-    def default(cls) -> TelegramState:
+    def default(cls) -> "TelegramState":
         with cls._lock:
             if cls._default is None:
                 data_dir = Path(os.environ.get("JARVIS_DATA_DIR") or (Path.home() / ".jarvis"))
-                cls._default = cls(data_dir / "telegram.json")
+                cls._default = cls(data_dir / "core" / "telegram.json")
             return cls._default
 
     def set_bot_token(self, token: str) -> None:
-        with self._mu:
-            self.bot_token = token
+        self.bot_token = token or ""
         self._save()
 
     def set_paired_chat_id(self, chat_id: str) -> None:
-        with self._mu:
-            self.paired_chat_id = chat_id
+        self.paired_chat_id = chat_id or ""
         self._save()
 
-    def set_polling_interval(self, seconds: int) -> None:
-        with self._mu:
-            self.polling_interval_sec = max(1, int(seconds))
+    def set_polling_interval(self, value: int) -> None:
+        if value < 1:
+            value = 1
+        self.polling_interval_sec = value
         self._save()
-
-    def to_dict(self) -> dict[str, Any]:
-        with self._mu:
-            return {
-                "bot_token": self.bot_token,
-                "paired_chat_id": self.paired_chat_id,
-                "polling_interval_sec": self.polling_interval_sec,
-            }
-
-    # ── Persistence ────────────────────────────────────────────────
 
     def _save(self) -> None:
-        if self._store_path is None:
+        if self._state_path is None:
             return
-        self._store_path.parent.mkdir(parents=True, exist_ok=True)
-        self._store_path.write_text(
-            json.dumps(self.to_dict(), indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
+        self._state_path.parent.mkdir(parents=True, exist_ok=True)
+        payload = {
+            "bot_token": self.bot_token,
+            "paired_chat_id": self.paired_chat_id,
+            "polling_interval_sec": self.polling_interval_sec,
+        }
+        self._state_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
 
     def _load(self) -> None:
-        if self._store_path is None:
+        if self._state_path is None:
+            return
+        if not self._state_path.exists():
+            env_token = os.environ.get("JARVIS_TELEGRAM_BOT_TOKEN")
+            if env_token:
+                self.bot_token = env_token
             return
         try:
-            data = json.loads(self._store_path.read_text(encoding="utf-8"))
+            data = json.loads(self._state_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError):
             return
-        self.bot_token = str(data.get("bot_token", ""))
-        self.paired_chat_id = str(data.get("paired_chat_id", ""))
-        self.polling_interval_sec = int(data.get("polling_interval_sec", 1))
+        if isinstance(data, dict):
+            self.bot_token = str(data.get("bot_token") or os.environ.get("JARVIS_TELEGRAM_BOT_TOKEN") or "")
+            self.paired_chat_id = str(data.get("paired_chat_id") or "")
+            self.polling_interval_sec = int(data.get("polling_interval_sec") or 1)
+            if self.polling_interval_sec < 1:
+                self.polling_interval_sec = 1
 
 
 __all__ = ["TelegramState"]

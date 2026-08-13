@@ -24,10 +24,9 @@ Key port decisions:
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, TypeAlias
+from typing import Any, TypeAlias
 
-if TYPE_CHECKING:
-    from .plugin_registry_state import PluginRegistryState
+from .plugin_registry_state import PluginRegistryState
 
 
 # ── Per-domain registrar stubs ─────────────────────────────────────
@@ -181,7 +180,7 @@ def _create_memory_registrars(_state: PluginRegistryState) -> dict[str, Any]:
 # ── Composition (mirrors OpenClaw's ``createPluginRegistrars``) ─────
 
 
-def create_plugin_registrars(state: PluginRegistryState) -> dict[str, Any]:
+def create_plugin_registrars(state: PluginRegistryState) -> PluginRegistrars:
     """Compose domain registrars over one mutable state.
 
     Mirrors OpenClaw's ``createPluginRegistrars``. The

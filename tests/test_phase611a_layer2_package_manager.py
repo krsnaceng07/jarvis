@@ -493,6 +493,22 @@ class TestDefaultPackageManagerAutoDiscovery:
         paths = [r.path for r in result.skills]
         assert any("SKILL.md" in p for p in paths)
 
+    def test_auto_prompts_in_project_alias_dir(self, tmp_path: Path) -> None:
+        sm = _make_settings_manager(tmp_path)
+        project_dir = tmp_path / ".openclaw"
+        prompts_dir = project_dir / "prompts"
+        prompts_dir.mkdir(parents=True)
+        prompt = prompts_dir / "alias.md"
+        prompt.write_text("Alias prompt\n")
+        pm = DefaultPackageManager(
+            cwd=str(tmp_path),
+            agent_dir=str(tmp_path / "agent"),
+            settings_manager=sm,
+        )
+        result = asyncio.run(pm.resolve())
+        paths = [r.path for r in result.prompts]
+        assert str(prompt) in paths
+
     def test_auto_prompts_in_project(self, tmp_path: Path) -> None:
         sm = _make_settings_manager(tmp_path)
         # Create a .md file in the project

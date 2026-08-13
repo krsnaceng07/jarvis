@@ -9,7 +9,8 @@
     "streetsidesoftware.code-spell-checker",
     "eamodio.gitlens",
     "github.vscode-pull-request-github",
-    "yzhang.markdown-all-in-one"
+    "yzhang.markdown-all-in-one",
+    "kickbacksai.kickbacks-ai"
   ],
   "unwantedRecommendations": [
     "ms-python.black-formatter",

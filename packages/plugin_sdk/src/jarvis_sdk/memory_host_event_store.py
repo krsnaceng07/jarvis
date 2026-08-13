@@ -61,6 +61,15 @@ import threading
 from numbers import Real
 from typing import Any, Literal, TypedDict, cast
 
+from .memory_host_event_types import (
+    MemoryHostDreamCompletedEvent,
+    MemoryHostEventRecord,
+    MemoryHostPromotionCandidate,
+    MemoryHostRecallRecordedEvent,
+    MemoryHostRecallSkippedEvent,
+    MemoryHostRecallResult,
+)
+
 # ── Constants (mirrors OpenClaw) ─────────────────────────────────────
 
 MEMORY_HOST_EVENTS_PLUGIN_ID = "memory-core"
@@ -81,16 +90,16 @@ WORKSPACE_HASH_BYTES = 24
 # ── Types ─────────────────────────────────────────────────────────────
 
 
-class StoredMemoryHostEvent(TypedDict, total=False):
+class StoredMemoryHostEvent(TypedDict):
     """A single event stored in the journal."""
 
     kind: Literal["event"]
-    event: dict  # MemoryHostEventRecord-shaped payload
+    event: MemoryHostEventRecord
     recordedAt: int
     sequence: int
 
 
-class PersistedMemoryHostEvent(TypedDict, total=False):
+class PersistedMemoryHostEvent(TypedDict):
     """A single entry returned by ``list_stored_memory_host_events``."""
 
     key: str
@@ -138,19 +147,10 @@ def _normalize_memory_host_workspace_key(workspace_dir: str) -> str:
     otherwise path-resolves + replaces backslashes. On Windows the
     result is lowercased so case-aliases share one namespace.
     """
-    try:
-        from .workspace_state_store import resolve_workspace_state_identity
-    except ImportError:  # pyright: ignore[reportMissingImports]
-        resolve_workspace_state_identity = None  # type: ignore[assignment]
-
-    if resolve_workspace_state_identity is not None:
-        try:
-            identity = resolve_workspace_state_identity(workspace_dir)
-            resolved = identity.workspacePath.replace("\\", "/")
-        except Exception:  # noqa: BLE001
-            resolved = os.path.normpath(workspace_dir).replace("\\", "/")
-    else:
-        resolved = os.path.normpath(workspace_dir).replace("\\", "/")
+    # The OpenClaw source can optionally resolve a workspace identity helper
+    # when available. In this SDK port we currently do not ship that helper,
+    # so fall back to path normalization only.
+    resolved = os.path.normpath(workspace_dir).replace("\\", "/")
     return resolved.lower() if sys.platform == "win32" else resolved
 
 
@@ -241,7 +241,7 @@ def _truncate_utf8(
 
 def normalize_memory_host_event_record_for_storage(
     value: Any,
-) -> dict | None:
+) -> MemoryHostEventRecord | None:
     """Validate + bound one event before storing in plugin state.
 
     Mirrors OpenClaw's ``normalizeMemoryHostEventRecordForStorage``.
@@ -281,7 +281,7 @@ def normalize_memory_host_event_record_for_storage(
         )
         truncated = truncated or query_truncated or len(value["results"]) > MAX_MEMORY_HOST_EVENT_ITEMS
 
-        normalized_results: list[dict] = []
+        normalized_results: list[MemoryHostRecallResult] = []
         for result in list(value["results"])[:MAX_MEMORY_HOST_EVENT_ITEMS]:
             if not _is_record(result):
                 return None
@@ -301,7 +301,7 @@ def normalize_memory_host_event_record_for_storage(
                 result["path"], MAX_MEMORY_HOST_EVENT_PATH_BYTES
             )
             truncated = truncated or path_truncated
-            entry: dict = {
+            entry: MemoryHostRecallResult = {
                 "path": path_value,
                 "startLine": result["startLine"],
                 "endLine": result["endLine"],
@@ -312,23 +312,24 @@ def normalize_memory_host_event_record_for_storage(
             normalized_results.append(entry)
 
         if event_type == "memory.recall.recorded":
-            normalized: dict = {
+            normalized_recorded: MemoryHostRecallRecordedEvent = {
                 "type": "memory.recall.recorded",
                 "timestamp": ts_value,
                 "query": query_value,
                 "resultCount": value["resultCount"],
                 "results": [
                     {
-                        "path": r["path"],
-                        "startLine": r["startLine"],
-                        "endLine": r["endLine"],
-                        "score": r["score"],
+                        "path": cast(str, r.get("path")),
+                        "startLine": cast(int, r.get("startLine")),
+                        "endLine": cast(int, r.get("endLine")),
+                        "score": cast(float, r.get("score")),
                     }
                     for r in normalized_results
                 ],
             }
+            normalized_event: MemoryHostEventRecord = normalized_recorded
         else:
-            normalized = {
+            normalized_skipped: MemoryHostRecallSkippedEvent = {
                 "type": "memory.recall.skipped",
                 "timestamp": ts_value,
                 "query": query_value,
@@ -337,23 +338,27 @@ def normalize_memory_host_event_record_for_storage(
                 "skippedResultCount": value["skippedResultCount"],
                 "results": [
                     {
-                        "path": r["path"],
-                        "startLine": r["startLine"],
-                        "endLine": r["endLine"],
-                        "score": r["score"],
+                        "path": cast(str, r.get("path")),
+                        "startLine": cast(int, r.get("startLine")),
+                        "endLine": cast(int, r.get("endLine")),
+                        "score": cast(float, r.get("score")),
                         "reason": "non-short-term-memory-path",
                     }
                     for r in normalized_results
                 ],
             }
+            normalized_event = normalized_skipped
         if truncated:
-            normalized["storageTruncated"] = True
-        encoded = json.dumps(normalized, ensure_ascii=False).encode("utf-8")
+            normalized_event["storageTruncated"] = True
+        encoded = json.dumps(normalized_event, ensure_ascii=False).encode("utf-8")
         if len(encoded) <= MAX_MEMORY_HOST_EVENT_JSON_BYTES:
-            return normalized
+            return cast(MemoryHostEventRecord, normalized_event)
         # Bound the JSON size: drop the per-result arrays but keep
         # the aggregate counts. Mirrors OpenClaw's behavior.
-        return {**normalized, "results": [], "storageTruncated": True}
+        return cast(
+            MemoryHostEventRecord,
+            {**normalized_event, "results": [], "storageTruncated": True},
+        )
 
     # ── memory.promotion.applied ─────────────────────────────────
     if event_type == "memory.promotion.applied":
@@ -371,7 +376,7 @@ def normalize_memory_host_event_record_for_storage(
             or memory_path_truncated
             or len(value["candidates"]) > MAX_MEMORY_HOST_EVENT_ITEMS
         )
-        candidates: list[dict] = []
+        candidates: list[MemoryHostPromotionCandidate] = []
         for cand in list(value["candidates"])[:MAX_MEMORY_HOST_EVENT_ITEMS]:
             if not _is_record(cand):
                 return None
@@ -401,7 +406,7 @@ def normalize_memory_host_event_record_for_storage(
                     "recallCount": cand["recallCount"],
                 }
             )
-        normalized = {
+        normalized_promotion: MemoryHostEventRecord = {
             "type": "memory.promotion.applied",
             "timestamp": ts_value,
             "memoryPath": memory_path_value,
@@ -409,11 +414,14 @@ def normalize_memory_host_event_record_for_storage(
             "candidates": candidates,
         }
         if truncated:
-            normalized["storageTruncated"] = True
-        encoded = json.dumps(normalized, ensure_ascii=False).encode("utf-8")
+            normalized_promotion["storageTruncated"] = True
+        encoded = json.dumps(normalized_promotion, ensure_ascii=False).encode("utf-8")
         if len(encoded) <= MAX_MEMORY_HOST_EVENT_JSON_BYTES:
-            return normalized
-        return {**normalized, "candidates": [], "storageTruncated": True}
+            return normalized_promotion
+        return cast(
+            MemoryHostEventRecord,
+            {**normalized_promotion, "candidates": [], "storageTruncated": True},
+        )
 
     # ── memory.dream.completed ───────────────────────────────────
     if event_type == "memory.dream.completed":
@@ -458,7 +466,7 @@ def normalize_memory_host_event_record_for_storage(
             or bool(inline_truncated)
             or bool(report_truncated)
         )
-        normalized = {
+        normalized: dict[str, Any] = {
             "type": "memory.dream.completed",
             "timestamp": ts_value,
             "phase": phase,
@@ -475,7 +483,7 @@ def normalize_memory_host_event_record_for_storage(
             normalized["reportPath"] = report_value
         if truncated:
             normalized["storageTruncated"] = True
-        return normalized
+        return cast(MemoryHostDreamCompletedEvent, normalized)
 
     return None
 
@@ -490,15 +498,17 @@ def normalize_memory_host_event_record_for_storage(
 # SDK calls — the public surface above is unchanged.
 
 # Workspace -> { "journal": {key: entry}, "cursors": {workspaceHash: int} }
-_plugin_state_backend: dict[str, dict[str, Any]] = {}
+PluginWorkspaceState = dict[str, dict[str, Any]]
+_plugin_state_backend: dict[str, PluginWorkspaceState] = {}
 
 
-def _get_workspace_state(workspace_dir: str) -> dict[str, Any]:
+def _get_workspace_state(workspace_dir: str) -> PluginWorkspaceState:
     """Get (or create) the in-process state for ``workspace_dir``."""
     state = _plugin_state_backend.get(workspace_dir)
     if state is None:
-        state = {"journal": {}, "cursors": {}}
-        _plugin_state_backend[workspace_dir] = state
+        created_state: PluginWorkspaceState = {"journal": {}, "cursors": {}}
+        _plugin_state_backend[workspace_dir] = created_state
+        return created_state
     return state
 
 
@@ -513,7 +523,7 @@ def _write_cursor(workspace_dir: str, value: int) -> None:
 
 
 def _write_journal_entry(
-    workspace_dir: str, key: str, value: dict, created_at: int
+    workspace_dir: str, key: str, value: dict[str, Any], created_at: int
 ) -> None:
     state = _get_workspace_state(workspace_dir)
     state["journal"][key] = {"value": value, "createdAt": int(created_at)}
@@ -531,7 +541,7 @@ def _write_journal_entry(
 
 def _read_journal_range(
     workspace_dir: str, key_start: str, key_end: str, order: str
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     state = _get_workspace_state(workspace_dir)
     matching = [
         (k, v)
@@ -556,8 +566,8 @@ def _read_journal_range(
 def register_memory_host_event(
     *,
     workspace_dir: str,
-    event: dict,
-    env: dict | None = None,
+    event: dict[str, Any] | MemoryHostEventRecord,
+    env: dict[str, Any] | None = None,
 ) -> None:
     """Append one memory host event to the per-workspace journal.
 
@@ -606,7 +616,7 @@ def list_stored_memory_host_events(
     *,
     workspace_dir: str,
     limit: int | None = None,
-    env: dict | None = None,
+    env: dict[str, Any] | None = None,
 ) -> list[PersistedMemoryHostEvent]:
     """Read events for ``workspace_dir`` in newest-first order.
 

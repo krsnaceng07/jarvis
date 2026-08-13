@@ -525,6 +525,23 @@ def is_incomplete_terminal_assistant_turn(
     return _IS_INCOMPLETE_TERMINAL_ASSISTANT_TURN(dict(params or {}))
 
 
+def _coerce_replay_metadata(metadata: Any) -> Dict[str, Any]:
+    """Guarantee the replay metadata always contains both required keys."""
+    if not isinstance(metadata, dict):
+        return dict(REPLAY_UNSAFE_FALLBACK_METADATA)
+
+    coerced = dict(metadata)
+    had_potential_side_effects = bool(coerced.get("hadPotentialSideEffects", False))
+    replay_safe = coerced.get("replaySafe")
+    if replay_safe is None:
+        replay_safe = not had_potential_side_effects
+    coerced["hadPotentialSideEffects"] = bool(had_potential_side_effects)
+    coerced["replaySafe"] = bool(replay_safe)
+    if coerced["replaySafe"] is False and not coerced["hadPotentialSideEffects"]:
+        coerced["hadPotentialSideEffects"] = True
+    return coerced
+
+
 def build_attempt_replay_metadata(
     params: ReplayMetadataAttempt,
 ) -> Dict[str, Any]:
@@ -533,7 +550,7 @@ def build_attempt_replay_metadata(
     Mirrors :func:`buildAttemptReplayMetadata`
     (``incomplete-turn.ts:148-163``).
     """
-    return _BUILD_ATTEMPT_REPLAY_METADATA(dict(params or {}))
+    return _coerce_replay_metadata(_BUILD_ATTEMPT_REPLAY_METADATA(dict(params or {})))
 
 
 def resolve_attempt_replay_metadata(
@@ -547,7 +564,7 @@ def resolve_attempt_replay_metadata(
     replay_metadata = (attempt or {}).get("replayMetadata")
     if replay_metadata is None:
         return dict(REPLAY_UNSAFE_FALLBACK_METADATA)
-    return dict(replay_metadata)
+    return _coerce_replay_metadata(replay_metadata)
 
 
 def has_attempt_terminal_state(

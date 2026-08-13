@@ -19,6 +19,8 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
+from .attempt_system_prompt import build_attempt_system_prompt
+
 
 #: Embedded-attempt system-prompt shape.
 EmbeddedAttemptSystemPrompt = Dict[str, Any]
@@ -32,15 +34,18 @@ EmbeddedAttemptSystemPrompt = Dict[str, Any]
 #: Hook for the build-system-prompt step.
 _BUILD_SYSTEM_PROMPT: Callable[
     [Dict[str, Any]], Awaitable[Any]
-] = lambda _p: asyncio.sleep(0)
+] = lambda _p: build_attempt_system_prompt(dict(_p or {}))
+_DEFAULT_BUILD_SYSTEM_PROMPT = _BUILD_SYSTEM_PROMPT
 
 
 def set_build_system_prompt_hook(
-    hook: Callable[[Dict[str, Any]], Awaitable[Any]],
+    hook: Callable[[Dict[str, Any]], Awaitable[Any]] | None,
 ) -> None:
     """Install a custom build-system-prompt hook."""
     global _BUILD_SYSTEM_PROMPT
-    _BUILD_SYSTEM_PROMPT = hook
+    _BUILD_SYSTEM_PROMPT = (
+        _DEFAULT_BUILD_SYSTEM_PROMPT if hook is None else hook
+    )
 
 
 #: Hook for the build-runtime-info step.

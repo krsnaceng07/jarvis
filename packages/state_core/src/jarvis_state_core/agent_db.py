@@ -25,12 +25,13 @@ canonical mode bits.
 from __future__ import annotations
 
 import os
+import json
 import sqlite3
 import threading
 from dataclasses import dataclass
-from typing import Callable, Literal, Optional, TypedDict, Union
+from typing import Callable, Literal, Optional, TypedDict
 
-from .contract import SQLITE_BUSY_TIMEOUT_MS, StateDatabaseHandle
+from .contract import SQLITE_BUSY_TIMEOUT_MS
 from .paths import resolve_agent_sqlite_path
 from .permissions import ensure_agent_database_permissions
 
@@ -55,6 +56,82 @@ class AgentDatabaseOptions(TypedDict, total=False):
     env: Optional[dict[str, str]]
     path: Optional[str]
     connection_factory: Optional[Callable[[], sqlite3.Connection]]
+
+
+def ensure_agent_session_schema(db: sqlite3.Connection) -> None:
+    """Ensure additive per-agent session tables exist."""
+    db.executescript(
+        """
+        CREATE TABLE IF NOT EXISTS agent_sessions (
+            session_id TEXT PRIMARY KEY,
+            agent_id TEXT NOT NULL,
+            cwd TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            updated_at TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS agent_session_entries (
+            session_id TEXT NOT NULL,
+            sequence INTEGER NOT NULL,
+            entry_id TEXT NOT NULL,
+            entry_json TEXT NOT NULL,
+            created_at TEXT NOT NULL,
+            PRIMARY KEY (session_id, sequence),
+            UNIQUE (session_id, entry_id),
+            FOREIGN KEY (session_id) REFERENCES agent_sessions(session_id)
+                ON DELETE CASCADE
+        );
+        CREATE INDEX IF NOT EXISTS idx_agent_session_entries_id
+            ON agent_session_entries(session_id, entry_id);
+        """
+    )
+
+
+def ensure_agent_session(
+    handle: AgentDatabaseHandle, session_id: str, cwd: str, timestamp: str
+) -> None:
+    ensure_agent_session_schema(handle.db)
+    handle.db.execute(
+        """INSERT OR IGNORE INTO agent_sessions
+           (session_id, agent_id, cwd, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?)""",
+        (session_id, handle.agent_id, cwd, timestamp, timestamp),
+    )
+
+
+def append_agent_session_entry(
+    handle: AgentDatabaseHandle,
+    session_id: str,
+    entry: dict,
+    timestamp: str,
+) -> None:
+    ensure_agent_session_schema(handle.db)
+    with handle.db:
+        row = handle.db.execute(
+            "SELECT COALESCE(MAX(sequence), -1) + 1 FROM agent_session_entries WHERE session_id = ?",
+            (session_id,),
+        ).fetchone()
+        sequence = int(row[0])
+        handle.db.execute(
+            """INSERT INTO agent_session_entries
+               (session_id, sequence, entry_id, entry_json, created_at)
+               VALUES (?, ?, ?, ?, ?)""",
+            (session_id, sequence, str(entry["id"]), json.dumps(entry), timestamp),
+        )
+        handle.db.execute(
+            "UPDATE agent_sessions SET updated_at = ? WHERE session_id = ?",
+            (timestamp, session_id),
+        )
+
+
+def load_agent_session_entries(
+    handle: AgentDatabaseHandle, session_id: str
+) -> list[dict]:
+    ensure_agent_session_schema(handle.db)
+    rows = handle.db.execute(
+        "SELECT entry_json FROM agent_session_entries WHERE session_id = ? ORDER BY sequence",
+        (session_id,),
+    ).fetchall()
+    return [json.loads(row[0]) for row in rows]
 
 
 class _AgentDatabaseOwnerInspection:
@@ -123,6 +200,7 @@ def open_agent_database(options: dict) -> AgentDatabaseHandle:
             db = custom_factory()
         else:
             db = _open_sqlite(pathname)
+        ensure_agent_session_schema(db)
         handle = AgentDatabaseHandle(agent_id=agent_id, db=db, path=pathname)
         _cached_databases[pathname] = handle
         return handle
@@ -210,10 +288,14 @@ __all__ = [
     "AgentDatabaseHandle",
     "AgentDatabaseOptions",
     "AgentDatabaseOwnerStatus",
+    "append_agent_session_entry",
     "close_agent_database",
     "close_all_agent_databases",
     "inspect_agent_database_owner",
     "is_agent_database_open",
+    "ensure_agent_session",
+    "ensure_agent_session_schema",
+    "load_agent_session_entries",
     "open_agent_database",
     "reset_agent_database_state_for_tests",
     "resolve_agent_sqlite_path",

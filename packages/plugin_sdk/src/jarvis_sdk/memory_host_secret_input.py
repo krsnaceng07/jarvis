@@ -76,7 +76,6 @@ def resolve_memory_secret_input_string(
 __all__ = [
     "SecretRef",
     "SecretRefSource",
-    "DEFAULT_SECRET_PROVIDER_ALIAS",
     "ENV_SECRET_REF_ID_RE",
     "LEGACY_SECRETREF_ENV_MARKER_PREFIX",
     "ENV_SECRET_TEMPLATE_RE",

@@ -48,10 +48,8 @@ import contextvars
 import os
 import sqlite3
 import threading
-import time
-import uuid
 from dataclasses import dataclass, field
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Optional
 
 
 # ── State ─────────────────────────────────────────────────
@@ -550,6 +548,23 @@ def ensure_schema(
             "fence INTEGER NOT NULL, "
             "acquired_at INTEGER NOT NULL, "
             "expires_at INTEGER NOT NULL"
+            ");"
+            # Pairing
+            "CREATE TABLE IF NOT EXISTS channel_pairing_requests ("
+            "channel TEXT NOT NULL, "
+            "account_id TEXT NOT NULL, "
+            "sender_id TEXT NOT NULL, "
+            "pairing_code TEXT NOT NULL, "
+            "created_at INTEGER NOT NULL, "
+            "expires_at INTEGER NOT NULL, "
+            "PRIMARY KEY (channel, account_id, sender_id)"
+            ");"
+            "CREATE TABLE IF NOT EXISTS channel_pairing_allow_entries ("
+            "channel TEXT NOT NULL, "
+            "account_id TEXT NOT NULL, "
+            "sender_id TEXT NOT NULL, "
+            "approved_at INTEGER NOT NULL, "
+            "PRIMARY KEY (channel, account_id, sender_id)"
             ");"
         )
     conn.executescript(schema_sql)

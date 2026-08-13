@@ -10,7 +10,7 @@ Public surface:
 """
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import Any, List, Literal, Optional
 
 
 ReactionLevel = str  # "off" | "ack" | "minimal" | "extensive"
@@ -44,7 +44,7 @@ class ResolvedReactionLevel:
         return out
 
 
-def _parse_level(value: Any) -> str:
+def _parse_level(value: Any) -> tuple[Literal["ok", "missing", "invalid"], Optional[str]]:
     """Returns 'ok', 'missing', or 'invalid' plus the parsed value when ok."""
     if value is None:
         return ("missing", None)

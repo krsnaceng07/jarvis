@@ -50,7 +50,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from routing.routing import normalize_agent_id
 
@@ -58,7 +58,7 @@ DEFAULT_AGENT_ID = "default"
 DEFAULT_PROVIDER = "openai"
 
 
-def resolve_default_agent_id(config: dict | None) -> str:
+def resolve_default_agent_id(config: dict[str, object] | None) -> str:
     """Resolve the default agent id from a config dict.
 
     Mirrors OpenClaw's ``resolveDefaultAgentId``. Returns
@@ -67,13 +67,15 @@ def resolve_default_agent_id(config: dict | None) -> str:
     """
     if not config:
         return DEFAULT_AGENT_ID
-    agents = config.get("agents") if isinstance(config, dict) else None
-    if not agents:
+    config_map = cast(dict[str, object], config)
+    agents = config_map.get("agents")
+    if not isinstance(agents, dict):
         return DEFAULT_AGENT_ID
-    defaults = agents.get("defaults") if isinstance(agents, dict) else None
+    agents_map = cast(dict[str, object], agents)
+    defaults = agents_map.get("defaults")
     if isinstance(defaults, dict) and isinstance(defaults.get("id"), str):
         return normalize_agent_id(defaults["id"])
-    listing = agents.get("list") if isinstance(agents, dict) else None
+    listing = agents_map.get("list")
     if isinstance(listing, list) and listing:
         first = listing[0]
         if isinstance(first, dict) and isinstance(first.get("id"), str):
@@ -88,17 +90,23 @@ def _data_dir() -> Path:
     return Path.home() / ".jarvis"
 
 
+def _canonical_agent_id(agent_id: str) -> str:
+    if agent_id == DEFAULT_AGENT_ID:
+        return DEFAULT_AGENT_ID
+    return normalize_agent_id(agent_id)
+
+
 def resolve_agent_dir(config: dict | None, agent_id: str) -> str:
     """Return the per-agent data dir for ``agent_id``.
 
     Mirrors ``openclaw/plugin-sdk/agent-runtime``'s
     ``resolveAgentDir``.
     """
-    canonical = normalize_agent_id(agent_id)
+    canonical = _canonical_agent_id(agent_id)
     return str(_data_dir() / "agents" / canonical)
 
 
-def resolve_agent_workspace_dir(config: dict | None, agent_id: str) -> str:
+def resolve_agent_workspace_dir(config: dict[str, object] | None, agent_id: str) -> str:
     """Return the per-agent workspace dir for ``agent_id``.
 
     Mirrors ``openclaw/plugin-sdk/agent-runtime``'s
@@ -106,11 +114,11 @@ def resolve_agent_workspace_dir(config: dict | None, agent_id: str) -> str:
     ``~/.jarvis/agents/<id>/workspace/`` so the same files
     (config, memory, skills) are co-located.
     """
-    canonical = normalize_agent_id(agent_id)
+    canonical = _canonical_agent_id(agent_id)
     return str(_data_dir() / "agents" / canonical / "workspace")
 
 
-def resolve_agent_config(config: Any, agent_id: str) -> dict[str, Any] | None:
+def resolve_agent_config(config: object, agent_id: str) -> dict[str, Any] | None:
     """Return the agent's full config entry from ``config.agents``.
 
     Mirrors OpenClaw's ``resolveAgentConfig``. Returns the
@@ -139,8 +147,8 @@ def resolve_agent_config(config: Any, agent_id: str) -> dict[str, Any] | None:
 
 
 def resolve_store_path(
-    configured_store: Any,
-    options: dict[str, Any] | None = None,
+    configured_store: object,
+    options: dict[str, object] | None = None,
 ) -> str:
     """Resolve the session store path.
 
@@ -157,7 +165,7 @@ def resolve_store_path(
 
 
 def resolve_session_agent_id(
-    config: dict | None,
+    config: dict[str, object] | None,
     session_key: str | None = None,
     agent_id: str | None = None,
 ) -> str:
@@ -183,7 +191,7 @@ def resolve_session_agent_id(
     return resolve_default_agent_id(config)
 
 
-def _agent_entry(config: Any, agent_id: str) -> dict[str, Any] | None:
+def _agent_entry(config: object, agent_id: str) -> dict[str, Any] | None:
     if not isinstance(config, dict):
         return None
     agents = config.get("agents")
@@ -202,7 +210,7 @@ def _agent_entry(config: Any, agent_id: str) -> dict[str, Any] | None:
 
 
 def resolve_agent_effective_model_primary(
-    config: Any,
+    config: object,
     agent_id: str,
 ) -> str | None:
     """Return the agent's configured primary model ``provider/model``.
@@ -228,7 +236,7 @@ def resolve_agent_effective_model_primary(
     return None
 
 
-def resolve_default_model_for_agent(params: dict[str, Any]) -> dict[str, str] | None:
+def resolve_default_model_for_agent(params: dict[str, object]) -> dict[str, str] | None:
     """Resolve the default model for an agent.
 
     Mirrors OpenClaw's ``resolveDefaultModelForAgent``. Walks
@@ -263,7 +271,7 @@ def resolve_default_model_for_agent(params: dict[str, Any]) -> dict[str, str] | 
 
 
 def parse_model_ref(
-    model_ref: str | None,
+    model_ref: object,
     default_provider: str = DEFAULT_PROVIDER,
 ) -> dict[str, str] | None:
     """Parse a ``provider/model`` string into a dict.
@@ -285,7 +293,7 @@ def parse_model_ref(
 
 
 def resolve_remember_across_conversations(
-    config: Any,
+    config: object,
     agent_id: str,
 ) -> bool:
     """Return whether ``agent_id`` has ``rememberAcrossConversations``.

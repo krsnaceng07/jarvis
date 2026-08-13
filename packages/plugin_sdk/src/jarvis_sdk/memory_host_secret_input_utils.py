@@ -20,7 +20,7 @@ Key port decisions:
 from __future__ import annotations
 
 import re
-from typing import Literal, TypedDict
+from typing import Any, Literal, TypeGuard, TypedDict
 
 # ── Types ─────────────────────────────────────────────────────────────
 
@@ -59,13 +59,13 @@ LEGACY_SECRETREF_ENV_MARKER_PREFIX = "secretref-env:"
 ENV_SECRET_TEMPLATE_RE = re.compile(r"^\$\{([A-Z][A-Z0-9_]{0,127})\}$")
 
 #: The set of accepted ref sources.
-SECRET_REF_SOURCES: frozenset = frozenset({"env", "file", "exec"})
+SECRET_REF_SOURCES: frozenset[str] = frozenset({"env", "file", "exec"})
 
 
 # ── Type guards ─────────────────────────────────────────────────────
 
 
-def _is_record(value: object) -> bool:
+def _is_record(value: object) -> TypeGuard[dict[str, Any]]:
     """True when ``value`` is a plain object (not array, not None)."""
     return isinstance(value, dict)
 
@@ -102,7 +102,7 @@ def _is_secret_ref(value: object) -> bool:
     )
 
 
-def _is_legacy_secret_ref_without_provider(value: object) -> bool:
+def _is_legacy_secret_ref_without_provider(value: object) -> TypeGuard[dict[str, Any]]:
     """True when ``value`` is a legacy 2-field ref (no provider)."""
     if not _is_record(value):
         return False

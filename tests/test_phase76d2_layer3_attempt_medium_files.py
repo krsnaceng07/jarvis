@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import pytest
 
@@ -47,6 +47,7 @@ from src.agents.embedded_agent_runner.run.attempt_client_tools import (
     set_create_client_tool_slots_hook,
     set_resolve_client_tool_policy_hook,
 )
+from src.agents.embedded_agent_runner.tool_split import set_to_tool_definitions_hook
 
 
 # ============================================================================
@@ -356,15 +357,24 @@ class TestInstallEmbeddedAttemptContextGuards:
 def _reset_client_tools_hooks() -> None:
     set_create_client_tool_slots_hook(lambda _p: [])
     set_resolve_client_tool_policy_hook(lambda _p: None)
+    set_to_tool_definitions_hook(lambda *_a, **_k: [])
     yield
     set_create_client_tool_slots_hook(lambda _p: [])
     set_resolve_client_tool_policy_hook(lambda _p: None)
+    set_to_tool_definitions_hook(lambda *_a, **_k: [])
 
 
 class TestPrepareEmbeddedAttemptClientTools:
     def test_basic(self) -> None:
         result = prepare_embedded_attempt_client_tools({})
+        assert result["allCustomTools"] == []
+        assert result["builtinToolNames"] == set()
         assert result["clientToolCallSlots"] == []
+        assert result["clientToolDefs"] == []
+        assert result["clientToolLoopDetection"] is None
+        assert result["replaySafeToolNames"] == set()
+        assert result["replaySafeTools"] == []
+        assert result["sessionToolAllowlist"] == []
         assert result["clientToolPolicy"] is None
         assert result["hasDeliveredSourceReply"] is False
 
@@ -377,3 +387,40 @@ class TestPrepareEmbeddedAttemptClientTools:
         )
         assert len(result["clientToolCallSlots"]) == 1
         assert result["hasDeliveredSourceReply"] is True
+
+    def test_openclaw_replay_safe_fields(self) -> None:
+        result = prepare_embedded_attempt_client_tools(
+            {
+                "effectiveTools": [{"name": "read"}, {"name": "process"}],
+                "uncompactedEffectiveTools": [{"name": "search"}, {"name": "process"}],
+            }
+        )
+
+        assert result["builtinToolNames"] == {"search", "process"}
+        assert result["replaySafeToolNames"] == {"search"}
+        assert result["replaySafeTools"] == [{"name": "search"}]
+
+    def test_duplicate_replay_safe_names_fail_closed(self) -> None:
+        result = prepare_embedded_attempt_client_tools(
+            {
+                "uncompactedEffectiveTools": [{"name": "search"}, {"name": "search"}],
+            }
+        )
+
+        assert result["replaySafeToolNames"] == set()
+
+    def test_session_allowlist_includes_custom_and_client_tool_defs(self) -> None:
+        set_to_tool_definitions_hook(lambda *_a, **_k: [{"name": "custom_read"}])
+
+        result = prepare_embedded_attempt_client_tools(
+            {
+                "effectiveTools": [{"name": "read"}],
+                "clientTools": [{"name": "client_lookup"}],
+            }
+        )
+
+        assert result["allCustomTools"] == [
+            {"name": "custom_read"},
+            {"name": "client_lookup"},
+        ]
+        assert result["sessionToolAllowlist"] == ["client_lookup", "custom_read"]

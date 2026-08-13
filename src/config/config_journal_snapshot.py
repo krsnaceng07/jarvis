@@ -33,6 +33,29 @@ class ConfigSnapshotAuditRecord(TypedDict, total=False):
 #: Cache of fingerprint keys by resolved key path.
 _config_journal_fingerprint_keys: dict = {}
 
+#: Simple in-memory fallback used when no audit-store backend is installed.
+_config_journal_audit_store_fallbacks: dict[str, Any] = {}
+
+
+class _InMemoryAuditStore:
+    def __init__(self) -> None:
+        self._entries: dict[str, Any] = {}
+
+    def entries(self):
+        return [{"key": key, "value": value} for key, value in self._entries.items()]
+
+    def upsert(self, key: str, value: Any) -> None:
+        self._entries[key] = value
+
+    def compare_and_set(self, key: str, expected: Any, value: Any) -> bool:
+        if self._entries.get(key) != expected:
+            return False
+        self._entries[key] = value
+        return True
+
+    def delete(self, key: str) -> None:
+        self._entries.pop(key, None)
+
 
 def _resolve_state_dir(env) -> str:
     state = (env or {}).get("JARVIS_STATE_DIR") or (env or {}).get("OPENCLAW_STATE_DIR")
@@ -110,22 +133,34 @@ def fingerprint_config_snapshot_authored_config(value: Any, env=None) -> Any:
     return _fingerprint_leaves(value, key)
 
 
+def _canonicalize_config_path_for_compare(path: str | None) -> str:
+    if not path:
+        return ""
+    return os.path.normpath(str(path).replace("\\", "/")).replace("\\", "/")
+
+
 def config_snapshot_audit_record_matches_path(
     snapshot: Optional[ConfigSnapshotAuditRecord], config_path: str
 ) -> bool:
     if not snapshot:
         return False
-    return os.path.normpath(snapshot.get("configPath") or "") == os.path.normpath(config_path)
+    return _canonicalize_config_path_for_compare(snapshot.get("configPath")) == _canonicalize_config_path_for_compare(config_path)
 
 
 def _resolve_audit_store(env):
     """Factory: returns a config-snapshot audit-store handle.
 
     The OpenClaw source wires this to ``createSqliteAuditRecordStore``; the
-    Python port accepts a caller-provided store factory until the SQLite
-    port lands.
+    Python port uses a minimal in-memory fallback when no real store backend is
+    installed.
     """
-    raise NotImplementedError("audit store wiring lands with infra/sqlite-audit-record-store")
+    env = env if env is not None else dict(os.environ)
+    state_dir = _resolve_state_dir(env)
+    store = _config_journal_audit_store_fallbacks.get(state_dir)
+    if store is None:
+        store = _InMemoryAuditStore()
+        _config_journal_audit_store_fallbacks[state_dir] = store
+    return store
 
 
 def read_latest_config_snapshot_audit_record(env=None) -> Optional[ConfigSnapshotAuditRecord]:
@@ -151,7 +186,7 @@ def upsert_config_snapshot_audit_record(
     expected_snapshot: Optional[ConfigSnapshotAuditRecord] = None,
 ) -> Optional[ConfigSnapshotAuditRecord]:
     snapshot: ConfigSnapshotAuditRecord = {
-        "configPath": os.path.normpath(config_path),
+        "configPath": str(config_path),
         "rawHash": raw_hash,
         "fingerprintedAuthoredConfig": fingerprint_config_snapshot_authored_config(
             authored_config, env

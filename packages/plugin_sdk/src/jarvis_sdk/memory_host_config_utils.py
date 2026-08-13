@@ -22,7 +22,7 @@ Key port decisions:
 from __future__ import annotations
 
 import os
-from typing import Any, TypedDict
+from typing import Any, TypedDict, cast
 
 
 #: Mirrors OpenClaw's ``DEFAULT_AGENT_ID = "main"``.
@@ -84,7 +84,11 @@ def _list_agent_entries(cfg: OpenClawConfig) -> list[AgentConfig]:
     raw_list = agents.get("list")
     if not isinstance(raw_list, list):
         return []
-    return [entry for entry in raw_list if isinstance(entry, dict)]
+    entries: list[AgentConfig] = []
+    for entry in raw_list:
+        if isinstance(entry, dict):
+            entries.append(cast(AgentConfig, entry))
+    return entries
 
 
 def _resolve_default_agent_id(cfg: OpenClawConfig) -> str:
@@ -147,13 +151,13 @@ def resolve_memory_host_agent_workspace_dir(
     """
     aid = _normalize_agent_id(agent_id)
     env = env if env is not None else dict(os.environ)
-    entry = _resolve_agent_config(cfg, aid)
-    configured = _normalize_optional_string(entry.get("workspace")) if entry else None
+    entry: AgentConfig | None = _resolve_agent_config(cfg, aid)
+    configured = _normalize_optional_string(cast(str | None, entry.get("workspace"))) if entry else None
     if configured:
         return _strip_null_bytes(os.path.abspath(configured))
     agents_block = cfg.get("agents") if isinstance(cfg, dict) else None
     defaults = agents_block.get("defaults") if isinstance(agents_block, dict) else None
-    fallback = _normalize_optional_string(defaults.get("workspace")) if isinstance(defaults, dict) else None
+    fallback = _normalize_optional_string(cast(str | None, defaults.get("workspace"))) if isinstance(defaults, dict) else None
     if aid == _resolve_default_agent_id(cfg):
         if fallback:
             return _strip_null_bytes(os.path.abspath(fallback))
@@ -185,13 +189,20 @@ def resolve_memory_host_agent_context_limits(
         return None
     agents_block = cfg.get("agents") if isinstance(cfg, dict) else None
     defaults = agents_block.get("defaults") if isinstance(agents_block, dict) else None
-    default_limits = defaults.get("contextLimits") if isinstance(defaults, dict) else None
+    default_limits_raw = defaults.get("contextLimits") if isinstance(defaults, dict) else None
+    default_limits: AgentContextLimitsConfig | None = (
+        cast(AgentContextLimitsConfig, default_limits_raw)
+        if isinstance(default_limits_raw, dict)
+        else None
+    )
     if not cfg or not agent_id:
-        return default_limits if isinstance(default_limits, dict) else None
+        return default_limits
     entry = _resolve_agent_config(cfg, agent_id)
-    if entry and isinstance(entry.get("contextLimits"), dict):
-        return entry["contextLimits"]
-    return default_limits if isinstance(default_limits, dict) else None
+    if entry is not None:
+        context_limits_raw = entry.get("contextLimits")
+        if isinstance(context_limits_raw, dict):
+            return cast(AgentContextLimitsConfig, context_limits_raw)
+    return default_limits
 
 
 def _normalize_string_entries(values: list[str] | None) -> list[str]:
@@ -226,8 +237,13 @@ def resolve_memory_host_search_path_config(
         return None
     defaults = agents_block.get("defaults")
     default_search = defaults.get("memorySearch") if isinstance(defaults, dict) else None
-    entry = _resolve_agent_config(cfg, agent_id)
-    override_search = entry.get("memorySearch") if entry else None
+    entry: AgentConfig | None = _resolve_agent_config(cfg, agent_id)
+    override_search_raw = entry.get("memorySearch") if entry else None
+    override_search: MemorySearchConfig | None = (
+        cast(MemorySearchConfig, override_search_raw)
+        if isinstance(override_search_raw, dict)
+        else None
+    )
     enabled: bool = True
     if isinstance(override_search, dict) and "enabled" in override_search:
         enabled = bool(override_search["enabled"])

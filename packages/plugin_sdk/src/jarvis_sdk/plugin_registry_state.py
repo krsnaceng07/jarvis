@@ -31,7 +31,7 @@ Key port decisions:
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Literal, TypedDict
+from typing import TYPE_CHECKING, Any, Literal, TypedDict, TypeAlias, cast
 
 from .plugin_registry_empty import create_empty_plugin_registry
 from .plugin_registry_types import (
@@ -184,12 +184,16 @@ def create_plugin_registry_state(
     """
     registry = create_empty_plugin_registry()
     method_names: set[str] = set()
-    for name in registry_params.get("coreGatewayMethodNames") or []:
-        if isinstance(name, str):
-            method_names.add(name)
-    for name in (registry_params.get("coreGatewayHandlers") or {}).keys():
-        if isinstance(name, str):
-            method_names.add(name)
+    core_gateway_method_names_raw = registry_params.get("coreGatewayMethodNames")
+    if isinstance(core_gateway_method_names_raw, list):
+        for name in core_gateway_method_names_raw:
+            if isinstance(name, str):
+                method_names.add(name)
+    core_gateway_handlers_raw = registry_params.get("coreGatewayHandlers")
+    if isinstance(core_gateway_handlers_raw, dict):
+        for name in cast(dict[object, object], core_gateway_handlers_raw).keys():
+            if isinstance(name, str):
+                method_names.add(name)
     core_gateway_method_names = sorted(method_names)
     registry["coreGatewayMethodNames"] = core_gateway_method_names
 
@@ -216,6 +220,9 @@ def create_plugin_registry_state(
         "pushDiagnostic": push_diagnostic,
         **model_catalog_registrars,
     }
+
+
+PluginRegistryState: TypeAlias = dict[str, Any]
 
 
 __all__ = [
