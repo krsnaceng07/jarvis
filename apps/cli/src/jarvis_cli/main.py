@@ -121,11 +121,31 @@ def _cmd_doctor(args: argparse.Namespace, plugins: dict[str, Any], workspace: Pa
     # workspace. This matches OpenClaw's "doctor runs after bootstrap".
     seed_workspace(workspace)
 
-    runner = create_doctor_runner(plugins["doctor_contracts"])
+    try:
+        from jarvis_config_core.doctor import (
+            core_codex_compaction_doctor_contract,
+            core_config_doctor_contract,
+            core_legacy_codex_refs_doctor_contract,
+        )
+        contracts = plugins["doctor_contracts"] + [
+            core_config_doctor_contract,
+            core_legacy_codex_refs_doctor_contract,
+            core_codex_compaction_doctor_contract,
+        ]
+    except ImportError:
+        contracts = plugins["doctor_contracts"]
+    runner = create_doctor_runner(contracts)
     if args.contract_id:
         runner._contracts = [c for c in runner._contracts if c.get("plugin_id") == args.contract_id]
 
-    report = runner.run(apply_fixes=getattr(args, "fix", False))
+    from jarvis_config_core import load_config
+    config = load_config()
+
+    report = runner.run(
+        state_dir=workspace / "state",
+        config=config,
+        apply_fixes=getattr(args, "fix", False)
+    )
     print(report.summary())
     for f in report.findings:
         if f.severity != "ok":
@@ -443,6 +463,13 @@ def _build_parser_v2() -> argparse.ArgumentParser:
     ask_p.add_argument("--model", default=None, help="Override the configured model.")
     ask_p.add_argument("--stream", action="store_true", help="Stream the response (default: on).")
 
+    tui_p = sp.add_parser("tui", help="Open a session in the terminal UI.")
+    tui_p.add_argument("target", nargs="?", default=None, help="Session target to open.")
+    attach_p = sp.add_parser("attach", help="Attach a coding harness to a session.")
+    attach_p.add_argument("target", nargs="?", default=None, help="Session target to attach.")
+    resume_p = sp.add_parser("resume", help="Resume an opaque session handoff.")
+    resume_p.add_argument("target", nargs="?", default=None, help="Opaque handoff payload or session target.")
+
     # ── Phase 3: gateway subcommands ─────────────────────────────
     gw_p = sp.add_parser("gateway", help="Gateway commands.")
     gw_sub = gw_p.add_subparsers(dest="subcommand", required=True, metavar="<action>")
@@ -483,6 +510,24 @@ def _build_parser_v2() -> argparse.ArgumentParser:
         help="Clear all telegram state (token + paired chat).",
     )
     tg_sub.add_parser("status", help="Show Telegram channel state.")
+
+    mcp_p = sp.add_parser("mcp", help="Model Context Protocol (MCP) commands.")
+    mcp_sub = mcp_p.add_subparsers(dest="subcommand", required=True, metavar="<action>")
+    mcp_add = mcp_sub.add_parser("add", help="Add a new MCP server.")
+    mcp_add.add_argument("name", help="Server name.")
+    mcp_add.add_argument("--command", default=None, help="Server launch command.")
+    mcp_add.add_argument("--arg", action="append", default=None, help="Server argument (repeatable).")
+    mcp_add.add_argument("--transport", default="stdio", help="Server transport.")
+    mcp_sub.add_parser("status", help="Show MCP servers status.")
+    mcp_doctor = mcp_sub.add_parser("doctor", help="Check an MCP server.")
+    mcp_doctor.add_argument("name", help="Server name.")
+    mcp_doctor.add_argument("--probe", action="store_true", help="Live capability probe.")
+    mcp_probe = mcp_sub.add_parser("probe", help="Live capability probe.")
+    mcp_probe.add_argument("name", help="Server name.")
+    mcp_login = mcp_sub.add_parser("login", help="OAuth login flow.")
+    mcp_login.add_argument("name", help="Server name.")
+    mcp_sub.add_parser("reload", help="Reloads MCP runtimes in the current CLI process.")
+    mcp_sub.add_parser("serve", help="Exposes JARVIS channels to another MCP client.")
 
     return p
 
@@ -541,6 +586,96 @@ def _cmd_pairing_approve(args: argparse.Namespace, workspace: Path) -> int:
     return 0
 
 
+def _cmd_status_runtime(workspace: Path) -> None:
+    """Print the effective harness runtime for the default agent's model.
+
+    Mirrors OpenClaw's ``/status`` ``Runtime:`` line: the resolved harness
+    id plus the selection reason. Fail-closed requirements surface as
+    ``(fail-closed: ...)`` instead of raising — status reports, the run
+    path enforces.
+    """
+    import os
+
+    from src.agents.agent_scope_config import resolve_default_agent_id
+    from src.agents.harness.selection import (
+        HarnessNotSupportedError,
+        MissingAgentHarnessError,
+        select_agent_harness,
+    )
+
+    raw: dict[str, Any] = {}
+    try:
+        with open(workspace / "config.json", "r", encoding="utf-8") as f:
+            loaded = json.load(f)
+        if isinstance(loaded, dict):
+            raw = loaded
+    except Exception:
+        raw = {}
+
+    try:
+        agent_id = resolve_default_agent_id(raw)
+    except Exception:
+        agent_id = "main"
+    model_ref = _resolve_default_model_ref(raw, agent_id)
+    provider: str | None = None
+    model_id: str | None = None
+    if model_ref and "/" in model_ref:
+        provider, _, remainder = model_ref.partition("/")
+        model_id = remainder.strip() or None
+        provider = provider.strip() or None
+
+    # No extension registers an agent harness today (codex defines its
+    # harness but never calls register_agent_harness), so only the
+    # built-in openclaw harness is available. Explicit codex requirements
+    # therefore fail closed here exactly as in OpenClaw.
+    try:
+        decision = select_agent_harness(
+            {
+                "provider": provider,
+                "modelId": model_id,
+                "config": raw,
+                "env": dict(os.environ),
+                "agentId": agent_id,
+                "registered_harnesses": [],
+            }
+        )
+        label = model_ref or "(no model configured)"
+        print(f"Model: {label} | Harness: {decision['harness_id']} ({decision['reason']})")
+    except (MissingAgentHarnessError, HarnessNotSupportedError) as e:
+        print(f"Model: {model_ref} | Harness: fail-closed ({e})")
+
+
+def _resolve_default_model_ref(raw: dict[str, Any], agent_id: str) -> str | None:
+    """Return the default agent's primary model ref, if configured.
+
+    Fleet shape (``agents.defaults.model`` / list entry ``model``) wins;
+    falls back to the canonical flat ``model`` key.
+    """
+    agents = raw.get("agents")
+    if isinstance(agents, dict):
+        defaults = agents.get("defaults")
+        if isinstance(defaults, dict) and isinstance(defaults.get("model"), str):
+            ref = defaults["model"].strip()
+            if ref:
+                return ref
+        for entry in agents.get("list") or []:
+            if not isinstance(entry, dict):
+                continue
+            try:
+                from src.routing.agent_id import normalize_agent_id
+
+                if normalize_agent_id(entry.get("id", "")) != agent_id:
+                    continue
+            except Exception:
+                continue
+            if isinstance(entry.get("model"), str) and entry["model"].strip():
+                return entry["model"].strip()
+    top = raw.get("model")
+    if isinstance(top, str) and top.strip():
+        return top.strip()
+    return None
+
+
 def _cmd_status(args: argparse.Namespace, workspace: Path) -> int:
     """Show an overall JARVIS status summary used by tests.
 
@@ -570,6 +705,14 @@ def _cmd_status(args: argparse.Namespace, workspace: Path) -> int:
         _cmd_gateway_status(args, workspace)
     except Exception:
         print("Gateway: error checking status")
+
+    print("\nRuntime")
+    # Live harness-policy resolution for the default agent's model, mirroring
+    # OpenClaw's `/status` Runtime line. Never breaks status output.
+    try:
+        _cmd_status_runtime(workspace)
+    except Exception as e:
+        print(f"Runtime: unavailable ({e})")
 
     if getattr(args, "all", False):
         print("\nExtensions (Detailed)")
@@ -706,6 +849,12 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_logs(args, workspace)
     if args.command == "ask":
         return _cmd_ask(args, workspace)
+    if args.command == "tui":
+        return _cmd_session_connect(args, workspace, "tui")
+    if args.command == "attach":
+        return _cmd_session_connect(args, workspace, "attach")
+    if args.command == "resume":
+        return _cmd_session_connect(args, workspace, "resume")
     if args.command == "plugins":
         return _cmd_plugins(args, plugins, workspace)
     if args.command == "gateway":
@@ -723,6 +872,11 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_telegram_setup(args, workspace)
         if args.subcommand == "status":
             return _cmd_telegram_status(args, workspace)
+    if args.command == "mcp":
+        if handle_mcp_command is None:
+            print("Error: MCP support module is unavailable in this build.", file=sys.stderr)
+            return 1
+        return handle_mcp_command(args, workspace)
     if args.command == "pairing":
         if args.subcommand == "list":
             return _cmd_pairing_list(args, workspace)
@@ -835,6 +989,51 @@ def _cmd_logs(args: argparse.Namespace, workspace: Path) -> int:
     return 0
 
 
+def _cmd_session_connect(args: argparse.Namespace, workspace: Path, mode: str) -> int:
+    import urllib.request
+    import json
+    from .host import default_gateway_port
+
+    target = getattr(args, "target", None)
+    if not target:
+        print("Error: missing target")
+        return 1
+
+    port = default_gateway_port()
+    try:
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{port}/rpc",
+            data=json.dumps({
+                "jsonrpc": "2.0",
+                "method": "sessions.resolve",
+                "id": "1",
+                "params": {"target": target}
+            }).encode("utf-8"),
+            headers={"Content-Type": "application/json"}
+        )
+        with urllib.request.urlopen(req, timeout=2.0) as response:
+            res_data = json.loads(response.read().decode("utf-8"))
+
+            if "error" in res_data:
+                err = res_data["error"]
+                print(f"Gateway error: {err.get('message', 'Unknown')} ({err.get('code')})", file=sys.stderr)
+                return 1
+
+            payload = res_data.get("result", {})
+            session_key = payload.get("session", {}).get("session_key")
+
+            if not session_key:
+                print("Error: Gateway responded but no session key found.", file=sys.stderr)
+                return 1
+
+            print(f"[{mode}] Attaching to session: {session_key}...")
+            # Placeholder for actual TUI / coding harness attachment
+            return 0
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+
 def _cmd_ask(args: argparse.Namespace, workspace: Path) -> int:
     """Ask JARVIS a question using Gemini (Phase 3+).
     
@@ -842,7 +1041,6 @@ def _cmd_ask(args: argparse.Namespace, workspace: Path) -> int:
     In Phase 4+, this will use the full agent loop with sessions,
     tools, memory, and other layers.
     """
-    import asyncio
     from jarvis_config_core import load_config
     
     message = args.message
@@ -866,8 +1064,11 @@ def _cmd_ask(args: argparse.Namespace, workspace: Path) -> int:
     # Simple Gemini API call
     try:
         import google.generativeai as genai  # type: ignore
-        genai.configure(api_key=api_key)
-        client = genai.GenerativeModel(model_name)
+        # Legacy client path: installed stubs do not export these names,
+        # but the runtime package provides them (kept until the google-genai
+        # migration lands).
+        genai.configure(api_key=api_key)  # type: ignore[reportPrivateImportUsage]
+        client = genai.GenerativeModel(model_name)  # type: ignore[reportPrivateImportUsage]
         
         response = client.generate_content(message)
         print(response.text)
