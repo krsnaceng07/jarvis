@@ -7,8 +7,6 @@ Covers:
 """
 from __future__ import annotations
 
-import pytest
-
 from src.config.types_googlechat import (
     GoogleChatAccountConfig,
     GoogleChatActionConfig,
@@ -500,13 +498,19 @@ class TestCodexPluginDiagnostics:
 
     def test_no_cfg_returns_true(self) -> None:
         assert should_suppress_missing_codex_plugin_diagnostics(None) is True
-        assert should_suppress_missing_codex_plugin_diagnostics({}) is True
+        # Empty config: the implicit default OpenAI route has no facts, so
+        # route resolution is indeterminate with a Codex default
+        # (provider-policy-api.ts indeterminate branch). The missing-codex
+        # diagnostic is therefore NOT suppressed.
+        assert should_suppress_missing_codex_plugin_diagnostics({}) is False
 
     def test_disabled_entry(self) -> None:
         cfg = {"plugins": {"entries": {"codex": {"enabled": False}}}}
-        # Disabled entry is an explicit opt-out — diagnostics are NOT
-        # suppressed (the doctor reports conflicts when the route needs it).
-        assert should_suppress_missing_codex_plugin_diagnostics(cfg) is False
+        # Disabled entry is an explicit opt-out — the missing-plugin
+        # diagnostic stays suppressed; the doctor reports selected-route
+        # conflicts separately (shouldSuppressMissingCodexPluginDiagnostics
+        # returns entryEnabled === false).
+        assert should_suppress_missing_codex_plugin_diagnostics(cfg) is True
 
     def test_enabled_entry_short_circuits(self) -> None:
         cfg = {"plugins": {"entries": {"codex": {"enabled": True}}}}

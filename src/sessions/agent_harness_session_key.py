@@ -23,15 +23,15 @@ Public surface (mirrors the TS source):
 Python adaptations (documented in code):
 - TS ``Record<string, Entry>`` → Python ``dict[str, Entry]``
 - TS ``ReadonlyMap`` → Python ``Mapping`` (dict-compatible)
-- TS ``normalizeOptionalAgentRuntimeId`` is inlined here as
-  ``_normalize_optional_agent_runtime_id`` (the source-of-truth
-  is OpenClaw's ``src/agents/agent-runtime-id.ts``; we only need
-  the small surface this module uses, so the helpers live here
-  to avoid a cross-package dep)
+- Runtime-id normalization reuses the canonical
+  ``src/agents/agent_runtime_id.py`` (mirrors OpenClaw's
+  ``src/agents/agent-runtime-id.ts``); the underscore aliases below
+  stay as thin same-module shims for existing callers
 - TS ``JSON.stringify(a) === JSON.stringify(b)`` is preserved as
   ``json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)``
   so the canonical equality is order-independent
 """
+
 from __future__ import annotations
 
 import json
@@ -57,41 +57,12 @@ MODEL_SELECTION_LOCK_REMOVAL_MESSAGE = (
     "Model-selection-locked sessions cannot be removed, unlocked, or reassigned."
 )
 
-# Local copy of the small agent-runtime-id surface used here.
-# Mirrors ``src/agents/agent-runtime-id.ts`` in OpenClaw.
-OPENCLAW_AGENT_RUNTIME_ID = "openclaw"
-AUTO_AGENT_RUNTIME_ID = "auto"
-
-
-def _normalize_embedded_agent_runtime(raw: Optional[str]) -> str:
-    """Normalize a runtime id to the current embedded-agent runtime vocabulary.
-
-    Mirrors ``normalizeEmbeddedAgentRuntime``. Maps the legacy
-    ``"pi"`` and ``"codex-app-server"`` aliases to the current ids.
-    Empty input collapses to the default ``"openclaw"``.
-    """
-    value = (raw or "").strip() if isinstance(raw, str) else ""
-    if not value:
-        return OPENCLAW_AGENT_RUNTIME_ID
-    lowered = value.lower()
-    if lowered in ("openclaw", "pi"):
-        return OPENCLAW_AGENT_RUNTIME_ID
-    if lowered == "auto":
-        return AUTO_AGENT_RUNTIME_ID
-    if lowered == "codex-app-server":
-        return "codex"
-    return value
-
-
-def _normalize_optional_agent_runtime_id(raw: Any) -> Optional[str]:
-    """Normalize an optional unknown runtime id, returning ``None`` for missing/invalid.
-
-    Mirrors ``normalizeOptionalAgentRuntimeId``.
-    """
-    if not isinstance(raw, str):
-        return None
-    value = raw.strip().lower()
-    return _normalize_embedded_agent_runtime(value) if value else None
+# Canonical agent-runtime-id surface (single home:
+# ``src/agents/agent_runtime_id.py``). The underscore alias below preserves
+# this module's existing private call sites.
+from src.agents.agent_runtime_id import (  # noqa: E402
+    normalize_optional_agent_runtime_id as _normalize_optional_agent_runtime_id,
+)
 
 
 # Minimal store-entry TypedDict covering the fields this module
