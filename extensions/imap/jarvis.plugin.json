@@ -1,0 +1,20 @@
+{
+  "id": "imap",
+  "name": "IMAP email trigger",
+  "description": "Watch IMAP mailboxes and dispatch authenticated incoming email to isolated agent sessions.",
+  "entry": "plugin.py",
+  "activation": {
+    "onStartup": true
+  },
+  "enabledByDefault": false,
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "accounts": {
+        "type": "object"
+      }
+    }
+  },
+  "kind": "tool"
+}

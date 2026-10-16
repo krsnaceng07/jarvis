@@ -45,22 +45,49 @@ def build(build_options: dict[str, Any] | None = None) -> str:
           - ``workspace_dir``: the workspace root for resolving
             ``memory/*.md`` files (Phase 4.1+)
           - ``recently_mentioned``: list of keys to surface first
+          - ``inbound_message``: the user's message to trigger memory
+          - ``active_projects``: list of active project scope keys
     """
     from .runtime import MemoryRuntime
 
     options = build_options or {}
     agent_id = options.get("agent_id")
     recently_mentioned = options.get("recently_mentioned") or []
+    inbound_message = options.get("inbound_message")
+    active_projects = options.get("active_projects")
 
     try:
         runtime = MemoryRuntime.default()
         rows = runtime.recent(limit=40)
+
+        # Filter rows by project scope if active_projects is provided
+        if active_projects is not None:
+            filtered = []
+            for r in rows:
+                p = r.get("project")
+                if p and p not in active_projects:
+                    continue
+                filtered.append(r)
+            rows = filtered
+
         if agent_id and not rows:
             rows = runtime.search_text("", limit=10)
+
+        triggered_rows = []
+        triggered_intents = []
+        if inbound_message:
+            triggered_rows = runtime.get_triggered_memory(inbound_message, active_projects, limit=3)
+            # Find and mutate standing intents in a synchronous transaction
+            channel_id = options.get("channel_id")
+            sender_id = options.get("sender_id")
+            triggered_intents = runtime.get_triggered_intents(
+                inbound_message, agent_id, channel_id, sender_id
+            )
+
     except Exception:
         return ""
 
-    if not rows:
+    if not rows and not triggered_rows and not triggered_intents:
         return ""
 
     # Sort: recently-mentioned first, then by recency.
@@ -74,7 +101,33 @@ def build(build_options: dict[str, Any] | None = None) -> str:
 
     lines: list[str] = ["[JARVIS MEMORY]"]
     used = len(lines[0]) + 1
+
+    # Inject triggered memory first
+    for r in triggered_rows:
+        key = r["key"]
+        value = r["value"]
+        category = r.get("category", "general")
+        line = f"- {category}/{key} [TRIGGERED]: {value}"
+        if used + len(line) + 1 > _MAX_PROMPT_CHARS:
+            break
+        lines.append(line)
+        used += len(line) + 1
+
+    # Inject standing intents
+    for r in triggered_intents:
+        created_at = r.get("created_at", "")[:10]  # Just YYYY-MM-DD
+        desc = r.get("description", "")
+        line = f"Standing intent (created {created_at}): {desc}"
+        if used + len(line) + 1 > _MAX_PROMPT_CHARS:
+            break
+        lines.append(line)
+        used += len(line) + 1
+
     for r in rows:
+        # Skip if already injected as triggered
+        if any(tr["key"] == r["key"] for tr in triggered_rows):
+            continue
+
         key = r["key"]
         value = r["value"]
         category = r.get("category", "general")

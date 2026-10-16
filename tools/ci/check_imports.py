@@ -90,7 +90,9 @@ def find_violations() -> list[str]:
             # Cross-extension: `from extensions.<other> import ...`
             if mod.startswith("extensions.") and self_ext is not None:
                 ext_name = mod.split(".", 2)[1] if mod.count(".") >= 2 else ""
-                if ext_name and ext_name != self_ext and ext_name not in EXTENSION_ALLOWLIST:
+                norm_ext = ext_name.replace("-", "_")
+                norm_self = self_ext.replace("-", "_")
+                if norm_ext and norm_ext != norm_self and norm_ext not in EXTENSION_ALLOWLIST:
                     violations.append(
                         f"{rel}:{line_no}: cross-extension import `{mod}` "
                         f"(extensions may only import from `jarvis_sdk.*`, "

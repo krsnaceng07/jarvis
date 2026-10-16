@@ -17,9 +17,10 @@ Python adaptations (documented in code):
   wiring is the responsibility of the host)
 - TS string-literal unions → Python ``Literal[...]``
 """
+
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable, Literal, Optional, TypedDict, Union
+from typing import Any, Awaitable, Callable, Optional, TypedDict, Union
 
 from jarvis_normalization_core.string_coerce import (
     normalize_lowercase_string_or_empty,
@@ -33,9 +34,7 @@ from jarvis_normalization_core.string_coerce import (
 PendingPairingEntry = dict[str, Any]
 ApprovedPairingEntry = dict[str, Any]
 ForbiddenPairingEntry = dict[str, Any]
-ApprovePairingResult = Optional[
-    Union[ApprovedPairingEntry, ForbiddenPairingEntry]
-]
+ApprovePairingResult = Optional[Union[ApprovedPairingEntry, ForbiddenPairingEntry]]
 
 
 class ApprovePairingRequest(TypedDict, total=False):
@@ -84,10 +83,7 @@ def _format_approved_pairing_reply(
     Mirrors the private ``formatApprovedPairingReply`` helper.
     """
     device = approved.get("device") or {}
-    label = (
-        normalize_optional_string(device.get("displayName"))
-        or device.get("deviceId", "")
-    )
+    label = normalize_optional_string(device.get("displayName")) or device.get("deviceId", "")
     platform = normalize_optional_string(device.get("platform"))
     platform_label = f" ({platform})" if platform else ""
     return {"text": f"✅ Paired {label}{platform_label}."}
@@ -98,11 +94,7 @@ def _format_forbidden_pairing_requirement(approved: ForbiddenPairingEntry) -> st
 
     Mirrors the private ``formatForbiddenPairingRequirement`` helper.
     """
-    return (
-        approved.get("scope")
-        or approved.get("role")
-        or "additional approval"
-    )
+    return approved.get("scope") or approved.get("role") or "additional approval"
 
 
 # ── Public surface ──────────────────────────────────────────
@@ -135,9 +127,7 @@ def select_pending_approval_request(
     if not requested:
         if not rest:
             return {"pending": first}
-        return {
-            "reply": _build_multiple_pending_approval_reply(pending)
-        }
+        return {"reply": _build_multiple_pending_approval_reply(pending)}
     if normalize_lowercase_string_or_empty(requested) == "latest":
         latest = first
         for entry in rest:
@@ -148,7 +138,11 @@ def select_pending_approval_request(
         (entry for entry in pending if entry.get("requestId") == requested),
         None,
     )
-    return {"pending": found} if found is not None else {"reply": {"text": "Pairing request not found."}}
+    return (
+        {"pending": found}
+        if found is not None
+        else {"reply": {"text": "Pairing request not found."}}
+    )
 
 
 async def approve_pending_pairing_request(
@@ -172,9 +166,7 @@ async def approve_pending_pairing_request(
     if caller_scopes is None:
         result = await approve_device_pairing(request_id, None)
     else:
-        result = await approve_device_pairing(
-            request_id, {"callerScopes": list(caller_scopes)}
-        )
+        result = await approve_device_pairing(request_id, {"callerScopes": list(caller_scopes)})
     if not result:
         return {"text": "Pairing request not found."}
     if result.get("status") == "forbidden":

@@ -1,0 +1,27 @@
+{
+  "id": "tlon",
+  "name": "Tlon",
+  "description": "JARVIS Tlon (Urbit) channel plugin for decentralized ship communication.",
+  "channels": [
+    "tlon"
+  ],
+  "activation": {
+    "onStartup": false
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "shipUrl": {
+        "type": "string"
+      },
+      "code": {
+        "type": "string"
+      },
+      "ship": {
+        "type": "string"
+      }
+    }
+  },
+  "kind": "channel"
+}

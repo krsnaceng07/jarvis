@@ -1,0 +1,58 @@
+{
+  "id": "openrouter",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "openrouter"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "openrouter",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "OPENROUTER_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "openrouter": {
+        "baseUrl": "https://openrouter.ai/api/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "openrouter/auto",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "anthropic/claude-3.5-sonnet",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

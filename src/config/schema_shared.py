@@ -5,7 +5,7 @@ OpenClaw parity: mirrors ``openclaw-main/src/config/schema.shared.ts``.
 from __future__ import annotations
 
 import copy
-from typing import Any, Optional
+from typing import Optional
 
 
 def clone_schema(value):

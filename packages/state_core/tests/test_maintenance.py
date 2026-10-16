@@ -13,6 +13,7 @@ Covers:
   additive column the runtime tolerates alongside the
   canonical shape
 """
+
 from __future__ import annotations
 
 import os
@@ -40,23 +41,17 @@ def _fresh_db() -> sqlite3.Connection:
 
 def test_resolve_database_path_uses_explicit_path(tmp_path):
     target = tmp_path / "custom.sqlite"
-    assert resolve_database_path({"path": str(target)}) == str(
-        target.resolve()
-    )
+    assert resolve_database_path({"path": str(target)}) == str(target.resolve())
 
 
-def test_resolve_database_path_falls_back_to_env_state_dir(
-    monkeypatch, tmp_path
-):
+def test_resolve_database_path_falls_back_to_env_state_dir(monkeypatch, tmp_path):
     monkeypatch.setenv("JARVIS_STATE_DIR", str(tmp_path / "alt"))
     path = resolve_database_path()
     assert path.endswith(os.path.join("alt", "jarvis.sqlite"))
 
 
 def test_resolve_database_path_uses_env_dict():
-    path = resolve_database_path(
-        {"env": {"JARVIS_STATE_DIR": "jarvis-state-x"}}
-    )
+    path = resolve_database_path({"env": {"JARVIS_STATE_DIR": "jarvis-state-x"}})
     assert path.endswith(os.path.join("jarvis-state-x", "jarvis.sqlite"))
 
 
@@ -110,9 +105,7 @@ def test_assert_supported_raises_on_newer_version():
 
     conn = _fresh_db()
     try:
-        conn.execute(
-            f"PRAGMA user_version = {int(STATE_SCHEMA_VERSION) + 1};"
-        )
+        conn.execute(f"PRAGMA user_version = {int(STATE_SCHEMA_VERSION) + 1};")
         with pytest.raises(RuntimeError, match="schema version"):
             assert_supported_schema_version(conn, "memory:")
     finally:
@@ -127,13 +120,9 @@ def test_maintenance_assert_raises_on_newer_user_version():
 
     conn = _fresh_db()
     try:
-        conn.execute(
-            f"PRAGMA user_version = {int(STATE_SCHEMA_VERSION) + 1};"
-        )
+        conn.execute(f"PRAGMA user_version = {int(STATE_SCHEMA_VERSION) + 1};")
         with pytest.raises(RuntimeError, match="schema version"):
-            assert_jarvis_state_database_for_maintenance(
-                conn, {"pathname": "memory:"}
-            )
+            assert_jarvis_state_database_for_maintenance(conn, {"pathname": "memory:"})
     finally:
         conn.close()
 
@@ -143,13 +132,9 @@ def test_maintenance_assert_raises_on_older_user_version():
 
     conn = _fresh_db()
     try:
-        conn.execute(
-            f"PRAGMA user_version = {int(STATE_SCHEMA_VERSION) - 1};"
-        )
+        conn.execute(f"PRAGMA user_version = {int(STATE_SCHEMA_VERSION) - 1};")
         with pytest.raises(RuntimeError, match="run jarvis doctor"):
-            assert_jarvis_state_database_for_maintenance(
-                conn, {"pathname": "memory:"}
-            )
+            assert_jarvis_state_database_for_maintenance(conn, {"pathname": "memory:"})
     finally:
         conn.close()
 
@@ -173,9 +158,7 @@ def test_maintenance_assert_raises_on_non_global_role():
             """
         )
         with pytest.raises(RuntimeError, match="expected global"):
-            assert_jarvis_state_database_for_maintenance(
-                conn, {"pathname": "memory:"}
-            )
+            assert_jarvis_state_database_for_maintenance(conn, {"pathname": "memory:"})
     finally:
         conn.close()
 
@@ -199,9 +182,7 @@ def test_maintenance_assert_raises_on_schema_meta_version_mismatch():
             """
         )
         with pytest.raises(RuntimeError, match="metadata schema version"):
-            assert_jarvis_state_database_for_maintenance(
-                conn, {"pathname": "memory:"}
-            )
+            assert_jarvis_state_database_for_maintenance(conn, {"pathname": "memory:"})
     finally:
         conn.close()
 
@@ -236,9 +217,7 @@ def test_maintenance_assert_passes_on_minimal_canonical_shape():
         )
         # No commitments table at all: the spot-check skips
         # when the table is missing.
-        assert_jarvis_state_database_for_maintenance(
-            conn, {"pathname": "memory:"}
-        )  # no raise
+        assert_jarvis_state_database_for_maintenance(conn, {"pathname": "memory:"})  # no raise
     finally:
         conn.close()
 
@@ -263,9 +242,7 @@ def test_maintenance_assert_raises_on_missing_canonical_tables():
         )
         # Missing every canonical state table.
         with pytest.raises(RuntimeError):
-            assert_jarvis_state_database_for_maintenance(
-                conn, {"pathname": "memory:"}
-            )
+            assert_jarvis_state_database_for_maintenance(conn, {"pathname": "memory:"})
     finally:
         conn.close()
 
@@ -283,9 +260,7 @@ def test_maintenance_assert_raises_on_missing_pathname():
 
 
 def test_compatibility_map_lists_all_additive_columns():
-    allowed = STATE_MAINTENANCE_SCHEMA_COMPATIBILITY.get(
-        "allowed_column_definitions", {}
-    )
+    allowed = STATE_MAINTENANCE_SCHEMA_COMPATIBILITY.get("allowed_column_definitions", {})
     expected = {
         "diagnostic_events.sequence",
         "commitments.attempts",
@@ -312,9 +287,7 @@ def test_compatibility_map_lists_all_additive_columns():
 
 
 def test_compatibility_map_values_are_definitions():
-    allowed = STATE_MAINTENANCE_SCHEMA_COMPATIBILITY.get(
-        "allowed_column_definitions", {}
-    )
+    allowed = STATE_MAINTENANCE_SCHEMA_COMPATIBILITY.get("allowed_column_definitions", {})
     # Every value is a non-empty list of column definitions.
     for key, definitions in allowed.items():
         assert isinstance(definitions, list)

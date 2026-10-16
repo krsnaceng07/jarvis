@@ -4,6 +4,7 @@ OpenClaw parity: mirrors ``channel-plugin-api.ts``. Defines
 the ``discordPlugin`` descriptor (id, kind, hooks) the
 host uses to wire Discord into the gateway.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

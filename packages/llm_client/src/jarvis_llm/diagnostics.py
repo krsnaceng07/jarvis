@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import time
 import traceback
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 
@@ -99,9 +99,9 @@ def extract_diagnostic_error(error: object) -> DiagnosticErrorInfo:
 
     stack: str | None = None
     if error.__traceback__ is not None:
-        stack = "".join(
-            traceback.format_exception(type(error), error, error.__traceback__)
-        ).rstrip("\n")
+        stack = "".join(traceback.format_exception(type(error), error, error.__traceback__)).rstrip(
+            "\n"
+        )
 
     name = type(error).__name__
     return DiagnosticErrorInfo(

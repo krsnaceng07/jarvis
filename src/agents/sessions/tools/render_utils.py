@@ -36,9 +36,9 @@ Adaptations
 from __future__ import annotations
 
 import os
-from typing import Any, Iterable, Optional
+from typing import Any, Optional
 
-from .truncate import DEFAULT_MAX_BYTES, TruncationResult, format_size
+from .truncate import DEFAULT_MAX_BYTES, format_size
 
 
 # ============================================================================

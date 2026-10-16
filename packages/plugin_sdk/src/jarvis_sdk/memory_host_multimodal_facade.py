@@ -4,6 +4,7 @@ OpenClaw parity: mirrors the multimodal facade re-export in
 ``packages/memory-host-sdk/src/multimodal.ts`` (6 LOC). Re-exports
 the multimodal settings + classification helpers.
 """
+
 from __future__ import annotations
 
 from .memory_host_multimodal import (

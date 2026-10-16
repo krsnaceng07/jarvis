@@ -3,6 +3,7 @@
 OpenClaw parity: mirrors the OpenClaw ``openshell`` infra
 extension (17 files in the OpenClaw source).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

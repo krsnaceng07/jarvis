@@ -16,7 +16,7 @@ to installable hooks.
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict
 
 
 #: Embedded-attempt context-guards shape.

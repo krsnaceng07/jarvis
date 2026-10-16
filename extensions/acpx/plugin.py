@@ -54,6 +54,7 @@ Python adaptations (documented in code):
   uses ``isinstance(value, (int, float))`` +
   ``value > 0``)
 """
+
 from __future__ import annotations
 
 import threading
@@ -83,10 +84,7 @@ def _finite_seconds_to_ms(value: Any) -> int:
     JS port of the helper returns 1 to avoid the
     runtime rejecting sub-1 ms timers).
     """
-    if (
-        not isinstance(value, (int, float))
-        or isinstance(value, bool)
-    ):
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
         return 1
     if value != value:  # NaN
         return 1
@@ -213,10 +211,7 @@ def create_acpx_runtime_service(
             if logger is not None:
                 info = getattr(logger, "info", None)
                 if callable(info):
-                    info(
-                        "skipping embedded acpx runtime backend "
-                        "(OPENCLAW_SKIP_ACPX_RUNTIME=1)"
-                    )
+                    info("skipping embedded acpx runtime backend (OPENCLAW_SKIP_ACPX_RUNTIME=1)")
             return
         state.ctx = start_ctx
         # In a follow-up phase this would call
@@ -367,7 +362,9 @@ class ACPXPlugin(Plugin):
     id: str = "acpx"
     kind: str = "infra"
     version: str = "0.1.0"
-    description: str = "Embedded ACP runtime backend with plugin-owned session + transport management."
+    description: str = (
+        "Embedded ACP runtime backend with plugin-owned session + transport management."
+    )
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def init(self, ctx: Any) -> None:
@@ -390,9 +387,7 @@ class ACPXPlugin(Plugin):
            registers a reply-dispatch hook with the
            configured timeout
         """
-        reply_dispatch_timeout_ms = _resolve_reply_dispatch_timeout_ms(
-            api.plugin_config
-        )
+        reply_dispatch_timeout_ms = _resolve_reply_dispatch_timeout_ms(api.plugin_config)
 
         # 1. Session catalog registration.
         register_pi_session_catalog(api)
@@ -404,9 +399,7 @@ class ACPXPlugin(Plugin):
                     {
                         "plugin_config": api.plugin_config,
                         "open_keyed_store": (
-                            lambda options: api.runtime.state.open_keyed_store(
-                                options
-                            )
+                            lambda options: api.runtime.state.open_keyed_store(options)
                         )
                         if hasattr(getattr(api, "runtime", None), "state")
                         and hasattr(

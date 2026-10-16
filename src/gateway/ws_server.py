@@ -19,8 +19,11 @@ class GatewayWSConnection:
     Accepts a send callable and optional connection id for testability.
     """
 
-    def __init__(self, send_fn: Callable[[str], Awaitable[None]], conn_id: str | None = None) -> None:
-        self._send = send_fn
+    def __init__(self, send_fn: Any, conn_id: str | None = None) -> None:
+        if hasattr(send_fn, "send") and callable(getattr(send_fn, "send")):
+            self._send = send_fn.send
+        else:
+            self._send = send_fn
         self.conn_id = conn_id or str(id(self))
         self._subscriptions: set[str] = set()
         self._subscription_callbacks: dict[str, Callable[[dict[str, Any]], Awaitable[None]]] = {}

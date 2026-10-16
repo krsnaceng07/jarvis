@@ -4,7 +4,7 @@ OpenClaw parity: mirrors ``openclaw-main/src/config/config-paths.ts``.
 """
 from __future__ import annotations
 
-from typing import Any, Optional, TypedDict, Union
+from typing import Any, TypedDict, Union
 
 
 #: Subset of prototype-bearing keys blocked from path traversal.

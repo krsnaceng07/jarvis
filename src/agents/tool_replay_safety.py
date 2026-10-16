@@ -31,7 +31,7 @@ UNCONDITIONALLY_REPLAY_SAFE_TOOL_NAMES = frozenset(
         "update_plan",
         "tool_search",
         "tool_describe",
-        "image",
+        "view_image",
     }
 )
 

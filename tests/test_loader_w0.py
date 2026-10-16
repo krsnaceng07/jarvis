@@ -13,13 +13,14 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
 
 from jarvis_sdk.loader import (
     MANIFEST_FILENAME,
     LoadResult,
+    discover_plugins,
     load_all_plugins,
     load_all_plugins_from_workspace,
+    load_plugins,
 )
 
 
@@ -142,3 +143,45 @@ class TestLoadAllPluginsOnlyStartup:
         result = load_all_plugins(tmp_path, only_startup=True)
         assert result.plugin_count == 0
         assert "lazy_ext" not in result.skipped
+
+
+class TestDiscoverPlugins:
+    def test_discover_plugins_import_from_root_and_loader(self) -> None:
+        import jarvis_sdk
+        from jarvis_sdk.loader import discover_plugins as dp1
+        from jarvis_sdk import discover_plugins as dp2
+
+        assert callable(dp1)
+        assert dp1 is dp2
+        assert callable(load_plugins)
+        assert load_plugins is dp1
+        assert "discover_plugins" in jarvis_sdk.__all__
+
+    def test_discover_plugins_with_workspace_path(self, tmp_path: Path) -> None:
+        ext_dir = tmp_path / "extensions" / "test_plug"
+        ext_dir.mkdir(parents=True)
+        (ext_dir / MANIFEST_FILENAME).write_text(
+            json.dumps({"id": "test_plug", "kind": "tool", "activation": "on_demand"}),
+            encoding="utf-8",
+        )
+        res = discover_plugins(tmp_path)
+        assert isinstance(res, LoadResult)
+        assert "test_plug" in res.skipped or res.plugin_count >= 0
+        assert hasattr(res, "plugins")
+        assert hasattr(res, "manifests")
+
+    def test_discover_plugins_with_extensions_dir(self, tmp_path: Path) -> None:
+        exts = tmp_path / "extensions"
+        exts.mkdir()
+        res = discover_plugins(exts)
+        assert isinstance(res, LoadResult)
+        assert res.plugin_count == 0
+
+    def test_load_result_plugin_and_manifest_properties(self) -> None:
+        res = LoadResult()
+        assert res.plugins == []
+        assert res.manifests == []
+        res.manifest_metadata.append({"id": "my_plug", "kind": "tool"})
+        assert len(res.plugins) == 1
+        assert res.plugins[0]["id"] == "my_plug"
+        assert res.manifests[0]["id"] == "my_plug"

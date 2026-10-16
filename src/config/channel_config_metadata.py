@@ -10,7 +10,7 @@ shape during incremental migration.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, TypedDict
+from typing import Any, Dict, List, TypedDict
 
 
 #: Plugin origin precedence for the same plugin id.

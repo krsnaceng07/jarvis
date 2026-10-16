@@ -21,6 +21,7 @@ The Python port re-exports the same public surface from
 - ``run_with_concurrency`` / ``run_memory_host_tasks_with_concurrency``
 - ``MemoryFileEntry`` / ``MemoryChunk`` TypedDicts
 """
+
 from __future__ import annotations
 
 from .memory_host_hash import hash_text

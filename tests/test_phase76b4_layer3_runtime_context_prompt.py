@@ -1,9 +1,8 @@
 """Phase 7.6b-4 tests — runtime-context-prompt."""
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Optional
 
-import pytest
 
 from src.agents.embedded_agent_runner.run.runtime_context_prompt import (
     INTERNAL_RUNTIME_CONTEXT_BEGIN,

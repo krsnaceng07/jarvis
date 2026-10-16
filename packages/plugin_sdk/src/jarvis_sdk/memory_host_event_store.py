@@ -51,6 +51,7 @@ Key port decisions:
   in-process lock that orders the cursor advance + journal insert.
   When the SDK exposes a real plugin-state journal, swap to it.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -184,10 +185,7 @@ def _memory_host_event_storage_key(workspace_dir: str, sequence: int) -> str:
     """
     if not isinstance(sequence, int) or not (-(2**53) < sequence < 2**53):
         raise ValueError("Memory host event sequence must be a safe integer")
-    return (
-        f"{_event_key_prefix(workspace_dir)}1:"
-        f"{str(sequence).zfill(16)}"
-    )
+    return f"{_event_key_prefix(workspace_dir)}1:{str(sequence).zfill(16)}"
 
 
 def _cursor_key(workspace_dir: str) -> str:
@@ -205,9 +203,7 @@ def _is_record(value: Any) -> bool:
     return bool(value) and isinstance(value, dict) and not isinstance(value, (list, tuple, set))
 
 
-def _truncate_utf8(
-    value: str, max_bytes: int
-) -> tuple[str, bool]:
+def _truncate_utf8(value: str, max_bytes: int) -> tuple[str, bool]:
     """Truncate ``value`` to ``max_bytes`` UTF-8 bytes, preserving UTF-16 surrogate pairs.
 
     Mirrors OpenClaw's ``truncateUtf8`` (binary-search based; appends
@@ -249,8 +245,10 @@ def normalize_memory_host_event_record_for_storage(
     is malformed. Truncates oversized fields and records
     ``storageTruncated: true`` when bounds were applied.
     """
-    if not _is_record(value) or not isinstance(value.get("type"), str) or not isinstance(
-        value.get("timestamp"), str
+    if (
+        not _is_record(value)
+        or not isinstance(value.get("type"), str)
+        or not isinstance(value.get("timestamp"), str)
     ):
         return None
     ts_value, ts_truncated = _truncate_utf8(value["timestamp"], 128)
@@ -260,10 +258,7 @@ def normalize_memory_host_event_record_for_storage(
 
     # ── memory.recall.recorded / memory.recall.skipped ──────────
     if event_type in ("memory.recall.recorded", "memory.recall.skipped"):
-        if (
-            not isinstance(value.get("query"), str)
-            or not isinstance(value.get("results"), list)
-        ):
+        if not isinstance(value.get("query"), str) or not isinstance(value.get("results"), list):
             return None
         if event_type == "memory.recall.recorded":
             if not _is_finite_number(value.get("resultCount")):
@@ -279,7 +274,9 @@ def normalize_memory_host_event_record_for_storage(
         query_value, query_truncated = _truncate_utf8(
             value["query"], MAX_MEMORY_HOST_EVENT_TEXT_BYTES
         )
-        truncated = truncated or query_truncated or len(value["results"]) > MAX_MEMORY_HOST_EVENT_ITEMS
+        truncated = (
+            truncated or query_truncated or len(value["results"]) > MAX_MEMORY_HOST_EVENT_ITEMS
+        )
 
         normalized_results: list[MemoryHostRecallResult] = []
         for result in list(value["results"])[:MAX_MEMORY_HOST_EVENT_ITEMS]:
@@ -389,9 +386,7 @@ def normalize_memory_host_event_record_for_storage(
                 or not _is_finite_number(cand.get("recallCount"))
             ):
                 return None
-            key_value, key_truncated = _truncate_utf8(
-                cand["key"], MAX_MEMORY_HOST_EVENT_PATH_BYTES
-            )
+            key_value, key_truncated = _truncate_utf8(cand["key"], MAX_MEMORY_HOST_EVENT_PATH_BYTES)
             cand_path_value, cand_path_truncated = _truncate_utf8(
                 cand["path"], MAX_MEMORY_HOST_EVENT_PATH_BYTES
             )
@@ -434,12 +429,10 @@ def normalize_memory_host_event_record_for_storage(
             or (outcome is not None and outcome not in ("completed", "failed"))
             or (value.get("error") is not None and not isinstance(value.get("error"), str))
             or (
-                value.get("inlinePath") is not None
-                and not isinstance(value.get("inlinePath"), str)
+                value.get("inlinePath") is not None and not isinstance(value.get("inlinePath"), str)
             )
             or (
-                value.get("reportPath") is not None
-                and not isinstance(value.get("reportPath"), str)
+                value.get("reportPath") is not None and not isinstance(value.get("reportPath"), str)
             )
             or not _is_finite_number(line_count)
             or storage_mode not in ("inline", "separate", "both")
@@ -461,10 +454,7 @@ def normalize_memory_host_event_record_for_storage(
             else (None, False)
         )
         truncated = (
-            truncated
-            or bool(error_truncated)
-            or bool(inline_truncated)
-            or bool(report_truncated)
+            truncated or bool(error_truncated) or bool(inline_truncated) or bool(report_truncated)
         )
         normalized: dict[str, Any] = {
             "type": "memory.dream.completed",
@@ -543,21 +533,14 @@ def _read_journal_range(
     workspace_dir: str, key_start: str, key_end: str, order: str
 ) -> list[dict[str, Any]]:
     state = _get_workspace_state(workspace_dir)
-    matching = [
-        (k, v)
-        for k, v in state["journal"].items()
-        if k >= key_start and k < key_end
-    ]
+    matching = [(k, v) for k, v in state["journal"].items() if k >= key_start and k < key_end]
     # The TS source uses ``order: "desc"`` to scan from the most recent
     # key backwards. The TS range scan returns the latest entries first;
     # ``list_stored_memory_host_events`` then ``toReversed()`` to restore
     # oldest-first order. Mirror that here.
     reverse = order == "desc"
     matching.sort(key=lambda kv: kv[0], reverse=reverse)
-    return [
-        {"key": k, "value": v["value"], "createdAt": v["createdAt"]}
-        for k, v in matching
-    ]
+    return [{"key": k, "value": v["value"], "createdAt": v["createdAt"]} for k, v in matching]
 
 
 # ── Public API ───────────────────────────────────────────────────────
@@ -593,7 +576,9 @@ def register_memory_host_event(
         if state["journal"]:
             # Keys are zero-padded to 16 digits so lexicographic max
             # is equivalent to numeric max.
-            latest_sequence = int(max(state["journal"].keys())[len(_event_key_prefix(workspace_dir)) + 2:])
+            latest_sequence = int(
+                max(state["journal"].keys())[len(_event_key_prefix(workspace_dir)) + 2 :]
+            )
         initial_sequence = max(0, latest_sequence)
         next_sequence = initial_sequence + 1
         recorded_at = int(_now_ms())
@@ -657,6 +642,7 @@ def list_stored_memory_host_events(
 def _now_ms() -> int:
     """Return the current epoch milliseconds (Python equivalent of ``Date.now()``)."""
     import time
+
     return int(time.time() * 1000)
 
 

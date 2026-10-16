@@ -409,12 +409,12 @@ class TestExtractWikiLinks:
         assert out == ["real"]
 
     def test_ignores_fenced_code_links(self) -> None:
-        body = "Real [[alpha]].\n\n" "```\n" "skipme [[in-code]] and [link](in-code.md)\n" "```\n"
+        body = "Real [[alpha]].\n\n```\nskipme [[in-code]] and [link](in-code.md)\n```\n"
         out = extract_wiki_links(body, "notes/x.md")
         assert out == ["alpha"]
 
     def test_ignores_indented_code_links(self) -> None:
-        body = "Real [[alpha]].\n\n" "    skipme [[in-code]] and [link](in-code.md)\n"
+        body = "Real [[alpha]].\n\n    skipme [[in-code]] and [link](in-code.md)\n"
         out = extract_wiki_links(body, "notes/x.md")
         assert out == ["alpha"]
 

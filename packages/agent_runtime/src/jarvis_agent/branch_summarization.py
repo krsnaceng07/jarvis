@@ -8,7 +8,7 @@ from __future__ import annotations
 import inspect
 import time
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any
 
 from jarvis_llm import Context, Model, SimpleStreamOptions, TextContent, UserMessage
 
@@ -121,11 +121,7 @@ def collect_entries_for_branch_summary_from_branches(
     else:
         first_summarized_index = (
             next(
-                (
-                    i
-                    for i, entry in enumerate(old_branch)
-                    if entry.id == common_ancestor_id
-                ),
+                (i for i, entry in enumerate(old_branch) if entry.id == common_ancestor_id),
                 -1,
             )
             + 1
@@ -164,9 +160,7 @@ def _get_message_from_entry(entry: SessionTreeEntry) -> AgentMessage | None:
         )
     if entry_type == "compaction":
         return as_agent_message(
-            create_compaction_summary_message(
-                entry.summary, entry.tokens_before, entry.timestamp
-            )
+            create_compaction_summary_message(entry.summary, entry.tokens_before, entry.timestamp)
         )
     return None
 
@@ -222,9 +216,7 @@ def prepare_branch_entries(
         messages.insert(0, message)
         total_tokens += tokens
 
-    return BranchPreparation(
-        messages=messages, file_ops=file_ops, total_tokens=total_tokens
-    )
+    return BranchPreparation(messages=messages, file_ops=file_ops, total_tokens=total_tokens)
 
 
 BRANCH_SUMMARY_PREAMBLE = """The user explored a different conversation branch before returning here.
@@ -285,18 +277,14 @@ async def generate_branch_summary(
 
     if not messages:
         return ok(
-            BranchSummaryResult(
-                summary="No content to summarize", read_files=[], modified_files=[]
-            )
+            BranchSummaryResult(summary="No content to summarize", read_files=[], modified_files=[])
         )
     llm_messages = convert_to_llm(messages)
     conversation_text = serialize_conversation(llm_messages)
     if replace_instructions and custom_instructions:
         instructions = custom_instructions
     elif custom_instructions:
-        instructions = (
-            f"{_BRANCH_SUMMARY_PROMPT}\n\nAdditional focus: {custom_instructions}"
-        )
+        instructions = f"{_BRANCH_SUMMARY_PROMPT}\n\nAdditional focus: {custom_instructions}"
     else:
         instructions = _BRANCH_SUMMARY_PROMPT
     prompt_text = f"<conversation>\n{conversation_text}\n</conversation>\n\n{instructions}"
@@ -307,9 +295,7 @@ async def generate_branch_summary(
             timestamp=int(time.time() * 1000),
         )
     ]
-    context = Context(
-        system_prompt=SUMMARIZATION_SYSTEM_PROMPT, messages=summarization_messages
-    )
+    context = Context(system_prompt=SUMMARIZATION_SYSTEM_PROMPT, messages=summarization_messages)
     stream_options = SimpleStreamOptions(
         api_key=api_key, headers=headers, signal=signal, max_tokens=2048
     )
@@ -319,16 +305,12 @@ async def generate_branch_summary(
             response = await response
         response = await response.result()
     else:
-        response = resolve_agent_core_complete_fn(options.runtime)(
-            model, context, stream_options
-        )
+        response = resolve_agent_core_complete_fn(options.runtime)(model, context, stream_options)
         if inspect.isawaitable(response):
             response = await response
     if response.stop_reason == "aborted":
         return err(
-            BranchSummaryError(
-                "aborted", response.error_message or "Branch summary aborted"
-            )
+            BranchSummaryError("aborted", response.error_message or "Branch summary aborted")
         )
     if response.stop_reason == "error":
         return err(
@@ -339,9 +321,7 @@ async def generate_branch_summary(
         )
 
     summary = "\n".join(
-        block.text
-        for block in response.content
-        if getattr(block, "type", None) == "text"
+        block.text for block in response.content if getattr(block, "type", None) == "text"
     )
     summary = BRANCH_SUMMARY_PREAMBLE + summary
     read_files, modified_files = compute_file_lists(file_ops)

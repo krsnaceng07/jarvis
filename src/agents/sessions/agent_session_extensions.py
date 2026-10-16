@@ -37,6 +37,7 @@ methods land in 6.12g).
 
 Phase 6.12f — focused port.
 """
+
 from __future__ import annotations
 
 import logging
@@ -44,8 +45,6 @@ import os
 from typing import (
     TYPE_CHECKING,
     Any,
-    Awaitable,
-    Callable,
     Optional,
     Union,
 )
@@ -54,11 +53,6 @@ from .agent_session_base import ToolDefinitionEntry
 from .agent_session_execution import AgentSessionExecution
 from .agent_session_types import ExtensionBindings
 from .extensions.runner import ExtensionRunner, emit_session_shutdown_event
-from .extensions.types import (
-    ReplacedSessionContext,
-    SourceInfo,
-    ToolDefinition,
-)
 from .extensions.wrapper import wrap_registered_tools
 from .resource_loader import ResourceExtensionPaths
 from .source_info import create_synthetic_source_info
@@ -109,9 +103,7 @@ class AgentSessionExtensions(AgentSessionExecution):
         if getattr(bindings, "ui_context", None) is not None:
             self.extension_ui_context = bindings.ui_context
         if getattr(bindings, "command_context_actions", None) is not None:
-            self.extension_command_context_actions = (
-                bindings.command_context_actions
-            )
+            self.extension_command_context_actions = bindings.command_context_actions
         if getattr(bindings, "abort_handler", None) is not None:
             self.extension_abort_handler = bindings.abort_handler
         if getattr(bindings, "shutdown_handler", None) is not None:
@@ -119,14 +111,8 @@ class AgentSessionExtensions(AgentSessionExecution):
         if getattr(bindings, "on_error", None) is not None:
             self.extension_error_listener = bindings.on_error
         self._apply_extension_bindings(self.current_extension_runner)
-        await self.current_extension_runner.emit(
-            self.session_start_event
-        )
-        reason = (
-            "reload"
-            if self.session_start_event.get("reason") == "reload"
-            else "startup"
-        )
+        await self.current_extension_runner.emit(self.session_start_event)
+        reason = "reload" if self.session_start_event.get("reason") == "reload" else "startup"
         await self._extend_resources_from_extensions(reason)
 
     async def reload(self) -> None:
@@ -159,9 +145,7 @@ class AgentSessionExtensions(AgentSessionExecution):
         self.steering_mode = self.settings_manager.get_steering_mode()
         self.follow_up_mode = self.settings_manager.get_follow_up_mode()
         # Reload the resource loader.
-        reload_resource_loader = getattr(
-            self.session_resource_loader, "reload", None
-        )
+        reload_resource_loader = getattr(self.session_resource_loader, "reload", None)
         if callable(reload_resource_loader):
             await reload_resource_loader()
         # Refresh the model registry.
@@ -233,7 +217,15 @@ class AgentSessionExtensions(AgentSessionExecution):
             for name, value in flag_values.items():
                 extensions_result.runtime.flagValues[name] = value
         # Default active tool names.
-        default_active = ["read", "bash", "edit", "write"]
+        default_active = [
+            "read",
+            "bash",
+            "edit",
+            "write",
+            "sessions_send",
+            "session_status",
+            "sessions_list",
+        ]
         # Mirrors the OpenClaw source's
         # ``options.activeToolNames ?? defaultActiveToolNames``
         # (nullish coalescing — an
@@ -246,9 +238,7 @@ class AgentSessionExtensions(AgentSessionExecution):
             base_active = explicit_active
         self._refresh_tool_registry(
             active_tool_names=base_active,
-            include_all_extension_tools=options.get(
-                "includeAllExtensionTools", False
-            ),
+            include_all_extension_tools=options.get("includeAllExtensionTools", False),
         )
         self._refresh_system_prompt()
 
@@ -283,7 +273,9 @@ class AgentSessionExtensions(AgentSessionExecution):
                 opts["contextFiles"] = []
 
         if opts.get("has_append_system_prompt", False):
-            opts["appendSystemPrompt"] = "\n\n".join(self.session_resource_loader.get_append_system_prompt())
+            opts["appendSystemPrompt"] = "\n\n".join(
+                self.session_resource_loader.get_append_system_prompt()
+            )
 
         if opts.get("include_skills", True):
             skills_result = self.session_resource_loader.get_skills()
@@ -293,6 +285,49 @@ class AgentSessionExtensions(AgentSessionExecution):
                 opts["skills"] = []
 
         opts["customPrompt"] = self.exact_base_system_prompt
+
+        # Inject Tool Search capability directory if enabled
+        try:
+            from jarvis_config_core import load_config
+
+            cfg = load_config().to_dict()
+            agent_id = getattr(self.agent, "id", "main")
+            agent_cfg = cfg.get("agents", {}).get(agent_id, {})
+            ts_cfg = agent_cfg.get("tools", {}).get("toolSearch") or cfg.get("tools", {}).get(
+                "toolSearch"
+            )
+
+            if ts_cfg is True:
+                ts_cfg = {"enabled": True, "mode": "tools"}
+
+            if (
+                ts_cfg
+                and isinstance(ts_cfg, dict)
+                and ts_cfg.get("enabled")
+                and ts_cfg.get("mode") == "directory"
+            ):
+                from src.agents.agent_scope import render_catalog_capability_directory
+
+                # Render for all allowed tools, or all available if none restricted
+                capability_names = (
+                    set(self.allowed_tool_names) if self.allowed_tool_names is not None else None
+                )
+                if capability_names is None:
+                    from src.agents.tool_catalog import GLOBAL_TOOL_CATALOG
+
+                    capability_names = {
+                        t.name for t in GLOBAL_TOOL_CATALOG.get_effective_inventory()
+                    }
+
+                tool_dir = render_catalog_capability_directory(capability_names)
+                if tool_dir:
+                    opts["toolDirectory"] = tool_dir
+        except Exception as e:
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "Failed to inject tool search capability directory: %s", e
+            )
 
         # Check if it's the first turn by looking at the agent's message history.
         state = self.agent.state
@@ -326,11 +361,7 @@ class AgentSessionExtensions(AgentSessionExecution):
         state = self.agent.state
         if isinstance(state, dict):
             return list(state.get("activeTools", []))
-        return list(
-            getattr(state, "activeTools", None)
-            or getattr(state, "active_tools", [])
-            or []
-        )
+        return list(getattr(state, "activeTools", None) or getattr(state, "active_tools", []) or [])
 
     def get_all_tools(self) -> list[str]:
         """Return the names of all
@@ -352,26 +383,18 @@ class AgentSessionExtensions(AgentSessionExecution):
     # Private: extension bindings
     # ------------------------------------------------------------------
 
-    async def _extend_resources_from_extensions(
-        self, reason: str
-    ) -> None:
+    async def _extend_resources_from_extensions(self, reason: str) -> None:
         """Emit the ``resources_discover``
         event + extend the resources.
         Mirrors :meth:`extendResourcesFromExtensions`
         (``agent-session-extensions.ts:42-63``)."""
         if not self.current_extension_runner.has_handlers("resources_discover"):
             return
-        discovered = await self.current_extension_runner.emit_resources_discover(
-            self.cwd, reason
-        )
+        discovered = await self.current_extension_runner.emit_resources_discover(self.cwd, reason)
         skill_paths = discovered.get("skillPaths", []) or []
         prompt_paths = discovered.get("promptPaths", []) or []
         theme_paths = discovered.get("themePaths", []) or []
-        if (
-            not skill_paths
-            and not prompt_paths
-            and not theme_paths
-        ):
+        if not skill_paths and not prompt_paths and not theme_paths:
             return
         extension_paths: ResourceExtensionPaths = {
             "skillPaths": self._build_extension_resource_paths(skill_paths),
@@ -380,9 +403,7 @@ class AgentSessionExtensions(AgentSessionExecution):
         }
         self.session_resource_loader.extend_resources(extension_paths)
 
-    def _build_extension_resource_paths(
-        self, entries: list
-    ) -> list:
+    def _build_extension_resource_paths(self, entries: list) -> list:
         """Wrap the extension-provided
         resource entries as
         :class:`ResourceExtensionPaths`
@@ -397,15 +418,17 @@ class AgentSessionExtensions(AgentSessionExecution):
             base_dir = None
             if extension_path and not extension_path.startswith("<"):
                 base_dir = os.path.dirname(extension_path)
-            out.append({
-                "path": path,
-                "metadata": {
-                    "source": source,
-                    "scope": "temporary",
-                    "origin": "top-level",
-                    "baseDir": base_dir,
-                },
-            })
+            out.append(
+                {
+                    "path": path,
+                    "metadata": {
+                        "source": source,
+                        "scope": "temporary",
+                        "origin": "top-level",
+                        "baseDir": base_dir,
+                    },
+                }
+            )
         return out
 
     def _get_extension_source_label(self, extension_path: str) -> str:
@@ -439,9 +462,7 @@ class AgentSessionExtensions(AgentSessionExecution):
                 pass
             self.extension_error_unsubscriber = None
         if self.extension_error_listener is not None:
-            self.extension_error_unsubscriber = runner.on_error(
-                self.extension_error_listener
-            )
+            self.extension_error_unsubscriber = runner.on_error(self.extension_error_listener)
 
     def _refresh_current_model_from_registry(self) -> None:
         """Re-read the current model from
@@ -452,9 +473,7 @@ class AgentSessionExtensions(AgentSessionExecution):
         current_model = self.model
         if not current_model:
             return
-        find = getattr(
-            self.session_model_registry, "find", None
-        )
+        find = getattr(self.session_model_registry, "find", None)
         if not callable(find):
             return
         provider = (
@@ -535,11 +554,13 @@ class AgentSessionExtensions(AgentSessionExecution):
         try:
             await self.send_custom_message(message, options)
         except Exception as exc:
-            self.current_extension_runner.emit_error({
-                "extensionPath": "<runtime>",
-                "event": "send_message",
-                "error": str(exc) if exc else "unknown",
-            })
+            self.current_extension_runner.emit_error(
+                {
+                    "extensionPath": "<runtime>",
+                    "event": "send_message",
+                    "error": str(exc) if exc else "unknown",
+                }
+            )
 
     async def _core_send_user_message(
         self,
@@ -549,16 +570,16 @@ class AgentSessionExtensions(AgentSessionExecution):
         try:
             await self.send_user_message(content, options)
         except Exception as exc:
-            self.current_extension_runner.emit_error({
-                "extensionPath": "<runtime>",
-                "event": "send_user_message",
-                "error": str(exc) if exc else "unknown",
-            })
+            self.current_extension_runner.emit_error(
+                {
+                    "extensionPath": "<runtime>",
+                    "event": "send_user_message",
+                    "error": str(exc) if exc else "unknown",
+                }
+            )
 
     def _core_append_entry(self, custom_type: str, data: Any) -> None:
-        append = getattr(
-            self.session_manager, "append_custom_entry", None
-        )
+        append = getattr(self.session_manager, "append_custom_entry", None)
         if callable(append):
             append(custom_type, data)
 
@@ -583,32 +604,28 @@ class AgentSessionExtensions(AgentSessionExecution):
         on behalf of the inspection
         class.
         """
-        set_name = getattr(
-            self.session_manager, "set_session_name", None
-        )
+        set_name = getattr(self.session_manager, "set_session_name", None)
         if callable(set_name):
             set_name(name)
-        self.emit({
-            "type": "session_info_changed",
-            "name": name,
-        })
+        self.emit(
+            {
+                "type": "session_info_changed",
+                "name": name,
+            }
+        )
 
     def _core_get_session_name(self) -> Optional[str]:
         """Get the session name. Mirrors
         the OpenClaw source's
         :func:`getSessionName` delegate
         inside :meth:`bindExtensionCore`."""
-        get_name = getattr(
-            self.session_manager, "get_session_name", None
-        )
+        get_name = getattr(self.session_manager, "get_session_name", None)
         if callable(get_name):
             return get_name()
         return None
 
     def _core_set_label(self, entry_id: str, label: str) -> None:
-        append_label = getattr(
-            self.session_manager, "append_label_change", None
-        )
+        append_label = getattr(self.session_manager, "append_label_change", None)
         if callable(append_label):
             append_label(entry_id, label)
 
@@ -619,32 +636,34 @@ class AgentSessionExtensions(AgentSessionExecution):
         :func:`getCommands` helper inside
         :meth:`bindExtensionCore`."""
         commands: list = []
-        extension_commands = (
-            self.current_extension_runner.get_registered_commands()
-        )
+        extension_commands = self.current_extension_runner.get_registered_commands()
         for command in extension_commands:
-            commands.append({
-                "name": command.get("invocationName", ""),
-                "description": command.get("description", ""),
-                "source": "extension",
-                "sourceInfo": command.get("sourceInfo"),
-            })
+            commands.append(
+                {
+                    "name": command.get("invocationName", ""),
+                    "description": command.get("description", ""),
+                    "source": "extension",
+                    "sourceInfo": command.get("sourceInfo"),
+                }
+            )
         for template in self.prompt_templates:
-            commands.append({
-                "name": template.get("name", ""),
-                "description": template.get("description", ""),
-                "source": "prompt",
-                "sourceInfo": template.get("sourceInfo"),
-            })
-        for skill in self.session_resource_loader.get_skills().get(
-            "skills", []
-        ):
-            commands.append({
-                "name": f"skill:{skill.name}",
-                "description": skill.description,
-                "source": "skill",
-                "sourceInfo": skill.source_info,
-            })
+            commands.append(
+                {
+                    "name": template.get("name", ""),
+                    "description": template.get("description", ""),
+                    "source": "prompt",
+                    "sourceInfo": template.get("sourceInfo"),
+                }
+            )
+        for skill in self.session_resource_loader.get_skills().get("skills", []):
+            commands.append(
+                {
+                    "name": f"skill:{skill.name}",
+                    "description": skill.description,
+                    "source": "skill",
+                    "sourceInfo": skill.source_info,
+                }
+            )
         return commands
 
     def _core_get_context_usage(self) -> Optional[dict]:
@@ -716,17 +735,13 @@ class AgentSessionExtensions(AgentSessionExecution):
         asyncio.create_task(run())
 
     def _core_register_provider(self, name: str, config: Any) -> None:
-        register = getattr(
-            self.session_model_registry, "register_provider", None
-        )
+        register = getattr(self.session_model_registry, "register_provider", None)
         if callable(register):
             register(name, config)
         self._refresh_current_model_from_registry()
 
     def _core_unregister_provider(self, name: str) -> None:
-        unregister = getattr(
-            self.session_model_registry, "unregister_provider", None
-        )
+        unregister = getattr(self.session_model_registry, "unregister_provider", None)
         if callable(unregister):
             unregister(name)
         self._refresh_current_model_from_registry()
@@ -749,29 +764,31 @@ class AgentSessionExtensions(AgentSessionExecution):
         list.
         """
         allowed = self.allowed_tool_names
-        is_allowed: Callable[[str], bool] = lambda name: (
-            allowed is None or name in allowed
-        )
+        def is_allowed(name: str) -> bool:
+            return allowed is None or name in allowed
         registered_tools = self.current_extension_runner.get_all_registered_tools()
         custom = list(registered_tools)
         for definition in self.custom_tools:
-            custom.append({
-                "definition": definition,
-                "sourceInfo": create_synthetic_source_info(
-                    f"<sdk:{definition.get('name', 'unknown')}>",
-                    {"source": "sdk"},
-                ),
-            })
-        # Filter by the allowlist.
-        custom = [
-            tool
-            for tool in custom
-            if is_allowed(
-                tool.get("definition", {}).get("name", "")
+            custom.append(
+                {
+                    "definition": definition,
+                    "sourceInfo": create_synthetic_source_info(
+                        f"<sdk:{definition.get('name', 'unknown')}>",
+                        {"source": "sdk"},
+                    ),
+                }
             )
-        ]
+        # Filter by the allowlist.
+        custom = [tool for tool in custom if is_allowed(tool.get("definition", {}).get("name", ""))]
         # Build the definition map.
         definition_registry: dict[str, ToolDefinitionEntry] = {}
+
+        # Populate base_tool_definitions from base_tools_override if available
+        if self.base_tools_override and not self.disable_built_in_tools:
+            self.base_tool_definitions = {
+                name: tool for name, tool in self.base_tools_override.items()
+            }
+
         for name, definition in self.base_tool_definitions.items():
             if not is_allowed(name):
                 continue
@@ -790,12 +807,19 @@ class AgentSessionExtensions(AgentSessionExecution):
             )
         self.tool_definitions = definition_registry
         # Wrap + register.
-        wrapped_extension = wrap_registered_tools(
-            custom, self.current_extension_runner
-        )
-        tool_registry: dict[str, Any] = {
-            tool.name: tool for tool in wrapped_extension
-        }
+        wrapped_extension = wrap_registered_tools(custom, self.current_extension_runner)
+        tool_registry: dict[str, Any] = {}
+
+        # Register base tools
+        if self.base_tools_override and not self.disable_built_in_tools:
+            for name, tool in self.base_tools_override.items():
+                if is_allowed(name):
+                    tool_registry[name] = tool
+
+        # Register extension tools
+        for tool in wrapped_extension:
+            tool_registry[tool.name] = tool
+
         self.tool_registry = tool_registry
         # Active tool list.
         previous_active = set(self.get_active_tool_names())
@@ -814,6 +838,36 @@ class AgentSessionExtensions(AgentSessionExecution):
                 if tool_name not in previous_active:
                     new_active.append(tool_name)
         self.set_active_tools_by_name(list(dict.fromkeys(new_active)))
+
+    def install_agent_tool_hooks(self) -> None:
+        """Install the before-/after-tool hooks on the agent so the
+        extension runner can intercept tool calls + tool results.
+        Overrides the base class stub.
+        """
+        if not hasattr(self, "api") or not self.api:
+            return
+
+        async def after_tool_call(event: Any) -> Any:
+            try:
+                state = getattr(self.api, "_state", {})
+                registry = state.get("registry", {})
+                middlewares = registry.get("agentToolResultMiddlewares", [])
+
+                for reg in middlewares:
+                    middleware = reg.get("handler")
+                    if middleware:
+                        import inspect
+
+                        if inspect.iscoroutinefunction(middleware):
+                            event = await middleware(event, self.api)
+                        else:
+                            event = middleware(event, self.api)
+            except Exception as e:
+                _LOG.warning("Error in tool result middleware: %s", e)
+            return event
+
+        if hasattr(self, "agent") and self.agent:
+            self.agent.after_tool_call = after_tool_call
 
 
 __all__ = [

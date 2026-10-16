@@ -1,4 +1,5 @@
 """JARVIS SenseAudio media-understanding provider extension (Phase 5.15 real surface port)."""
+
 from __future__ import annotations
 
 from .media_understanding_provider import (

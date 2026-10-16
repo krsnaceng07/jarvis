@@ -1,7 +1,9 @@
 {
   "id": "llama-cpp",
+  "name": "llama.cpp",
+  "description": "Local and remote llama-server provider with hardware recommendation, guided tool verification, and embedding management.",
   "activation": {
-    "onStartup": false
+    "onStartup": true
   },
   "enabledByDefault": true,
   "providers": [
@@ -12,9 +14,11 @@
       {
         "id": "llama-cpp",
         "authMethods": [
+          "none",
           "api-key"
         ],
         "envVars": [
+          "LLAMA_SERVER_API_KEY",
           "LLAMA_CPP_API_KEY"
         ]
       }
@@ -23,14 +27,68 @@
   "modelCatalog": {
     "providers": {
       "llama-cpp": {
-        "baseUrl": "http://localhost:8080/v1",
+        "baseUrl": "http://127.0.0.1:8080/v1",
         "api": "openai-completions",
         "models": [
           {
-            "id": "local-model",
+            "id": "qwen3.8-27b",
+            "name": "Qwen3.8 27B UD-Q4_K_M",
             "input": [
               "text"
-            ]
+            ],
+            "contextWindow": 65536,
+            "maxTokens": 4096,
+            "compat": {
+              "supportsTools": true
+            }
+          },
+          {
+            "id": "muse-glimmer-30b",
+            "name": "Muse Glimmer 30B Q4_K_M",
+            "input": [
+              "text"
+            ],
+            "contextWindow": 65536,
+            "maxTokens": 4096,
+            "compat": {
+              "supportsTools": true
+            }
+          },
+          {
+            "id": "gemma4-12b",
+            "name": "Gemma 4 12B IT Q4_K_M",
+            "input": [
+              "text"
+            ],
+            "contextWindow": 65536,
+            "maxTokens": 4096,
+            "compat": {
+              "supportsTools": true
+            }
+          },
+          {
+            "id": "qwen3.5-9b",
+            "name": "Qwen3.5 9B Q4_K_M",
+            "input": [
+              "text"
+            ],
+            "contextWindow": 65536,
+            "maxTokens": 4096,
+            "compat": {
+              "supportsTools": true
+            }
+          },
+          {
+            "id": "qwen3.5-4b",
+            "name": "Qwen3.5 4B Q4_K_M",
+            "input": [
+              "text"
+            ],
+            "contextWindow": 65536,
+            "maxTokens": 4096,
+            "compat": {
+              "supportsTools": true
+            }
           }
         ]
       }
@@ -40,12 +98,40 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {
-      "default_model": {
+      "baseUrl": {
+        "type": "string",
+        "default": "http://127.0.0.1:8080/v1"
+      },
+      "api": {
+        "type": "string",
+        "default": "openai-completions"
+      },
+      "apiKey": {
         "type": "string"
       },
+      "default_model": {
+        "type": "string",
+        "default": "qwen3.8-27b"
+      },
       "max_output_tokens": {
-        "type": "integer"
+        "type": "integer",
+        "default": 4096
+      },
+      "modelCacheDir": {
+        "type": "string",
+        "default": "~/.openclaw/models/llama.cpp"
+      },
+      "localService": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "models": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
       }
     }
-  }
+  },
+  "kind": "provider"
 }

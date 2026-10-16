@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from ..loading.loader import load_skill_from_dir
 from ..security.validator import validate_skill_path_containment, validate_skill_eligibility

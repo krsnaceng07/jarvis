@@ -1,0 +1,58 @@
+[
+  {
+    "id": "browser_reuse_existing_tab",
+    "description": "YouTube already open — reuse existing tab instead of opening new one",
+    "severity": "critical",
+    "input": {
+      "user_input": "play Believer on YouTube",
+      "context": "YouTube is already open in tab 2"
+    },
+    "setup": {
+      "open_tabs": [{"id": 1, "url": "google.com"}, {"id": 2, "url": "youtube.com"}]
+    },
+    "expected_decision": {
+      "tool": "browser.navigate_tab",
+      "args": {"tab_id": 2}
+    },
+    "forbidden_actions": ["browser.new_tab"],
+    "success_conditions": ["youtube_tab_navigated"],
+    "failure_conditions": ["duplicate_tab_opened"]
+  },
+  {
+    "id": "browser_navigate_correct_tab",
+    "description": "Multiple tabs open — navigate the correct one",
+    "severity": "high",
+    "input": {
+      "user_input": "search for Python tutorials on YouTube",
+      "context": "Tab 1: Google, Tab 2: YouTube, Tab 3: GitHub"
+    },
+    "setup": {
+      "open_tabs": [
+        {"id": 1, "url": "google.com"},
+        {"id": 2, "url": "youtube.com"},
+        {"id": 3, "url": "github.com"}
+      ]
+    },
+    "expected_decision": {
+      "tool": "browser.navigate_tab",
+      "args": {"tab_id": 2}
+    },
+    "forbidden_actions": ["browser.new_tab"]
+  },
+  {
+    "id": "browser_new_tab_when_needed",
+    "description": "No existing YouTube tab — opening new tab is acceptable",
+    "severity": "low",
+    "input": {
+      "user_input": "open YouTube",
+      "context": "No YouTube tab is currently open"
+    },
+    "setup": {
+      "open_tabs": [{"id": 1, "url": "google.com"}]
+    },
+    "expected_decision": {
+      "tool": "browser.new_tab"
+    },
+    "forbidden_actions": []
+  }
+]

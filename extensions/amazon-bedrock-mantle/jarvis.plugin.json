@@ -1,0 +1,52 @@
+{
+  "id": "amazon-bedrock-mantle",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "amazon-bedrock-mantle"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "amazon-bedrock-mantle",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "MANTLE_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "amazon-bedrock-mantle": {
+        "baseUrl": "https://bedrock.us-east-1.amazonaws.com",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "mantle-pro",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

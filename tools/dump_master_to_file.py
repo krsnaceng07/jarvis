@@ -1,4 +1,5 @@
-import sqlite3, os
+import sqlite3
+import os
 p=os.path.expanduser('~/.jarvis/state/jarvis.sqlite')
 out='E:/jarvis/tools/master_dump.txt'
 with open(out,'w',encoding='utf-8') as f:

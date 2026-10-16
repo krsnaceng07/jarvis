@@ -30,17 +30,17 @@ Python adaptations (documented in code):
   the namespace collision with the JARVIS root ``src/``
   package
 """
+
 from __future__ import annotations
 
 import json
 import re
 import time
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, Literal, Optional, TypedDict, Union
+from typing import Any, Awaitable, Callable, Optional, TypedDict
 
-from packages.plugin_sdk.src.jarvis_sdk.api import PluginApi
-from packages.plugin_sdk.src.jarvis_sdk.context import PluginContext
-from packages.plugin_sdk.src.jarvis_sdk.speech_provider import (  # noqa: F401  (typed-dict import unused at runtime)
+from jarvis_sdk.api import PluginApi
+from jarvis_sdk.speech_provider import (  # noqa: F401  (typed-dict import unused at runtime)
     SpeechProviderConfig,
 )
 
@@ -140,9 +140,7 @@ def collect_text(
     return "\n".join(parts).strip()
 
 
-def to_model_key(
-    provider: Optional[str], model: Optional[str]
-) -> Optional[str]:
+def to_model_key(provider: Optional[str], model: Optional[str]) -> Optional[str]:
     """Build a ``"{provider}/{model}"`` model key, or ``None`` if either is empty."""
     p = (provider or "").strip()
     m = (model or "").strip()
@@ -151,9 +149,7 @@ def to_model_key(
     return f"{p}/{m}"
 
 
-def strip_duplicate_provider_prefix(
-    provider: Optional[str], model: Optional[str]
-) -> Optional[str]:
+def strip_duplicate_provider_prefix(provider: Optional[str], model: Optional[str]) -> Optional[str]:
     """Strip the redundant ``{provider}/`` prefix from ``model``.
 
     Mirrors the private ``stripDuplicateProviderPrefix`` helper.
@@ -189,9 +185,7 @@ def resolve_llm_task_model_ref(
         }
     cfg = getattr(api, "config", None)
     alias_index = (
-        api.runtime.agent.build_model_alias_index(
-            {"cfg": cfg, "defaultProvider": provider}
-        )
+        api.runtime.agent.build_model_alias_index({"cfg": cfg, "defaultProvider": provider})
         if cfg
         else None
     )
@@ -223,9 +217,7 @@ def format_thinking_policy(policy: dict[str, Any]) -> str:
     return ", ".join(str(level.get("label")) for level in levels if isinstance(level, dict))
 
 
-def supports_thinking_policy_level(
-    policy: dict[str, Any], level: Optional[str]
-) -> bool:
+def supports_thinking_policy_level(policy: dict[str, Any], level: Optional[str]) -> bool:
     """Return ``True`` when ``level`` is in the policy's levels list.
 
     Mirrors the private ``supportsThinkingPolicyLevel`` helper.
@@ -233,10 +225,7 @@ def supports_thinking_policy_level(
     if not level:
         return False
     levels = policy.get("levels") or []
-    return any(
-        isinstance(entry, dict) and entry.get("id") == level
-        for entry in levels
-    )
+    return any(isinstance(entry, dict) and entry.get("id") == level for entry in levels)
 
 
 # ── Tool definition ──────────────────────────────────────
@@ -265,15 +254,11 @@ class LlmTaskToolDefinition:
                     "description": "Optional input payload for the task.",
                 },
                 "schema": {
-                    "description": (
-                        "Optional JSON Schema to validate the returned JSON."
-                    ),
+                    "description": ("Optional JSON Schema to validate the returned JSON."),
                 },
                 "provider": {
                     "type": "string",
-                    "description": (
-                        "Provider override (e.g. openai, anthropic)."
-                    ),
+                    "description": ("Provider override (e.g. openai, anthropic)."),
                 },
                 "model": {
                     "type": "string",
@@ -313,9 +298,7 @@ llm_task_tool_definition = LlmTaskToolDefinition()
 # ── create_llm_task_tool ──────────────────────────────────
 
 
-def _read_finite_number_param(
-    params: dict[str, Any], key: str
-) -> Optional[float]:
+def _read_finite_number_param(params: dict[str, Any], key: str) -> Optional[float]:
     """Read a finite numeric param, or ``None`` if missing/invalid."""
     value = params.get(key)
     if isinstance(value, bool):
@@ -325,9 +308,7 @@ def _read_finite_number_param(
     return None
 
 
-def _read_positive_integer_param(
-    params: dict[str, Any], key: str
-) -> Optional[int]:
+def _read_positive_integer_param(params: dict[str, Any], key: str) -> Optional[int]:
     """Read a positive integer param, or ``None`` if missing/invalid."""
     value = _read_finite_number_param(params, key)
     if value is None:
@@ -362,9 +343,7 @@ class LlmTaskDeps:
     run_embedded_agent: Optional[RunEmbeddedAgentFn] = None
 
 
-def _validate_against_schema_stub(
-    schema: dict[str, Any], value: object
-) -> dict[str, Any]:
+def _validate_against_schema_stub(schema: dict[str, Any], value: object) -> dict[str, Any]:
     """A no-op schema validator (the host wires the real one).
 
     The OpenClaw source uses ``validateJsonSchemaValue``
@@ -402,14 +381,8 @@ def create_llm_task_tool(
             else None
         )
 
-    async def execute(
-        _id: str, params: LlmTaskParams
-    ) -> LlmTaskExecuteResult:
-        prompt = (
-            params.get("prompt")
-            if isinstance(params.get("prompt"), str)
-            else ""
-        )
+    async def execute(_id: str, params: LlmTaskParams) -> LlmTaskExecuteResult:
+        prompt = params.get("prompt") if isinstance(params.get("prompt"), str) else ""
         if not prompt.strip():
             raise ValueError("prompt required")
 
@@ -437,8 +410,7 @@ def create_llm_task_tool(
 
         requested_provider = (
             params.get("provider")
-            if isinstance(params.get("provider"), str)
-            and (params.get("provider") or "").strip()
+            if isinstance(params.get("provider"), str) and (params.get("provider") or "").strip()
             else (
                 plugin_cfg.get("defaultProvider")
                 if isinstance(plugin_cfg.get("defaultProvider"), str)
@@ -448,8 +420,7 @@ def create_llm_task_tool(
         )
         raw_model = (
             params.get("model")
-            if isinstance(params.get("model"), str)
-            and (params.get("model") or "").strip()
+            if isinstance(params.get("model"), str) and (params.get("model") or "").strip()
             else (
                 plugin_cfg.get("defaultModel")
                 if isinstance(plugin_cfg.get("defaultModel"), str)
@@ -504,8 +475,7 @@ def create_llm_task_tool(
 
         thinking_raw = (
             params.get("thinking")
-            if isinstance(params.get("thinking"), str)
-            and (params.get("thinking") or "").strip()
+            if isinstance(params.get("thinking"), str) and (params.get("thinking") or "").strip()
             else None
         )
         think_level: Optional[str] = None
@@ -521,8 +491,7 @@ def create_llm_task_tool(
             think_level = api.runtime.agent.normalize_thinking_level(thinking_raw)
             if not think_level:
                 raise RuntimeError(
-                    f'Invalid thinking level "{thinking_raw}". '
-                    f"Use one of: {levels_hint}."
+                    f'Invalid thinking level "{thinking_raw}". Use one of: {levels_hint}.'
                 )
             if not supports_thinking_policy_level(policy, think_level):
                 raise RuntimeError(
@@ -537,25 +506,19 @@ def create_llm_task_tool(
         )
 
         temperature = _read_finite_number_param(params, "temperature")
-        max_tokens = _read_positive_integer_param(
-            params, "maxTokens"
-        ) or _as_positive_safe_integer(plugin_cfg.get("maxTokens"))
+        max_tokens = _read_positive_integer_param(params, "maxTokens") or _as_positive_safe_integer(
+            plugin_cfg.get("maxTokens")
+        )
 
         try:
             input_json = json.dumps(params.get("input") or None, indent=2)
         except (TypeError, ValueError):
             raise ValueError("input must be JSON-serializable") from None
 
-        full_prompt = (
-            f"{LlmTaskSystemPrompt}\n\n"
-            f"TASK:\n{prompt}\n\n"
-            f"INPUT_JSON:\n{input_json}\n"
-        )
+        full_prompt = f"{LlmTaskSystemPrompt}\n\nTASK:\n{prompt}\n\nINPUT_JSON:\n{input_json}\n"
 
         if effective_deps.run_embedded_agent is None:
-            raise NotImplementedError(
-                "llm-task: run_embedded_agent dependency is not wired"
-            )
+            raise NotImplementedError("llm-task: run_embedded_agent dependency is not wired")
 
         # The host wires a temp workspace; the OpenClaw
         # source uses ``withTempWorkspace({...})`` to create
@@ -613,9 +576,7 @@ def create_llm_task_tool(
             validation = _validate_against_schema_stub(schema, parsed)
             if not validation.get("ok"):
                 msg = "invalid"
-                raise RuntimeError(
-                    f"LLM JSON did not match schema: {msg}"
-                ) from None
+                raise RuntimeError(f"LLM JSON did not match schema: {msg}") from None
 
         return {
             "content": [{"type": "text", "text": json.dumps(parsed, indent=2)}],

@@ -14,7 +14,6 @@ from src.sessions.user_turn_transcript_types import (
     PersistedUserTurnMessage,
     UserTurnInput,
     UserTurnTranscriptRecorder,
-    UserTurnTranscriptUpdateMode,
     VALID_USER_TURN_TRANSCRIPT_UPDATE_MODES,
 )
 

@@ -1,0 +1,12 @@
+[project]
+name = "jarvis-youtube"
+version = "0.1.0"
+description = "JARVIS YouTube automation extension matching the OpenClaw architecture."
+requires-python = ">=3.13"
+dependencies = [
+    "playwright>=1.49.0",
+    "jarvis-plugin-sdk>=0.1.0-rc1",
+]
+
+[tool.uv]
+package = false

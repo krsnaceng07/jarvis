@@ -145,6 +145,7 @@ from .types import (  # noqa: E402
     KNOWN_INTERNAL_HOOK_EVENT_KEYS,
     is_known_hook_event_key,
 )
+from .dispatcher import InternalHookDispatcher, get_global_dispatcher, set_global_dispatcher  # noqa: E402
 
 __all__ = [
     # HookBus
@@ -173,4 +174,8 @@ __all__ = [
     # W13: loader
     "load_hook_handler",
     "load_hooks",
+    # W13: dispatcher
+    "InternalHookDispatcher",
+    "get_global_dispatcher",
+    "set_global_dispatcher",
 ]

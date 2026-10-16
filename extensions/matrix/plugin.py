@@ -3,6 +3,7 @@
 OpenClaw parity: mirrors the OpenClaw ``matrix`` channel
 extension (332 files in the OpenClaw source).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -33,7 +34,7 @@ class MatrixPlugin(ChannelPlugin):
 
         return Result.err(
             "channel_stub",
-            f"matrix channel send is a Phase 5.15 stub",
+            "matrix channel send is a Phase 5.15 stub",
         )
 
     async def listen(self, callback: Any) -> None:  # type: ignore[override]

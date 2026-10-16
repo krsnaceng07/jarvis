@@ -2,6 +2,7 @@
 
 Mirrors the TypeScript ``test_dreaming-markdown.test.ts`` patterns.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -9,7 +10,6 @@ import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-import pytest
 
 from extensions.memory_core import dreaming_markdown as dm
 from extensions.memory_core import dreaming_dreams_file as df

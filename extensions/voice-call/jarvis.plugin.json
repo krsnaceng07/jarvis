@@ -1,0 +1,452 @@
+{
+  "id": "voice-call",
+  "name": "Voice Call",
+  "description": "Voice calls for JARVIS: outbound notifications, multi-turn conversations, full-duplex realtime voice, streaming transcription, and inbound calls with allowlist policies.",
+  "cliCommands": [
+    {
+      "name": "voicecall",
+      "description": "Voice Call management (Twilio, Telnyx, Plivo, Mock)",
+      "hasSubcommands": true
+    }
+  ],
+  "enabledByDefault": true,
+  "activation": {
+    "onStartup": true
+  },
+  "contracts": {
+    "tools": [
+      "voice_call"
+    ],
+    "rpcMethods": [
+      "voicecall.initiate",
+      "voicecall.start",
+      "voicecall.continue",
+      "voicecall.continue.start",
+      "voicecall.continue.result",
+      "voicecall.speak",
+      "voicecall.dtmf",
+      "voicecall.end",
+      "voicecall.status",
+      "voicecall.setup",
+      "voicecall.smoke"
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": false,
+        "description": "Enable or disable the Voice Call plugin."
+      },
+      "provider": {
+        "type": "string",
+        "enum": [
+          "mock",
+          "plivo",
+          "telnyx",
+          "twilio"
+        ],
+        "default": "twilio",
+        "description": "Telephony provider to use for calls."
+      },
+      "fromNumber": {
+        "type": "string",
+        "description": "Caller ID phone number in E.164 format (+15551234567)."
+      },
+      "toNumber": {
+        "type": "string",
+        "description": "Default destination phone number in E.164 format (+15551234567)."
+      },
+      "inboundPolicy": {
+        "type": "string",
+        "enum": [
+          "disabled",
+          "allowlist",
+          "pairing",
+          "open"
+        ],
+        "default": "disabled",
+        "description": "Policy governing incoming telephone calls."
+      },
+      "allowFrom": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "default": [],
+        "description": "List of allowed caller phone numbers in E.164 format."
+      },
+      "sessionScope": {
+        "type": "string",
+        "enum": [
+          "per-phone",
+          "per-call",
+          "main"
+        ],
+        "default": "per-phone",
+        "description": "Scope of call sessions (per-phone, per-call, or main)."
+      },
+      "maxDurationSeconds": {
+        "type": "integer",
+        "default": 300,
+        "description": "Maximum call duration in seconds."
+      },
+      "staleCallReaperSeconds": {
+        "type": "integer",
+        "default": 120,
+        "description": "Timeout threshold for reaping inactive call sessions."
+      },
+      "silenceTimeoutMs": {
+        "type": "integer",
+        "default": 800,
+        "description": "End-of-speech silence detection in ms."
+      },
+      "transcriptTimeoutMs": {
+        "type": "integer",
+        "default": 180000,
+        "description": "Max wait for caller transcript in ms."
+      },
+      "ringTimeoutMs": {
+        "type": "integer",
+        "default": 30000,
+        "description": "Ring timeout for outbound calls in ms."
+      },
+      "maxConcurrentCalls": {
+        "type": "integer",
+        "default": 1,
+        "description": "Max concurrent outbound calls."
+      },
+      "skipSignatureVerification": {
+        "type": "boolean",
+        "default": false,
+        "description": "Skip webhook signature verification (local testing only)."
+      },
+      "store": {
+        "type": "string",
+        "description": "Path override for call storage."
+      },
+      "agentId": {
+        "type": "string",
+        "default": "main",
+        "description": "Agent ID that owns call sessions and responses."
+      },
+      "responseModel": {
+        "type": "string",
+        "description": "Model override for classic responses."
+      },
+      "responseSystemPrompt": {
+        "type": "string",
+        "description": "Custom system prompt for classic responses."
+      },
+      "responseTimeoutMs": {
+        "type": "integer",
+        "default": 30000,
+        "description": "Timeout for classic response generation in ms."
+      },
+      "publicUrl": {
+        "type": "string",
+        "description": "Publicly reachable webhook URL for carrier callbacks."
+      },
+      "tunnel": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Tunnel configuration for webhook exposure."
+      },
+      "tailscale": {
+        "type": "object",
+        "additionalProperties": true,
+        "description": "Tailscale configuration for webhook exposure."
+      },
+      "mode": {
+        "type": "string",
+        "enum": [
+          "notify",
+          "turn",
+          "realtime",
+          "streaming"
+        ],
+        "default": "turn",
+        "description": "Default call audio mode."
+      },
+      "serve": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "port": {
+            "type": "integer",
+            "default": 3334
+          },
+          "path": {
+            "type": "string",
+            "default": "/voice/webhook"
+          },
+          "bind": {
+            "type": "string",
+            "default": "127.0.0.1"
+          }
+        }
+      },
+      "outbound": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "defaultMode": {
+            "type": "string",
+            "default": "notify"
+          },
+          "notifyHangupDelaySec": {
+            "type": "integer",
+            "default": 3
+          }
+        }
+      },
+      "twilio": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "accountSid": {
+            "type": "string"
+          },
+          "authToken": {
+            "type": "string"
+          },
+          "apiKey": {
+            "type": "string"
+          },
+          "apiSecret": {
+            "type": "string"
+          },
+          "twimlAppSid": {
+            "type": "string"
+          },
+          "statusCallbackUrl": {
+            "type": "string"
+          },
+          "region": {
+            "type": "string",
+            "enum": [
+              "us1",
+              "ie1",
+              "au1"
+            ],
+            "default": "us1"
+          }
+        }
+      },
+      "telnyx": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "apiKey": {
+            "type": "string"
+          },
+          "connectionId": {
+            "type": "string"
+          },
+          "publicKey": {
+            "type": "string"
+          }
+        }
+      },
+      "plivo": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "authId": {
+            "type": "string"
+          },
+          "authToken": {
+            "type": "string"
+          },
+          "appId": {
+            "type": "string"
+          }
+        }
+      },
+      "mock": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "autoAnswer": {
+            "type": "boolean",
+            "default": true
+          },
+          "simulateNetworkDelayMs": {
+            "type": "integer",
+            "default": 0
+          }
+        }
+      },
+      "webhookSecurity": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "allowedHosts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "trustForwardingHeaders": {
+            "type": "boolean",
+            "default": false
+          },
+          "trustedProxyIPs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "default": []
+          },
+          "validateSignature": {
+            "type": "boolean",
+            "default": true
+          }
+        }
+      },
+      "tts": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "voice": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "options": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "providers": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "realtime": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "provider": {
+            "type": "string",
+            "default": "gemini"
+          },
+          "model": {
+            "type": "string"
+          },
+          "voice": {
+            "type": "string"
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "temperature": {
+            "type": "number"
+          },
+          "turnDetection": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "providers": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "streaming": {
+        "type": "object",
+        "additionalProperties": true,
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "default": false
+          },
+          "provider": {
+            "type": "string",
+            "default": "openai"
+          },
+          "model": {
+            "type": "string"
+          },
+          "language": {
+            "type": "string"
+          },
+          "preStartTimeoutMs": {
+            "type": "integer",
+            "default": 5000
+          },
+          "maxPendingConnections": {
+            "type": "integer",
+            "default": 32
+          },
+          "maxPendingConnectionsPerIp": {
+            "type": "integer",
+            "default": 4
+          },
+          "maxConnections": {
+            "type": "integer",
+            "default": 128
+          },
+          "providers": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        }
+      },
+      "numbers": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "object",
+          "properties": {
+            "agentId": {
+              "type": "string"
+            },
+            "inboundPolicy": {
+              "type": "string",
+              "enum": [
+                "disabled",
+                "allowlist",
+                "pairing",
+                "open"
+              ]
+            },
+            "inboundGreeting": {
+              "type": "string"
+            },
+            "responseSystemPrompt": {
+              "type": "string"
+            },
+            "tts": {
+              "type": "object",
+              "additionalProperties": true
+            },
+            "realtime": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          }
+        }
+      },
+      "spokenOutput": {
+        "type": "object",
+        "additionalProperties": true
+      },
+      "disconnectGraceSeconds": {
+        "type": "number",
+        "default": 5.0
+      }
+    }
+  },
+  "kind": "tool"
+}

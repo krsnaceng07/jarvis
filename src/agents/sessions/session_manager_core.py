@@ -40,14 +40,12 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
 from .session_manager_codec import (
     CURRENT_SESSION_VERSION,
     has_readable_session_header,
     is_indexed_session_entry,
-    is_json_record,
     migrate_to_current_version,
     parse_opaque_leaf_entry,
     parse_parent_linked_opaque_entry,
@@ -127,6 +125,7 @@ class SessionManagerCore:
         persist: bool,
         loaded_session_file: Optional[LoadedSessionFile] = None,
         sqlite_persistence: Optional[SqliteSessionManagerPersistence] = None,
+        new_session_options: Optional[NewSessionOptions] = None,
     ) -> None:
         self.cwd = cwd
         self.session_dir = session_dir
@@ -173,7 +172,7 @@ class SessionManagerCore:
                     else load_entries_from_file_with_snapshot(session_file),
                 )
         else:
-            self.new_session()
+            self.new_session(new_session_options)
 
     # ------------------------------------------------------------------
     # setSessionFile
@@ -376,6 +375,10 @@ class SessionManagerCore:
             "timestamp": timestamp,
             "cwd": self.cwd,
         }
+        if options.created_actor:
+            header["createdActor"] = options.created_actor
+        if options.is_draft:
+            header["isDraft"] = True
         if options.parent_session is not None:
             header["parentSession"] = options.parent_session
         self.file_entries = [header]

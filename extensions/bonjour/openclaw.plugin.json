@@ -10,5 +10,6 @@
     "type": "object",
     "additionalProperties": false,
     "properties": {}
-  }
+  },
+  "kind": "infra"
 }

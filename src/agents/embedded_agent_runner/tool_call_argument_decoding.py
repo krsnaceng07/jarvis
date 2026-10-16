@@ -19,7 +19,7 @@ the host can plug in the real shared formatters when they land.
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Optional, Set
+from typing import Any, Callable, Set
 
 
 #: HTML-entity decoder. The host installs the real

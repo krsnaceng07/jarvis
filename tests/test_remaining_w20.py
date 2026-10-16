@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-import pytest
 
 from src.secrets.store import SecretsStore
 from src.secrets.env_resolver import resolve_secret_ref
 import sys
-from pathlib import Path
 
 i18n_src = Path(__file__).parent.parent / "packages" / "i18n_core" / "src"
 if str(i18n_src) not in sys.path:

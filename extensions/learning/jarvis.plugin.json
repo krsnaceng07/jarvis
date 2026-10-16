@@ -1,0 +1,20 @@
+{
+  "id": "learning",
+  "name": "Learning Engine",
+  "version": "0.1.0",
+  "description": "Self-learning and continual-learning engine for JARVIS. Captures experiences, learns strategies, detects failure patterns, and influences future decisions.",
+  "kind": "infra",
+  "activation": "always",
+  "entry": "plugin.py",
+  "hooks": [
+    "before_prompt_build",
+    "before_agent_start",
+    "before_tool_call",
+    "tool_called",
+    "after_tool_call",
+    "tool_completed",
+    "agent_end",
+    "session_start",
+    "session_end"
+  ]
+}

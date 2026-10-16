@@ -5,7 +5,6 @@ OpenClaw parity: mirrors
 """
 from __future__ import annotations
 
-from typing import Any
 
 
 #: Generic install record shape (zod schema fields).

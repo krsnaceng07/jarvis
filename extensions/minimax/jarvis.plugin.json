@@ -1,0 +1,52 @@
+{
+  "id": "minimax",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "minimax"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "minimax",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "MINIMAX_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "minimax": {
+        "baseUrl": "https://api.minimax.io/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "MiniMax-pro",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

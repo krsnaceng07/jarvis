@@ -10,6 +10,7 @@ Mirrors a subset of OpenClaw's
 ``extensions/device-pair/pair-command-auth.test.ts`` and
 ``extensions/device-pair/notify-state.ts`` tests.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -107,9 +108,7 @@ class TestPairCommandAuth:
         assert state["canIssueFullAccessSetup"] is False
 
     def test_owner_caller_full_access(self) -> None:
-        state = resolve_pairing_command_auth_state(
-            {"channel": "discord", "senderIsOwner": True}
-        )
+        state = resolve_pairing_command_auth_state({"channel": "discord", "senderIsOwner": True})
         assert state["isInternalGatewayCaller"] is False
         assert state["isMissingPairingPrivilege"] is False
         assert state["isMissingSetupHandoffPrivilege"] is False
@@ -117,9 +116,7 @@ class TestPairCommandAuth:
         assert state["approvalCallerScopes"] == ["operator.pairing"]
 
     def test_external_non_owner_lacks_pairing_privilege(self) -> None:
-        state = resolve_pairing_command_auth_state(
-            {"channel": "discord", "senderIsOwner": False}
-        )
+        state = resolve_pairing_command_auth_state({"channel": "discord", "senderIsOwner": False})
         assert state["isInternalGatewayCaller"] is False
         assert state["isMissingPairingPrivilege"] is True
         assert state["isMissingSetupHandoffPrivilege"] is True
@@ -145,8 +142,7 @@ class TestPairCommandAuth:
     def test_missing_setup_handoff_scope_reply(self) -> None:
         assert build_missing_setup_handoff_scope_reply() == {
             "text": (
-                "⚠️ Setup code handoff includes Talk secrets "
-                "and requires operator.talk.secrets."
+                "⚠️ Setup code handoff includes Talk secrets and requires operator.talk.secrets."
             )
         }
 
@@ -165,9 +161,7 @@ class TestSelectPendingApprovalRequest:
         assert result["reply"]["text"] == "No pending device pairing requests."
 
     def test_single_pending_no_requested(self) -> None:
-        result = select_pending_approval_request(
-            {"pending": [_make_pending("r1")]}
-        )
+        result = select_pending_approval_request({"pending": [_make_pending("r1")]})
         assert result["pending"]["requestId"] == "r1"
 
     def test_multiple_pending_no_requested_returns_multiple_reply(self) -> None:
@@ -238,9 +232,7 @@ class TestApprovePendingPairingRequest:
             }
 
         reply = asyncio.run(
-            approve_pending_pairing_request(
-                {"requestId": "r1"}, approve_device_pairing=approve
-            )
+            approve_pending_pairing_request({"requestId": "r1"}, approve_device_pairing=approve)
         )
         assert reply == {"text": "✅ Paired My Mac."}
 
@@ -252,9 +244,7 @@ class TestApprovePendingPairingRequest:
             }
 
         reply = asyncio.run(
-            approve_pending_pairing_request(
-                {"requestId": "r1"}, approve_device_pairing=approve
-            )
+            approve_pending_pairing_request({"requestId": "r1"}, approve_device_pairing=approve)
         )
         assert reply == {"text": "✅ Paired mac-1."}
 
@@ -263,9 +253,7 @@ class TestApprovePendingPairingRequest:
             return {"status": "forbidden", "scope": "operator.admin"}
 
         reply = asyncio.run(
-            approve_pending_pairing_request(
-                {"requestId": "r1"}, approve_device_pairing=approve
-            )
+            approve_pending_pairing_request({"requestId": "r1"}, approve_device_pairing=approve)
         )
         assert "operator.admin" in reply["text"]
         assert "requires" in reply["text"]
@@ -310,9 +298,7 @@ class TestNotifyStateConstants:
 class TestNormalizeLegacyNotifyState:
     def test_normalizes_minimal_valid_state(self) -> None:
         raw = {
-            "subscribers": [
-                {"to": "alice", "mode": "persistent", "addedAtMs": 1_000}
-            ],
+            "subscribers": [{"to": "alice", "mode": "persistent", "addedAtMs": 1_000}],
             "notifiedRequestIds": {"r1": 2_000},
         }
         result = normalize_legacy_notify_state(raw)
@@ -333,16 +319,12 @@ class TestNormalizeLegacyNotifyState:
         assert result["subscribers"][0]["to"] == "bob"
 
     def test_defaults_mode_to_persistent(self) -> None:
-        raw = {
-            "subscribers": [{"to": "alice", "addedAtMs": 1_000}]
-        }
+        raw = {"subscribers": [{"to": "alice", "addedAtMs": 1_000}]}
         result = normalize_legacy_notify_state(raw)
         assert result["subscribers"][0]["mode"] == "persistent"
 
     def test_accepts_once_mode(self) -> None:
-        raw = {
-            "subscribers": [{"to": "alice", "mode": "once", "addedAtMs": 1_000}]
-        }
+        raw = {"subscribers": [{"to": "alice", "mode": "once", "addedAtMs": 1_000}]}
         result = normalize_legacy_notify_state(raw)
         assert result["subscribers"][0]["mode"] == "once"
 

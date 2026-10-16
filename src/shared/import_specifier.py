@@ -4,7 +4,6 @@ OpenClaw parity: mirrors ``openclaw-main/src/shared/import-specifier.ts``.
 """
 from __future__ import annotations
 
-import os
 import pathlib
 import sys
 

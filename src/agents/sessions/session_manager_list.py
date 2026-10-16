@@ -60,9 +60,8 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Optional
+from typing import Any, Optional
 
-from .session_manager_file import get_default_session_dir
 from .session_manager_types import (
     FileEntry,
     SessionHeader,

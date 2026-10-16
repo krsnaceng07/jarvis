@@ -4,7 +4,6 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
-from typing import Any, Dict, List, Optional
 
 import pytest
 
@@ -25,7 +24,6 @@ from src.shared.avatar_policy import (  # noqa: E402
     resolve_avatar_mime,
 )
 from src.shared.balanced_json import (  # noqa: E402
-    BalancedJsonFragment,
     extract_balanced_json_fragments,
     extract_balanced_json_prefix,
 )
@@ -42,7 +40,6 @@ from src.shared.fast_mode import (  # noqa: E402
     format_fast_mode_command_options,
     format_fast_mode_current_status,
     format_fast_mode_source_suffix,
-    format_fast_mode_status_value,
     format_fast_mode_value,
     resolve_fast_mode_for_elapsed,
     resolve_fast_mode_model_auto_on_seconds,
@@ -70,7 +67,6 @@ from src.shared.operator_scope_compat import (  # noqa: E402
     OPERATOR_ADMIN_SCOPE,
     OPERATOR_READ_SCOPE,
     OPERATOR_ROLE,
-    OPERATOR_SCOPE_PREFIX,
     OPERATOR_WRITE_SCOPE,
     resolve_missing_requested_scope,
     resolve_scope_outside_requested_roles,

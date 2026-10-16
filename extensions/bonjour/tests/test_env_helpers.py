@@ -3,6 +3,7 @@
 Mirrors OpenClaw's ``extensions/bonjour/src/advertiser.test.ts``
 for the env-detection helpers.
 """
+
 from __future__ import annotations
 
 import os
@@ -103,15 +104,11 @@ class TestIsDisabledByEnv:
             assert is_disabled_by_env() is True
 
     def test_explicit_disable_override(self) -> None:
-        with mock.patch.dict(
-            os.environ, {"OPENCLAW_DISABLE_BONJOUR": "true"}, clear=True
-        ):
+        with mock.patch.dict(os.environ, {"OPENCLAW_DISABLE_BONJOUR": "true"}, clear=True):
             assert is_disabled_by_env() is True
 
     def test_explicit_enable_override(self) -> None:
-        with mock.patch.dict(
-            os.environ, {"OPENCLAW_DISABLE_BONJOUR": "false"}, clear=True
-        ):
+        with mock.patch.dict(os.environ, {"OPENCLAW_DISABLE_BONJOUR": "false"}, clear=True):
             assert is_disabled_by_env() is False
 
     def test_container_disables(self) -> None:

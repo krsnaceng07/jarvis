@@ -245,8 +245,7 @@ async def cleanup_active_memory_recall_session(params: dict[str, Any]) -> None:
             )
             if result.get("removedEntries") != 1:
                 raise RuntimeError(
-                    f"active-memory recall cleanup removed "
-                    f"{result.get('removedEntries')} sessions"
+                    f"active-memory recall cleanup removed {result.get('removedEntries')} sessions"
                 )
             return
         except Exception as exc:
@@ -283,7 +282,7 @@ async def run_recall_subagent(params: dict[str, Any]) -> RecallSubagentResult:
     if not model_ref:
         return {"rawReply": "NONE"}
 
-    subagent_session_id = f"active-memory-{int(time.time() * 36):x}-" f"{uuid.uuid4().hex[:8]}"
+    subagent_session_id = f"active-memory-{int(time.time() * 36):x}-{uuid.uuid4().hex[:8]}"
     parent_session_key: str | None = params.get("parentSessionKey")
     subagent_scope = parent_session_key or params.get("sessionId") or str(uuid.uuid4())
     subagent_suffix = (

@@ -4,13 +4,13 @@ This package-level module is the minimal public runtime shape the
 Phase 3 tests import via ``from extensions.telegram import runtime`` and
 ``from extensions.telegram.runtime import TelegramState``.
 """
+
 from __future__ import annotations
 
 import json
 import os
 import threading
 from pathlib import Path
-from typing import Any
 
 
 class TelegramState:
@@ -77,7 +77,9 @@ class TelegramState:
         except (OSError, json.JSONDecodeError):
             return
         if isinstance(data, dict):
-            self.bot_token = str(data.get("bot_token") or os.environ.get("JARVIS_TELEGRAM_BOT_TOKEN") or "")
+            self.bot_token = str(
+                data.get("bot_token") or os.environ.get("JARVIS_TELEGRAM_BOT_TOKEN") or ""
+            )
             self.paired_chat_id = str(data.get("paired_chat_id") or "")
             self.polling_interval_sec = int(data.get("polling_interval_sec") or 1)
             if self.polling_interval_sec < 1:

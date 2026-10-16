@@ -18,10 +18,9 @@ Phase 7.6h-5 — focused minimal port.
 """
 from __future__ import annotations
 
-import asyncio
 import logging
 import uuid
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 
 _log = logging.getLogger("jarvis.agents.embedded_agent_runner.context_engine_maintenance")

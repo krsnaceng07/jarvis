@@ -7,9 +7,9 @@ The 7 stop-word sets + the tokenizer + the public extract_keywords
 helper are tested. Tests use ``PYTHONIOENCODING=utf-8`` for
 Windows console output of CJK strings.
 """
+
 from __future__ import annotations
 
-import pytest
 
 from jarvis_sdk.memory_host_query_expansion import (
     KO_TRAILING_PARTICLES,
@@ -298,9 +298,7 @@ def test_extract_korean_full_word_kept() -> None:
 
 def test_extract_trigram_japanese_kanji() -> None:
     """Trigram mode emits whole CJK blocks (Japanese)."""
-    keywords = extract_keywords(
-        "昨日 私は 東京に 行きました", {"ftsTokenizer": "trigram"}
-    )
+    keywords = extract_keywords("昨日 私は 東京に 行きました", {"ftsTokenizer": "trigram"})
     # In trigram mode, Japanese kanji should still be emitted as
     # whole contiguous blocks.
     # The script detection splits on script boundaries, so "東京に"

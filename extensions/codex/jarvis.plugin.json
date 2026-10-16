@@ -1,0 +1,63 @@
+{
+  "id": "codex",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "codex"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "codex",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "CODEX_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "codex": {
+        "baseUrl": "https://api.openai.com/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "codex-1",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "tool",
+  "contracts": {
+    "tools": [
+      "codex_threads",
+      "codex_plugins",
+      "codex_endpoint_probe",
+      "codex_sessions_list",
+      "codex_session_read",
+      "codex_session_send",
+      "codex_session_interrupt"
+    ]
+  }
+}

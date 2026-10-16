@@ -40,12 +40,17 @@ _MAX_SAFE_INTEGER = 2**53 - 1
 _JS_WHITESPACE = frozenset(
     chr(codepoint)
     for codepoint in {
-        0x09, 0x0A, 0x0B, 0x0C, 0x0D,  # tab, LF, VT, FF, CR
+        0x09,
+        0x0A,
+        0x0B,
+        0x0C,
+        0x0D,  # tab, LF, VT, FF, CR
         0x20,  # space
         0xA0,  # no-break space
         0x1680,  # ogham space mark
         *range(0x2000, 0x200B),  # en/em quad through hair space
-        0x2028, 0x2029,  # line/paragraph separator
+        0x2028,
+        0x2029,  # line/paragraph separator
         0x202F,  # narrow no-break space
         0x205F,  # medium mathematical space
         0x3000,  # ideographic space
@@ -198,7 +203,6 @@ def substitute_args(content: str, args: list[str]) -> str:
     result = _ARGUMENTS.sub(lambda _: all_args, result)
     result = _AT.sub(lambda _: all_args, result)
     return result
-
 
 
 def format_prompt_template_invocation(

@@ -23,7 +23,7 @@ host can plug in the real session-accessor layer as it lands.
 """
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List
 
 
 #: Runtime transcript scope shape. Mirrors

@@ -4,6 +4,7 @@ This is the Phase 3 parity surface the tests import from
 ``extensions.telegram.doctor``. It exposes a single ``detect_telegram_credentials``
 check that returns ``DoctorFinding`` instances when the channel is not configured.
 """
+
 from __future__ import annotations
 
 from pathlib import Path

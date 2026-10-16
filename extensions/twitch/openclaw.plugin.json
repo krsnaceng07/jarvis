@@ -1,0 +1,33 @@
+{
+  "id": "twitch",
+  "doctorContract": {
+    "configRepair": true
+  },
+  "name": "Twitch",
+  "description": "OpenClaw Twitch channel plugin for stream chat and events.",
+  "activation": {
+    "onStartup": false
+  },
+  "channels": [
+    "twitch"
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "oauthToken": {
+        "type": "string"
+      },
+      "botUsername": {
+        "type": "string"
+      },
+      "channels": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "kind": "channel"
+}

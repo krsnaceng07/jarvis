@@ -5,7 +5,7 @@ OpenClaw parity: mirrors ``openclaw-main/src/shared/usage-aggregates.ts``.
 from __future__ import annotations
 
 import math
-from typing import Any, Dict, Generic, List, Optional, TypeVar
+from typing import Dict, List, Optional, TypeVar
 
 
 TTotals = TypeVar("TTotals", bound=dict)

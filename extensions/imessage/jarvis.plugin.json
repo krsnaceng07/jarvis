@@ -1,0 +1,34 @@
+{
+  "id": "imessage",
+  "name": "iMessage",
+  "description": "JARVIS iMessage channel plugin using imsg on a signed-in Mac",
+  "activation": "on_startup",
+  "kind": "channel",
+  "contracts": {
+    "channel": true
+  },
+  "permissions": ["network:outbound", "process:spawn"],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "cliPath": { "type": "string", "description": "Path to imsg CLI executable or SSH wrapper." },
+      "dbPath": { "type": "string", "description": "Optional iMessage database path override." },
+      "dmPolicy": { "type": "string", "enum": ["pairing", "allowlist"], "default": "pairing" },
+      "allowFrom": { "type": "array", "items": { "type": "string" }, "default": [] },
+      "groupPolicy": { "type": "string", "enum": ["allowlist"], "default": "allowlist" },
+      "groupAllowFrom": { "type": "array", "items": { "type": "string" }, "default": [] },
+      "groups": { 
+        "type": "object", 
+        "additionalProperties": {
+            "type": "object",
+            "properties": {
+                "requireMention": { "type": "boolean" }
+            }
+        },
+        "default": {} 
+      },
+      "includeAttachments": { "type": "boolean", "default": false }
+    }
+  },
+  "entrypoint": "src.jarvis_imessage.plugin:plugin"
+}

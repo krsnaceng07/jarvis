@@ -1,0 +1,52 @@
+{
+  "id": "vydra",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "vydra"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "vydra",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "VYDRA_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "vydra": {
+        "baseUrl": "https://api.vydra.ai/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "vydra-pro",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

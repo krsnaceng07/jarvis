@@ -86,9 +86,7 @@ ThinkingLevel: TypeAlias = Literal["minimal", "low", "medium", "high", "xhigh", 
 
 #: Model thinking setting including explicit disabled state.
 #: Parity: ``ModelThinkingLevel = "off" | ThinkingLevel``.
-ModelThinkingLevel: TypeAlias = Literal[
-    "off", "minimal", "low", "medium", "high", "xhigh", "max"
-]
+ModelThinkingLevel: TypeAlias = Literal["off", "minimal", "low", "medium", "high", "xhigh", "max"]
 
 #: Ordered thinking levels, weakest to strongest. Not in OpenClaw's types.ts as a
 #: value, but the ordering is implied by ``reasoning.ts`` clamping logic and is
@@ -172,9 +170,7 @@ class TextContent:
     type: Literal["text"] = "text"
 
     def to_dict(self) -> dict[str, Any]:
-        return _compact(
-            {"type": "text", "text": self.text, "textSignature": self.text_signature}
-        )
+        return _compact({"type": "text", "text": self.text, "textSignature": self.text_signature})
 
 
 @dataclass(frozen=True)
@@ -546,9 +542,7 @@ class Context:
             {
                 "systemPrompt": self.system_prompt,
                 "messages": [m.to_dict() for m in self.messages],
-                "tools": (
-                    [t.to_dict() for t in self.tools] if self.tools is not None else None
-                ),
+                "tools": ([t.to_dict() for t in self.tools] if self.tools is not None else None),
             }
         )
 

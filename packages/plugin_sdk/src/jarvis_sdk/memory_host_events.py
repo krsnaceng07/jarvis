@@ -21,13 +21,12 @@ Key port decisions:
   (``memory.recall.skipped``) for the public read surface; the
   ``read_memory_host_event_records`` variant includes them.
 """
+
 from __future__ import annotations
 
 import os
 from collections.abc import Sequence
 from typing import Any, TypeVar, cast
-
-_T = TypeVar("_T")
 
 # Re-export the event types from the dedicated module so callers can
 # import them from this single path. Mirrors OpenClaw's barrel
@@ -52,6 +51,8 @@ from .memory_host_event_store import (
     normalize_memory_host_event_record_for_storage,
     register_memory_host_event,
 )
+
+_T = TypeVar("_T")
 
 
 # Re-export the normalize helper for callers that want to validate
@@ -99,9 +100,7 @@ def resolve_memory_host_event_log_path(workspace_dir: str) -> str:
 # ── Public API ────────────────────────────────────────────────────────
 
 
-def _apply_memory_host_event_limit(
-    events: Sequence[_T], limit: int | None
-) -> list[_T]:
+def _apply_memory_host_event_limit(events: Sequence[_T], limit: int | None) -> list[_T]:
     """Apply a tail-limit to a list of events.
 
     Mirrors OpenClaw's ``applyMemoryHostEventLimit``: when
@@ -140,9 +139,7 @@ def _read_memory_host_event_records_raw(
 
     Mirrors OpenClaw's internal ``readMemoryHostEventRecordsRaw``.
     """
-    entries = list_stored_memory_host_events(
-        workspace_dir=workspace_dir, limit=limit, env=env
-    )
+    entries = list_stored_memory_host_events(workspace_dir=workspace_dir, limit=limit, env=env)
     # ``entries`` is a list of PersistedMemoryHostEvent-shaped dicts;
     # extract the inner ``event`` field and preserve the declared
     # MemoryHostEventRecord payload shape.
@@ -163,9 +160,7 @@ async def read_memory_host_events(
     """
     raw = _read_memory_host_event_records_raw(workspace_dir, limit=None, env=env)
     legacy: list[MemoryHostEvent] = [
-        cast(MemoryHostEvent, e)
-        for e in raw
-        if e.get("type") != "memory.recall.skipped"
+        cast(MemoryHostEvent, e) for e in raw if e.get("type") != "memory.recall.skipped"
     ]
     return _apply_memory_host_event_limit(legacy, limit)
 

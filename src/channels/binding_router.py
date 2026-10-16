@@ -28,11 +28,12 @@ from jarvis_channels import (
     is_allowed,
     split_reply,
 )
-from jarvis_channels.types import InboundMessage, NormalizedLocation
+from jarvis_channels.types import InboundMessage
 from jarvis_channels.location import format_inbound_location
 from jarvis_channels.router import resolve_agent, derive_session_key
 from jarvis_channels.allowlist import AllowlistPolicy
 from jarvis_config_core import JarvisConfig
+from src.sessions.session_store import SessionStore
 
 from .catalog import ChannelCatalog
 
@@ -81,12 +82,14 @@ class BindingRouter:
         config: JarvisConfig,
         *,
         allowlists: dict[str, AllowlistPolicy | None] | None = None,
+        session_store: SessionStore | None = None,
     ) -> None:
         self._catalog = catalog
         self._registry = registry
         self._agent_fn = agent_fn
         self._config = config
         self._allowlists: dict[str, AllowlistPolicy | None] = allowlists or {}
+        self._session_store = session_store
         # Semaphore map: one slot per session_key so concurrent messages
         # from the same conversation are serialized.
         self._session_locks: dict[str, threading.Lock] = {}
@@ -149,9 +152,70 @@ class BindingRouter:
 
     def _dispatch(self, message: InboundMessage, session_key: str) -> str | None:
         """Run agent and send reply (called with session lock held)."""
-        if not message.text.strip():
+        text = message.text.strip()
+        if not text:
             _log.debug("binding_router: skipping empty message from %s", message.sender_id)
             return None
+
+        # ── Channel Docking Interceptor ──
+        if text.startswith("/dock_"):
+            target_channel = text[len("/dock_"):].strip()
+            if not target_channel:
+                reply_text = "Missing channel name. Usage: /dock_<channel>"
+                self._send_reply(message, reply_text)
+                return reply_text
+            
+            if message.peer_kind != "user":
+                reply_text = "Docking only works from a direct chat."
+                self._send_reply(message, reply_text)
+                return reply_text
+
+            if not self._catalog.is_registered(target_channel):
+                reply_text = f"Unknown channel plugin {target_channel}."
+                self._send_reply(message, reply_text)
+                return reply_text
+
+            identity_links = getattr(self._config.session, "identityLinks", {})
+            sender_full_id = f"{message.channel_id}:{message.sender_id}"
+            
+            # Find the user's identity group
+            identity_group = None
+            for group_name, links in identity_links.items():
+                if sender_full_id in links:
+                    identity_group = links
+                    break
+
+            if not identity_group:
+                reply_text = f"No linked identity found for {target_channel}."
+                self._send_reply(message, reply_text)
+                return reply_text
+
+            # Find the target peer ID in the identity group
+            target_peer = None
+            prefix = f"{target_channel}:"
+            for link in identity_group:
+                if link.startswith(prefix):
+                    target_peer = link[len(prefix):]
+                    break
+
+            if not target_peer:
+                reply_text = f"No linked identity found for {target_channel}."
+                self._send_reply(message, reply_text)
+                return reply_text
+
+            if self._session_store is not None:
+                self._session_store.append_entry(session_key, {
+                    "role": "system",
+                    "payload": {"text": f"Session docked to {target_channel}"},
+                    "lastChannel": target_channel,
+                    "lastTo": target_peer,
+                })
+            else:
+                _log.warning("binding_router: session_store not wired, docking state not persisted.")
+
+            reply_text = f"Docked. Future replies for this session will go to {target_channel}."
+            self._send_reply(message, reply_text)
+            return reply_text
 
         plugin = self._catalog.get(message.channel_id)
         if plugin is None:
@@ -183,7 +247,14 @@ class BindingRouter:
         if not reply_text:
             return None
 
-        # Split and send.
+        self._send_reply(message, reply_text)
+        return reply_text
+
+    def _send_reply(self, message: InboundMessage, reply_text: str) -> None:
+        plugin = self._catalog.get(message.channel_id)
+        if plugin is None:
+            return
+            
         chunks = split_reply(reply_text, channel_id=message.channel_id)
         for chunk in chunks:
             try:
@@ -194,8 +265,6 @@ class BindingRouter:
                     message.channel_id,
                     e,
                 )
-
-        return reply_text
 
     def make_callback(
         self, channel_id: str

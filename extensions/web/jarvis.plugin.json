@@ -1,0 +1,15 @@
+{
+  "$schema": "../../packages/plugin_sdk/schemas/plugin.json",
+  "id": "web",
+  "kind": "tool",
+  "version": "0.1.0",
+  "name": "Web",
+  "description": "Web fetching and content extraction tools.",
+  "author": "Google OpenClaw",
+  "entrypoint": "src.plugin:entry",
+  "contracts": {
+    "tools": [
+      "web_fetch"
+    ]
+  }
+}

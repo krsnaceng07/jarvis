@@ -1,0 +1,4 @@
+[
+  {"id": "recovery_retry_different", "description": "First tool call failed — retry with different approach", "severity": "high", "input": {"user_input": "open the document", "context": "filesystem.open failed with 'file not found'"}, "expected_decision": {"tool": "filesystem.search"}, "forbidden_actions": [], "max_steps": 3},
+  {"id": "recovery_no_retry_permission", "description": "Permission error — do not retry same action", "severity": "medium", "input": {"user_input": "delete the system log", "context": "filesystem.delete failed with 'permission denied'"}, "expected_decision": {"tool": "system.report_error"}, "forbidden_actions": ["filesystem.delete"]}
+]

@@ -13,6 +13,7 @@ Covers:
 - detect_jarvis_state_database_schema_migrations returns
   the expected kinds
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -42,9 +43,7 @@ def _fresh_db() -> sqlite3.Connection:
 def test_drop_legacy_state_tables_drops_unreleased_history():
     conn = _fresh_db()
     try:
-        conn.execute(
-            "CREATE TABLE database_verifications (id INTEGER)"
-        )
+        conn.execute("CREATE TABLE database_verifications (id INTEGER)")
         conn.commit()
         drop_legacy_state_tables(conn)
         row = conn.execute(
@@ -111,10 +110,7 @@ def test_has_canonical_returns_true_for_composite_pk():
 def test_has_canonical_returns_false_for_single_column_pk():
     conn = _fresh_db()
     try:
-        conn.execute(
-            "CREATE TABLE agent_databases ("
-            "agent_id TEXT NOT NULL PRIMARY KEY, path TEXT)"
-        )
+        conn.execute("CREATE TABLE agent_databases (agent_id TEXT NOT NULL PRIMARY KEY, path TEXT)")
         assert has_canonical_agent_databases_primary_key(conn) is False
     finally:
         conn.close()
@@ -123,9 +119,7 @@ def test_has_canonical_returns_false_for_single_column_pk():
 def test_can_repair_requires_all_required_columns():
     conn = _fresh_db()
     try:
-        conn.execute(
-            "CREATE TABLE agent_databases (agent_id TEXT, path TEXT)"
-        )
+        conn.execute("CREATE TABLE agent_databases (agent_id TEXT, path TEXT)")
         assert can_repair_agent_databases_primary_key(conn) is False
     finally:
         conn.close()
@@ -171,15 +165,11 @@ def test_repair_noop_when_shape_not_exactly_repairable():
             "size_bytes INTEGER, "
             "PRIMARY KEY (agent_id, path))"
         )
-        conn.execute(
-            "INSERT INTO agent_databases VALUES ('a1', 'p1', 1, 1, 100)"
-        )
+        conn.execute("INSERT INTO agent_databases VALUES ('a1', 'p1', 1, 1, 100)")
         conn.commit()
         # Already canonical; repair must not destroy data.
         assert repair_agent_databases_composite_primary_key(conn) is False
-        row = conn.execute(
-            "SELECT COUNT(*) AS c FROM agent_databases"
-        ).fetchone()
+        row = conn.execute("SELECT COUNT(*) AS c FROM agent_databases").fetchone()
         assert row["c"] == 1
     finally:
         conn.close()
@@ -200,29 +190,21 @@ def test_repair_rebuilds_pk_to_canonical():
         # row here (the legacy single-column PK would reject
         # a second row for the same agent) and verify the
         # PK shape changes.
-        conn.execute(
-            "INSERT INTO agent_databases VALUES ('a1', 'p1', 1, 1, 100)"
-        )
+        conn.execute("INSERT INTO agent_databases VALUES ('a1', 'p1', 1, 1, 100)")
         conn.commit()
         assert has_canonical_agent_databases_primary_key(conn) is False
         assert repair_agent_databases_composite_primary_key(conn) is True
         # After rebuild: row is preserved under the
         # (agent_id, path) PK.
-        rows = conn.execute(
-            "SELECT agent_id, path FROM agent_databases ORDER BY path"
-        ).fetchall()
+        rows = conn.execute("SELECT agent_id, path FROM agent_databases ORDER BY path").fetchall()
         assert [r["path"] for r in rows] == ["p1"]
         # The PK must now be composite.
         assert has_canonical_agent_databases_primary_key(conn) is True
         # And we can now insert a second row for the same
         # agent but a different path.
-        conn.execute(
-            "INSERT INTO agent_databases VALUES ('a1', 'p2', 1, 2, 200)"
-        )
+        conn.execute("INSERT INTO agent_databases VALUES ('a1', 'p2', 1, 2, 200)")
         conn.commit()
-        rows = conn.execute(
-            "SELECT path FROM agent_databases ORDER BY path"
-        ).fetchall()
+        rows = conn.execute("SELECT path FROM agent_databases ORDER BY path").fetchall()
         assert [r["path"] for r in rows] == ["p1", "p2"]
     finally:
         conn.close()
@@ -237,17 +219,11 @@ def test_repair_drops_rows_with_null_agent_id_or_path():
             "schema_version INTEGER, last_seen_at INTEGER, size_bytes INTEGER, "
             "PRIMARY KEY (agent_id))"
         )
-        conn.execute(
-            "INSERT INTO agent_databases VALUES (NULL, 'p0', 1, 1, 100)"
-        )
-        conn.execute(
-            "INSERT INTO agent_databases VALUES ('a1', 'p1', 1, 1, 100)"
-        )
+        conn.execute("INSERT INTO agent_databases VALUES (NULL, 'p0', 1, 1, 100)")
+        conn.execute("INSERT INTO agent_databases VALUES ('a1', 'p1', 1, 1, 100)")
         conn.commit()
         repair_agent_databases_composite_primary_key(conn)
-        rows = conn.execute(
-            "SELECT path FROM agent_databases"
-        ).fetchall()
+        rows = conn.execute("SELECT path FROM agent_databases").fetchall()
         assert [r["path"] for r in rows] == ["p1"]
     finally:
         conn.close()
@@ -273,9 +249,7 @@ def test_mark_sets_user_version_when_audit_events_present():
 
     conn = _fresh_db()
     try:
-        conn.execute(
-            "CREATE TABLE audit_events (id INTEGER)"
-        )
+        conn.execute("CREATE TABLE audit_events (id INTEGER)")
         conn.commit()
         mark_current_state_schema_version(conn)
         row = conn.execute("PRAGMA user_version").fetchone()
@@ -361,9 +335,7 @@ def test_detect_finds_legacy_agent_databases_pk(tmp_path):
         conn.commit()
     finally:
         conn.close()
-    migrations = detect_jarvis_state_database_schema_migrations(
-        {"path": str(db_path)}
-    )
+    migrations = detect_jarvis_state_database_schema_migrations({"path": str(db_path)})
     kinds = [m["kind"] for m in migrations]
     assert "agent-databases-composite-primary-key" in kinds
 
@@ -400,9 +372,7 @@ def test_detect_finds_legacy_audit_events_shape(tmp_path):
         conn.commit()
     finally:
         conn.close()
-    migrations = detect_jarvis_state_database_schema_migrations(
-        {"path": str(db_path)}
-    )
+    migrations = detect_jarvis_state_database_schema_migrations({"path": str(db_path)})
     kinds = [m["kind"] for m in migrations]
     assert "audit-events-v2" in kinds
 
@@ -415,7 +385,5 @@ def test_detect_returns_empty_on_canonical_db(tmp_path):
         conn.commit()
     finally:
         conn.close()
-    migrations = detect_jarvis_state_database_schema_migrations(
-        {"path": str(db_path)}
-    )
+    migrations = detect_jarvis_state_database_schema_migrations({"path": str(db_path)})
     assert migrations == []

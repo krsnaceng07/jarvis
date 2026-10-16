@@ -15,7 +15,7 @@ Phase 7.6h-3 — focused minimal port.
 from __future__ import annotations
 
 import math
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal, Optional
 
 
 # Installable hooks ---------------------------------------------------------

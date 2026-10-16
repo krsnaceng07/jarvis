@@ -1,0 +1,30 @@
+{
+  "id": "mattermost",
+  "doctorContract": {
+    "configRepair": true
+  },
+  "name": "Mattermost",
+  "description": "OpenClaw Mattermost channel plugin for teams and direct messages.",
+  "activation": {
+    "onStartup": false
+  },
+  "channels": [
+    "mattermost"
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "botToken": {
+        "type": "string"
+      },
+      "serverUrl": {
+        "type": "string"
+      },
+      "webhookUrl": {
+        "type": "string"
+      }
+    }
+  },
+  "kind": "channel"
+}

@@ -1,0 +1,27 @@
+{
+  "id": "buzz",
+  "name": "Buzz",
+  "description": "JARVIS Buzz decentralized gossip mesh channel plugin for peer rooms.",
+  "channels": [
+    "buzz"
+  ],
+  "activation": {
+    "onStartup": false
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "nodeId": {
+        "type": "string"
+      },
+      "relays": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "kind": "channel"
+}

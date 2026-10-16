@@ -14,9 +14,7 @@ Verifies the public surface of:
 from __future__ import annotations
 
 import json
-from typing import Any
 
-import pytest
 
 from src.agents.sessions.manual_compaction_preflight import (
     preflight_manual_session_compaction,

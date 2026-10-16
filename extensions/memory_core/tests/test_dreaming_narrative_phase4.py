@@ -5,16 +5,14 @@ The LLM-orchestrator functions are stubbed; we test the deterministic
 building blocks (diary section, backfill, dedupe, format, prompt,
 extract) which are the foundation the orchestrator will use.
 """
+
 from __future__ import annotations
 
-import os
 from datetime import datetime, timezone
 from pathlib import Path
 
-import pytest
 
 from extensions.memory_core import dreaming_narrative as dn
-from extensions.memory_core import dreaming_dreams_file as df
 
 
 # ── Diary section helpers ──────────────────────────────────────────────
@@ -152,9 +150,7 @@ def test_read_recent_dream_diary_entries_no_diary_section(tmp_path: Path) -> Non
 def test_read_recent_dream_diary_entries_with_blocks(tmp_path: Path) -> None:
     """Returns the most recent N entries (clamped)."""
     body = (
-        "*Dec 1*\n\nfirst entry\n\n---\n\n"
-        "*Dec 2*\n\nsecond entry\n\n---\n\n"
-        "*Dec 3*\n\nthird entry"
+        "*Dec 1*\n\nfirst entry\n\n---\n\n*Dec 2*\n\nsecond entry\n\n---\n\n*Dec 3*\n\nthird entry"
     )
     (tmp_path / "DREAMS.md").write_text(
         f"{dn.DIARY_START_MARKER}\n{body}\n{dn.DIARY_END_MARKER}", encoding="utf-8"
@@ -215,11 +211,7 @@ def test_build_backfill_diary_entry_with_source() -> None:
 def test_strip_backfill_diary_blocks_keeps_user_entries(tmp_path: Path) -> None:
     """Backfill entries are removed; user entries preserved."""
     user = "*Dec 1*\n\nuser-written"
-    backfill = (
-        "*Dec 2*\n\n"
-        f"<!-- {dn.BACKFILL_ENTRY_MARKER} day=2025-12-02 -->\n\n"
-        "backfill body"
-    )
+    backfill = f"*Dec 2*\n\n<!-- {dn.BACKFILL_ENTRY_MARKER} day=2025-12-02 -->\n\nbackfill body"
     body = f"{user}\n\n---\n\n{backfill}"
     existing = f"{dn.DIARY_START_MARKER}\n{body}\n{dn.DIARY_END_MARKER}"
 
@@ -266,11 +258,7 @@ def test_remove_backfill_diary_entries(tmp_path: Path) -> None:
     """Strip all backfill entries from DREAMS.md."""
     # Seed a backfill entry
     user = "*Dec 1*\n\nuser-written"
-    backfill = (
-        f"*Dec 2*\n\n"
-        f"<!-- {dn.BACKFILL_ENTRY_MARKER} day=2025-12-02 -->\n\n"
-        f"backfill body"
-    )
+    backfill = f"*Dec 2*\n\n<!-- {dn.BACKFILL_ENTRY_MARKER} day=2025-12-02 -->\n\nbackfill body"
     body = f"{user}\n\n---\n\n{backfill}"
     existing = f"{dn.DIARY_START_MARKER}\n{body}\n{dn.DIARY_END_MARKER}"
     (tmp_path / "DREAMS.md").write_text(existing, encoding="utf-8")
@@ -318,8 +306,12 @@ def test_normalize_diary_block_fingerprint() -> None:
     block1 = "*Dec 1, 2025*\n\nbody content"
     block2 = "*Dec 1, 2025*\n\nbody content"
     block3 = "*Dec 2, 2025*\n\nbody content"
-    assert dn.normalize_diary_block_fingerprint(block1) == dn.normalize_diary_block_fingerprint(block2)
-    assert dn.normalize_diary_block_fingerprint(block1) != dn.normalize_diary_block_fingerprint(block3)
+    assert dn.normalize_diary_block_fingerprint(block1) == dn.normalize_diary_block_fingerprint(
+        block2
+    )
+    assert dn.normalize_diary_block_fingerprint(block1) != dn.normalize_diary_block_fingerprint(
+        block3
+    )
 
 
 def test_join_diary_blocks_empty() -> None:
@@ -572,8 +564,10 @@ def test_append_fallback_narrative_entry_uses_logger(tmp_path: Path) -> None:
     class _L:
         def info(self, m: str) -> None:
             calls.append(m)
+
         def warn(self, m: str) -> None:
             pass
+
         def error(self, m: str) -> None:
             pass
 
@@ -597,8 +591,10 @@ def test_append_fallback_narrative_entry_swallows_errors(tmp_path: Path) -> None
     class _L:
         def info(self, m: str) -> None:
             pass
+
         def warn(self, m: str) -> None:
             calls.append(m)
+
         def error(self, m: str) -> None:
             pass
 

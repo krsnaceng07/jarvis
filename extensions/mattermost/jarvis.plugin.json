@@ -1,0 +1,27 @@
+{
+  "id": "mattermost",
+  "name": "Mattermost",
+  "description": "JARVIS Mattermost channel plugin for teams and direct messages.",
+  "channels": [
+    "mattermost"
+  ],
+  "activation": {
+    "onStartup": false
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "botToken": {
+        "type": "string"
+      },
+      "serverUrl": {
+        "type": "string"
+      },
+      "webhookUrl": {
+        "type": "string"
+      }
+    }
+  },
+  "kind": "channel"
+}

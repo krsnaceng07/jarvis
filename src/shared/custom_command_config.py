@@ -5,7 +5,7 @@ OpenClaw parity: mirrors ``openclaw-main/src/shared/custom-command-config.ts``.
 from __future__ import annotations
 
 import re
-from typing import List, Optional, Set, TypedDict
+from typing import List, Set, TypedDict
 
 _DEFAULT_PREFIX = "/"
 

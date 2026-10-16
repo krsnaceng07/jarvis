@@ -2,13 +2,10 @@
 from __future__ import annotations
 
 import os
-import tempfile
 from typing import Any, Dict, List, Optional
 
-import pytest
 
 from src.agents.embedded_agent_runner.model_discovery_cache import (
-    MAX_DISCOVERY_STORE_CACHE_ENTRIES,
     discover_cached_agent_stores,
     reset_model_discovery_cache_for_test,
     set_file_fingerprint_hook,

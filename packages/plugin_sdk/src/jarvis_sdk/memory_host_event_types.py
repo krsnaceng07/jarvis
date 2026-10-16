@@ -12,9 +12,10 @@ Key port decisions:
   the optional ``storageTruncated`` field and require callers to
   spread it into concrete event types.
 """
+
 from __future__ import annotations
 
-from typing import Any, Literal, TypedDict
+from typing import Literal, TypedDict
 
 # Phase name from the dreaming pipeline (already ported in
 # extensions/memory_core/dreaming_shared.py). Reuse via duck typing
@@ -125,9 +126,7 @@ class MemoryHostDreamCompletedEvent(MemoryHostEventStorageMetadata):
 # Discriminated union (loosely-typed for the runtime: Python TypedDicts
 # don't enforce unions, so this is documentation + a typing alias).
 MemoryHostEvent = (
-    MemoryHostRecallRecordedEvent
-    | MemoryHostPromotionAppliedEvent
-    | MemoryHostDreamCompletedEvent
+    MemoryHostRecallRecordedEvent | MemoryHostPromotionAppliedEvent | MemoryHostDreamCompletedEvent
 )
 
 # Full event record schema: includes opt-in diagnostic variants.

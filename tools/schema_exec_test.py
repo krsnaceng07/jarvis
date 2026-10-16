@@ -1,4 +1,5 @@
-import sqlite3, os
+import sqlite3
+import os
 p=os.path.expanduser('~/.jarvis/state/jarvis.sqlite')
 print('db', p)
 conn=sqlite3.connect(p, isolation_level=None)

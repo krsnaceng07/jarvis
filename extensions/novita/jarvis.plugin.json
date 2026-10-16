@@ -1,0 +1,52 @@
+{
+  "id": "novita",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "novita"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "novita",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "NOVITA_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "novita": {
+        "baseUrl": "https://api.novita.ai/v3/openai",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "novita-llama-3.1-70b",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

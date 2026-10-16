@@ -7,9 +7,7 @@ Covers:
 """
 from __future__ import annotations
 
-import os
 
-import pytest
 
 from src.config.zod_schema_gateway import (
     GatewayConfigSchema,
@@ -17,9 +15,6 @@ from src.config.zod_schema_gateway import (
 )
 from src.config.zod_schema_agent_defaults import (
     AgentDefaultsSchema,
-    AgentThinkingLevel,
-    OptionalBootstrapFileName,
-    SilentReplyPolicy,
     SilentReplyPolicyConfigSchema,
 )
 from src.config.zod_schema_session import (

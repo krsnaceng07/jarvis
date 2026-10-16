@@ -53,7 +53,7 @@ Adaptations
 """
 from __future__ import annotations
 
-from typing import Any, Optional, TypedDict, Union
+from typing import Optional, TypedDict
 
 
 #: A block-reply flush context. Mirrors

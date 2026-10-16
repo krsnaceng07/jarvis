@@ -25,6 +25,7 @@ Python adaptations (documented in code):
 - TS ``resolveGlobalSingleton`` → ``resolve_global_singleton``
   (same Symbol.for() key for cross-module sharing)
 """
+
 from __future__ import annotations
 
 import threading
@@ -145,9 +146,7 @@ def register_pending_conversation_turn(params: dict) -> PendingConversationTurnH
     turn_id = _normalize(params.get("id")) or str(uuid.uuid4())
     key = _pending_turn_key(agent_id, turn_id)
     if key in _pending_turns:
-        raise RuntimeError(
-            f"conversation turn already pending for {agent_id}: {turn_id}"
-        )
+        raise RuntimeError(f"conversation turn already pending for {agent_id}: {turn_id}")
     created_at = int(params.get("createdAt") or 0) or _now_ms()
     timeout_ms = max(0, int(params.get("timeoutMs", 0)))
     correlation_event = threading.Event()
@@ -202,7 +201,10 @@ def register_pending_conversation_turn(params: dict) -> PendingConversationTurnH
     # Schedule the timeout. Use ``threading.Timer`` (not
     # ``asyncio``) so the registry works from any thread.
     if timeout_ms > 0:
-        timer = threading.Timer(timeout_ms / 1000.0, cancel)
+        # Keep a tiny scheduling grace so callers measuring from ``wait()`` do
+        # not observe a timeout early when registration/setup consumed part of
+        # the requested interval on coarse Windows timers.
+        timer = threading.Timer((timeout_ms + 1) / 1000.0, cancel)
         timer.daemon = True
         timer_ref["timer"] = timer
         timer.start()
@@ -216,9 +218,7 @@ def register_pending_conversation_turn(params: dict) -> PendingConversationTurnH
         import asyncio
 
         # Run the wait in a thread so we don't block the event loop
-        await asyncio.get_event_loop().run_in_executor(
-            None, correlation_event.wait
-        )
+        await asyncio.get_event_loop().run_in_executor(None, correlation_event.wait)
         return reply_holder["reply"]
 
     return PendingConversationTurnHandle(
@@ -275,9 +275,7 @@ def cancel_pending_conversation_turn(params: dict) -> bool:
     agent_id = _normalize(params.get("agentId"))
     turn_id = _normalize(params.get("id"))
     pending = (
-        _pending_turns.get(_pending_turn_key(agent_id, turn_id))
-        if agent_id and turn_id
-        else None
+        _pending_turns.get(_pending_turn_key(agent_id, turn_id)) if agent_id and turn_id else None
     )
     if pending is None:
         return False
@@ -330,11 +328,7 @@ async def claim_pending_conversation_turn_reply(
     ]
     candidates.sort(key=lambda c: c.created_at)
     pending = next(
-        (
-            c
-            for c in candidates
-            if c.outbound_message_id == reply_to_id
-        ),
+        (c for c in candidates if c.outbound_message_id == reply_to_id),
         None,
     )
     if pending is None:

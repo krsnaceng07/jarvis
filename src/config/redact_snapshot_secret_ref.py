@@ -5,7 +5,7 @@ OpenClaw parity: mirrors
 """
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Callable
 
 
 def is_secret_ref_shape(value) -> bool:

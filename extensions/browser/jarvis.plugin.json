@@ -1,0 +1,20 @@
+{
+  "id": "browser",
+  "name": "Browser",
+  "description": "Browser automation plugin using Playwright.",
+  "kind": "infra",
+  "activation": {
+    "onStartup": true
+  },
+  "enabledByDefault": true,
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  },
+  "contracts": {
+    "tools": [
+      "browser"
+    ]
+  }
+}

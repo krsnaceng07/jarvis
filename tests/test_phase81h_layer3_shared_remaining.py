@@ -4,15 +4,11 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-import shutil
 import sys
 import tempfile
-from typing import List
 
-import pytest
 
 from src.shared.assistant_error_format import (
-    ApiErrorInfo,
     MALFORMED_STREAMING_FRAGMENT_ERROR_MESSAGE,
     MALFORMED_STREAMING_FRAGMENT_USER_MESSAGE,
     extract_leading_http_status,
@@ -50,18 +46,14 @@ from src.shared.device_bootstrap_profile import (
     normalize_device_bootstrap_handoff_profile,
     normalize_device_bootstrap_profile,
     resolve_bootstrap_profile_scopes_for_role,
-    resolve_bootstrap_profile_scopes_for_roles,
     resolve_device_profile_role_scopes,
-    resolve_device_profile_scopes,
 )
 from src.shared.ignore_rules import (
     COMPLEX_IGNORE_FILE,
     IGNORE_FILE_MAX_BYTES,
     IGNORE_FILE_NAMES,
-    OVERSIZED_IGNORE_FILE,
     add_ignore_rules,
     parse_ignore_patterns,
-    read_ignore_file_content,
     to_posix_path,
 )
 from src.shared.json_schema_types import JsonSchemaObject
@@ -70,7 +62,6 @@ from src.shared.requirements import (
     evaluate_requirements_from_metadata_with_remote,
 )
 from src.shared.store_writer_queue import (
-    StoreWriterQueue,
     clear_store_writer_queues_for_test,
     drain_store_writer_queues_for_test,
     run_queued_store_write,

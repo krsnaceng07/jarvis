@@ -13,9 +13,9 @@ Public surface:
 - ``senseaudio_media_understanding_provider`` — the
   ``MediaUnderstandingProvider`` descriptor the host reads
 """
+
 from __future__ import annotations
 
-from typing import Any
 
 from jarvis_sdk import (
     AudioTranscriptionRequest,

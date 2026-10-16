@@ -9,7 +9,7 @@ the upstream uses a TypeScript open-world pattern.
 """
 from __future__ import annotations
 
-from typing import Literal, TypedDict
+from typing import TypedDict
 
 #: Group admission policy for channel providers.
 GroupPolicy = str  # "open" | "disabled" | "allowlist"

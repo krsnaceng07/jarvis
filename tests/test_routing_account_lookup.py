@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
 
 from src.routing.account_id import normalize_account_id
 from src.routing.account_lookup import (

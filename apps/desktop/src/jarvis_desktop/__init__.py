@@ -12,7 +12,6 @@ instead of a background extraction pass.
 
 from __future__ import annotations
 
-import logging
 import sys
 from pathlib import Path
 

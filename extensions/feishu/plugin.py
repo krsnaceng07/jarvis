@@ -3,6 +3,7 @@
 OpenClaw parity: mirrors the OpenClaw ``feishu`` channel
 extension (263 files in the OpenClaw source).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -33,7 +34,7 @@ class FeishuPlugin(ChannelPlugin):
 
         return Result.err(
             "channel_stub",
-            f"feishu channel send is a Phase 5.15 stub",
+            "feishu channel send is a Phase 5.15 stub",
         )
 
     async def listen(self, callback: Any) -> None:  # type: ignore[override]

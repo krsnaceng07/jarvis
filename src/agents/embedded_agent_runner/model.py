@@ -26,7 +26,7 @@ model-resolution layers as they land.
 """
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 
 #: Empty discovery-stores factory hook. The host installs the

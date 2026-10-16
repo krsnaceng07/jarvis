@@ -15,11 +15,11 @@ Phase 7.2a — focused minimal port.
 """
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Awaitable, Callable
+from typing import TYPE_CHECKING, Awaitable, Callable
 
 
 if TYPE_CHECKING:
-    from .types import EmbeddedAgentCompactResult
+    pass
 
 
 #: The lazy-runtime signature for

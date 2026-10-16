@@ -6,12 +6,13 @@ build_multimodal_chunk_for_indexing, chunk_markdown,
 remap_chunk_lines, parse_embedding, cosine_similarity,
 run_memory_host_tasks_with_concurrency.
 """
+
 from __future__ import annotations
 
 import asyncio
-import json
 import sys
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -23,6 +24,7 @@ if str(_SRC) not in sys.path:
 
 from jarvis_sdk.memory_host_internal import (  # noqa: E402
     MEMORY_HOST_ROOT_FILENAME,
+    MemoryChunk,
     chunk_markdown,
     cosine_similarity,
     ensure_dir,
@@ -93,7 +95,8 @@ def test_normalize_extra_paths_absolute(tmp_path: Path) -> None:
 def test_normalize_extra_paths_drops_empty(tmp_path: Path) -> None:
     """Empty / whitespace-only strings are dropped."""
     result = normalize_extra_memory_paths(
-        str(tmp_path), ["", "  ", "valid", None]  # type: ignore[list-item]
+        str(tmp_path),
+        ["", "  ", "valid", None],  # type: ignore[list-item]
     )
     assert len(result) == 1
     assert "valid" in result[0]
@@ -305,31 +308,34 @@ def test_chunk_markdown_handles_cjk() -> None:
 
 def test_remap_chunk_lines_basic() -> None:
     """Chunks have their line numbers remapped via the line map."""
-    chunks = [
-        {"startLine": 1, "endLine": 2, "text": "a", "hash": "h"},
-        {"startLine": 3, "endLine": 4, "text": "b", "hash": "h"},
-    ]
+    chunks = cast(
+        list[MemoryChunk],
+        [
+            {"startLine": 1, "endLine": 2, "text": "a", "hash": "h"},
+            {"startLine": 3, "endLine": 4, "text": "b", "hash": "h"},
+        ],
+    )
     # Map content-line 1 -> source-line 10, 2 -> 11, 3 -> 20, 4 -> 21
     remap_chunk_lines(chunks, [10, 11, 20, 21])
-    assert chunks[0]["startLine"] == 10
-    assert chunks[0]["endLine"] == 11
-    assert chunks[1]["startLine"] == 20
-    assert chunks[1]["endLine"] == 21
+    assert chunks[0].get("startLine") == 10
+    assert chunks[0].get("endLine") == 11
+    assert chunks[1].get("startLine") == 20
+    assert chunks[1].get("endLine") == 21
 
 
 def test_remap_chunk_lines_no_map() -> None:
     """``None`` / empty line_map is a no-op."""
-    chunks = [{"startLine": 1, "endLine": 2, "text": "a", "hash": "h"}]
+    chunks = cast(list[MemoryChunk], [{"startLine": 1, "endLine": 2, "text": "a", "hash": "h"}])
     remap_chunk_lines(chunks, None)
-    assert chunks[0]["startLine"] == 1
+    assert chunks[0].get("startLine") == 1
 
 
 def test_remap_chunk_lines_out_of_range_unchanged() -> None:
     """Out-of-range startLine / endLine are kept unchanged."""
-    chunks = [{"startLine": 100, "endLine": 200, "text": "a", "hash": "h"}]
+    chunks = cast(list[MemoryChunk], [{"startLine": 100, "endLine": 200, "text": "a", "hash": "h"}])
     remap_chunk_lines(chunks, [1, 2, 3])
-    assert chunks[0]["startLine"] == 100
-    assert chunks[0]["endLine"] == 200
+    assert chunks[0].get("startLine") == 100
+    assert chunks[0].get("endLine") == 200
 
 
 # ── parse_embedding ─────────────────────────────────────────────────
@@ -403,12 +409,15 @@ def test_cosine_similarity_min_length() -> None:
 @pytest.mark.asyncio
 async def test_run_concurrency_basic() -> None:
     """All tasks run and return their values in order."""
+
     async def task(i: int) -> int:
         await asyncio.sleep(0)
         return i
 
-    tasks = [(lambda i=i: task(i)) for i in range(5)]
-    results = await run_memory_host_tasks_with_concurrency(tasks, limit=2)
+    from typing import Awaitable, Callable
+
+    tasks_typed: list[Callable[[], Awaitable[int]]] = [(lambda i=i: task(i)) for i in range(5)]
+    results = await run_memory_host_tasks_with_concurrency(tasks_typed, limit=2)
     assert sorted(results) == [0, 1, 2, 3, 4]
 
 
@@ -424,8 +433,10 @@ async def test_run_concurrency_limit_one_serializes() -> None:
         counter["active"] -= 1
         return 1
 
-    tasks = [task for _ in range(5)]
-    results = await run_memory_host_tasks_with_concurrency(tasks, limit=1)
+    from typing import Awaitable, Callable
+
+    tasks_typed: list[Callable[[], Awaitable[int]]] = [task for _ in range(5)]
+    results = await run_memory_host_tasks_with_concurrency(tasks_typed, limit=1)
     assert sum(results) == 5
     # With limit=1, max concurrent should be 1.
     assert counter["max_active"] == 1
@@ -434,6 +445,7 @@ async def test_run_concurrency_limit_one_serializes() -> None:
 @pytest.mark.asyncio
 async def test_run_concurrency_propagates_error() -> None:
     """When a task fails, the error is re-raised after drain."""
+
     async def ok_task() -> int:
         await asyncio.sleep(0)
         return 1
@@ -442,9 +454,11 @@ async def test_run_concurrency_propagates_error() -> None:
         await asyncio.sleep(0.005)
         raise ValueError("boom")
 
-    tasks = [ok_task, fail_task, ok_task]
+    from typing import Awaitable, Callable
+
+    tasks_typed: list[Callable[[], Awaitable[int]]] = [ok_task, fail_task, ok_task]
     with pytest.raises(ValueError, match="boom"):
-        await run_memory_host_tasks_with_concurrency(tasks, limit=2)
+        await run_memory_host_tasks_with_concurrency(tasks_typed, limit=2)
 
 
 @pytest.mark.asyncio
@@ -457,6 +471,7 @@ async def test_run_concurrency_empty() -> None:
 @pytest.mark.asyncio
 async def test_run_concurrency_limit_zero_uses_one() -> None:
     """A non-positive limit is normalized to 1."""
+
     async def task() -> int:
         return 42
 

@@ -1,0 +1,52 @@
+{
+  "id": "baseten",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "baseten"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "baseten",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "BASETEN_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "baseten": {
+        "baseUrl": "https://api.baseten.co/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "baseten-llama-3.1-70b",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

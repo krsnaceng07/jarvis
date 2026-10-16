@@ -5,8 +5,6 @@ OpenClaw parity: mirrors
 """
 from __future__ import annotations
 
-import os
-from typing import Any, Mapping
 
 from .channel_configured import (
     has_meaningful_channel_config_shallow,

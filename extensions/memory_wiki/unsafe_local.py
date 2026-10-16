@@ -200,7 +200,7 @@ def _resolve_unsafe_local_page_path(*, configured_path: str, absolute_path: str)
     configured_hash = hashlib.sha1(os.path.abspath(configured_path).encode("utf-8")).hexdigest()[:8]
     artifact_base_slug = slugify_wiki_segment(os.path.basename(absolute_path))
     artifact_hash = hashlib.sha1(os.path.abspath(absolute_path).encode("utf-8")).hexdigest()[:8]
-    page_slug = f"{configured_base_slug}-{configured_hash}" f"-{artifact_base_slug}-{artifact_hash}"
+    page_slug = f"{configured_base_slug}-{configured_hash}-{artifact_base_slug}-{artifact_hash}"
     return {
         "pageId": f"source.unsafe-local.{page_slug}",
         "pagePath": os.path.join(

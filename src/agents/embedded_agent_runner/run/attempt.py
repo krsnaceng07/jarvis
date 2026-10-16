@@ -21,7 +21,7 @@ subsystems as they land.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict
 
 
 #: Embedded run attempt result.
@@ -33,10 +33,16 @@ EmbeddedRunAttemptResult = Dict[str, Any]
 # ---------------------------------------------------------------------------
 
 
+async def _default_run_embedded_attempt_settled_phase(params: Dict[str, Any]) -> Any:
+    from .attempt_execution_settle import run_embedded_attempt_settled_phase
+
+    return await run_embedded_attempt_settled_phase(params)
+
+
 #: Hook for the run-embedded-attempt-settled-phase step.
 _RUN_EMBEDDED_ATTEMPT_SETTLED_PHASE: Callable[
     [Dict[str, Any]], Awaitable[Any]
-] = lambda _p: asyncio.sleep(0)
+] = _default_run_embedded_attempt_settled_phase
 
 
 def set_run_embedded_attempt_settled_phase_hook(
@@ -47,10 +53,16 @@ def set_run_embedded_attempt_settled_phase_hook(
     _RUN_EMBEDDED_ATTEMPT_SETTLED_PHASE = hook
 
 
+async def _default_recover_embedded_run_attempt(params: Dict[str, Any]) -> Any:
+    from .attempt_recovery import recover_embedded_run_attempt
+
+    return await recover_embedded_run_attempt(params)
+
+
 #: Hook for the recover-embedded-run-attempt step.
 _RECOVER_EMBEDDED_RUN_ATTEMPT: Callable[
     [Dict[str, Any]], Awaitable[Any]
-] = lambda _p: asyncio.sleep(0)
+] = _default_recover_embedded_run_attempt
 
 
 def set_recover_embedded_run_attempt_attempt_hook(

@@ -1,0 +1,27 @@
+{
+  "id": "zalouser",
+  "doctorContract": {
+    "configRepair": true
+  },
+  "name": "Zalo Personal Account",
+  "description": "OpenClaw Zalo Personal Account channel plugin via user session.",
+  "activation": {
+    "onStartup": false
+  },
+  "channels": [
+    "zalouser"
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "imei": {
+        "type": "string"
+      },
+      "cookie": {
+        "type": "string"
+      }
+    }
+  },
+  "kind": "channel"
+}

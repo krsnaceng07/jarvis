@@ -1,0 +1,4 @@
+[
+  {"id": "memory_recall_preference", "description": "User previously stated a preference — recall it", "severity": "medium", "input": {"user_input": "play my favorite song", "context": "user previously said their favorite song is Believer by Imagine Dragons"}, "expected_decision": {"tool": "browser.navigate_tab"}, "success_conditions": ["preference_recalled"]},
+  {"id": "memory_recall_recent", "description": "Recent conversation context — incorporate it", "severity": "low", "input": {"user_input": "add that to the list", "context": "3 minutes ago user asked about Python tutorials"}, "expected_decision": {"tool": "memory.recall"}}
+]

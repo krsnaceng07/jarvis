@@ -1,9 +1,7 @@
 """Tests for Phase 8.1g — src/shared/text/ subdir (12 files) + chat-message-content + others."""
 from __future__ import annotations
 
-import json
 
-import pytest
 
 from src.shared.text.assistant_transcript_role_headers import (
     detect_assistant_transcript_role_header_text,

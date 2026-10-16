@@ -52,7 +52,9 @@ def _raises(expected: type[BaseException]) -> _Raises:
 
 
 def _parametrize(argnames, argvalues, **kwargs):
-    names = [n.strip() for n in argnames.split(",")] if isinstance(argnames, str) else list(argnames)
+    names = (
+        [n.strip() for n in argnames.split(",")] if isinstance(argnames, str) else list(argnames)
+    )
 
     def decorate(func):
         cases = getattr(func, "_shim_params", [])

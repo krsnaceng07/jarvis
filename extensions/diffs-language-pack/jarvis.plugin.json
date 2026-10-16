@@ -1,0 +1,16 @@
+{
+  "id": "diffs-language-pack",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": false,
+  "name": "Diffs Language Pack",
+  "description": "Additional syntax highlighting languages for the OpenClaw diff viewer.",
+  "contracts": {},
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  },
+  "kind": "tool"
+}

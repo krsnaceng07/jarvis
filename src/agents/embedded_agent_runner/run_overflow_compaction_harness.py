@@ -23,7 +23,7 @@ Phase 7.6h-6 — focused minimal port.
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict
 
 
 _run_overflow_compaction_harness_state: Dict[str, Any] = {

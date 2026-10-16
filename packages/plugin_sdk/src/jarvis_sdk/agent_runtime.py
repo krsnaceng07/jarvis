@@ -52,7 +52,32 @@ import os
 from pathlib import Path
 from typing import Any, cast
 
-from routing.routing import normalize_agent_id
+
+# NOTE: normalize_agent_id is inlined here rather than imported from
+# ``routing.routing`` because ``src/routing/`` is not a workspace member
+# and is therefore not on sys.path at runtime. The logic is a verbatim
+# port of OpenClaw's ``normalizeAgentId`` — lowercase + trim + reserved
+# check — and must stay in sync with ``src/routing/routing.py``.
+_RESERVED_AGENT_IDS: frozenset[str] = frozenset({"", ".", "..", "/", "\\"})
+
+
+def normalize_agent_id(raw: object) -> str:
+    """Canonicalize an agent id.
+
+    Mirrors OpenClaw's ``normalizeAgentId`` (lowercase + trim).
+    Raises ``ValueError`` on empty / reserved inputs.
+    """
+    if raw is None:
+        raise ValueError("agent id must not be None")
+    if not isinstance(raw, str):
+        raise ValueError(f"agent id must be a string, got {type(raw).__name__}")
+    normalized = raw.strip().lower()
+    if normalized in _RESERVED_AGENT_IDS:
+        raise ValueError(f"agent id {raw!r} is reserved / invalid")
+    if any(ch in normalized for ch in ("\n", "\r", "\t", "\0")):
+        raise ValueError(f"agent id {raw!r} contains whitespace / null characters")
+    return normalized
+
 
 DEFAULT_AGENT_ID = "default"
 DEFAULT_PROVIDER = "openai"
@@ -279,16 +304,24 @@ def parse_model_ref(
     Mirrors OpenClaw's ``parseModelRef``. Returns ``None``
     for empty / non-string input. When no provider prefix is
     present, ``default_provider`` is used.
+
+    Strict ``provider/model`` splitting is owned by
+    ``jarvis_model_catalog``; this stays a thin default-provider
+    wrapper so the SDK keeps its stdlib-only charter (lazy import,
+    paid only on this cold path).
     """
     if not isinstance(model_ref, str):
         return None
     trimmed = model_ref.strip()
     if not trimmed:
         return None
-    if "/" in trimmed:
-        provider, model = trimmed.split("/", 1)
-        if provider.strip() and model.strip():
-            return {"provider": provider.strip(), "model": model.strip()}
+    from jarvis_model_catalog.model_catalog_refs import (  # noqa: PLC0415
+        parse_provider_model_ref,
+    )
+
+    parsed = parse_provider_model_ref(trimmed)
+    if parsed is not None:
+        return {"provider": parsed.provider, "model": parsed.model}
     return {"provider": default_provider, "model": trimmed}
 
 

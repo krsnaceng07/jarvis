@@ -90,12 +90,9 @@ async def write_guarded_vault_page(
     except FsSafeError as exc:
         if exc.code != "symlink" and exc.code != "path-alias":
             raise RuntimeError(
-                f"Refusing to write {page_label} ({exc.code}): "
-                f"{page_path}: {exc}"
+                f"Refusing to write {page_label} ({exc.code}): {page_path}: {exc}"
             ) from exc
-        raise RuntimeError(
-            f"Refusing to write {page_label} through symlink: {page_path}"
-        ) from exc
+        raise RuntimeError(f"Refusing to write {page_label} through symlink: {page_path}") from exc
 
 
 async def _maybe_remove(vault: Any, page_path: str) -> None:

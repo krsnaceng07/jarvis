@@ -27,8 +27,48 @@ from dataclasses import dataclass, field
 from typing import Any, Optional, Callable, cast
 
 from .cli import CliDescriptor  # used at runtime in register_cli()
+from .manifest import ToolDecl
 
 _log = logging.getLogger("jarvis_sdk.api")
+
+#: Process-global host default for ``PluginAgentApi.resolve_thinking_policy``.
+#: Installed once by host startup (e.g. ``src/plugins/runtime_entry.py``);
+#: per-api ``resolve_thinking_policy_fn`` still wins when set. ``None``
+#: keeps the historical empty-policy fallback (tests rely on this).
+_host_thinking_policy_resolver: Optional[Callable[[dict[str, Any]], dict[str, Any]]] = None
+
+
+def set_host_thinking_policy_resolver(
+    resolver: Optional[Callable[[dict[str, Any]], dict[str, Any]]],
+) -> None:
+    """Install/clear the host-side thinking-policy resolver.
+
+    The resolver receives the ``{"provider", "model", "agentRuntime",
+    ...}`` call shape and returns a ``{"levels": [{"id", "label"}],
+    "default"?}`` policy. Installed by host startup only — never by
+    plugins.
+    """
+    global _host_thinking_policy_resolver
+    _host_thinking_policy_resolver = resolver
+
+
+#: Process-global host default for
+#: ``PluginAgentApi.resolve_effective_agent_runtime``. Installed once by
+#: host startup; per-api ``resolve_effective_agent_runtime_fn`` still wins.
+_host_effective_agent_runtime_resolver: Optional[Callable[[dict[str, Any]], Optional[str]]] = None
+
+
+def set_host_effective_agent_runtime_resolver(
+    resolver: Optional[Callable[[dict[str, Any]], Optional[str]]],
+) -> None:
+    """Install/clear the host-side effective-runtime resolver.
+
+    The resolver receives the ``{"cfg", "provider", "modelId", ...}`` call
+    shape and returns the owning harness runtime id. Installed by host
+    startup only — never by plugins.
+    """
+    global _host_effective_agent_runtime_resolver
+    _host_effective_agent_runtime_resolver = resolver
 
 
 def _normalize_plugin_tool_names(names: list[Any] | None) -> list[str]:
@@ -253,18 +293,19 @@ class PluginAgentApi:
         # hasn't wired yet.
         return None
 
-    def resolve_thinking_policy(
-        self, params: dict[str, Any]
-    ) -> dict[str, Any]:
+    def resolve_thinking_policy(self, params: dict[str, Any]) -> dict[str, Any]:
         """Resolve the thinking-policy for a (provider, model) pair.
 
         Mirrors ``api.runtime.agent.resolveThinkingPolicy``.
-        The host wires ``resolve_thinking_policy_fn``; the
-        fallback returns an empty policy with a single
-        ``"none"`` level.
+        Precedence: per-api ``resolve_thinking_policy_fn`` (most
+        specific), then the process-global host default installed via
+        :func:`set_host_thinking_policy_resolver`, then the empty
+        ``"none"`` fallback policy.
         """
         if self.resolve_thinking_policy_fn is not None:
             return self.resolve_thinking_policy_fn(params)
+        if _host_thinking_policy_resolver is not None:
+            return _host_thinking_policy_resolver(params)
         return {
             "levels": [{"id": "none", "label": "None"}],
             "default": "none",
@@ -282,9 +323,7 @@ class PluginAgentApi:
         lowered = value.strip().lower()
         return lowered or None
 
-    def run_embedded_agent(
-        self, params: dict[str, Any]
-    ) -> dict[str, Any]:
+    def run_embedded_agent(self, params: dict[str, Any]) -> dict[str, Any]:
         """Run an embedded agent turn (provider/model/prompt).
 
         Mirrors ``api.runtime.agent.runEmbeddedAgent``. The
@@ -293,14 +332,10 @@ class PluginAgentApi:
         missing wiring.
         """
         if self.run_embedded_agent_fn is None:
-            raise NotImplementedError(
-                "api.runtime.agent.run_embedded_agent is not wired"
-            )
+            raise NotImplementedError("api.runtime.agent.run_embedded_agent is not wired")
         return self.run_embedded_agent_fn(params)
 
-    def build_model_alias_index(
-        self, params: dict[str, Any]
-    ) -> dict[str, Any]:
+    def build_model_alias_index(self, params: dict[str, Any]) -> dict[str, Any]:
         """Build a model-alias index for the host config.
 
         Mirrors ``api.runtime.agent.buildModelAliasIndex``.
@@ -309,9 +344,7 @@ class PluginAgentApi:
             return {}
         return self.build_model_alias_index_fn(params)
 
-    def resolve_model_ref_from_string(
-        self, params: dict[str, Any]
-    ) -> Optional[dict[str, Any]]:
+    def resolve_model_ref_from_string(self, params: dict[str, Any]) -> Optional[dict[str, Any]]:
         """Resolve a model-ref string to ``{provider, model}`` or ``None``.
 
         Mirrors ``api.runtime.agent.resolveModelRefFromString``.
@@ -320,16 +353,19 @@ class PluginAgentApi:
             return None
         return self.resolve_model_ref_from_string_fn(params)
 
-    def resolve_effective_agent_runtime(
-        self, params: dict[str, Any]
-    ) -> Optional[str]:
+    def resolve_effective_agent_runtime(self, params: dict[str, Any]) -> Optional[str]:
         """Resolve the effective agent runtime for a (provider, model) pair.
 
         Mirrors ``api.runtime.agent.resolveEffectiveAgentRuntime``.
+        Precedence: per-api ``resolve_effective_agent_runtime_fn``, then
+        the process-global host default installed via
+        :func:`set_host_effective_agent_runtime_resolver`, then ``None``.
         """
-        if self.resolve_effective_agent_runtime_fn is None:
-            return None
-        return self.resolve_effective_agent_runtime_fn(params)
+        if self.resolve_effective_agent_runtime_fn is not None:
+            return self.resolve_effective_agent_runtime_fn(params)
+        if _host_effective_agent_runtime_resolver is not None:
+            return _host_effective_agent_runtime_resolver(params)
+        return None
 
 
 @dataclass
@@ -370,7 +406,6 @@ class _PluginControlsApi:
     ) -> None:
         if isinstance(descriptor, dict):
             descriptor_dict = cast(dict[str, Any], descriptor)
-            descriptor_dict = cast(dict[str, Any], descriptor)
             # Translate camelCase keys to snake_case for the
             # dataclass. Mirrors the OpenClaw dict-shape
             # (camelCase keys per the TS source) and the
@@ -395,9 +430,7 @@ class _PluginControlsApi:
                 required_scopes=required_scopes,
             )
         if not descriptor.id:
-            raise ValueError(
-                "control-ui descriptor must have a non-empty 'id'"
-            )
+            raise ValueError("control-ui descriptor must have a non-empty 'id'")
         self._descriptors.append(descriptor)
 
 
@@ -467,7 +500,12 @@ class _PluginRuntimeNamespace:
         # calling).
         return None
 
-from ._plugin_api_impl import PluginApi as _PluginApiImpl
+
+# Mid-file import (not top): the impl mixins themselves do
+# `from .api import ...` at their top, so importing them before this
+# module finishes its own re-exports would be circular. E402 accepted
+# intentionally — do not move.
+from ._plugin_api_impl import PluginApi as _PluginApiImpl  # noqa: E402
 
 
 class PluginApi(_PluginApiImpl):
@@ -477,6 +515,11 @@ class PluginApi(_PluginApiImpl):
     ``packages/plugin_sdk/src/jarvis_sdk/api.py`` so the SDK
     surface matches the OpenClaw registrar vocabulary.
     """
+
+    @property
+    def registration_mode(self) -> "RegistrationMode":
+        """Read-only registration scope. Mirrors OpenClaw's ``api.registrationMode``."""
+        return super().registration_mode
 
     def register_tool(self, *args: Any, **kwargs: Any) -> Any:
         return super().register_tool(*args, **kwargs)
@@ -668,6 +711,10 @@ class PluginApi(_PluginApiImpl):
         return super().register_speech_provider(*args, **kwargs)
 
 
+# Re-export RegistrationMode so plugins can reference the type without
+# importing from the private _plugin_api_init module.
+from ._plugin_api_init import RegistrationMode  # noqa: E402
+
 __all__ = [
     "CliDescriptor",
     "CommandDecl",
@@ -677,4 +724,6 @@ __all__ = [
     "PluginLifecycleApi",
     "PluginRunContextApi",
     "PluginSessionApi",
+    "RegistrationMode",
+    "ToolDecl",
 ]

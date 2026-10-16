@@ -7,6 +7,7 @@ Covers:
 - best-effort chmod swallows filesystem-rejection errors
 - agent DB helper applies the same rules per agent
 """
+
 from __future__ import annotations
 
 import os
@@ -47,15 +48,11 @@ def test_ensure_state_permissions_creates_missing_dir(tmp_path):
     parent.mkdir()
     db = parent / "jarvis.sqlite"
     db.touch()
-    ensure_state_permissions(
-        str(db), env={"JARVIS_STATE_DIR": str(tmp_path / "fresh-state")}
-    )
+    ensure_state_permissions(str(db), env={"JARVIS_STATE_DIR": str(tmp_path / "fresh-state")})
     assert parent.is_dir()
 
 
-def test_ensure_state_permissions_silent_for_custom_path_outside_default(
-    tmp_path, monkeypatch
-):
+def test_ensure_state_permissions_silent_for_custom_path_outside_default(tmp_path, monkeypatch):
     """A custom path outside the default state dir is fine —
     the helper does not raise. The safety check in OpenClaw
     only fires when the canonical default state DB path
@@ -117,9 +114,7 @@ def test_ensure_agent_database_permissions_idempotent(tmp_path, monkeypatch):
     assert target.is_file()
 
 
-def test_ensure_agent_database_permissions_handles_missing_sidecar(
-    tmp_path, monkeypatch
-):
+def test_ensure_agent_database_permissions_handles_missing_sidecar(tmp_path, monkeypatch):
     state = tmp_path / "state"
     state.mkdir()
     monkeypatch.setenv("JARVIS_STATE_DIR", str(state))

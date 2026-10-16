@@ -293,8 +293,7 @@ def _run_wiki_compile(
         result,
         json_flag,
         lambda v: (
-            f"Compiled wiki vault at {v.vault_path} "
-            f"({len(v.pages)} pages, {v.valid_count} valid)."
+            f"Compiled wiki vault at {v.vault_path} ({len(v.pages)} pages, {v.valid_count} valid)."
         ),
     )
     _write_output(rendered)
@@ -315,8 +314,7 @@ def _run_wiki_lint(
         json_flag,
         lambda v: (
             # ``WikiLintResult`` uses camelCase fields (matches OpenClaw JSON shape).
-            f"Linted wiki vault at {v.vaultRoot} "
-            f"({v.issueCount} issues, report: {v.reportPath})."
+            f"Linted wiki vault at {v.vaultRoot} ({v.issueCount} issues, report: {v.reportPath})."
         ),
     )
     _write_output(rendered)
@@ -495,7 +493,7 @@ def _run_wiki_apply_synthesis(
         result,
         json_flag,
         lambda v: (
-            f"{'Updated' if v.changed else 'No changes for'} {v.page_path} " f"via {v.operation}."
+            f"{'Updated' if v.changed else 'No changes for'} {v.page_path} via {v.operation}."
         ),
     )
     _write_output(rendered)
@@ -536,7 +534,7 @@ def _run_wiki_apply_metadata(
         result,
         json_flag,
         lambda v: (
-            f"{'Updated' if v.changed else 'No changes for'} {v.page_path} " f"via {v.operation}."
+            f"{'Updated' if v.changed else 'No changes for'} {v.page_path} via {v.operation}."
         ),
     )
     _write_output(rendered)

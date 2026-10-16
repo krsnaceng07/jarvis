@@ -104,7 +104,7 @@ def main() -> int:
             for sub, syms in groups.items():
                 if sub == "unknown":
                     # Fall back to package import.
-                    blocks.append(f"from jarvis_memory_host_sdk import (\n    " + ",\n    ".join(syms) + ",\n)")
+                    blocks.append("from jarvis_memory_host_sdk import (\n    " + ",\n    ".join(syms) + ",\n)")
                 else:
                     blocks.append(f"from .{sub} import (\n    " + ",\n    ".join(syms) + ",\n)")
             return "\n".join(blocks)

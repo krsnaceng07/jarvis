@@ -16,8 +16,7 @@ delegates the heavy work to installable hooks.
 """
 from __future__ import annotations
 
-import asyncio
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict
 
 
 #: Embedded-attempt prompt-assembly shape.
@@ -68,12 +67,37 @@ async def prepare_embedded_attempt_prompt_assembly(
     )
     if not isinstance(assembled, dict):
         assembled = {}
+        
+    systemPromptText = assembled.get("systemPromptText")
+    messages = assembled.get("messages") or []
+    tools = assembled.get("tools") or []
+    prompt = assembled.get("prompt")
+    report = assembled.get("report")
+
+    # Mirror OpenClaw: resolve before_prompt_build hook
+    from .attempt_prompt_helpers import resolve_prompt_build_hook_result
+    hook_result = await resolve_prompt_build_hook_result({
+        "hookRunner": input_obj.get("hookRunner"),
+        "hookCtx": input_obj.get("hookCtx", {}),
+        "prompt": prompt,
+        "messages": messages,
+        "config": input_obj.get("config"),
+    })
+    
+    if isinstance(hook_result, dict):
+        if hook_result.get("prependContext") and prompt is not None:
+            prompt = f"{hook_result['prependContext']}\n\n{prompt}"
+        if hook_result.get("appendContext") and prompt is not None:
+            prompt = f"{prompt}\n\n{hook_result['appendContext']}"
+        if hook_result.get("systemPrompt"):
+            systemPromptText = hook_result["systemPrompt"]
+
     return {
-        "systemPromptText": assembled.get("systemPromptText"),
-        "messages": assembled.get("messages") or [],
-        "tools": assembled.get("tools") or [],
-        "prompt": assembled.get("prompt"),
-        "report": assembled.get("report"),
+        "systemPromptText": systemPromptText,
+        "messages": messages,
+        "tools": tools,
+        "prompt": prompt,
+        "report": report,
     }
 
 

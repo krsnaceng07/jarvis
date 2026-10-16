@@ -38,7 +38,7 @@ import json
 import logging
 import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Optional
 
 logger = logging.getLogger("jarvis.sessions.upstream_monitor")
@@ -472,11 +472,19 @@ def start_session_upstream_monitor(
     stopped = False
     running = False
     missing_counts: dict[str, SessionUpstreamMissingCounter] = {}
+    initial_timer: Optional[threading.Timer] = None
+    interval_timer: Optional[threading.Timer] = None
 
     import asyncio
 
+    def _schedule(delay_ms: int) -> threading.Timer:
+        timer = threading.Timer(delay_ms / 1000.0, _run)
+        timer.daemon = True
+        timer.start()
+        return timer
+
     def _run() -> None:
-        nonlocal running
+        nonlocal running, initial_timer, interval_timer
         if stopped or running:
             return
         running = True
@@ -492,23 +500,22 @@ def start_session_upstream_monitor(
             logger.warning("upstream monitor tick failed: %s", error)
         finally:
             running = False
+            if not stopped:
+                if initial_timer is not None:
+                    initial_timer = None
+                interval_timer = _schedule(SESSION_UPSTREAM_MONITOR_INTERVAL_MS)
 
-    initial_timer = threading.Timer(
-        SESSION_UPSTREAM_MONITOR_INITIAL_DELAY_MS / 1000.0, _run
-    )
-    initial_timer.daemon = True
-    interval_timer = threading.Timer(
-        SESSION_UPSTREAM_MONITOR_INTERVAL_MS / 1000.0, _run
-    )
-    interval_timer.daemon = True
-    initial_timer.start()
-    interval_timer.start()
+    initial_timer = _schedule(SESSION_UPSTREAM_MONITOR_INITIAL_DELAY_MS)
 
     def _stop() -> None:
-        nonlocal stopped
+        nonlocal stopped, initial_timer, interval_timer
         stopped = True
-        initial_timer.cancel()
-        interval_timer.cancel()
+        if initial_timer is not None:
+            initial_timer.cancel()
+            initial_timer = None
+        if interval_timer is not None:
+            interval_timer.cancel()
+            interval_timer = None
 
     return SessionUpstreamMonitor(stop=_stop)
 

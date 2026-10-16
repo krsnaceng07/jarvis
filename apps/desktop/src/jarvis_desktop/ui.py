@@ -804,11 +804,11 @@ def _fmt_size(size: int) -> str:
     if size < 1024:
         return f"{size} B"
     elif size < 1024**2:
-        return f"{size/1024:.1f} KB"
+        return f"{size / 1024:.1f} KB"
     elif size < 1024**3:
-        return f"{size/1024**2:.1f} MB"
+        return f"{size / 1024**2:.1f} MB"
     else:
-        return f"{size/1024**3:.1f} GB"
+        return f"{size / 1024**3:.1f} GB"
 
 
 class FileDropZone(QWidget):
@@ -962,7 +962,7 @@ class _DropCanvas(QWidget):
         )
 
     def _paint_drag_over(self, p, W, H):
-        cx, cy = W / 2, H / 2
+        cy = H / 2
         p.setFont(QFont("Courier New", 20))
         p.setPen(QPen(qcol(C.PRI), 1))
         p.drawText(QRectF(0, cy - 24, W, 32), Qt.AlignmentFlag.AlignCenter, "⬇")
@@ -1026,7 +1026,7 @@ class _DropCanvas(QWidget):
 
 
 class SetupOverlay(QWidget):
-    done = pyqtSignal(str, str, str)
+    done = pyqtSignal(str, str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -1081,26 +1081,7 @@ class SetupOverlay(QWidget):
             QLineEdit:focus {{ border: 1px solid {C.PRI}; }}
         """)
         layout.addWidget(self._key_input)
-        layout.addSpacing(8)
-
-        layout.addWidget(
-            _lbl("OPENROUTER API KEY", 8, color=C.TEXT_DIM, align=Qt.AlignmentFlag.AlignLeft)
-        )
-        self._or_input = QLineEdit()
-        self._or_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self._or_input.setPlaceholderText("sk-or-…")
-        self._or_input.setFont(QFont("Courier New", 10))
-        self._or_input.setFixedHeight(32)
-        self._or_input.setStyleSheet(f"""
-            QLineEdit {{
-                background: #000d12; color: {C.TEXT};
-                border: 1px solid {C.BORDER}; border-radius: 3px; padding: 4px 8px;
-            }}
-            QLineEdit:focus {{ border: 1px solid {C.ACC2}; }}
-        """)
-        layout.addWidget(self._or_input)
-
-        layout.addSpacing(12)
+        layout.addSpacing(10)
 
         sep2 = QFrame()
         sep2.setFrameShape(QFrame.Shape.HLine)
@@ -1174,18 +1155,12 @@ class SetupOverlay(QWidget):
 
     def _submit(self):
         key = self._key_input.text().strip()
-        or_key = self._or_input.text().strip()
         if not key:
             self._key_input.setStyleSheet(
                 self._key_input.styleSheet() + f" QLineEdit {{ border: 1px solid {C.RED}; }}"
             )
             return
-        if not or_key:
-            self._or_input.setStyleSheet(
-                self._or_input.styleSheet() + f" QLineEdit {{ border: 1px solid {C.RED}; }}"
-            )
-            return
-        self.done.emit(key, or_key, self._sel_os)
+        self.done.emit(key, self._sel_os)
 
 
 class MainWindow(QMainWindow):
@@ -1290,7 +1265,7 @@ class MainWindow(QMainWindow):
         # NET
         net = snap["net"]
         if net < 1.0:
-            net_str = f"{net*1024:.0f}KB/s"
+            net_str = f"{net * 1024:.0f}KB/s"
         else:
             net_str = f"{net:.1f}MB/s"
         net_pct = min(100, net * 10)  # 10 MB/s = %100
@@ -1334,10 +1309,10 @@ class MainWindow(QMainWindow):
         lay.setContentsMargins(16, 0, 16, 0)
 
         def _badge(txt, color=C.TEXT_MED):
-            l = QLabel(txt)
-            l.setFont(QFont("Courier New", 8))
-            l.setStyleSheet(f"color: {color}; background: transparent;")
-            return l
+            lbl = QLabel(txt)
+            lbl.setFont(QFont("Courier New", 8))
+            lbl.setStyleSheet(f"color: {color}; background: transparent;")
+            return lbl
 
         lay.addWidget(_badge("MARK XXXIX", C.PRI_DIM))
         lay.addStretch()
@@ -1456,10 +1431,10 @@ class MainWindow(QMainWindow):
         lay.setSpacing(6)
 
         def _sec(txt):
-            l = QLabel(f"▸ {txt}")
-            l.setFont(QFont("Courier New", 7, QFont.Weight.Bold))
-            l.setStyleSheet(f"color: {C.TEXT_MED}; background: transparent;")
-            return l
+            lbl = QLabel(f"▸ {txt}")
+            lbl.setFont(QFont("Courier New", 7, QFont.Weight.Bold))
+            lbl.setStyleSheet(f"color: {C.TEXT_MED}; background: transparent;")
+            return lbl
 
         lay.addWidget(_sec("ACTIVITY LOG"))
         self._log = LogWidget()
@@ -1555,10 +1530,10 @@ class MainWindow(QMainWindow):
         lay.setContentsMargins(14, 0, 14, 0)
 
         def _fl(txt, color=C.TEXT_MED):
-            l = QLabel(txt)
-            l.setFont(QFont("Courier New", 7))
-            l.setStyleSheet(f"color: {color}; background: transparent;")
-            return l
+            lbl = QLabel(txt)
+            lbl.setFont(QFont("Courier New", 7))
+            lbl.setStyleSheet(f"color: {color}; background: transparent;")
+            return lbl
 
         lay.addWidget(_fl("[F4] Mute  ·  [F11] Fullscreen"))
         lay.addStretch()
@@ -1619,7 +1594,6 @@ class MainWindow(QMainWindow):
         if not txt:
             return
         self._input.clear()
-        self._log.append_log(f"You: {txt}")
         if self.on_text_command:
             threading.Thread(target=self.on_text_command, args=(txt,), daemon=True).start()
 
@@ -1632,18 +1606,14 @@ class MainWindow(QMainWindow):
             return False
         try:
             d = json.loads(API_FILE.read_text(encoding="utf-8"))
-            return (
-                bool(d.get("gemini_api_key"))
-                and bool(d.get("openrouter_api_key"))
-                and bool(d.get("os_system"))
-            )
+            return bool(d.get("gemini_api_key")) and bool(d.get("os_system"))
         except Exception:
             return False
 
     def _show_setup(self):
         ov = SetupOverlay(self.centralWidget())
         cw = self.centralWidget()
-        ow, oh = 460, 430
+        ow, oh = 460, 340
         ov.setGeometry(
             (cw.width() - ow) // 2,
             (cw.height() - oh) // 2,
@@ -1654,14 +1624,12 @@ class MainWindow(QMainWindow):
         ov.show()
         self._overlay = ov
 
-    # Change signature:
-    def _on_setup_done(self, key: str, or_key: str, os_name: str):
+    def _on_setup_done(self, key: str, os_name: str):
         os.makedirs(CONFIG_DIR, exist_ok=True)
         API_FILE.write_text(
             json.dumps(
                 {
                     "gemini_api_key": key,
-                    "openrouter_api_key": or_key,
                     "os_system": os_name,
                 },
                 indent=4,
@@ -1694,6 +1662,13 @@ class JarvisUI:
         self._win = MainWindow(face_path)
         self._win.show()
         self.root = _RootShim(self._app)
+        self._state: str = "INITIALISING"
+
+    @property
+    def state(self) -> str:
+        if hasattr(self, "_win") and hasattr(self._win, "hud"):
+            return getattr(self._win.hud, "state", getattr(self, "_state", "LISTENING"))
+        return getattr(self, "_state", "LISTENING")
 
     @property
     def muted(self) -> bool:
@@ -1717,6 +1692,7 @@ class JarvisUI:
         self._win.on_text_command = cb
 
     def set_state(self, state: str):
+        self._state = state
         self._win._state_sig.emit(state)
 
     def write_log(self, text: str):

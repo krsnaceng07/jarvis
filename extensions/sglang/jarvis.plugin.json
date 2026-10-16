@@ -1,0 +1,52 @@
+{
+  "id": "sglang",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "sglang"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "sglang",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "SGLANG_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "sglang": {
+        "baseUrl": "http://localhost:30000/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "local-model",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

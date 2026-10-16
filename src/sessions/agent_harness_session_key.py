@@ -121,9 +121,7 @@ def resolve_missing_agent_harness_session_error(
     return None
 
 
-def is_agent_harness_session_key_owned_by(
-    session_key: object, agent_harness_id: object
-) -> bool:
+def is_agent_harness_session_key_owned_by(session_key: object, agent_harness_id: object) -> bool:
     """Return ``True`` when ``session_key``'s owner segment matches ``agent_harness_id``.
 
     Mirrors ``isAgentHarnessSessionKeyOwnedBy``.
@@ -136,9 +134,7 @@ def is_agent_harness_session_key_owned_by(
     return normalized_harness_id == _resolve_agent_harness_session_key_owner(session_key)
 
 
-def _session_lock_owner_matches(
-    previous: Mapping[str, Any], next_: Mapping[str, Any]
-) -> bool:
+def _session_lock_owner_matches(previous: Mapping[str, Any], next_: Mapping[str, Any]) -> bool:
     """Return ``True`` when both entries have equivalent normalized harness owners.
 
     Mirrors the private ``sessionLockOwnerMatches`` helper.
@@ -147,9 +143,9 @@ def _session_lock_owner_matches(
     next_owner = (normalize_optional_string(next_.get("agentHarnessId")) or "").lower()
     if previous_owner != next_owner:
         return False
-    return _normalize_optional_agent_runtime_id(previous_owner) == _normalize_optional_agent_runtime_id(
-        next_owner
-    )
+    return _normalize_optional_agent_runtime_id(
+        previous_owner
+    ) == _normalize_optional_agent_runtime_id(next_owner)
 
 
 def _has_equivalent_relocated_locked_entry(
@@ -238,9 +234,9 @@ def resolve_agent_harness_session_store_entry_error(
     if entry.get("modelSelectionLocked") is not True:
         return None
     raw_harness_id = (normalize_optional_string(entry.get("agentHarnessId")) or "").lower()
-    has_canonical_harness_owner = bool(raw_harness_id) and raw_harness_id == _normalize_optional_agent_runtime_id(
+    has_canonical_harness_owner = bool(
         raw_harness_id
-    )
+    ) and raw_harness_id == _normalize_optional_agent_runtime_id(raw_harness_id)
     if not normalize_optional_string(entry.get("sessionId")) and (
         is_agent_harness_session_key(session_key) or "agentHarnessId" in entry
     ):

@@ -1,0 +1,24 @@
+{
+  "id": "synology-chat",
+  "name": "Synology Chat",
+  "description": "JARVIS Synology Chat channel plugin for on-premise NAS messaging.",
+  "channels": [
+    "synology-chat"
+  ],
+  "activation": {
+    "onStartup": false
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "incomingUrl": {
+        "type": "string"
+      },
+      "outgoingToken": {
+        "type": "string"
+      }
+    }
+  },
+  "kind": "channel"
+}

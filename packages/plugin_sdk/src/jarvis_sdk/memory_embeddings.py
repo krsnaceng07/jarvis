@@ -100,7 +100,15 @@ def get_memory_embedding_provider(
     config: dict[str, Any] | None = None,
 ) -> MemoryEmbeddingProviderAdapter | None:
     """Look up a registered provider adapter. Returns None if unknown."""
-    return _REGISTRY.get(id)
+    adapter = _REGISTRY.get(id)
+    if adapter is not None:
+        return adapter
+    # Check common provider aliases (OpenClaw parity: google <-> gemini)
+    if id == "google":
+        return _REGISTRY.get("gemini")
+    if id == "gemini":
+        return _REGISTRY.get("google")
+    return None
 
 
 def list_registered_memory_embedding_providers() -> list[str]:

@@ -4,7 +4,6 @@ OpenClaw parity: mirrors ``openclaw-main/src/shared/number-coercion.ts``.
 """
 from __future__ import annotations
 
-from typing import Optional
 
 try:
     from jarvis.normalization_core.number_coercion import *  # noqa: F401,F403

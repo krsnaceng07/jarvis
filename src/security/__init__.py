@@ -1,17 +1,37 @@
-"""jarvis.security — Security helpers.
+"""jarvis.security — Comprehensive production security architecture.
 
-OpenClaw parity: mirrors ``src/security/`` (currently a stub
-in OpenClaw; the Python port provides the security runtime
-helpers from this package).
+Matches OpenClaw security architecture, logic, pipeline, and behavior.
 """
+
 from __future__ import annotations
 
-from .security_runtime import (  # noqa: F401
-    FsSafeError,
-    append_regular_file,
-    fs_root,
-    is_path_inside,
-    is_regular_file_stat,
-    path_exists,
-    root,
+from .policy_engine import (
+    Capability,
+    PolicyDecision,
+    RiskLevel,
+    SecurityPolicyEngine,
+    SecurityPrincipal,
+    TrustLevel,
 )
+from .filesystem_guard import FilesystemGuard, SecurityViolationError
+from .exec_guard import CommandValidationResult, ExecGuard
+from .secret_redactor import SecretRedactor
+from .prompt_trust import TrustBoundaryTagger
+from .audit_logger import SecurityAuditEvent, SecurityAuditLogger
+
+__all__ = [
+    "Capability",
+    "PolicyDecision",
+    "RiskLevel",
+    "SecurityPolicyEngine",
+    "SecurityPrincipal",
+    "TrustLevel",
+    "FilesystemGuard",
+    "SecurityViolationError",
+    "CommandValidationResult",
+    "ExecGuard",
+    "SecretRedactor",
+    "TrustBoundaryTagger",
+    "SecurityAuditEvent",
+    "SecurityAuditLogger",
+]

@@ -16,8 +16,7 @@ work to installable hooks.
 """
 from __future__ import annotations
 
-import asyncio
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict
 
 
 #: Embedded-attempt tool catalog shape.

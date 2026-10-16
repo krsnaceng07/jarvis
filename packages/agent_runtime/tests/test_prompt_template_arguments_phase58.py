@@ -85,8 +85,7 @@ def test_the_whitespace_set_holds_characters_not_codepoints() -> None:
 
 @pytest.mark.parametrize(
     "char",
-    ["\t", "\n", "\v", "\f", "\r", " ", " ", " ", " ", " ",
-     " ", " ", " ", " ", "　", "﻿"],
+    ["\t", "\n", "\v", "\f", "\r", " ", " ", " ", " ", " ", " ", " ", " ", " ", "　", "﻿"],
 )
 def test_javascript_whitespace_splits_arguments(char: str) -> None:
     assert parse_command_args(f"a{char}b") == ["a", "b"]
@@ -119,7 +118,7 @@ def test_quotes_group_but_are_not_preserved() -> None:
 
 
 def test_the_other_quote_is_literal_inside_a_quote() -> None:
-    assert parse_command_args("\"it's\"") == ["it's"]
+    assert parse_command_args('"it\'s"') == ["it's"]
     assert parse_command_args("'say \"hi\"'") == ['say "hi"']
 
 
@@ -284,7 +283,6 @@ def test_format_substitutes_into_the_template_content() -> None:
     assert format_prompt_template_invocation(template, ["world", "here"]) == (
         "Hello world, from here"
     )
-
 
 
 def test_format_defaults_to_no_arguments() -> None:

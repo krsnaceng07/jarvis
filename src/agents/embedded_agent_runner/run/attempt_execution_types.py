@@ -17,7 +17,7 @@ surface and re-exports them as dict aliases.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 
 #: Embedded attempt execution state. Mirrors

@@ -12,7 +12,7 @@ Phase 7.6d-6 — focused minimal port.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict
 
 
 #: Embedded-attempt before-agent-run shape.

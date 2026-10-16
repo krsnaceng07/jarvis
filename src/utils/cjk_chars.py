@@ -11,7 +11,6 @@ Public surface:
 from __future__ import annotations
 
 import re
-from typing import Optional
 
 
 CHARS_PER_TOKEN_ESTIMATE = 4

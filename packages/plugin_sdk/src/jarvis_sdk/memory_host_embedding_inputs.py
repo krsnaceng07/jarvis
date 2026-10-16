@@ -15,6 +15,7 @@ Public API:
 - ``has_non_text_embedding_parts(input)`` — true when the input
   carries multimodal ``inline-data`` parts.
 """
+
 from __future__ import annotations
 
 from typing import TypedDict

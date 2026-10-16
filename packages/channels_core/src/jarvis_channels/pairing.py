@@ -48,23 +48,21 @@ class PairingStore:
             ).fetchone()
             return row is not None
 
-    def request_pairing(
-        self, channel: str, account_id: str, sender_id: str
-    ) -> Optional[str]:
+    def request_pairing(self, channel: str, account_id: str, sender_id: str) -> Optional[str]:
         """Create a new pairing request if under the limit, returning the code.
 
         If a valid request already exists for this sender, returns that code.
         If the queue is full for this channel/account (max 3), returns None.
         """
         now = int(time.time() * 1000)
-        
+
         with self.db.open() as conn:
             # First clean up expired requests for this channel/account
             conn.execute(
                 "DELETE FROM channel_pairing_requests WHERE channel = ? AND account_id = ? AND expires_at <= ?",
                 (channel, account_id, now),
             )
-            
+
             # Check if this sender already has a pending request
             existing = conn.execute(
                 """
@@ -73,7 +71,7 @@ class PairingStore:
                 """,
                 (channel, account_id, sender_id),
             ).fetchone()
-            
+
             if existing:
                 conn.commit()
                 return existing[0]
@@ -109,13 +107,13 @@ class PairingStore:
             # cleanup
             conn.execute("DELETE FROM channel_pairing_requests WHERE expires_at <= ?", (now,))
             conn.commit()
-            
+
             sql = "SELECT channel, account_id, sender_id, pairing_code, created_at, expires_at FROM channel_pairing_requests"
             params = []
             if channel:
                 sql += " WHERE channel = ?"
                 params.append(channel)
-                
+
             rows = conn.execute(sql, params).fetchall()
             return [
                 PairingRequest(
@@ -136,21 +134,21 @@ class PairingStore:
             # find request
             row = conn.execute(
                 "SELECT account_id, sender_id FROM channel_pairing_requests WHERE channel = ? AND pairing_code = ? AND expires_at > ?",
-                (channel, code, now)
+                (channel, code, now),
             ).fetchone()
-            
+
             if not row:
                 return None
-                
+
             account_id = row["account_id"]
             sender_id = row["sender_id"]
-            
+
             # remove from requests
             conn.execute(
                 "DELETE FROM channel_pairing_requests WHERE channel = ? AND pairing_code = ?",
-                (channel, code)
+                (channel, code),
             )
-            
+
             # insert into approved
             conn.execute(
                 """
@@ -158,7 +156,7 @@ class PairingStore:
                 (channel, account_id, sender_id, approved_at)
                 VALUES (?, ?, ?, ?)
                 """,
-                (channel, account_id, sender_id, now)
+                (channel, account_id, sender_id, now),
             )
             conn.commit()
             return {"account_id": account_id, "sender_id": sender_id}

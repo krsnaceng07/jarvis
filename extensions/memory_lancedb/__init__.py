@@ -171,7 +171,13 @@ def _register(api: PluginApi) -> None:
     # The provider-adapter path needs host config. The direct
     # OpenAI path is selected automatically when no adapter is
     # wired.
-    embeddings = create_embeddings(cfg)
+    from jarvis_sdk.memory_embeddings import get_memory_embedding_provider
+
+    embeddings = create_embeddings(
+        cfg,
+        config_provider=lambda: (getattr(api.ctx, "config", None) or {}),
+        get_provider=getattr(api, "get_memory_embedding_provider", None) or get_memory_embedding_provider,
+    )
     plugin.configure(cfg, db, embeddings)
 
     # ── Active-slot globals (used by the CLI handlers) ─────────
@@ -353,7 +359,7 @@ entry = define_plugin_entry(
     ),
     register=_register,
     version="0.1.0",
-    activation="on_startup",
+    activation="on_commands",
     permissions=["fs:read:memory", "fs:write:memory", "net:https:api.openai.com"],
 )
 

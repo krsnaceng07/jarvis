@@ -15,6 +15,7 @@ Public API:
 - ``estimate_tokens_from_chars(chars)`` — round-up token
   estimate.
 """
+
 from __future__ import annotations
 
 import re
@@ -45,9 +46,7 @@ _NON_LATIN_RE: re.Pattern[str] = re.compile(
 #: Mirrors OpenClaw's ``CJK_SURROGATE_HIGH_RE``. Matches
 #: surrogate pairs whose code point is in CJK Extension B+
 #: (U+20000-U+2FA1F). High-surrogate range D840-D87E.
-_CJK_SURROGATE_HIGH_RE: re.Pattern[str] = re.compile(
-    r"[\uD840-\uD87E][\uDC00-\uDFFF]"
-)
+_CJK_SURROGATE_HIGH_RE: re.Pattern[str] = re.compile(r"[\uD840-\uD87E][\uDC00-\uDFFF]")
 
 
 def _count_code_points(text: str, non_latin_count: int) -> int:

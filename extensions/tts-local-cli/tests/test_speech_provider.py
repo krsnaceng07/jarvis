@@ -14,6 +14,7 @@ to avoid the namespace collision and the
 ``sys.path.insert`` race that pytest triggers in
 full-suite collection.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -60,13 +61,13 @@ parse_command = _speech_provider.parse_command
 resolve_cli_provider_config = _speech_provider.resolve_cli_provider_config
 strip_emojis = _speech_provider.strip_emojis
 
-from packages.plugin_sdk.src.jarvis_sdk.api import (  # noqa: E402
+from jarvis_sdk.api import (  # noqa: E402
     PluginApi,
 )
-from packages.plugin_sdk.src.jarvis_sdk.context import (  # noqa: E402
+from jarvis_sdk.context import (  # noqa: E402
     PluginContext,
 )
-from packages.plugin_sdk.src.jarvis_sdk.speech_provider import (  # noqa: E402
+from jarvis_sdk.speech_provider import (  # noqa: E402
     VALID_SPEECH_OUTPUT_FORMATS,
 )
 
@@ -330,7 +331,7 @@ class TestBuildCliSpeechProvider:
         writer = _FakeWriter()
 
         async def temp_workspace(opts):
-            return {"dir": str(tmp_path := opts.get("dir", "/tmp")), "write": writer}
+            return {"dir": str(opts.get("dir", "/tmp")), "write": writer}
 
         deps = CliProviderDeps(
             run_command=lambda cmd, opts: asyncio.sleep(0),

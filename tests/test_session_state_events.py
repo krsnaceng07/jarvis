@@ -22,7 +22,6 @@ from src.sessions.session_state_events import (
     SessionStateDatabaseOptions,
     acknowledge_session_state_notices,
     classify_session_state_actor,
-    ensure_schema,
     get_session_state_version,
     get_session_state_versions,
     handle_session_state_session_reset,

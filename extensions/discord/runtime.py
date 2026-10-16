@@ -5,10 +5,10 @@ TS module exposes a ``setDiscordRuntime`` setter the rest
 of the extension calls; the Python port uses a
 module-level singleton + setter for the same shape).
 """
+
 from __future__ import annotations
 
 import threading
-from typing import Any
 
 from .plugin import DiscordPlugin
 

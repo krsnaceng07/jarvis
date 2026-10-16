@@ -1,0 +1,27 @@
+{
+  "id": "zalo",
+  "name": "Zalo",
+  "description": "JARVIS Zalo Official Account channel plugin for customer chat and broadcasts.",
+  "channels": [
+    "zalo"
+  ],
+  "activation": {
+    "onStartup": false
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "accessToken": {
+        "type": "string"
+      },
+      "appId": {
+        "type": "string"
+      },
+      "secretKey": {
+        "type": "string"
+      }
+    }
+  },
+  "kind": "channel"
+}

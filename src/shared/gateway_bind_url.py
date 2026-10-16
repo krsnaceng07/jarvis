@@ -4,7 +4,7 @@ OpenClaw parity: mirrors ``openclaw-main/src/shared/gateway-bind-url.ts``.
 """
 from __future__ import annotations
 
-from typing import Callable, Literal, Optional, TypedDict, Union
+from typing import Optional, TypedDict, Union
 
 
 GatewayBindUrlResult = Union[

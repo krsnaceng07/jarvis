@@ -11,7 +11,7 @@ Phase 8.1d — focused minimal port.
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict
 
 
 # Installable hooks ---------------------------------------------------------

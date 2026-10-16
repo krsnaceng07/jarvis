@@ -1,0 +1,27 @@
+{
+  "id": "raft",
+  "name": "Raft",
+  "description": "OpenClaw Raft distributed consensus channel plugin for state replication.",
+  "activation": {
+    "onStartup": false
+  },
+  "channels": [
+    "raft"
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "nodeId": {
+        "type": "string"
+      },
+      "peers": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "kind": "infra"
+}

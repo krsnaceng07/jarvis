@@ -51,19 +51,16 @@ Adaptations
 """
 from __future__ import annotations
 
-import json
 import logging
-import os
 import re
 from datetime import datetime, timezone
-from typing import Any, Callable, Optional, Union
+from typing import Any, Optional, Union
 
 from .session_manager_codec import (
     build_session_context,
     is_indexed_session_entry,
 )
 from .session_manager_core import (
-    SessionManagerCore,
     _is_session_transcript_side_append_entry,
 )
 from .session_manager_file import message_serializes_owned_values

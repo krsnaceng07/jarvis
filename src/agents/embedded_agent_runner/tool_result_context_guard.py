@@ -35,7 +35,7 @@ the marker never leaks into the provider's tool/JSON serialization.
 """
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 
 #: The internal marker key for transcript prompt text. Mirrors

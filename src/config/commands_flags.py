@@ -4,7 +4,7 @@ OpenClaw parity: mirrors ``openclaw-main/src/config/commands.flags.ts``.
 """
 from __future__ import annotations
 
-from typing import Any, Literal, Union
+from typing import Literal, Union
 
 
 CommandFlagKey = Literal["restart", "raw"]

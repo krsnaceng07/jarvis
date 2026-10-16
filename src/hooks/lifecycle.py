@@ -39,13 +39,22 @@ class LifecycleHooks:
         self._bus = bus
 
     def _fire(self, name: HookName | str, payload: Any = None) -> None:
-        if self._bus is None:
-            return
+        if self._bus is not None:
+            try:
+                from src.hooks import fire_sync
+                fire_sync(self._bus, name, payload)
+            except Exception as e:  # noqa: BLE001
+                _log.debug("lifecycle: fire %r failed: %s", name, e)
+                
+        # Also mirror to internal hooks dispatcher (async fire-and-forget)
         try:
-            from src.hooks import fire_sync
-            fire_sync(self._bus, name, payload)
-        except Exception as e:  # noqa: BLE001
-            _log.debug("lifecycle: fire %r failed: %s", name, e)
+            from src.hooks import get_global_dispatcher, InternalHookEvent
+            d = get_global_dispatcher()
+            if d:
+                # Fire the event asynchronously in the background loop
+                d.fire(InternalHookEvent(key=name, payload=payload or {}))
+        except Exception as e:
+            _log.debug("lifecycle: internal fire %r failed: %s", name, e)
 
     def on_session_start(self, info: dict[str, Any] | None = None) -> None:
         """Fired when a new agent session opens."""

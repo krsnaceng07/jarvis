@@ -1,10 +1,11 @@
 """Context compaction: token estimation, cut-point selection, summarization.
 
-Port of ``packages/agent-core/src/harness/compaction/compaction.ts``.
+Port of ``packages/agent-core/src/harness/compaction/compaction.ts`` and
+``src/agents/compaction.ts`` (multi-stage summarisation extension).
 
 Signatures follow the TS positional parameter order so call sites read the
 same against either codebase. Results are :class:`Ok`/:class:`Err` values,
-never raised ``CompactionError``\\ s — compaction failure is an expected
+never raised ``CompactionError``s — compaction failure is an expected
 outcome the caller handles by keeping the uncompacted transcript.
 """
 
@@ -14,7 +15,7 @@ import inspect
 import math
 import time
 from dataclasses import dataclass, field
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from jarvis_llm import (
     AssistantMessage,
@@ -36,7 +37,6 @@ from .compaction_utils import (
     serialize_conversation,
 )
 from .harness_types import (
-    CompactionEntry,
     CompactionError,
     Err,
     FileOperations,
@@ -124,9 +124,7 @@ def _get_message_from_entry(entry: SessionTreeEntry) -> AgentMessage | None:
         )
     if entry_type == "compaction":
         return as_agent_message(
-            create_compaction_summary_message(
-                entry.summary, entry.tokens_before, entry.timestamp
-            )
+            create_compaction_summary_message(entry.summary, entry.tokens_before, entry.timestamp)
         )
     return None
 
@@ -181,9 +179,7 @@ def calculate_context_tokens(usage: Usage) -> int:
     context_usage = usage.context_usage
     if context_usage is not None and getattr(context_usage, "state", None) == "available":
         return context_usage.total_tokens
-    return usage.total_tokens or (
-        usage.input + usage.output + usage.cache_read + usage.cache_write
-    )
+    return usage.total_tokens or (usage.input + usage.output + usage.cache_read + usage.cache_write)
 
 
 def _get_assistant_usage(msg: AgentMessage) -> Usage | None:
@@ -274,9 +270,7 @@ def estimate_context_tokens(messages: list[AgentMessage]) -> ContextUsageEstimat
     )
 
 
-def should_compact(
-    context_tokens: int, context_window: int, settings: CompactionSettings
-) -> bool:
+def should_compact(context_tokens: int, context_window: int, settings: CompactionSettings) -> bool:
     """Return whether context usage exceeds the compaction threshold.
 
     Parity: ``shouldCompact``.
@@ -472,9 +466,7 @@ def find_cut_point(
     if cut_entry is None:
         raise RuntimeError("compaction cut point does not reference a session entry")
     starts_turn = _is_turn_start_entry(cut_entry)
-    turn_start_index = (
-        -1 if starts_turn else find_turn_start_index(entries, cut_index, start_index)
-    )
+    turn_start_index = -1 if starts_turn else find_turn_start_index(entries, cut_index, start_index)
 
     return CutPointResult(
         first_kept_entry_index=cut_index,
@@ -630,21 +622,13 @@ async def _run_summarization_completion(
 
     response = await _complete_summarization(
         model,
-        Context(
-            system_prompt=SUMMARIZATION_SYSTEM_PROMPT, messages=summarization_messages
-        ),
-        _create_summarization_options(
-            model, max_tokens, api_key, headers, signal, thinking_level
-        ),
+        Context(system_prompt=SUMMARIZATION_SYSTEM_PROMPT, messages=summarization_messages),
+        _create_summarization_options(model, max_tokens, api_key, headers, signal, thinking_level),
         stream_fn,
         runtime,
     )
     if response.stop_reason == "aborted":
-        return err(
-            CompactionError(
-                "aborted", response.error_message or f"{error_label} aborted"
-            )
-        )
+        return err(CompactionError("aborted", response.error_message or f"{error_label} aborted"))
     if response.stop_reason == "error":
         return err(
             CompactionError(
@@ -655,9 +639,7 @@ async def _run_summarization_completion(
 
     return ok(
         "\n".join(
-            block.text
-            for block in response.content
-            if getattr(block, "type", None) == "text"
+            block.text for block in response.content if getattr(block, "type", None) == "text"
         )
     )
 
@@ -684,9 +666,7 @@ async def generate_summary(
     """
     computed = math.floor(0.8 * reserve_tokens)
     max_tokens = min(computed, model.max_tokens) if model.max_tokens > 0 else computed
-    base_prompt = (
-        _UPDATE_SUMMARIZATION_PROMPT if previous_summary else _SUMMARIZATION_PROMPT
-    )
+    base_prompt = _UPDATE_SUMMARIZATION_PROMPT if previous_summary else _SUMMARIZATION_PROMPT
     if custom_instructions:
         base_prompt = f"{base_prompt}\n\nAdditional focus: {custom_instructions}"
     llm_messages = convert_to_llm(current_messages)
@@ -721,9 +701,7 @@ class CompactionPreparation:
     tokens_before: int = 0
     previous_summary: str | None = None
     file_ops: FileOperations = field(default_factory=create_file_ops)
-    settings: CompactionSettings = field(
-        default_factory=lambda: DEFAULT_COMPACTION_SETTINGS
-    )
+    settings: CompactionSettings = field(default_factory=lambda: DEFAULT_COMPACTION_SETTINGS)
 
 
 def prepare_compaction(
@@ -758,15 +736,11 @@ def prepare_compaction(
             -1,
         )
         boundary_start = (
-            first_kept_entry_index
-            if first_kept_entry_index >= 0
-            else prev_compaction_index + 1
+            first_kept_entry_index if first_kept_entry_index >= 0 else prev_compaction_index + 1
         )
     boundary_end = len(path_entries)
 
-    tokens_before = estimate_context_tokens(
-        build_session_context(path_entries).messages
-    ).tokens
+    tokens_before = estimate_context_tokens(build_session_context(path_entries).messages).tokens
 
     cut_point = find_cut_point(
         path_entries, boundary_start, boundary_end, settings.keep_recent_tokens
@@ -786,9 +760,7 @@ def prepare_compaction(
     first_kept_entry_id = first_kept_entry.id
 
     history_end = (
-        cut_point.turn_start_index
-        if cut_point.is_split_turn
-        else cut_point.first_kept_entry_index
+        cut_point.turn_start_index if cut_point.is_split_turn else cut_point.first_kept_entry_index
     )
     messages_to_summarize: list[AgentMessage] = []
     for i in range(boundary_start, history_end):
@@ -805,9 +777,7 @@ def prepare_compaction(
                 turn_prefix_messages.append(msg)
     if not messages_to_summarize and not turn_prefix_messages:
         return ok(None)
-    file_ops = _extract_file_operations(
-        messages_to_summarize, path_entries, prev_compaction_index
-    )
+    file_ops = _extract_file_operations(messages_to_summarize, path_entries, prev_compaction_index)
     if cut_point.is_split_turn:
         for msg in turn_prefix_messages:
             extract_file_ops_from_message(msg, file_ops)
@@ -940,9 +910,7 @@ async def compact(
             summary=summary,
             first_kept_entry_id=first_kept_entry_id,
             tokens_before=tokens_before,
-            details=CompactionDetails(
-                read_files=read_files, modified_files=modified_files
-            ),
+            details=CompactionDetails(read_files=read_files, modified_files=modified_files),
         )
     )
 
@@ -981,13 +949,490 @@ async def _generate_turn_prefix_summary(
     )
 
 
+# ---------------------------------------------------------------------------
+# Multi-stage summarisation (port of compaction.ts summarizeInStages etc.)
+# ---------------------------------------------------------------------------
+
+#: Maximum consecutive generic-fallback results before the circuit opens.
+#: Parity: ``MAX_CONSECUTIVE_GENERIC_FALLBACKS``.
+MAX_CONSECUTIVE_GENERIC_FALLBACKS: int = 2
+
+#: Default summary text when there is no prior history to summarise.
+#: Parity: ``DEFAULT_SUMMARY_FALLBACK``.
+DEFAULT_SUMMARY_FALLBACK: str = "No prior history."
+
+#: Identifier-preservation clause injected into summarisation prompts.
+#: Parity: ``IDENTIFIER_PRESERVATION_INSTRUCTIONS``.
+IDENTIFIER_PRESERVATION_INSTRUCTIONS: str = (
+    "Preserve all opaque identifiers exactly as written (no shortening or "
+    "reconstruction), including UUIDs, hashes, IDs, hostnames, IPs, ports, "
+    "URLs, and file names."
+)
+
+_MERGE_SUMMARIES_INSTRUCTIONS: str = "\n".join(
+    [
+        "Merge these partial summaries into a single cohesive summary.",
+        "",
+        "MUST PRESERVE:",
+        "- Active tasks and their current status (in-progress, blocked, pending)",
+        "- Batch operation progress (e.g., '5/17 items completed')",
+        "- The last thing the user requested and what was being done about it",
+        "- Decisions made and their rationale",
+        "- TODOs, open questions, and constraints",
+        "- Any commitments or follow-ups promised",
+        "",
+        "PRIORITIZE recent context over older history. The agent needs to know",
+        "what it was doing, not just what was discussed.",
+    ]
+)
+
+# Discriminated-union result for staged summarisation.
+# Parity: ``CompactionSummaryResult``.
+CompactionSummaryResultKind = Literal["summary", "generic-fallback"]
+
+
+@dataclass(frozen=True)
+class CompactionSummaryResult:
+    """Result of one compaction summarisation attempt.
+
+    Parity: ``CompactionSummaryResult``.
+    ``kind == "generic-fallback"`` means the result is a placeholder, not a
+    real summary; callers should track how many consecutive fallbacks occur.
+    """
+
+    kind: CompactionSummaryResultKind = "summary"
+    text: str = ""
+
+
+# Identifier policy for summarisation instructions.
+CompactionIdentifierPolicy = Literal["strict", "off", "custom"]
+
+
+def _resolve_identifier_preservation_instructions(
+    identifier_policy: CompactionIdentifierPolicy = "strict",
+    identifier_instructions: str | None = None,
+) -> str | None:
+    """Return the identifier-preservation clause for a summarisation prompt.
+
+    Parity: ``resolveIdentifierPreservationInstructions``.
+    """
+    if identifier_policy == "off":
+        return None
+    if identifier_policy == "custom":
+        custom = (identifier_instructions or "").strip()
+        return custom if custom else IDENTIFIER_PRESERVATION_INSTRUCTIONS
+    return IDENTIFIER_PRESERVATION_INSTRUCTIONS
+
+
+def _build_compaction_summarization_instructions(
+    custom_instructions: str | None = None,
+    identifier_policy: CompactionIdentifierPolicy = "strict",
+    identifier_instructions: str | None = None,
+) -> str | None:
+    """Join identifier-preservation and caller-supplied instructions.
+
+    Parity: ``buildCompactionSummarizationInstructions``.
+    """
+    custom = (custom_instructions or "").strip() or None
+    id_preservation = _resolve_identifier_preservation_instructions(
+        identifier_policy, identifier_instructions
+    )
+    if not id_preservation and not custom:
+        return None
+    if not custom:
+        return id_preservation
+    if not id_preservation:
+        return f"Additional focus:\n{custom}"
+    return f"{id_preservation}\n\nAdditional focus:\n{custom}"
+
+
+def resolve_context_window_tokens(model: Model | None = None) -> int:
+    """Return a positive context-window token count from model metadata.
+
+    Parity: ``resolveContextWindowTokens``.
+    """
+    # Parity: DEFAULT_CONTEXT_TOKENS from agents/defaults.ts = 200_000.
+    _DEFAULT_CONTEXT_TOKENS = 200_000
+
+    effective = getattr(model, "context_tokens", None) or getattr(model, "context_window", None)
+    return max(1, math.floor(effective if effective else _DEFAULT_CONTEXT_TOKENS))
+
+
+def _extract_chunk_time_range(chunk: list[AgentMessage]) -> str:
+    """Return a compact ISO timestamp range string for merge metadata.
+
+    Parity: ``extractChunkTimeRange``.
+    """
+    import datetime
+
+    earliest: int | None = None
+    latest: int | None = None
+    for message in chunk:
+        ts = getattr(message, "timestamp", None)
+        if not isinstance(ts, (int, float)) or ts <= 0 or not math.isfinite(ts):
+            continue
+        ts = int(ts)
+        earliest = ts if earliest is None else min(earliest, ts)
+        latest = ts if latest is None else max(latest, ts)
+    if earliest is None or latest is None:
+        return ""
+
+    def _fmt(ts: int) -> str:
+        return datetime.datetime.fromtimestamp(ts / 1000, tz=datetime.timezone.utc).strftime(
+            "%Y-%m-%d %H:%M"
+        )
+
+    r = _fmt(earliest) if earliest == latest else f"{_fmt(earliest)} - {_fmt(latest)}"
+    return f" [{r} UTC]"
+
+
+async def _summarize_chunks_staged(
+    *,
+    messages: list[AgentMessage],
+    model: Model,
+    api_key: str | None,
+    headers: dict[str, Any] | None = None,
+    signal: Any | None = None,
+    reserve_tokens: int,
+    max_chunk_tokens: int,
+    custom_instructions: str | None = None,
+    identifier_policy: CompactionIdentifierPolicy = "strict",
+    identifier_instructions: str | None = None,
+    previous_summary: str | None = None,
+    thinking_level: Optional[ThinkingLevel] = None,
+    stream_fn: StreamFn | None = None,
+    runtime: AgentCoreCompletionRuntimeDeps | None = None,
+) -> str:
+    """Summarise *messages* in at most ``max_chunk_tokens``-sized chunks.
+
+    Parity: ``summarizeChunks``.
+    """
+    from .compaction_planning import build_summary_chunks
+
+    if not messages:
+        return previous_summary or DEFAULT_SUMMARY_FALLBACK
+
+    chunks = build_summary_chunks(messages, max_chunk_tokens)
+    effective_instructions = _build_compaction_summarization_instructions(
+        custom_instructions, identifier_policy, identifier_instructions
+    )
+    summary = previous_summary
+    has_generated_chunk = False
+
+    for chunk_index, chunk in enumerate(chunks):
+        result = await generate_summary(
+            chunk,
+            model,
+            reserve_tokens,
+            api_key,
+            headers,
+            signal,
+            effective_instructions,
+            summary,
+            thinking_level,
+            stream_fn,
+            runtime,
+        )
+        if isinstance(result, Err):
+            if not has_generated_chunk:
+                return err(result.error).error.message
+            # Partial failure — return best-effort partial summary.
+            completed = chunk_index
+            total = len(chunks)
+            suffix = (
+                f"\n\n[Partial summary: chunks 1-{completed} of {total} were summarized. "
+                f"Chunks {completed + 1}-{total} could not be processed.]"
+            )
+            return (summary or DEFAULT_SUMMARY_FALLBACK) + suffix
+        summary = result.value
+        has_generated_chunk = True
+
+    return summary or DEFAULT_SUMMARY_FALLBACK
+
+
+async def _summarize_with_fallback_result(
+    *,
+    messages: list[AgentMessage],
+    model: Model,
+    api_key: str | None,
+    headers: dict[str, Any] | None = None,
+    signal: Any | None = None,
+    reserve_tokens: int,
+    max_chunk_tokens: int,
+    context_window: int,
+    custom_instructions: str | None = None,
+    identifier_policy: CompactionIdentifierPolicy = "strict",
+    identifier_instructions: str | None = None,
+    previous_summary: str | None = None,
+    thinking_level: Optional[ThinkingLevel] = None,
+    stream_fn: StreamFn | None = None,
+    runtime: AgentCoreCompletionRuntimeDeps | None = None,
+) -> CompactionSummaryResult:
+    """Summarise with progressive fallback for oversized messages.
+
+    Parity: ``summarizeWithFallbackResult``.
+    """
+    from .compaction_planning import build_oversized_fallback_plan
+
+    if not messages:
+        return CompactionSummaryResult(
+            kind="summary", text=previous_summary or DEFAULT_SUMMARY_FALLBACK
+        )
+
+    # Attempt full summarisation first.
+    partial_fallback: str | None = None
+    try:
+        text = await _summarize_chunks_staged(
+            messages=messages,
+            model=model,
+            api_key=api_key,
+            headers=headers,
+            signal=signal,
+            reserve_tokens=reserve_tokens,
+            max_chunk_tokens=max_chunk_tokens,
+            custom_instructions=custom_instructions,
+            identifier_policy=identifier_policy,
+            identifier_instructions=identifier_instructions,
+            previous_summary=previous_summary,
+            thinking_level=thinking_level,
+            stream_fn=stream_fn,
+            runtime=runtime,
+        )
+        return CompactionSummaryResult(kind="summary", text=text)
+    except Exception as full_err:
+        partial_fallback = getattr(full_err, "partial_summary", None)
+
+    # Fallback: summarise only small messages, note oversized ones.
+    plan = build_oversized_fallback_plan(messages, context_window)
+    if plan.small_messages and len(plan.small_messages) != len(messages):
+        try:
+            partial_text = await _summarize_chunks_staged(
+                messages=plan.small_messages,
+                model=model,
+                api_key=api_key,
+                headers=headers,
+                signal=signal,
+                reserve_tokens=reserve_tokens,
+                max_chunk_tokens=max_chunk_tokens,
+                custom_instructions=custom_instructions,
+                identifier_policy=identifier_policy,
+                identifier_instructions=identifier_instructions,
+                previous_summary=previous_summary,
+                thinking_level=thinking_level,
+                stream_fn=stream_fn,
+                runtime=runtime,
+            )
+            notes = "\n\n" + "\n".join(plan.oversized_notes) if plan.oversized_notes else ""
+            return CompactionSummaryResult(kind="summary", text=partial_text + notes)
+        except Exception as partial_err:
+            retry_partial = getattr(partial_err, "partial_summary", None)
+            if retry_partial:
+                notes = "\n\n" + "\n".join(plan.oversized_notes) if plan.oversized_notes else ""
+                partial_fallback = retry_partial + notes
+
+    if partial_fallback:
+        return CompactionSummaryResult(kind="summary", text=partial_fallback)
+
+    return CompactionSummaryResult(
+        kind="generic-fallback",
+        text=(
+            f"Context contained {len(messages)} messages "
+            f"({len(plan.oversized_notes)} oversized). "
+            "Summary unavailable due to size limits."
+        ),
+    )
+
+
+async def summarize_in_stages(
+    messages: list[AgentMessage],
+    model: Model,
+    api_key: str | None,
+    headers: dict[str, Any] | None = None,
+    signal: Any | None = None,
+    reserve_tokens: int = 16384,
+    max_chunk_tokens: int = 50_000,
+    context_window: int = 200_000,
+    custom_instructions: str | None = None,
+    identifier_policy: CompactionIdentifierPolicy = "strict",
+    identifier_instructions: str | None = None,
+    previous_summary: str | None = None,
+    parts: int | None = None,
+    min_messages_for_split: int | None = None,
+    thinking_level: Optional[ThinkingLevel] = None,
+    stream_fn: StreamFn | None = None,
+    runtime: AgentCoreCompletionRuntimeDeps | None = None,
+) -> CompactionSummaryResult:
+    """Summarise history in multiple stages when a single pass is too large.
+
+    Parity: ``summarizeInStages``.
+
+    When history exceeds ``max_chunk_tokens`` a split plan is built and each
+    chunk is summarised independently.  A circuit-breaker aborts after
+    :data:`MAX_CONSECUTIVE_GENERIC_FALLBACKS` consecutive placeholder results
+    so the caller keeps the original transcript instead of committing an
+    incomplete summary.
+
+    Args:
+        messages: Messages to summarise (older portion of the transcript).
+        model: LLM to use for summarisation.
+        api_key: Provider API key.
+        headers: Optional extra HTTP headers.
+        signal: Optional cancellation signal.
+        reserve_tokens: Token budget reserved for the summary output.
+        max_chunk_tokens: Maximum tokens per summarisation chunk.
+        context_window: Full model context window in tokens.
+        custom_instructions: Additional user-supplied focus text.
+        identifier_policy: ``"strict"`` (default), ``"off"``, or ``"custom"``.
+        identifier_instructions: Custom identifier clause (``policy=="custom"`` only).
+        previous_summary: Prior compaction summary to update incrementally.
+        parts: Number of split parts to attempt (defaults to 2).
+        min_messages_for_split: Minimum message count before splitting.
+        thinking_level: Reasoning level override.
+        stream_fn: Optional streaming callback.
+        runtime: Optional runtime dependency injection.
+
+    Returns:
+        :class:`CompactionSummaryResult` with ``kind`` and ``text``.
+    """
+    from .compaction_planning import build_stage_split_plan, StageSplitPlanSingle
+
+    if not messages:
+        return CompactionSummaryResult(
+            kind="summary", text=previous_summary or DEFAULT_SUMMARY_FALLBACK
+        )
+
+    plan = build_stage_split_plan(
+        messages,
+        max_chunk_tokens=max_chunk_tokens,
+        parts=parts,
+        min_messages_for_split=min_messages_for_split,
+    )
+
+    if isinstance(plan, StageSplitPlanSingle):
+        return await _summarize_with_fallback_result(
+            messages=messages,
+            model=model,
+            api_key=api_key,
+            headers=headers,
+            signal=signal,
+            reserve_tokens=reserve_tokens,
+            max_chunk_tokens=max_chunk_tokens,
+            context_window=context_window,
+            custom_instructions=custom_instructions,
+            identifier_policy=identifier_policy,
+            identifier_instructions=identifier_instructions,
+            previous_summary=previous_summary,
+            thinking_level=thinking_level,
+            stream_fn=stream_fn,
+            runtime=runtime,
+        )
+
+    # Multi-chunk staged summarisation with circuit-breaker.
+    partial_summaries: list[str] = []
+    consecutive_generic_fallbacks = 0
+    oldest_chunk_degraded = False
+
+    for index, chunk in enumerate(plan.chunks):
+        result = await _summarize_with_fallback_result(
+            messages=chunk,
+            model=model,
+            api_key=api_key,
+            headers=headers,
+            signal=signal,
+            reserve_tokens=reserve_tokens,
+            max_chunk_tokens=max_chunk_tokens,
+            context_window=context_window,
+            custom_instructions=custom_instructions,
+            identifier_policy=identifier_policy,
+            identifier_instructions=identifier_instructions,
+            previous_summary=None,  # Chunks summarised independently.
+            thinking_level=thinking_level,
+            stream_fn=stream_fn,
+            runtime=runtime,
+        )
+        consecutive_generic_fallbacks = (
+            consecutive_generic_fallbacks + 1 if result.kind == "generic-fallback" else 0
+        )
+        if index == 0:
+            oldest_chunk_degraded = result.kind == "generic-fallback"
+
+        # Circuit-breaker: abort before committing a gap.
+        if consecutive_generic_fallbacks >= MAX_CONSECUTIVE_GENERIC_FALLBACKS:
+            raise RuntimeError(
+                "Compaction staged summarization stopped after repeated generic fallbacks"
+            )
+
+        partial_summaries.append(result.text)
+
+    # Single surviving chunk.
+    if len(partial_summaries) == 1:
+        return CompactionSummaryResult(
+            kind="generic-fallback" if oldest_chunk_degraded else "summary",
+            text=partial_summaries[0],
+        )
+
+    # Merge partial summaries via a final summarisation call.
+    now = int(time.time() * 1000)
+    # Build synthetic user messages so the merge call sees chronological chunks.
+    summary_messages: list[AgentMessage] = []
+    for idx, summary_text in enumerate(partial_summaries):
+        chunk = plan.chunks[idx]
+        time_range = _extract_chunk_time_range(chunk)
+        total = len(partial_summaries)
+        if idx == 0:
+            label = f"[Chunk 1 - oldest messages{time_range}]"
+        elif idx == total - 1:
+            label = f"[Chunk {total} - most recent messages{time_range}]"
+        else:
+            label = f"[Chunk {idx + 1}/{total}{time_range}]"
+
+        summary_messages.append(
+            as_agent_message(
+                UserMessage(
+                    content=[TextContent(text=f"{label}\n{summary_text}")],
+                    timestamp=now - (total - 1 - idx),
+                )
+            )
+        )
+
+    custom = (custom_instructions or "").strip()
+    merge_instructions = (
+        f"{_MERGE_SUMMARIES_INSTRUCTIONS}\n\n{custom}" if custom else _MERGE_SUMMARIES_INSTRUCTIONS
+    )
+
+    merged = await _summarize_with_fallback_result(
+        messages=summary_messages,
+        model=model,
+        api_key=api_key,
+        headers=headers,
+        signal=signal,
+        reserve_tokens=reserve_tokens,
+        max_chunk_tokens=max_chunk_tokens,
+        context_window=context_window,
+        custom_instructions=merge_instructions,
+        identifier_policy=identifier_policy,
+        identifier_instructions=identifier_instructions,
+        previous_summary=None,
+        thinking_level=thinking_level,
+        stream_fn=stream_fn,
+        runtime=runtime,
+    )
+    if oldest_chunk_degraded and merged.kind == "summary":
+        return CompactionSummaryResult(kind="generic-fallback", text=merged.text)
+    return merged
+
+
 __all__ = [
     "CompactionDetails",
     "CompactionPreparation",
     "CompactionResult",
     "CompactionSettings",
+    "CompactionSummaryResult",
     "ContextUsageEstimate",
     "DEFAULT_COMPACTION_SETTINGS",
+    "DEFAULT_SUMMARY_FALLBACK",
+    "IDENTIFIER_PRESERVATION_INSTRUCTIONS",
+    "MAX_CONSECUTIVE_GENERIC_FALLBACKS",
     "SUMMARIZATION_SYSTEM_PROMPT",
     "calculate_context_tokens",
     "compact",
@@ -998,8 +1443,10 @@ __all__ = [
     "generate_summary",
     "get_last_assistant_usage",
     "prepare_compaction",
+    "resolve_context_window_tokens",
     "serialize_conversation",
     "should_compact",
+    "summarize_in_stages",
 ]
 
 # Parity: compaction.ts re-exports serializeConversation from utils.ts.

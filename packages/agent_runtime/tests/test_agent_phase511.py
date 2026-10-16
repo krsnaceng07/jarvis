@@ -79,7 +79,9 @@ def make_usage() -> Usage:
     )
 
 
-def make_assistant(content, *, active_model: Model = MODEL, stop_reason="stop", timestamp=1) -> AssistantMessage:
+def make_assistant(
+    content, *, active_model: Model = MODEL, stop_reason="stop", timestamp=1
+) -> AssistantMessage:
     return AssistantMessage(
         api=active_model.api,
         provider=active_model.provider,
@@ -98,11 +100,7 @@ def convert_passthrough(messages):
 
 def filtering_convert(messages):
     """Parity: the explicit role-filtering convertToLlm in the replay test."""
-    return [
-        message
-        for message in messages
-        if message.role in ("user", "assistant", "toolResult")
-    ]
+    return [message for message in messages if message.role in ("user", "assistant", "toolResult")]
 
 
 async def failing_stream_fn(*_args, **_kwargs):
@@ -162,9 +160,7 @@ class TestInterruptionReplay:
             stream.push(
                 StreamEventDone(
                     reason="stop",
-                    message=make_assistant(
-                        [TextContent(text="continued safely")], timestamp=2
-                    ),
+                    message=make_assistant([TextContent(text="continued safely")], timestamp=2),
                 )
             )
             stream.end()
@@ -207,9 +203,7 @@ class TestAgentContinuationGuards:
     async def test_throws_a_coded_error_from_agent_continue(self) -> None:
         agent = Agent(
             AgentOptions(
-                initial_state=AgentInitialState(
-                    messages=make_assistant_tail_messages()
-                ),
+                initial_state=AgentInitialState(messages=make_assistant_tail_messages()),
                 stream_fn=failing_stream_fn,
             )
         )
@@ -333,9 +327,7 @@ class RefreshTool:
     execution_mode = None
 
     async def execute(self, _tool_call_id, _params, signal=None, on_update=None):
-        return AgentToolResult(
-            content=[TextContent(text="refreshed")], details={}
-        )
+        return AgentToolResult(content=[TextContent(text="refreshed")], details={})
 
 
 class TestAgentNextTurnPreparation:
@@ -357,9 +349,7 @@ class TestAgentNextTurnPreparation:
             turn["count"] += 1
             stream = create_assistant_message_event_stream()
             if turn["count"] == 1:
-                content = [
-                    ToolCall(id="call-refresh", name="refresh", arguments={})
-                ]
+                content = [ToolCall(id="call-refresh", name="refresh", arguments={})]
                 reason = "toolUse"
             else:
                 content = [TextContent(text="done")]
@@ -414,9 +404,9 @@ class TestAgentNextTurnPreparation:
         first_context = with_context_calls[0]
         assert first_context.message.role == "assistant"
         assert first_context.message.stop_reason == "toolUse"
-        assert [
-            (result.role, result.tool_name) for result in first_context.tool_results
-        ] == [("toolResult", "refresh")]
+        assert [(result.role, result.tool_name) for result in first_context.tool_results] == [
+            ("toolResult", "refresh")
+        ]
         assert requests == [
             {
                 "model": MODEL.id,

@@ -5,7 +5,6 @@ OpenClaw parity: mirrors
 """
 from __future__ import annotations
 
-from typing import Any, Literal, TypedDict
 
 
 #: Provider ids that get the lean default.

@@ -19,9 +19,9 @@ Read this before any change under `extensions/cron/`. Also read
 - **One job per id.** Adding the same id replaces the existing job
   (no duplicates). `remove(id)` is idempotent — second call
   returns `False`, not a crash.
-- **Cron-table persistence.** Every add/remove writes through to
-  `$JARVIS_DATA_DIR/core/cron.json` so a host restart doesn't lose
-  scheduled work.
+- **Cron-table persistence.** Every add/remove writes through to the
+  canonical shared SQLite state database so a host restart doesn't lose
+  scheduled work. Explicit `.json` paths are read/write compatibility only.
 - **Stub handler on reload.** When the table reloads from JSON, the
   handler is replaced with a no-op (we can't persist a function).
   The host must re-attach live handlers after reload.
@@ -40,8 +40,8 @@ Read this before any change under `extensions/cron/`. Also read
 
 - **No pairing/allowlist config.** The operator is the only user
   in Phase 2.
-- **One table per workspace.** Default path
-  `$JARVIS_DATA_DIR/core/cron.json`. Never share a table across
+- **One table per workspace.** Default path is the canonical
+  `$JARVIS_STATE_DIR/jarvis.sqlite` database. Never share a table across
   workspaces.
 
 ## Review Standard

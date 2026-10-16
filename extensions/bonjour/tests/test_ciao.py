@@ -2,6 +2,7 @@
 
 Mirrors OpenClaw's ``extensions/bonjour/src/ciao.test.ts``.
 """
+
 from __future__ import annotations
 
 import pytest
@@ -47,8 +48,7 @@ class TestBonjourCiao:
     ) -> None:
         """Restricted-sandbox failures classify as ``interface-enumeration-failure``."""
         err = RuntimeError(
-            "A system error occurred: uv_interface_addresses returned "
-            "Unknown system error 1"
+            "A system error occurred: uv_interface_addresses returned Unknown system error 1"
         )
         err.name = "SystemError"
         result = classify_ciao_process_error(err)
@@ -64,8 +64,7 @@ class TestBonjourCiao:
     ) -> None:
         """Cause chains are walked for classification."""
         inner = RuntimeError(
-            "A system error occurred: uv_interface_addresses returned "
-            "Unknown system error 1"
+            "A system error occurred: uv_interface_addresses returned Unknown system error 1"
         )
         inner.name = "SystemError"
         wrapper = RuntimeError("ciao NetworkManager init failed")

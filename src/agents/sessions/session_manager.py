@@ -40,9 +40,10 @@ from __future__ import annotations
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Any, Awaitable, Callable, Optional
+from typing import Any, Optional
 
 from .session_manager_branching import SessionManagerBranching
+from .session_manager_types import NewSessionOptions
 from .session_manager_codec import (
     CURRENT_SESSION_VERSION,
     build_session_context,
@@ -72,7 +73,6 @@ from .session_manager_types import (
     FileEntry,
     LabelEntry,
     ModelChangeEntry,
-    NewSessionOptions,
     PromptReleasedSessionEntry,
     PromptReleasedSessionMergeResult,
     SessionContext,
@@ -172,6 +172,8 @@ class SessionManager(SessionManagerBranching):
         cwd: str,
         session_dir: Optional[str] = None,
         sqlite_persistence: Optional[dict] = None,
+        created_actor: Optional[str] = None,
+        is_draft: bool = False,
     ) -> "SessionManager":
         """Create a new in-memory + on-disk
         session for ``cwd``. Mirrors
@@ -184,6 +186,10 @@ class SessionManager(SessionManagerBranching):
             session_file=None,
             persist=True,
             sqlite_persistence=sqlite_persistence,
+            new_session_options=NewSessionOptions(
+                created_actor=created_actor,
+                is_draft=is_draft,
+            ),
         )
 
     @staticmethod

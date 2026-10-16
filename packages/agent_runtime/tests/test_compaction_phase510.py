@@ -82,9 +82,7 @@ def create_usage(total_tokens: int) -> Usage:
     return _usage(
         total_tokens,
         input=total_tokens,
-        context_usage=ContextUsageAvailable(
-            prompt_tokens=total_tokens, total_tokens=total_tokens
-        ),
+        context_usage=ContextUsageAvailable(prompt_tokens=total_tokens, total_tokens=total_tokens),
     )
 
 
@@ -146,12 +144,8 @@ def projected_entry(entry_type: str, index: int, content: str) -> SessionTreeEnt
         "timestamp": "1970-01-01T00:00:00.000Z",
     }
     if entry_type == "custom_message":
-        return CustomMessageEntry(
-            custom_type="test", content=content, display=True, **common
-        )
-    return BranchSummaryEntry(
-        from_id=parent_id or common["id"], summary=content, **common
-    )
+        return CustomMessageEntry(custom_type="test", content=content, display=True, **common)
+    return BranchSummaryEntry(from_id=parent_id or common["id"], summary=content, **common)
 
 
 def make_model(**overrides: Any) -> Model:
@@ -204,9 +198,7 @@ class TestSerializeConversation:
         ],
     )
     def test_serializes_nested_tool_result_blocks(self, block, expected):
-        messages = [
-            ToolResultMessage(tool_call_id="call-1", tool_name="t", content=[block])
-        ]
+        messages = [ToolResultMessage(tool_call_id="call-1", tool_name="t", content=[block])]
 
         assert serialize_conversation(messages) == f"[Tool result]: {expected}"
 
@@ -216,7 +208,7 @@ class TestSerializeConversation:
             ToolResultMessage(
                 tool_call_id="call-1",
                 tool_name="t",
-                content=[{"type": "toolResult", "content": f"{prefix}\U0001F680tail"}],
+                content=[{"type": "toolResult", "content": f"{prefix}\U0001f680tail"}],
             )
         ]
 
@@ -278,9 +270,7 @@ class TestFindCutPointWithImageHeavyRecentTurns:
 
     def test_matches_cut_point_of_equivalent_text_cost_control(self):
         equivalent_text = "x" * 4800
-        image_entries = build_image_transcript(
-            [user_image(10), user_image(20), user_image(30)]
-        )
+        image_entries = build_image_transcript([user_image(10), user_image(20), user_image(30)])
         text_entries = build_image_transcript(
             [
                 user_text(equivalent_text, 10),

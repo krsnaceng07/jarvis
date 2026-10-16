@@ -3,12 +3,16 @@
 OpenClaw parity: mirrors the OpenClaw ``qa-channel`` channel
 extension (31 files in the OpenClaw source).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 
 from jarvis_sdk import ChannelPlugin
+from jarvis_normalization_core.result import Ok
+
+from .runtime import enqueue_qa_channel_message, get_qa_channel_runtime
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,20 +28,30 @@ class QAChannelPlugin(ChannelPlugin):
     on_message: Any = None
 
     def init(self, ctx: Any) -> None:
-        """Channel init hook (auth + connection). Stub in Phase 5.15."""
-        return None
+        """Channel init hook (auth + connection)."""
+        runtime = get_qa_channel_runtime()
+        if runtime is None:
+            from .runtime import QAChannelRuntime, set_qa_channel_runtime
 
-    async def send(self, target: str, message: Any):  # type: ignore[override]
-        """Send a message to a target on this channel. Stub in Phase 5.15."""
-        from jarvis_sdk import Result
+            set_qa_channel_runtime(QAChannelRuntime(started=True))
 
-        return Result.err(
-            "channel_stub",
-            f"qa-channel channel send is a Phase 5.15 stub",
-        )
+    def send(self, target: str, message: Any):  # type: ignore[override]
+        """Queue a synthetic QA message for the target."""
+        payload = message if isinstance(message, dict) else {"text": str(message)}
+        result = enqueue_qa_channel_message(target, payload, direction="outbound")
+        if result is None:
+            return Ok({"target": target, "message": payload, "queued": False})
+        return Ok({"target": result["target"], "message": result["message"], "queued": True})
 
-    async def listen(self, callback: Any) -> None:  # type: ignore[override]
-        """Start listening for inbound messages. Stub in Phase 5.15."""
+    def listen(self, callback: Any) -> None:  # type: ignore[override]
+        """Emit queued QA messages to the callback when present."""
+        if callback is None:
+            return None
+        runtime = get_qa_channel_runtime()
+        if runtime is None:
+            return None
+        for entry in list(runtime.messages):
+            callback(entry)
         return None
 
 

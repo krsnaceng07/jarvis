@@ -44,7 +44,7 @@ Adaptations
 from __future__ import annotations
 
 import re
-from typing import Any, Optional, TypedDict
+from typing import Any, TypedDict
 
 
 class _ParsedFrontmatter(TypedDict, total=False):

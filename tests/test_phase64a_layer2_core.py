@@ -42,9 +42,7 @@ if _PROJECT_ROOT not in sys.path:
 
 from src.agents.sessions import (  # noqa: E402
     CURRENT_SESSION_VERSION,
-    SessionFileSnapshot,
     SessionManagerCore,
-    create_session_id,
 )
 
 

@@ -1,4 +1,5 @@
-﻿"""Internal PluginApi implementation split from api.py to satisfy max-line limits."""
+"""Internal PluginApi implementation split from api.py to satisfy max-line limits."""
+
 from __future__ import annotations
 
 from ._plugin_api_init import PluginApiInit
@@ -9,11 +10,16 @@ from ._plugin_api_readback import PluginApiReadback
 
 
 class PluginApi(
-    PluginApiInit,
     PluginApiRegistrationsA,
     PluginApiRegistrationsB,
     PluginApiRegistrationsC,
     PluginApiReadback,
+    PluginApiInit,
 ):
-    """Internal PluginApi implementation built from split helper mixins."""
-    pass
+    """Internal PluginApi implementation built from split helper mixins.
+
+    MRO: Mixin registrars first (so their ``self._tools`` etc. references
+    resolve against the accumulators set up by ``PluginApiInit.__init__``),
+    then ``PluginApiInit`` last so its ``__init__`` is inherited and the
+    concrete class can be instantiated with ``PluginApi(ctx)``.
+    """

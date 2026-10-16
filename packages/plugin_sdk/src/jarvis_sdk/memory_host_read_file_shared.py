@@ -27,6 +27,7 @@ Key port decisions:
 - The continuation notice is a literal ``\\n\\n``-prefixed
   marker so downstream agents can pattern-match on it.
 """
+
 from __future__ import annotations
 
 from typing import TypedDict, cast
@@ -175,9 +176,7 @@ def build_memory_read_result_from_slice(
     more_remain = bool(more_source_lines_remain) if more_source_lines_remain is not None else False
     char_cap_truncated = hard_truncated or included_lines < len(selected_lines)
     more_after = more_remain or included_lines < len(selected_lines)
-    next_from: int | None = (
-        start + included_lines if not hard_truncated and more_after else None
-    )
+    next_from: int | None = start + included_lines if not hard_truncated and more_after else None
     truncated = char_cap_truncated or more_remain
 
     text: str

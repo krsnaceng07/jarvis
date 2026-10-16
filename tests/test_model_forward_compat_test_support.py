@@ -1,7 +1,5 @@
 from src.agents.embedded_agent_runner.run.model_forward_compat_test_support import (
     build_forward_compat_template,
-    expect_model_fields,
-    expect_resolved_forward_compat_fallback_with_registry_result,
     expect_unknown_model_error_result,
 )
 

@@ -5,7 +5,7 @@ OpenClaw parity: mirrors
 """
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Optional
 
 
 def _normalize_agent_id(value) -> Optional[str]:

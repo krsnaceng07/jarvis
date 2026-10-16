@@ -7,6 +7,7 @@ Mirrors OpenClaw's ``extensions/bonjour/src/``:
 - ``advertiser.py`` — main mDNS advertiser (using ``zeroconf`` in
   the Python port; the TS source uses ``@homebridge/ciao``)
 """
+
 from __future__ import annotations
 
 from .ciao import (

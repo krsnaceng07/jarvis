@@ -8,6 +8,7 @@ path cannot reach the package via
 test collection so ``from lib.speech_provider import ...``
 resolves to ``extensions/tts-local-cli/lib/speech_provider.py``.
 """
+
 from __future__ import annotations
 
 import os

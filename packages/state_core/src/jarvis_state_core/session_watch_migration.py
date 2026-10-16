@@ -28,6 +28,7 @@ Public surface:
   ``SessionWatchCursorProvenanceMigrationResult``
 - ``decode_legacy_ambient_watch_marker_key(marker_key)`` -> ``Optional[str]``
 """
+
 from __future__ import annotations
 
 import binascii
@@ -83,8 +84,7 @@ def has_legacy_ambient_watch_sentinels(conn: sqlite3.Connection) -> bool:
     if not table_exists(conn, "session_watch_cursors"):
         return False
     row = conn.execute(
-        "SELECT 1 FROM session_watch_cursors "
-        "WHERE watcher_session_key LIKE ? LIMIT 1",
+        "SELECT 1 FROM session_watch_cursors WHERE watcher_session_key LIKE ? LIMIT 1",
         (f"{LEGACY_AMBIENT_GROUP_WATCH_MARKER_PREFIX}%",),
     ).fetchone()
     return row is not None
@@ -245,19 +245,13 @@ def migrate_session_watch_cursor_provenance(
             migrated_ambient_watches=0,
             removed_legacy_sentinels=0,
         )
-    added_column = ensure_column(
-        conn, "session_watch_cursors", _build_provenance_column_sql()
-    )
+    added_column = ensure_column(conn, "session_watch_cursors", _build_provenance_column_sql())
     legacy_markers = _read_legacy_marker_rows(conn)
     migrated = 0
     for watcher_session_key, target_session_key, marker_updated_at in legacy_markers:
-        decoded_watcher_key = decode_legacy_ambient_watch_marker_key(
-            watcher_session_key
-        )
+        decoded_watcher_key = decode_legacy_ambient_watch_marker_key(watcher_session_key)
         if decoded_watcher_key is not None:
-            watch_updated_at = _read_watch(
-                conn, decoded_watcher_key, target_session_key
-            )
+            watch_updated_at = _read_watch(conn, decoded_watcher_key, target_session_key)
             if watch_updated_at is not None:
                 promoted = _promote_watch(
                     conn,

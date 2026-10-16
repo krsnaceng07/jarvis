@@ -26,7 +26,7 @@ implementation focused.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List
 
 
 #: Re-export the ClientToolDefinition type. Mirrors

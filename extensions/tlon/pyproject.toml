@@ -1,0 +1,13 @@
+[project]
+name = "jarvis-extension-tlon"
+version = "0.1.0"
+description = "Tlon (Urbit) channel plugin for JARVIS"
+requires-python = ">=3.12"
+dependencies = [
+    "jarvis-sdk",
+    "pydantic>=2.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

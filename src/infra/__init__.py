@@ -1,4 +1,4 @@
-"""jarvis.infra — low-level runtime infrastructure helpers.
+"""src.infra — low-level runtime infrastructure helpers.
 
 OpenClaw parity: mirrors ``src/infra/``.
 """

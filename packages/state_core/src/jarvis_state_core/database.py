@@ -42,6 +42,7 @@ Python adaptations (documented in code):
 - TS ``setTimeout(..., unref)`` → Python
   ``threading.Timer`` (daemon, fire-and-forget)
 """
+
 from __future__ import annotations
 
 import contextvars
@@ -94,19 +95,15 @@ class _ActiveWriter:
     key: str
 
 
-_active_writer_var: contextvars.ContextVar[Optional[_ActiveWriter]] = (
-    contextvars.ContextVar("jarvis.stateCore.activeWriter", default=None)
+_active_writer_var: contextvars.ContextVar[Optional[_ActiveWriter]] = contextvars.ContextVar(
+    "jarvis.stateCore.activeWriter", default=None
 )
 
 
 def _is_reentrant(queues_id: int, key: str) -> bool:
     active = _active_writer_var.get()
     while active is not None:
-        if (
-            active.active
-            and active.queues_id == queues_id
-            and active.key == key
-        ):
+        if active.active and active.queues_id == queues_id and active.key == key:
             return True
         active = active.parent
     return False
@@ -191,9 +188,7 @@ class StateDatabase:
             return self.options.path
         env = self.options.env or {}
         env_path = env.get("JARVIS_STATE_DIR")
-        base = env_path or os.path.join(
-            os.path.expanduser("~"), ".jarvis", "state"
-        )
+        base = env_path or os.path.join(os.path.expanduser("~"), ".jarvis", "state")
         return os.path.join(base, "jarvis.sqlite")
 
 
@@ -278,9 +273,7 @@ async def run_write_transaction(
     transaction.
     """
     if db.options.connection_factory is None:
-        raise ValueError(
-            "run_write_transaction: connection_factory is required"
-        )
+        raise ValueError("run_write_transaction: connection_factory is required")
     key = store_path or db.path()
 
     async def _body() -> Any:

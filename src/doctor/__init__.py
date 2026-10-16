@@ -23,9 +23,10 @@ Phase W3: sync execution only. Async doctor contracts land in Wave 4.
 from __future__ import annotations
 
 import inspect
+import asyncio
 import logging
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Awaitable
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
@@ -302,7 +303,7 @@ class DoctorRunner:
             has_errors = any(f.severity == Severity.ERROR for f in findings)
             if apply_fixes and has_errors and callable(fix_fn):
                 try:
-                    fix_fn()
+                    res = _invoke_check(fix_fn, state_dir, config)
                     _log.info("doctor: %s fix() applied", plugin_id)
                     findings = [
                         DoctorFinding(
@@ -376,12 +377,33 @@ def _invoke_check(
     state_dir: Path | None,
     config: Any | None,
 ) -> Any:
-    if state_dir is None and config is None:
-        return check_fn()
+    params = {"state_dir": state_dir, "config": config}
+    
+    # Try different signatures
+    result = None
     try:
-        return check_fn(state_dir, config)
-    except TypeError:
-        return check_fn()
+        # 1. Try with state_dir, config (memory_core)
+        result = check_fn(state_dir, config)
+    except TypeError as e1:
+        if "positional argument" in str(e1) or "takes" in str(e1):
+            try:
+                # 2. Try with params dict (memory_wiki)
+                result = check_fn(params)
+            except TypeError as e2:
+                if "positional argument" in str(e2) or "takes" in str(e2):
+                    try:
+                        # 3. Try with 0 args
+                        result = check_fn()
+                    except TypeError:
+                        raise e1
+                else:
+                    raise e2
+        else:
+            raise e1
+
+    if inspect.iscoroutine(result):
+        return asyncio.run(result)
+    return result
 
 
 def _normalize_findings(

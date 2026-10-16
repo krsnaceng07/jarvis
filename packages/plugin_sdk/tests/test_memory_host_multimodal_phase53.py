@@ -3,14 +3,17 @@
 Mirrors the TypeScript test patterns from
 ``packages/memory-host-sdk/src/host/multimodal.test.ts``.
 """
+
 from __future__ import annotations
 
-import pytest
+
+from typing import cast
 
 from jarvis_sdk.memory_host_multimodal import (
     DEFAULT_MEMORY_MULTIMODAL_MAX_FILE_BYTES,
     MEMORY_MULTIMODAL_MODALITIES,
     MEMORY_MULTIMODAL_SPECS,
+    MemoryMultimodalSettings,
     build_case_insensitive_extension_glob,
     build_memory_multimodal_label,
     classify_memory_multimodal_path,
@@ -78,17 +81,13 @@ def test_normalize_enabled_default_modalities() -> None:
 
 def test_normalize_enabled_explicit_modalities() -> None:
     """Enabled with explicit modalities → kept (sorted, de-duped)."""
-    s = normalize_memory_multimodal_settings(
-        {"enabled": True, "modalities": ["audio"]}
-    )
+    s = normalize_memory_multimodal_settings({"enabled": True, "modalities": ["audio"]})
     assert s["modalities"] == ["audio"]
 
 
 def test_normalize_enabled_with_all_modality() -> None:
     """``"all"`` modality returns the full set."""
-    s = normalize_memory_multimodal_settings(
-        {"enabled": True, "modalities": ["all"]}
-    )
+    s = normalize_memory_multimodal_settings({"enabled": True, "modalities": ["all"]})
     assert s["modalities"] == ["image", "audio"]
 
 
@@ -109,17 +108,13 @@ def test_normalize_max_file_bytes_default() -> None:
 
 def test_normalize_max_file_bytes_explicit() -> None:
     """Explicit ``maxFileBytes`` is floored to ``>= 1``."""
-    s = normalize_memory_multimodal_settings(
-        {"enabled": True, "maxFileBytes": 5_000_000}
-    )
+    s = normalize_memory_multimodal_settings({"enabled": True, "maxFileBytes": 5_000_000})
     assert s["maxFileBytes"] == 5_000_000
 
 
 def test_normalize_max_file_bytes_negative_floored() -> None:
     """Negative ``maxFileBytes`` is floored to 1."""
-    s = normalize_memory_multimodal_settings(
-        {"enabled": True, "maxFileBytes": -100}
-    )
+    s = normalize_memory_multimodal_settings({"enabled": True, "maxFileBytes": -100})
     assert s["maxFileBytes"] == 1
 
 
@@ -131,9 +126,7 @@ def test_normalize_max_file_bytes_zero_floored() -> None:
 
 def test_normalize_max_file_bytes_float_truncated() -> None:
     """Float ``maxFileBytes`` is truncated to int."""
-    s = normalize_memory_multimodal_settings(
-        {"enabled": True, "maxFileBytes": 5_000_000.7}
-    )
+    s = normalize_memory_multimodal_settings({"enabled": True, "maxFileBytes": 5_000_000.7})
     assert s["maxFileBytes"] == 5_000_000
 
 
@@ -154,11 +147,14 @@ def test_is_enabled_false_when_disabled() -> None:
 
 def test_is_enabled_false_when_no_modalities() -> None:
     """Enabled but no modalities → False."""
-    s = {
-        "enabled": True,
-        "modalities": [],
-        "maxFileBytes": 100,
-    }
+    s = cast(
+        MemoryMultimodalSettings,
+        {
+            "enabled": True,
+            "modalities": [],
+            "maxFileBytes": 100,
+        },
+    )
     assert is_memory_multimodal_enabled(s) is False
 
 
@@ -248,18 +244,14 @@ def test_classify_when_disabled_returns_none() -> None:
 
 def test_classify_when_only_audio_enabled() -> None:
     """Image extension with only audio enabled → ``None``."""
-    s = normalize_memory_multimodal_settings(
-        {"enabled": True, "modalities": ["audio"]}
-    )
+    s = normalize_memory_multimodal_settings({"enabled": True, "modalities": ["audio"]})
     assert classify_memory_multimodal_path("/foo/bar.png", s) is None
     assert classify_memory_multimodal_path("/foo/bar.mp3", s) == "audio"
 
 
 def test_classify_when_only_image_enabled() -> None:
     """Audio extension with only image enabled → ``None``."""
-    s = normalize_memory_multimodal_settings(
-        {"enabled": True, "modalities": ["image"]}
-    )
+    s = normalize_memory_multimodal_settings({"enabled": True, "modalities": ["image"]})
     assert classify_memory_multimodal_path("/foo/bar.mp3", s) is None
     assert classify_memory_multimodal_path("/foo/bar.png", s) == "image"
 

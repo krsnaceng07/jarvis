@@ -5,7 +5,6 @@ OpenClaw parity: mirrors ``openclaw-main/src/shared/config-eval.ts``.
 from __future__ import annotations
 
 import os
-import platform
 import shutil
 import sys
 from typing import Any, Dict, List, Optional

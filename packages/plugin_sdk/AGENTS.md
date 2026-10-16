@@ -19,12 +19,12 @@ can affect every extension. Mirrors OpenClaw's `src/plugin-sdk/AGENTS.md`.
 - **SDK subpaths are narrow.** A plugin importing `jarvis_sdk.api` does not pay the cost of every other subpath. Heavy subpaths land in `*.runtime` subpaths.
 - **No import-time side effects.** Plugin availability comes from manifest ownership plus explicit activation, not eager global registry seeding.
 - **Tool return type is `Result`.** A tool returns `Ok(value)` for success, `Err(error_str, code=...)` for known failure. The host maps `Result` to the LLM's tool response shape.
-- **Tool manifests live in `jarvis.plugin.json`.** The SDK is for runtime contracts; the manifest is for discovery and config.
+- **Tool manifests live in `openclaw.plugin.json`.** The SDK is for runtime contracts; the manifest is for discovery and config.
 
 ## Verifying the boundary
 
 - `tools/ci/check_imports.py` enforces the `jarvis_sdk` import boundary.
-- `tools/ci/check_manifests.py` validates every `extensions/*/jarvis.plugin.json`.
+- `tools/ci/check_manifests.py` validates every `extensions/*/openclaw.plugin.json`.
 
 ## Expanding the boundary
 

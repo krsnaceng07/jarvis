@@ -12,11 +12,11 @@ the module via ``importlib.util`` to avoid the namespace
 collision and the ``sys.path.insert`` race that pytest
 triggers in full-suite collection.
 """
+
 from __future__ import annotations
 
 import asyncio
 import importlib.util
-import json
 import os
 import sys
 
@@ -57,10 +57,10 @@ strip_duplicate_provider_prefix = _llm_task.strip_duplicate_provider_prefix
 supports_thinking_policy_level = _llm_task.supports_thinking_policy_level
 to_model_key = _llm_task.to_model_key
 
-from packages.plugin_sdk.src.jarvis_sdk.api import (  # noqa: E402
+from jarvis_sdk.api import (  # noqa: E402
     PluginApi,
 )
-from packages.plugin_sdk.src.jarvis_sdk.context import (  # noqa: E402
+from jarvis_sdk.context import (  # noqa: E402
     PluginContext,
 )
 
@@ -126,23 +126,14 @@ class TestToModelKey:
 
 class TestStripDuplicateProviderPrefix:
     def test_strips_when_present(self) -> None:
-        assert (
-            strip_duplicate_provider_prefix("openai", "openai/gpt-5.4")
-            == "gpt-5.4"
-        )
+        assert strip_duplicate_provider_prefix("openai", "openai/gpt-5.4") == "gpt-5.4"
 
     def test_leaves_alone_when_absent(self) -> None:
-        assert (
-            strip_duplicate_provider_prefix("openai", "gpt-5.4")
-            == "gpt-5.4"
-        )
+        assert strip_duplicate_provider_prefix("openai", "gpt-5.4") == "gpt-5.4"
 
     def test_does_not_strip_partial_match(self) -> None:
         # "openai" does not start with "open/", so we leave it.
-        assert (
-            strip_duplicate_provider_prefix("open", "openai/gpt-5.4")
-            == "openai/gpt-5.4"
-        )
+        assert strip_duplicate_provider_prefix("open", "openai/gpt-5.4") == "openai/gpt-5.4"
 
     def test_returns_model_when_no_provider(self) -> None:
         assert strip_duplicate_provider_prefix(None, "gpt-5.4") == "gpt-5.4"
@@ -157,25 +148,19 @@ class TestResolveLlmTaskModelRef:
         self,
     ) -> None:
         api = PluginApi(PluginContext(plugin_id="t", plugin_kind="tool"))
-        result = resolve_llm_task_model_ref(
-            api=api, provider="openai", raw_model="gpt-5.4"
-        )
+        result = resolve_llm_task_model_ref(api=api, provider="openai", raw_model="gpt-5.4")
         assert result == {"provider": "openai", "model": "gpt-5.4"}
 
     def test_returns_none_provider_when_missing(self) -> None:
         api = PluginApi(PluginContext(plugin_id="t", plugin_kind="tool"))
-        result = resolve_llm_task_model_ref(
-            api=api, provider=None, raw_model="gpt-5.4"
-        )
+        result = resolve_llm_task_model_ref(api=api, provider=None, raw_model="gpt-5.4")
         assert result == {"provider": None, "model": "gpt-5.4"}
 
     def test_uses_resolved_ref_when_available(self) -> None:
         api = PluginApi(PluginContext(plugin_id="t", plugin_kind="tool"))
         # The default resolve_model_ref_from_string returns
         # None, so the fallback path is used.
-        result = resolve_llm_task_model_ref(
-            api=api, provider="openai", raw_model="openai/gpt-5.4"
-        )
+        result = resolve_llm_task_model_ref(api=api, provider="openai", raw_model="openai/gpt-5.4")
         assert result == {"provider": "openai", "model": "gpt-5.4"}
 
 
@@ -239,9 +224,7 @@ def _make_api(
     plugin_config: dict | None = None,
     config: dict | None = None,
 ) -> PluginApi:
-    ctx = PluginContext(
-        plugin_id="llm-task", plugin_kind="tool", config=config
-    )
+    ctx = PluginContext(plugin_id="llm-task", plugin_kind="tool", config=config)
     api = PluginApi(ctx)
     if config is not None:
         api.set_config(config)
@@ -259,11 +242,7 @@ def _fake_run_agent(
     async def run(params: dict) -> dict:
         if capture is not None:
             capture.update(params)
-        return result or {
-            "payloads": [
-                {"text": '{"answer": 42}', "isError": False}
-            ]
-        }
+        return result or {"payloads": [{"text": '{"answer": 42}', "isError": False}]}
 
     return run
 
@@ -280,9 +259,7 @@ class TestCreateLlmTaskTool:
 
     def test_execute_raises_when_prompt_missing(self) -> None:
         api = _make_api()
-        tool = create_llm_task_tool(
-            api, deps=LlmTaskDeps(run_embedded_agent=_fake_run_agent())
-        )
+        tool = create_llm_task_tool(api, deps=LlmTaskDeps(run_embedded_agent=_fake_run_agent()))
         with pytest.raises(ValueError, match="prompt required"):
             asyncio.run(
                 tool["execute"](
@@ -298,9 +275,7 @@ class TestCreateLlmTaskTool:
     def test_execute_raises_when_run_embedded_agent_not_wired(self) -> None:
         api = _make_api()
         tool = create_llm_task_tool(api, deps=LlmTaskDeps())
-        with pytest.raises(
-            NotImplementedError, match="run_embedded_agent"
-        ):
+        with pytest.raises(NotImplementedError, match="run_embedded_agent"):
             asyncio.run(
                 tool["execute"](
                     "id1",
@@ -317,9 +292,7 @@ class TestCreateLlmTaskTool:
         api = _make_api()
         tool = create_llm_task_tool(
             api,
-            deps=LlmTaskDeps(
-                run_embedded_agent=_fake_run_agent(capture=capture)
-            ),
+            deps=LlmTaskDeps(run_embedded_agent=_fake_run_agent(capture=capture)),
         )
         result = asyncio.run(
             tool["execute"](
@@ -374,11 +347,7 @@ class TestCreateLlmTaskTool:
             api,
             deps=LlmTaskDeps(
                 run_embedded_agent=_fake_run_agent(
-                    result={
-                        "payloads": [
-                            {"text": "not valid json", "isError": False}
-                        ]
-                    }
+                    result={"payloads": [{"text": "not valid json", "isError": False}]}
                 )
             ),
         )
@@ -398,11 +367,7 @@ class TestCreateLlmTaskTool:
         api = _make_api()
         tool = create_llm_task_tool(
             api,
-            deps=LlmTaskDeps(
-                run_embedded_agent=_fake_run_agent(
-                    result={"payloads": []}
-                )
-            ),
+            deps=LlmTaskDeps(run_embedded_agent=_fake_run_agent(result={"payloads": []})),
         )
         with pytest.raises(RuntimeError, match="empty output"):
             asyncio.run(
@@ -417,12 +382,8 @@ class TestCreateLlmTaskTool:
             )
 
     def test_execute_rejects_model_not_in_allowed_list(self) -> None:
-        api = _make_api(
-            plugin_config={"allowedModels": ["openai/gpt-5.4"]}
-        )
-        tool = create_llm_task_tool(
-            api, deps=LlmTaskDeps(run_embedded_agent=_fake_run_agent())
-        )
+        api = _make_api(plugin_config={"allowedModels": ["openai/gpt-5.4"]})
+        tool = create_llm_task_tool(api, deps=LlmTaskDeps(run_embedded_agent=_fake_run_agent()))
         with pytest.raises(RuntimeError, match="not allowed"):
             asyncio.run(
                 tool["execute"](
@@ -436,18 +397,12 @@ class TestCreateLlmTaskTool:
             )
 
     def test_execute_accepts_model_in_allowed_list(self) -> None:
-        api = _make_api(
-            plugin_config={"allowedModels": ["openai/gpt-5.4"]}
-        )
+        api = _make_api(plugin_config={"allowedModels": ["openai/gpt-5.4"]})
         tool = create_llm_task_tool(
             api,
             deps=LlmTaskDeps(
                 run_embedded_agent=_fake_run_agent(
-                    result={
-                        "payloads": [
-                            {"text": '{"ok": true}', "isError": False}
-                        ]
-                    }
+                    result={"payloads": [{"text": '{"ok": true}', "isError": False}]}
                 )
             ),
         )
@@ -473,9 +428,7 @@ class TestCreateLlmTaskTool:
         )
         tool = create_llm_task_tool(
             api,
-            deps=LlmTaskDeps(
-                run_embedded_agent=_fake_run_agent(capture=capture)
-            ),
+            deps=LlmTaskDeps(run_embedded_agent=_fake_run_agent(capture=capture)),
         )
         asyncio.run(
             tool["execute"](
@@ -490,18 +443,10 @@ class TestCreateLlmTaskTool:
         self,
     ) -> None:
         capture: dict = {}
-        api = _make_api(
-            config={
-                "agents": {
-                    "defaults": {"model": "anthropic/claude-sonnet-4-6"}
-                }
-            }
-        )
+        api = _make_api(config={"agents": {"defaults": {"model": "anthropic/claude-sonnet-4-6"}}})
         tool = create_llm_task_tool(
             api,
-            deps=LlmTaskDeps(
-                run_embedded_agent=_fake_run_agent(capture=capture)
-            ),
+            deps=LlmTaskDeps(run_embedded_agent=_fake_run_agent(capture=capture)),
         )
         asyncio.run(
             tool["execute"](
@@ -514,12 +459,8 @@ class TestCreateLlmTaskTool:
 
     def test_execute_raises_when_provider_model_unresolved(self) -> None:
         api = _make_api()
-        tool = create_llm_task_tool(
-            api, deps=LlmTaskDeps(run_embedded_agent=_fake_run_agent())
-        )
-        with pytest.raises(
-            RuntimeError, match="could not be resolved"
-        ):
+        tool = create_llm_task_tool(api, deps=LlmTaskDeps(run_embedded_agent=_fake_run_agent()))
+        with pytest.raises(RuntimeError, match="could not be resolved"):
             asyncio.run(
                 tool["execute"](
                     "id1",
@@ -532,9 +473,7 @@ class TestCreateLlmTaskTool:
         api = _make_api()
         tool = create_llm_task_tool(
             api,
-            deps=LlmTaskDeps(
-                run_embedded_agent=_fake_run_agent(capture=capture)
-            ),
+            deps=LlmTaskDeps(run_embedded_agent=_fake_run_agent(capture=capture)),
         )
         asyncio.run(
             tool["execute"](
@@ -554,9 +493,7 @@ class TestCreateLlmTaskTool:
         api = _make_api()
         tool = create_llm_task_tool(
             api,
-            deps=LlmTaskDeps(
-                run_embedded_agent=_fake_run_agent(capture=capture)
-            ),
+            deps=LlmTaskDeps(run_embedded_agent=_fake_run_agent(capture=capture)),
         )
         asyncio.run(
             tool["execute"](
@@ -575,9 +512,7 @@ class TestCreateLlmTaskTool:
         api = _make_api()
         tool = create_llm_task_tool(
             api,
-            deps=LlmTaskDeps(
-                run_embedded_agent=_fake_run_agent(capture=capture)
-            ),
+            deps=LlmTaskDeps(run_embedded_agent=_fake_run_agent(capture=capture)),
         )
         asyncio.run(
             tool["execute"](
@@ -596,9 +531,7 @@ class TestCreateLlmTaskTool:
         api = _make_api()
         tool = create_llm_task_tool(
             api,
-            deps=LlmTaskDeps(
-                run_embedded_agent=_fake_run_agent(capture=capture)
-            ),
+            deps=LlmTaskDeps(run_embedded_agent=_fake_run_agent(capture=capture)),
         )
         asyncio.run(
             tool["execute"](
@@ -620,9 +553,7 @@ class TestCreateLlmTaskTool:
         api = _make_api()
         tool = create_llm_task_tool(
             api,
-            deps=LlmTaskDeps(
-                run_embedded_agent=_fake_run_agent(capture=capture)
-            ),
+            deps=LlmTaskDeps(run_embedded_agent=_fake_run_agent(capture=capture)),
         )
         asyncio.run(
             tool["execute"](
@@ -640,6 +571,91 @@ class TestCreateLlmTaskTool:
         # prompt.
         assert '"a": 1' in sent_prompt
         assert '"b"' in sent_prompt
+
+
+class TestThinkingPolicyHostWiring:
+    def test_thinking_low_rejected_without_host_policy(self) -> None:
+        from jarvis_sdk.api import (  # noqa: E402
+            set_host_thinking_policy_resolver,
+        )
+
+        set_host_thinking_policy_resolver(None)
+        api = _make_api()
+        tool = create_llm_task_tool(api, deps=LlmTaskDeps(run_embedded_agent=_fake_run_agent()))
+        with pytest.raises(RuntimeError, match="not supported"):
+            asyncio.run(
+                tool["execute"](
+                    "id1",
+                    {
+                        "prompt": "do it",
+                        "provider": "openai",
+                        "model": "gpt-5.6-sol",
+                        "thinking": "low",
+                    },
+                )
+            )
+
+    def test_thinking_low_accepted_with_host_policy(self) -> None:
+        from jarvis_sdk.api import (  # noqa: E402
+            set_host_thinking_policy_resolver,
+        )
+        from src.plugins.provider_thinking import (  # noqa: E402
+            resolve_host_thinking_policy,
+        )
+
+        set_host_thinking_policy_resolver(resolve_host_thinking_policy)
+        try:
+            capture: dict = {}
+            api = _make_api()
+            tool = create_llm_task_tool(
+                api,
+                deps=LlmTaskDeps(run_embedded_agent=_fake_run_agent(capture=capture)),
+            )
+            asyncio.run(
+                tool["execute"](
+                    "id1",
+                    {
+                        "prompt": "do it",
+                        "provider": "openai",
+                        "model": "gpt-5.6-sol",
+                        "thinking": "low",
+                    },
+                )
+            )
+            assert capture["thinkLevel"] == "low"
+        finally:
+            set_host_thinking_policy_resolver(None)
+
+    def test_fail_closed_runtime_override_reaches_runner(self) -> None:
+        from jarvis_sdk.api import (  # noqa: E402
+            set_host_effective_agent_runtime_resolver,
+        )
+        from src.agents.harness.selection import (  # noqa: E402
+            resolve_host_effective_agent_runtime,
+        )
+
+        set_host_effective_agent_runtime_resolver(resolve_host_effective_agent_runtime)
+        try:
+            capture: dict = {}
+            api = _make_api(
+                config={
+                    "models": {"providers": {"openai": {"agentRuntime": {"id": "codex"}}}},
+                }
+            )
+            tool = create_llm_task_tool(
+                api,
+                deps=LlmTaskDeps(run_embedded_agent=_fake_run_agent(capture=capture)),
+            )
+            asyncio.run(
+                tool["execute"](
+                    "id1",
+                    {"prompt": "do it", "provider": "openai", "model": "gpt-5.6-sol"},
+                )
+            )
+            # Fail-closed requirement propagates instead of vanishing to None.
+            assert capture["agentHarnessRuntimeOverride"] == "codex"
+        finally:
+            set_host_effective_agent_runtime_resolver(None)
 
 
 if __name__ == "__main__":

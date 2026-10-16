@@ -7,6 +7,7 @@ extension is loadable + discoverable; the full streaming
 + tool-use + multi-account + image-input surface lands
 incrementally in Phase 5.16+ (the provider port).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -32,8 +33,19 @@ class OpenAIProvider(ProviderPlugin):
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def init(self, ctx: Any) -> None:
-        """Provider init hook (auth + config). Stub in Phase 5.15."""
-        return None
+        """Provider init hook (auth + config).
+
+        Best-effort: resolve workspace credentials via the registry/auth
+        helper and attach to `self.metadata['credentials']`.
+        """
+        try:
+            from src.sessions.credentials import resolve_credentials
+
+            cred = resolve_credentials(provider=self.id, model=self.default_model)
+            self.metadata["credentials"] = cred
+        except Exception as e:
+            self.metadata["credentials_error"] = str(e)
+            return None
 
     async def complete(self, messages, **kwargs):  # type: ignore[override]
         """Streaming completion hook. Stub in Phase 5.15."""
@@ -45,6 +57,13 @@ class OpenAIProvider(ProviderPlugin):
         """Catalog of available models. Stub in Phase 5.15."""
         return [self.default_model]
 
+    def register(self, api: Any) -> None:
+        """Register OpenAI provider and embedding adapter with host."""
+        from .memory_embedding_adapter import openai_memory_embedding_adapter
+
+        api.register_embedding_provider(openai_memory_embedding_adapter)
+
 
 openai_provider = OpenAIProvider()
 entry = openai_provider
+

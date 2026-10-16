@@ -14,6 +14,7 @@ Key port decisions:
 - The output ends with a trailing newline (matches the TS
   ``lines.toReversed().join("\\n") + "\\n"``).
 """
+
 from __future__ import annotations
 
 import json

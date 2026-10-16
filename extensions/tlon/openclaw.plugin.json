@@ -1,0 +1,30 @@
+{
+  "id": "tlon",
+  "doctorContract": {
+    "configRepair": true
+  },
+  "name": "Tlon",
+  "description": "OpenClaw Tlon (Urbit) channel plugin for decentralized ship communication.",
+  "activation": {
+    "onStartup": false
+  },
+  "channels": [
+    "tlon"
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "shipUrl": {
+        "type": "string"
+      },
+      "code": {
+        "type": "string"
+      },
+      "ship": {
+        "type": "string"
+      }
+    }
+  },
+  "kind": "channel"
+}

@@ -3,6 +3,7 @@
 OpenClaw parity: mirrors the OpenClaw ``talk-voice`` infra
 extension (4 files in the OpenClaw source).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

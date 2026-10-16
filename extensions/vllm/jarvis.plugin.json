@@ -1,0 +1,52 @@
+{
+  "id": "vllm",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "vllm"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "vllm",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "VLLM_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "vllm": {
+        "baseUrl": "http://localhost:8000/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "local-model",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

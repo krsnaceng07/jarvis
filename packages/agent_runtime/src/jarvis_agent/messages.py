@@ -168,8 +168,7 @@ COMPACTION_SUMMARY_SUFFIX = "\n</summary>"
 
 #: Parity: ``BRANCH_SUMMARY_PREFIX``.
 BRANCH_SUMMARY_PREFIX = (
-    "The following is a summary of a branch that this conversation came "
-    "back from:\n\n<summary>\n"
+    "The following is a summary of a branch that this conversation came back from:\n\n<summary>\n"
 )
 
 #: Parity: ``BRANCH_SUMMARY_SUFFIX``. Note the asymmetry with the compaction

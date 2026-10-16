@@ -5,7 +5,7 @@ OpenClaw parity: mirrors
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, TypedDict
+from typing import Dict, List, TypedDict
 
 
 #: Reasons a configured surface can cause a plugin to be auto-enabled.

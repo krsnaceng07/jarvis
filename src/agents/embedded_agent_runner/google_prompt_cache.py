@@ -20,7 +20,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 
 _log = logging.getLogger("jarvis.agents.embedded_agent_runner.google_prompt_cache")

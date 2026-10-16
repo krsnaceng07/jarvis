@@ -1,0 +1,24 @@
+{
+  "id": "clickclack",
+  "name": "ClickClack",
+  "description": "JARVIS ClickClack interactive terminal channel plugin.",
+  "channels": [
+    "clickclack"
+  ],
+  "activation": {
+    "onStartup": false
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "endpoint": {
+        "type": "string"
+      },
+      "apiKey": {
+        "type": "string"
+      }
+    }
+  },
+  "kind": "channel"
+}

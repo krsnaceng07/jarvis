@@ -7,7 +7,7 @@ Phase 8.1b — focused minimal port.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 #: Placeholder type alias for the agent-sessions SDK record shape.

@@ -1,0 +1,284 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "JARVIS runtime architecture",
+    "locale": "en",
+    "output": ".archify/architecture-jarvis-runtime-20260929-125452/jarvis-runtime.html",
+    "quality_profile": "showcase"
+  },
+  "components": [
+    {
+      "id": "cli-host",
+      "type": "frontend",
+      "label": "CLI host",
+      "sublabel": "jarvis gateway start",
+      "pos": [
+        20,
+        70
+      ],
+      "size": [
+        190,
+        76
+      ]
+    },
+    {
+      "id": "gateway-control",
+      "type": "backend",
+      "label": "Gateway control",
+      "sublabel": "Authenticated WebSocket RPC",
+      "pos": [
+        350,
+        70
+      ],
+      "size": [
+        230,
+        90
+      ],
+      "tag": "CLI or desktop embedded"
+    },
+    {
+      "id": "agent-rpc-seam",
+      "type": "backend",
+      "label": "Agent RPC runner",
+      "sublabel": "Requires host injection",
+      "pos": [
+        860,
+        70
+      ],
+      "size": [
+        230,
+        90
+      ],
+      "tag": "Default returns an error"
+    },
+    {
+      "id": "gemini-live",
+      "type": "cloud",
+      "label": "Gemini Live API",
+      "sublabel": "Audio / text / visual input",
+      "pos": [
+        20,
+        300
+      ],
+      "size": [
+        230,
+        80
+      ]
+    },
+    {
+      "id": "desktop-loop",
+      "type": "frontend",
+      "label": "Desktop live loop",
+      "sublabel": "PyQt6 HUD + asyncio",
+      "pos": [
+        350,
+        300
+      ],
+      "size": [
+        230,
+        90
+      ],
+      "tag": "Direct Google GenAI client"
+    },
+    {
+      "id": "host-capabilities",
+      "type": "backend",
+      "label": "Host capabilities",
+      "sublabel": "SDK tools + coding + memory",
+      "pos": [
+        740,
+        470
+      ],
+      "size": [
+        230,
+        90
+      ],
+      "tag": "Separate dispatch per host"
+    },
+    {
+      "id": "local-resources",
+      "type": "external",
+      "label": "Host resources",
+      "sublabel": "Files / processes / browser",
+      "pos": [
+        960,
+        300
+      ],
+      "size": [
+        230,
+        90
+      ],
+      "tag": "Desktop automation"
+    },
+    {
+      "id": "gemini-text",
+      "type": "cloud",
+      "label": "Gemini text API",
+      "sublabel": "generate_content + tool calls",
+      "pos": [
+        20,
+        650
+      ],
+      "size": [
+        230,
+        80
+      ]
+    },
+    {
+      "id": "channel-loop",
+      "type": "backend",
+      "label": "Channel agent loop",
+      "sublabel": "Admission + session + tools",
+      "pos": [
+        350,
+        650
+      ],
+      "size": [
+        230,
+        90
+      ],
+      "tag": "Direct Google GenAI client"
+    },
+    {
+      "id": "local-persistence",
+      "type": "database",
+      "label": "Local persistence",
+      "sublabel": "SQLite + memory Markdown",
+      "pos": [
+        960,
+        740
+      ],
+      "size": [
+        230,
+        90
+      ],
+      "tag": "LanceDB when configured"
+    },
+    {
+      "id": "messaging-transports",
+      "type": "messagebus",
+      "label": "Messaging channels",
+      "sublabel": "Services via extensions",
+      "pos": [
+        350,
+        910
+      ],
+      "size": [
+        230,
+        90
+      ],
+      "tag": "Configured accounts only"
+    }
+  ],
+  "connections": [
+    {
+      "id": "cli-starts-gateway",
+      "from": "cli-host",
+      "to": "gateway-control",
+      "label": "start"
+    },
+    {
+      "id": "gateway-runner-condition",
+      "from": "gateway-control",
+      "to": "agent-rpc-seam",
+      "label": "if runner injected",
+      "variant": "dashed"
+    },
+    {
+      "id": "desktop-starts-gateway",
+      "from": "desktop-loop",
+      "to": "gateway-control",
+      "label": "start embedded"
+    },
+    {
+      "id": "desktop-live-session",
+      "from": "desktop-loop",
+      "to": "gemini-live",
+      "label": "Live session",
+      "variant": "emphasis"
+    },
+    {
+      "id": "desktop-capabilities",
+      "from": "desktop-loop",
+      "to": "host-capabilities",
+      "label": "tools / memory"
+    },
+    {
+      "id": "channel-capabilities",
+      "from": "channel-loop",
+      "to": "host-capabilities",
+      "label": "tools / memory"
+    },
+    {
+      "id": "channel-model-turn",
+      "from": "channel-loop",
+      "to": "gemini-text",
+      "label": "model turn",
+      "variant": "emphasis"
+    },
+    {
+      "id": "message-ingress",
+      "from": "messaging-transports",
+      "to": "channel-loop",
+      "label": "inbound text",
+      "variant": "emphasis"
+    },
+    {
+      "id": "capability-effects",
+      "from": "host-capabilities",
+      "to": "local-resources",
+      "label": "execute"
+    },
+    {
+      "id": "capability-memory",
+      "from": "host-capabilities",
+      "to": "local-persistence",
+      "label": "memory / state"
+    },
+    {
+      "id": "channel-transcript",
+      "from": "channel-loop",
+      "to": "local-persistence",
+      "label": "read / append transcript"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "How requests run",
+      "items": [
+        "Desktop streams audio and visual input through Gemini Live.",
+        "Channels run a separate Gemini loop; replies return through the originating transport.",
+        "Arrows show requests and calls. Results return to the caller."
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Capabilities and storage",
+      "items": [
+        "The SDK loader registers extension tools, hooks, commands and skills; each host builds its own dispatch.",
+        "Channel transcripts use per-agent SQLite. Memory still includes separate SQLite and Markdown stores.",
+        "CLI starts cron handlers when declarations exist. LanceDB is an optional local memory extension."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Current implementation limits",
+      "items": [
+        "Default gateway agent RPC has no runner. Reusable agent / MCP machinery is separate from the primary loops.",
+        "Web and TUI apps remain placeholders; provider registrations do not imply every provider is operational.",
+        "CLI and desktop can start configured channels. Configuration and credentials still follow several paths."
+      ]
+    },
+    {
+      "dot": "slate",
+      "title": "Evidence and scope",
+      "items": [
+        "Inspected working copy, 29 Sep 2026; current behavior takes precedence over migration docs.",
+        "Source references and file hashes are in source-evidence.json. No Git remote; commit verification unavailable.",
+        "Test source inspected; services and tests were not run. Upstream reference trees are outside this map."
+      ]
+    }
+  ]
+}

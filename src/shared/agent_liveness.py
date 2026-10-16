@@ -4,7 +4,7 @@ OpenClaw parity: mirrors ``openclaw-main/src/shared/agent-liveness.ts``.
 """
 from __future__ import annotations
 
-from typing import Generic, Optional, TypeVar
+from typing import TypeVar
 
 TStatus = TypeVar("TStatus", bound=str)
 

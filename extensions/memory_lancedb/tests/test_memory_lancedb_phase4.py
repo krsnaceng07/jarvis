@@ -125,7 +125,12 @@ class TestMemoryLancedbEntry:
         # ``contracts.tools`` declaration so the SDK can validate
         # plugin tool registrations.
         import json as _json
-        manifest = _json.loads((ROOT / "extensions" / "memory_lancedb" / "openclaw.plugin.json").read_text(encoding="utf-8"))
+
+        manifest = _json.loads(
+            (ROOT / "extensions" / "memory_lancedb" / "openclaw.plugin.json").read_text(
+                encoding="utf-8"
+            )
+        )
         api.set_manifest(manifest)
         try:
             _register(api)
@@ -337,11 +342,7 @@ class TestEnvelopeScrubber:
         from extensions.memory_lancedb.envelope_scrubber import should_capture
 
         # Leading envelope header.
-        text = (
-            "Conversation info (untrusted metadata):\n"
-            '```json\n{"chat_id": 1}\n```\n'
-            "I like pizza"
-        )
+        text = 'Conversation info (untrusted metadata):\n```json\n{"chat_id": 1}\n```\nI like pizza'
         assert should_capture(text, max_chars=500) is False
 
     def test_should_capture_rejects_prompt_injection(self) -> None:

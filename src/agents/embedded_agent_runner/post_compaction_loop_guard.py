@@ -13,17 +13,15 @@ source):
 - :class:`PostCompactionLoopPersistedError` —
   error raised when the guard
   aborts a run.
-
-Phase 7.2a — focused minimal port.
-The OpenClaw source's
-``createSubsystemLogger`` + the
-typed ``ToolLoopPostCompactionGuardConfig``
-land in 7.2b+ (when the
-config-types module is ported)."""
+"""
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from jarvis.config.types_tools import ToolLoopPostCompactionGuardConfig
+
 
 
 _LOG = logging.getLogger(
@@ -96,7 +94,7 @@ def _build_normal_verdict(
 
 
 def create_post_compaction_loop_guard(
-    config: Optional[dict] = None,
+    config: Optional[ToolLoopPostCompactionGuardConfig] = None,
     options: Optional[dict] = None,
 ) -> dict:
     """Build a stateful post-compaction
@@ -120,12 +118,6 @@ def create_post_compaction_loop_guard(
       is True).
     - ``snapshot()`` — return a
       snapshot of the armed state.
-
-    Phase 7.2a — focused minimal
-    port: the OpenClaw source's
-    typed ``ToolLoopPostCompactionGuardConfig``
-    + :func:`createSubsystemLogger`
-    land in 7.2b+.
     """
     options = options or {}
     config = config or {}

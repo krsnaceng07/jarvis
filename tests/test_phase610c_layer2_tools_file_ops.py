@@ -32,8 +32,6 @@ from src.agents.sessions.tools import (
     read_image_file,
     write_file,
     edit_file,
-    EditResult,
-    EditOp,
     EditNoChangeError,
     apply_edits,
     detect_line_ending,
@@ -363,7 +361,7 @@ class TestDetectImageMimeType:
 class TestCreateReadTool:
     @pytest.mark.asyncio
     async def test_factory(self) -> None:
-        tool = await create_read_tool_definition()
+        tool = create_read_tool_definition()
         assert tool["name"] == "read"
         assert tool["label"] == "read"
         assert callable(tool["execute"])
@@ -372,7 +370,7 @@ class TestCreateReadTool:
     async def test_execute_text(self, tmp_path: Path) -> None:
         f = tmp_path / "file.txt"
         f.write_text("hello world", encoding="utf-8")
-        tool = await create_read_tool_definition(cwd=str(tmp_path))
+        tool = create_read_tool_definition(cwd=str(tmp_path))
         result = await tool["execute"](
             "c1", {"path": str(f)}, None, None, None
         )
@@ -381,7 +379,7 @@ class TestCreateReadTool:
 
     @pytest.mark.asyncio
     async def test_execute_missing_path(self) -> None:
-        tool = await create_read_tool_definition()
+        tool = create_read_tool_definition()
         with pytest.raises(ValueError, match="path is required"):
             await tool["execute"]("c1", {}, None, None, None)
 
@@ -389,7 +387,7 @@ class TestCreateReadTool:
     async def test_execute_image(self, tmp_path: Path) -> None:
         f = tmp_path / "test.png"
         f.write_bytes(b"\x89PNG\r\n" + b"x" * 100)
-        tool = await create_read_tool_definition(cwd=str(tmp_path))
+        tool = create_read_tool_definition(cwd=str(tmp_path))
         result = await tool["execute"](
             "c1", {"path": str(f)}, None, None, None
         )
@@ -398,7 +396,7 @@ class TestCreateReadTool:
 
     @pytest.mark.asyncio
     async def test_alias(self) -> None:
-        tool = await create_read_tool()
+        tool = create_read_tool()
         assert tool["name"] == "read"
 
 
@@ -448,14 +446,14 @@ class TestWriteFile:
 class TestCreateWriteTool:
     @pytest.mark.asyncio
     async def test_factory(self) -> None:
-        tool = await create_write_tool_definition()
+        tool = create_write_tool_definition()
         assert tool["name"] == "write"
         assert callable(tool["execute"])
 
     @pytest.mark.asyncio
     async def test_execute(self, tmp_path: Path) -> None:
         f = tmp_path / "out.txt"
-        tool = await create_write_tool_definition(cwd=str(tmp_path))
+        tool = create_write_tool_definition(cwd=str(tmp_path))
         result = await tool["execute"](
             "c1",
             {"path": str(f), "content": "hello"},
@@ -468,7 +466,7 @@ class TestCreateWriteTool:
 
     @pytest.mark.asyncio
     async def test_execute_missing_path(self) -> None:
-        tool = await create_write_tool_definition()
+        tool = create_write_tool_definition()
         with pytest.raises(ValueError, match="path is required"):
             await tool["execute"](
                 "c1", {"content": "x"}, None, None, None
@@ -476,7 +474,7 @@ class TestCreateWriteTool:
 
     @pytest.mark.asyncio
     async def test_alias(self) -> None:
-        tool = await create_write_tool()
+        tool = create_write_tool()
         assert tool["name"] == "write"
 
 
@@ -563,7 +561,7 @@ class TestEditFile:
 class TestCreateEditTool:
     @pytest.mark.asyncio
     async def test_factory(self) -> None:
-        tool = await create_edit_tool_definition()
+        tool = create_edit_tool_definition()
         assert tool["name"] == "edit"
         assert callable(tool["execute"])
 
@@ -571,7 +569,7 @@ class TestCreateEditTool:
     async def test_execute(self, tmp_path: Path) -> None:
         f = tmp_path / "file.txt"
         f.write_text("hello world", encoding="utf-8")
-        tool = await create_edit_tool_definition(cwd=str(tmp_path))
+        tool = create_edit_tool_definition(cwd=str(tmp_path))
         result = await tool["execute"](
             "c1",
             {
@@ -589,7 +587,7 @@ class TestCreateEditTool:
     async def test_execute_no_change(self, tmp_path: Path) -> None:
         f = tmp_path / "file.txt"
         f.write_text("hello", encoding="utf-8")
-        tool = await create_edit_tool_definition(cwd=str(tmp_path))
+        tool = create_edit_tool_definition(cwd=str(tmp_path))
         result = await tool["execute"](
             "c1",
             {
@@ -604,7 +602,7 @@ class TestCreateEditTool:
 
     @pytest.mark.asyncio
     async def test_execute_missing_path(self) -> None:
-        tool = await create_edit_tool_definition()
+        tool = create_edit_tool_definition()
         with pytest.raises(ValueError, match="path is required"):
             await tool["execute"](
                 "c1", {"edits": []}, None, None, None
@@ -612,7 +610,7 @@ class TestCreateEditTool:
 
     @pytest.mark.asyncio
     async def test_execute_empty_edits(self) -> None:
-        tool = await create_edit_tool_definition()
+        tool = create_edit_tool_definition()
         with pytest.raises(ValueError, match="non-empty"):
             await tool["execute"](
                 "c1", {"path": "/a", "edits": []}, None, None, None
@@ -620,5 +618,5 @@ class TestCreateEditTool:
 
     @pytest.mark.asyncio
     async def test_alias(self) -> None:
-        tool = await create_edit_tool()
+        tool = create_edit_tool()
         assert tool["name"] == "edit"

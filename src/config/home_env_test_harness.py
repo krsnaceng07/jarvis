@@ -12,7 +12,7 @@ from __future__ import annotations
 import os
 import tempfile
 from contextlib import contextmanager
-from typing import Callable, Iterator, TypeVar
+from typing import Iterator, TypeVar
 
 T = TypeVar("T")
 

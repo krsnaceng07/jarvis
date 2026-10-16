@@ -10,7 +10,6 @@ import time
 import pytest
 
 from src.sessions.conversation_turns import (
-    ConversationTurnReply,
     ConversationTurnReplyClaim,
     PendingConversationTurnHandle,
     _reset_pending_turns_for_tests,

@@ -10,10 +10,13 @@ if TYPE_CHECKING:
 
 _log = logging.getLogger("jarvis.telegram.polling")
 
+
 class PollingWorker:
     """Long-polling worker for Telegram."""
 
-    def __init__(self, client: TelegramClient, callback: Callable[[dict[str, Any]], None], interval: int = 1):
+    def __init__(
+        self, client: TelegramClient, callback: Callable[[dict[str, Any]], None], interval: int = 1
+    ):
         self.client = client
         self.callback = callback
         self.interval = interval
@@ -58,5 +61,5 @@ class PollingWorker:
             except Exception as e:
                 _log.error("Telegram polling loop error: %s", e)
                 await asyncio.sleep(self.interval * 5)
-            
+
             await asyncio.sleep(self.interval)

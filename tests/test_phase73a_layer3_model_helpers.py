@@ -1,9 +1,8 @@
 """Phase 7.3a tests — small model helpers."""
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
-import pytest
 
 from src.agents.embedded_agent_runner.model_compat import (
     merge_model_compat,
@@ -11,7 +10,6 @@ from src.agents.embedded_agent_runner.model_compat import (
     resolve_configured_fallback_reasoning,
     resolve_configured_model_reasoning,
     resolve_merged_configured_model_reasoning,
-    set_provider_id_normalizer as set_compat_provider_normalizer,
 )
 from src.agents.embedded_agent_runner.model_context_tokens import (
     read_agent_model_context_tokens,

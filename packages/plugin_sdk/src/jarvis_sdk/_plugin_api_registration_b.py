@@ -1,18 +1,21 @@
 """PluginApi registration helpers for the internal SDK implementation."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Callable, cast
 
 if TYPE_CHECKING:
     from .types import MediaUnderstandingProvider
-    from .api import PluginControlUiDescriptor
     from .cron import CronDecl
     from .skill import SkillDecl
+    from ._plugin_api_init import PluginApiInit
+else:
+    PluginApiInit = object
 
 JSON = dict[str, Any]
 
 
-class PluginApiRegistrationsB:
+class PluginApiRegistrationsB(PluginApiInit):
     def register_runtime_lifecycle(self, lifecycle: dict[str, Any] | Any) -> None:
         """Register a runtime lifecycle hook. Mirrors OpenClaw's host API surface."""
         if isinstance(lifecycle, dict):
@@ -78,19 +81,34 @@ class PluginApiRegistrationsB:
         self._control_ui_descriptors.append(payload)
         self.session.controls.register_control_ui_descriptor(descriptor_obj)
 
-    def register_tool_metadata(self, metadata: dict[str, Any] | Any) -> None:
+    def register_tool_metadata(
+        self,
+        metadata: dict[str, Any] | Any = None,
+        **kwargs: Any,
+    ) -> None:
         """Register plugin tool metadata. Mirrors OpenClaw's capability surface."""
-        if isinstance(metadata, dict):
-            metadata_dict = cast(dict[str, Any], metadata)
-            metadata_id = metadata_dict.get("id")
+        if metadata is None and kwargs:
+            payload = dict(kwargs)
+            metadata_id = payload.get("id") or payload.get("tool_name") or payload.get("name")
+            if not metadata_id or not isinstance(metadata_id, str):
+                raise ValueError("tool metadata requires a non-empty 'id' or 'tool_name'")
+            payload["id"] = metadata_id
+        elif isinstance(metadata, dict):
+            payload = dict(metadata)
+            payload.update(kwargs)
+            metadata_id = payload.get("id") or payload.get("tool_name") or payload.get("name")
             if not metadata_id or not isinstance(metadata_id, str):
                 raise ValueError("tool metadata requires a non-empty 'id'")
-            payload: dict[str, Any] = dict(metadata_dict)
+            payload["id"] = metadata_id
         else:
-            metadata_id = getattr(metadata, "id", None)
+            metadata_id = getattr(metadata, "id", None) or kwargs.get("tool_name")
             if not metadata_id or not isinstance(metadata_id, str):
                 raise ValueError("tool metadata requires a non-empty 'id'")
-            payload: dict[str, Any] = {"id": metadata_id, "metadata": getattr(metadata, "metadata", None) or {}}
+            payload = {
+                "id": metadata_id,
+                "metadata": getattr(metadata, "metadata", None) or {},
+            }
+            payload.update(kwargs)
         payload["_owner_id"] = self._ctx.plugin_id
         self._tool_metadata.append(payload)
 
@@ -106,7 +124,10 @@ class PluginApiRegistrationsB:
             policy_id = getattr(policy, "id", None)
             if not policy_id or not isinstance(policy_id, str):
                 raise ValueError("trusted tool policy requires a non-empty 'id'")
-            payload: dict[str, Any] = {"id": policy_id, "policy": getattr(policy, "policy", None) or {}}
+            payload: dict[str, Any] = {
+                "id": policy_id,
+                "policy": getattr(policy, "policy", None) or {},
+            }
         payload["_owner_id"] = self._ctx.plugin_id
         self._trusted_tool_policies.append(payload)
 
@@ -154,8 +175,22 @@ class PluginApiRegistrationsB:
         payload["_owner_id"] = self._ctx.plugin_id
         self._session_actions.append(payload)
 
-    def register_agent_event_subscription(self, subscription: dict[str, Any] | Any) -> None:
+    def register_agent_event_subscription(
+        self,
+        subscription: dict[str, Any] | str | Any,
+        handler: Callable[..., Any] | None = None,
+    ) -> None:
         """Register an agent-event subscription for runtime observation."""
+        if isinstance(subscription, str) and callable(handler):
+            payload: dict[str, Any] = {
+                "id": subscription,
+                "event": subscription,
+                "run": handler,
+                "_owner_id": self._ctx.plugin_id,
+            }
+            self._agent_event_subscriptions.append(payload)
+            return
+
         if isinstance(subscription, dict):
             subscription_dict = cast(dict[str, Any], subscription)
             subscription_id = subscription_dict.get("id")
@@ -164,7 +199,7 @@ class PluginApiRegistrationsB:
                 raise ValueError("agent event subscription requires a non-empty 'id'")
             if run is not None and not callable(run):
                 raise ValueError("agent event subscription 'run' must be callable when provided")
-            payload: dict[str, Any] = dict(subscription_dict)
+            payload = dict(subscription_dict)
         else:
             subscription_id = getattr(subscription, "id", None)
             run = getattr(subscription, "run", None) or getattr(subscription, "handler", None)
@@ -172,7 +207,7 @@ class PluginApiRegistrationsB:
                 raise ValueError("agent event subscription requires a non-empty 'id'")
             if run is not None and not callable(run):
                 raise ValueError("agent event subscription 'run' must be callable when provided")
-            payload: dict[str, Any] = {"id": subscription_id, "run": run}
+            payload = {"id": subscription_id, "run": run}
         payload["_owner_id"] = self._ctx.plugin_id
         self._agent_event_subscriptions.append(payload)
 
@@ -194,25 +229,35 @@ class PluginApiRegistrationsB:
         payload["_owner_id"] = self._ctx.plugin_id
         self._memory_embedding_providers.append(payload)
 
-    def register_conversation_binding_resolved_handler(self, handler: dict[str, Any] | Any) -> None:
+    def register_conversation_binding_resolved_handler(
+        self,
+        handler: dict[str, Any] | Callable[..., Any] | Any,
+    ) -> None:
         """Register a conversation-binding resolved handler through the OpenClaw API contract."""
+        if callable(handler):
+            payload: dict[str, Any] = {
+                "id": getattr(handler, "__name__", self._ctx.plugin_id),
+                "handler": handler,
+                "_owner_id": self._ctx.plugin_id,
+            }
+            self._conversation_binding_resolved_handlers.append(payload)
+            return
+
         if isinstance(handler, dict):
             handler_dict = cast(dict[str, Any], handler)
-            handler_id = handler_dict.get("id")
+            handler_id = handler_dict.get("id") or self._ctx.plugin_id
             cb = handler_dict.get("handler")
-            if not handler_id or not isinstance(handler_id, str):
-                raise ValueError("conversation binding resolved handler requires a non-empty 'id'")
-            if cb is not None and not callable(cb):
-                raise ValueError("conversation binding resolved handler 'handler' must be callable when provided")
-            payload: dict[str, Any] = dict(handler_dict)
+            payload = dict(handler_dict)
+            payload["id"] = handler_id
         else:
-            handler_id = getattr(handler, "id", None)
-            cb = getattr(handler, "handler", None)
-            if not handler_id or not isinstance(handler_id, str):
-                raise ValueError("conversation binding resolved handler requires a non-empty 'id'")
-            if cb is not None and not callable(cb):
-                raise ValueError("conversation binding resolved handler 'handler' must be callable when provided")
-            payload: dict[str, Any] = {"id": handler_id, "handler": cb}
+            handler_id = getattr(handler, "id", None) or self._ctx.plugin_id
+            cb = getattr(handler, "handler", None) or handler
+            payload = {"id": handler_id, "handler": cb}
+
+        if cb is not None and not callable(cb):
+            raise ValueError(
+                "conversation binding resolved handler 'handler' must be callable when provided"
+            )
         payload["_owner_id"] = self._ctx.plugin_id
         self._conversation_binding_resolved_handlers.append(payload)
 
@@ -245,8 +290,12 @@ class PluginApiRegistrationsB:
                 }
             )
 
-    def register_http_route(self, route: dict[str, Any] | Any) -> None:
+    def register_http_route(self, route: dict[str, Any] | Any = None, **kwargs: Any) -> None:
         """Alias for ``register_http_handler`` for OpenClaw compatibility."""
+        if route is None and kwargs:
+            route = kwargs
+        elif isinstance(route, dict) and kwargs:
+            route = {**route, **kwargs}
         self.register_http_handler(route)
 
     def register_text_transforms(self, transform: dict[str, Any] | Any) -> None:
@@ -300,7 +349,9 @@ class PluginApiRegistrationsB:
             if not middleware_id or not isinstance(middleware_id, str):
                 raise ValueError("agent tool result middleware requires a non-empty 'id'")
         if handler is not None and not callable(handler):
-            raise ValueError("agent tool result middleware 'handler' must be callable when provided")
+            raise ValueError(
+                "agent tool result middleware 'handler' must be callable when provided"
+            )
         payload: dict[str, Any] = {
             "id": middleware_id,
             "handler": handler,
@@ -328,8 +379,30 @@ class PluginApiRegistrationsB:
         """Register a hook handler for the named event."""
         if not callable(handler):
             raise TypeError(
-                f"Hook handler for {name!r} must be callable; " f"got {type(handler).__name__}"
+                f"Hook handler for {name!r} must be callable; got {type(handler).__name__}"
             )
+
+        import inspect
+
+        try:
+            sig = inspect.signature(handler)
+            if len(sig.parameters) == 2:
+                original_handler = handler
+
+                async def _adapter(payload: Any) -> Any:
+                    event = payload.get("event") if isinstance(payload, dict) else payload
+                    ctx = payload.get("hookCtx") if isinstance(payload, dict) else {}
+                    res = original_handler(event, ctx)
+                    if hasattr(res, "__await__"):
+                        res = await res
+                    if isinstance(res, dict) and isinstance(payload, dict):
+                        payload.update(res)
+                    return res
+
+                handler = _adapter
+        except Exception:
+            pass
+
         from .hook import HookRegistration
 
         self._hooks.append(
@@ -414,4 +487,3 @@ class PluginApiRegistrationsB:
                 )
         provider_obj["_owner_id"] = self._ctx.plugin_id
         self._media_understanding_providers.append(provider_obj)
-

@@ -7,6 +7,7 @@ access works for hyphened directory names (where the
 
 The full port lives in ``plugin.py`` and ``src/``.
 """
+
 from __future__ import annotations
 
 from .plugin import entry, device_pair_plugin

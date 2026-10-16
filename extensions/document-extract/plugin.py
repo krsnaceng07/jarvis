@@ -3,6 +3,7 @@
 OpenClaw parity: mirrors the OpenClaw ``document-extract`` infra
 extension (5 files in the OpenClaw source).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

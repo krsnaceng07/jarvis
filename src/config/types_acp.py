@@ -28,6 +28,7 @@ class AcpRuntimeConfig(TypedDict, total=False):
 
 
 class AcpConfig(TypedDict, total=False):
+    """ACP configuration."""
     enabled: bool
     dispatch: AcpDispatchConfig
     backend: str
@@ -37,6 +38,8 @@ class AcpConfig(TypedDict, total=False):
     maxConcurrentSessions: int
     stream: AcpStreamConfig
     runtime: AcpRuntimeConfig
+    permissionMode: str  # "approve-reads" | "approve-all" | "deny-all"
+    nonInteractivePermissions: str  # "fail" | "deny"
 
 
 __all__ = [

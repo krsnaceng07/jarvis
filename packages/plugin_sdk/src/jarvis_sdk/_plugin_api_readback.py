@@ -1,4 +1,5 @@
 """PluginApi readback accessors for the internal SDK implementation."""
+
 from __future__ import annotations
 
 from typing import Any, Callable
@@ -6,10 +7,17 @@ from typing import Any, Callable
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from .api import CommandDecl, CronDecl, HookRegistration, SkillDecl
+    from .api import CommandDecl
+    from .cron import CronDecl
+    from .hook import HookRegistration
+    from .skill import SkillDecl
+
+    from ._plugin_api_init import PluginApiInit
+else:
+    PluginApiInit = object
 
 
-class PluginApiReadback:
+class PluginApiReadback(PluginApiInit):
     def set_plugin_config(self, plugin_config: Any) -> None:
         """Provide the ``plugins.<id>`` block from the host config."""
         self._plugin_config = plugin_config
@@ -268,3 +276,27 @@ class PluginApiReadback:
     @property
     def speech_providers(self) -> list[dict[str, Any]]:
         return list(self._speech_providers)
+
+    @property
+    def manifest_channels(self) -> list[str]:
+        """Channel names declared by the manifest (``channels`` passthrough)."""
+        return self._declared_str_list("channels")
+
+    @property
+    def manifest_providers(self) -> list[str]:
+        """Provider ids declared by the manifest (``providers`` passthrough)."""
+        return self._declared_str_list("providers")
+
+    @property
+    def manifest_cli_commands(self) -> list[str]:
+        """CLI commands declared by the manifest (``cliCommands`` passthrough)."""
+        return self._declared_str_list("cliCommands")
+
+    @property
+    def manifest_doctor_contract(self) -> dict[str, Any] | None:
+        """Raw ``doctorContract`` manifest block, or ``None`` when absent."""
+        try:
+            raw = self._manifest.get("doctorContract")
+            return dict(raw) if isinstance(raw, dict) else None
+        except Exception:
+            return None

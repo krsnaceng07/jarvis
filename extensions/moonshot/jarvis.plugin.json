@@ -1,0 +1,58 @@
+{
+  "id": "moonshot",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "moonshot"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "moonshot",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "MOONSHOT_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "moonshot": {
+        "baseUrl": "https://api.moonshot.cn/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "moonshot-v1-128k",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "kimi-k2",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

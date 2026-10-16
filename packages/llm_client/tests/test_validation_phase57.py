@@ -167,9 +167,7 @@ def test_array_items_coerced() -> None:
 
 
 def test_tuple_form_items_coerced_positionally() -> None:
-    tool = _tool(
-        _obj(pair={"type": "array", "items": [{"type": "integer"}, {"type": "string"}]})
-    )
+    tool = _tool(_obj(pair={"type": "array", "items": [{"type": "integer"}, {"type": "string"}]}))
     assert validate_tool_arguments(tool, _call({"pair": ["1", 2]})) == {"pair": [1, "2"]}
 
 

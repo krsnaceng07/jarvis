@@ -1,0 +1,64 @@
+{
+  "id": "qianfan",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "qianfan"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "qianfan",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "QIANFAN_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "qianfan": {
+        "baseUrl": "https://qianfan.baidubce.com/v2",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "ernie-4.0-8k",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "ernie-3.5-8k",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "ernie-speed-8k",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

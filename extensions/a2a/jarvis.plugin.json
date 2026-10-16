@@ -1,0 +1,27 @@
+{
+  "id": "a2a",
+  "name": "Agent-to-Agent",
+  "description": "JARVIS Agent-to-Agent decentralized protocol for multi-agent delegation.",
+  "channels": [
+    "a2a"
+  ],
+  "activation": {
+    "onStartup": false
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "agentId": {
+        "type": "string"
+      },
+      "endpoint": {
+        "type": "string"
+      },
+      "apiKey": {
+        "type": "string"
+      }
+    }
+  },
+  "kind": "channel"
+}

@@ -12,6 +12,7 @@ Covers:
 Mirrors a focused subset of OpenClaw's
 ``src/state/openclaw-state-db.test.ts``.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -56,9 +57,7 @@ def tmp_db(tmp_path):
     finally:
         bootstrap.close()
 
-    return StateDatabase(
-        StateDatabaseOptions(connection_factory=factory, path=str(db_path))
-    )
+    return StateDatabase(StateDatabaseOptions(connection_factory=factory, path=str(db_path)))
 
 
 # ── StateDatabase connection management ───────────────────
@@ -299,12 +298,7 @@ class TestQuerySelect:
     def test_select_take_first_returns_none_when_empty(self, tmp_db) -> None:
         conn = tmp_db.open()
         try:
-            row = (
-                Query(conn)
-                .select("*")
-                .from_table("session_state_heads")
-                .execute_take_first()
-            )
+            row = Query(conn).select("*").from_table("session_state_heads").execute_take_first()
             assert row is None
         finally:
             conn.close()
@@ -332,8 +326,7 @@ class TestQueryInsert:
         conn = tmp_db.open()
         try:
             row = conn.execute(
-                "SELECT session_key, version FROM session_state_heads "
-                "WHERE session_key = ?",
+                "SELECT session_key, version FROM session_state_heads WHERE session_key = ?",
                 ("s1",),
             ).fetchone()
             assert row["session_key"] == "s1"
@@ -365,9 +358,7 @@ class TestQueryInsert:
             conn.close()
         conn = tmp_db.open()
         try:
-            count = conn.execute(
-                "SELECT COUNT(*) AS n FROM session_state_heads"
-            ).fetchone()["n"]
+            count = conn.execute("SELECT COUNT(*) AS n FROM session_state_heads").fetchone()["n"]
             assert count == 1
         finally:
             conn.close()
@@ -433,10 +424,7 @@ class TestQueryDelete:
         conn = tmp_db.open()
         try:
             cursor = (
-                Query(conn)
-                .delete_from("session_state_heads")
-                .where("session_key", "s1")
-                .execute()
+                Query(conn).delete_from("session_state_heads").where("session_key", "s1").execute()
             )
             conn.commit()
             assert cursor.rowcount == 1
@@ -444,9 +432,7 @@ class TestQueryDelete:
             conn.close()
         conn = tmp_db.open()
         try:
-            count = conn.execute(
-                "SELECT COUNT(*) AS n FROM session_state_heads"
-            ).fetchone()["n"]
+            count = conn.execute("SELECT COUNT(*) AS n FROM session_state_heads").fetchone()["n"]
             assert count == 1
         finally:
             conn.close()
@@ -460,11 +446,7 @@ class TestRunQueuedStoreWrite:
         async def body() -> str:
             return "ok"
 
-        result = asyncio.run(
-            run_queued_store_write(
-                queues={}, key="k1", label="test", fn=body
-            )
-        )
+        result = asyncio.run(run_queued_store_write(queues={}, key="k1", label="test", fn=body))
         assert result == "ok"
 
     def test_serializes_per_key(self) -> None:
@@ -493,17 +475,13 @@ class TestRunQueuedStoreWrite:
             queues: dict = {}
             # Enqueue the first task.
             t1 = asyncio.create_task(
-                run_queued_store_write(
-                    queues=queues, key="k1", label="test", fn=first
-                )
+                run_queued_store_write(queues=queues, key="k1", label="test", fn=first)
             )
             await asyncio.sleep(0.01)
             # Enqueue the second task; it must wait for
             # the first to finish.
             t2 = asyncio.create_task(
-                run_queued_store_write(
-                    queues=queues, key="k1", label="test", fn=second
-                )
+                run_queued_store_write(queues=queues, key="k1", label="test", fn=second)
             )
             # Set the barrier so the first task can finish.
             await asyncio.sleep(0.01)
@@ -556,9 +534,7 @@ class TestRunWriteTransaction:
         # Verify the row was rolled back.
         conn = tmp_db.open()
         try:
-            count = conn.execute(
-                "SELECT COUNT(*) AS n FROM session_state_heads"
-            ).fetchone()["n"]
+            count = conn.execute("SELECT COUNT(*) AS n FROM session_state_heads").fetchone()["n"]
             assert count == 0
         finally:
             conn.close()
@@ -589,9 +565,7 @@ class TestRunWriteTransaction:
                 ).execute()
                 completed.append(name)
 
-            await run_write_transaction(
-                tmp_db, store_path=name, fn=_inner
-            )
+            await run_write_transaction(tmp_db, store_path=name, fn=_inner)
 
         async def run_both() -> None:
             await asyncio.gather(body("a"), body("b"))
@@ -601,9 +575,7 @@ class TestRunWriteTransaction:
         # Verify both rows landed.
         conn = tmp_db.open()
         try:
-            count = conn.execute(
-                "SELECT COUNT(*) AS n FROM session_state_heads"
-            ).fetchone()["n"]
+            count = conn.execute("SELECT COUNT(*) AS n FROM session_state_heads").fetchone()["n"]
             assert count == 2
         finally:
             conn.close()
@@ -620,9 +592,7 @@ class TestRunWriteTransaction:
                 await asyncio.sleep(0.02)
                 execution_order.append(f"{name}-end")
 
-            await run_write_transaction(
-                tmp_db, store_path="shared", fn=_inner
-            )
+            await run_write_transaction(tmp_db, store_path="shared", fn=_inner)
 
         async def run_both() -> None:
             await asyncio.gather(body("a"), body("b"))

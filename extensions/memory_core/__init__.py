@@ -58,6 +58,8 @@ OpenClaw parity
 
 from __future__ import annotations
 
+from typing import Any
+
 from jarvis_sdk import (
     PluginApi,
     PluginCommandContext,
@@ -220,6 +222,62 @@ def _configure_dreaming_state(api: PluginApi) -> None:
     dreaming_state.configure_memory_core_dreaming_state(_factory)  # type: ignore[arg-type]
 
 
+def _before_prompt_build_hook(
+    event: dict[str, Any], ctx: dict[str, Any] | None = None
+) -> dict[str, Any] | None:
+    """Inject matching standing intents into the agent prompt context.
+
+    Mirrors OpenClaw's before_prompt_build standing intent hook.
+    """
+    try:
+        from .runtime import MemoryRuntime
+
+        ctx_dict = ctx or {}
+        prompt = event.get("prompt") or event.get("message") or ""
+        if not prompt:
+            return None
+
+        runtime = MemoryRuntime.default()
+        intents = runtime.get_triggered_intents(
+            inbound_message=str(prompt),
+            agent_id=ctx_dict.get("agentId") or ctx_dict.get("agent_id"),
+            channel_id=ctx_dict.get("channelId") or ctx_dict.get("channel_id"),
+            sender_id=ctx_dict.get("senderId") or ctx_dict.get("sender_id"),
+        )
+        if not intents:
+            return None
+
+        lines = []
+        for intent in intents[:3]:
+            created_date = str(intent.get("created_at", ""))[:10]
+            desc = intent.get("description", "")
+            lines.append(f"Standing intent (created {created_date}): {desc}")
+        context_block = "<standing_intents>\n" + "\n".join(lines) + "\n</standing_intents>"
+        return {"prependContext": context_block}
+    except Exception:
+        return None
+
+
+def _before_agent_reply_hook(
+    event: dict[str, Any], ctx: dict[str, Any] | None = None
+) -> None:
+    """Sweep expired and re-arm fired standing intents on heartbeat/cron.
+
+    Mirrors OpenClaw's before_agent_reply standing intent maintenance.
+    """
+    try:
+        from .runtime import MemoryRuntime
+
+        ctx_dict = ctx or {}
+        trigger = ctx_dict.get("trigger", "")
+        if trigger in ("heartbeat", "cron"):
+            runtime = MemoryRuntime.default()
+            agent_id = ctx_dict.get("agentId") or ctx_dict.get("agent_id")
+            runtime.sweep_intents(agent_id=agent_id)
+    except Exception:
+        pass
+
+
 def _register(api: PluginApi) -> None:
     """Register the memory plugin's surface with the host's PluginApi."""
     # ── Dreaming state (Phase 4.4) ─────────────────────────
@@ -233,11 +291,17 @@ def _register(api: PluginApi) -> None:
     # and returns when unavailable.
     dreaming_module.register_short_term_promotion_dreaming(api)
 
-    # Tools
+    # Tools: memory_search, memory_get, intent (OpenClaw contracts.tools parity)
     api.register_tool(
         MemoryCorePlugin(),
-        {"names": ["memory_search", "memory_get"]},
+        {"names": ["memory_search", "memory_get", "intent"]},
     )
+
+    # Standing intent lifecycle hooks (mirrors OpenClaw's memory-core index.ts)
+    register_hook = getattr(api, "register_hook", None)
+    if callable(register_hook):
+        register_hook("before_prompt_build", _before_prompt_build_hook)
+        register_hook("before_agent_reply", _before_agent_reply_hook)
 
     # Memory capability (single-active-slot; OpenClaw parity)
     api.register_memory_capability(

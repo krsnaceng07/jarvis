@@ -54,17 +54,17 @@ Adaptations
   ``CREATE_NEW_PROCESS_GROUP``; on POSIX it
   uses the process group (``start_new_session``).
 """
+
 from __future__ import annotations
 
 import asyncio
 import codecs
-import os
 import subprocess
 import sys
 import threading
 import time
-from dataclasses import dataclass, field
-from typing import Optional, Union
+from dataclasses import dataclass
+from typing import Optional
 
 
 #: Default output retention cap per stream, in
@@ -124,6 +124,7 @@ class ExecOptions:
     timeout: Optional[float] = None
     cwd: Optional[str] = None
     max_output_chars: Optional[int] = None
+    env: Optional[dict[str, str]] = None
 
 
 @dataclass
@@ -153,12 +154,7 @@ def _clamp_max_output_chars(value: Optional[int]) -> int:
     """Clamp the ``max_output_chars`` value to a
     valid positive integer. Mirrors ``clampMaxOutputChars``
     (``exec.ts:50-55``)."""
-    if (
-        value is None
-        or not isinstance(value, (int, float))
-        or not _isfinite(value)
-        or value <= 0
-    ):
+    if value is None or not isinstance(value, (int, float)) or not _isfinite(value) or value <= 0:
         return DEFAULT_OUTPUT_LIMIT_CHARS
     return max(1, int(value))
 
@@ -182,9 +178,7 @@ def _append_captured_output(
     combined = current.text + chunk
     overflow = max(0, len(combined) - max_output_chars)
     if overflow == 0:
-        return _OutputCapture(
-            text=combined, truncated_chars=current.truncated_chars
-        )
+        return _OutputCapture(text=combined, truncated_chars=current.truncated_chars)
     next_text = (
         _slice_utf16_safe(combined, overflow)
         if truncate_tail
@@ -200,6 +194,7 @@ def _spawn(
     command: str,
     args: list[str],
     cwd: str,
+    env: Optional[dict[str, str]] = None,
 ) -> "subprocess.Popen[bytes]":
     """Spawn a subprocess for execution.
 
@@ -242,6 +237,7 @@ def _spawn(
     return subprocess.Popen(
         [command, *args],
         cwd=cwd,
+        env=env,
         stdin=subprocess.DEVNULL,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -255,41 +251,14 @@ def _spawn(
 def _kill_process_tree(proc: "subprocess.Popen[bytes]") -> None:
     """Best-effort kill of the subprocess + descendants.
 
-    Mirrors ``killProcessTree`` (imported at
-    ``exec.ts:9``). The full tree-kill port lands
-    in Phase 6.13; for Phase 6.1 we ship a single-
-    process kill that closes the process tree at
-    its root. On Windows, ``CREATE_NEW_PROCESS_GROUP``
-    (set in :func:`_spawn`) lets ``taskkill /T`` find
-    children; on POSIX the process was spawned with
-    ``start_new_session`` (via the ``preexec_fn``
-    fallback below) so the children share the
-    process group.
+    Uses ProcessTreeContainment to ensure full process tree termination
+    across Windows and POSIX platforms.
     """
     try:
-        if sys.platform == "win32":
-            # On Windows, ``taskkill /T /F /PID``
-            # takes down the process + its
-            # descendants. ``/F`` is the force
-            # flag; ``/T`` is the tree flag.
-            subprocess.run(
-                ["taskkill", "/T", "/F", "/PID", str(proc.pid)],
-                capture_output=True,
-                check=False,
-                timeout=5,
-            )
-        else:
-            # POSIX: send SIGKILL to the negative
-            # PID (= the process group started with
-            # ``start_new_session=True``). Fall back
-            # to a direct ``proc.kill()`` if the OS
-            # doesn't support pgid kill.
-            try:
-                os.killpg(os.getpgid(proc.pid), 9)  # SIGKILL
-            except (ProcessLookupError, PermissionError, OSError):
-                proc.kill()
-    except (subprocess.TimeoutExpired, OSError):
-        # Last resort: direct kill.
+        from ..sandbox.process_job import ProcessTreeContainment
+
+        ProcessTreeContainment.kill_process_tree(proc)
+    except Exception:
         try:
             proc.kill()
         except OSError:
@@ -346,7 +315,7 @@ def exec_command(
     max_output_chars = _clamp_max_output_chars(options.max_output_chars)
     truncate_output = options.max_output_chars is not None
 
-    proc = _spawn(command, args, cwd)
+    proc = _spawn(command, args, cwd, env=options.env)
     stdout = _OutputCapture()
     stderr = _OutputCapture()
     stdout_decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
@@ -392,8 +361,10 @@ def exec_command(
         # Flush incremental decoders.
         stdout_before_flush = stdout.truncated_chars
         stdout = _append_captured_output(
-            stdout, stdout_decoder.decode(b"", final=True),
-            max_output_chars, truncate_output,
+            stdout,
+            stdout_decoder.decode(b"", final=True),
+            max_output_chars,
+            truncate_output,
         )
         if (
             not truncate_output
@@ -404,8 +375,10 @@ def exec_command(
 
         stderr_before_flush = stderr.truncated_chars
         stderr = _append_captured_output(
-            stderr, stderr_decoder.decode(b"", final=True),
-            max_output_chars, truncate_output,
+            stderr,
+            stderr_decoder.decode(b"", final=True),
+            max_output_chars,
+            truncate_output,
         )
         if (
             not truncate_output
@@ -417,9 +390,9 @@ def exec_command(
         if output_limit_exceeded is not None:
             stderr = _append_captured_output(
                 stderr,
-                f'{stderr.text if stderr.text else ""}'
-                f'\nexec {output_limit_exceeded} exceeded output limit '
-                f'{max_output_chars} chars',
+                f"{stderr.text if stderr.text else ''}"
+                f"\nexec {output_limit_exceeded} exceeded output limit "
+                f"{max_output_chars} chars",
                 max_output_chars,
                 True,
             )
@@ -476,6 +449,7 @@ def exec_command(
                 max_output_chars,
                 truncate_output,
             )
+            local_capture = new_capture
             if is_stdout:
                 stdout = new_capture
             else:
@@ -497,9 +471,7 @@ def exec_command(
         timeout_timer.daemon = True
         timeout_timer.start()
         # Force-kill backstop.
-        force_kill_timer = threading.Timer(
-            timeout + FORCE_KILL_GRACE_MS / 1000.0, force_kill
-        )
+        force_kill_timer = threading.Timer(timeout + FORCE_KILL_GRACE_MS / 1000.0, force_kill)
         force_kill_timer.daemon = True
         force_kill_timer.start()
 
@@ -521,9 +493,7 @@ def exec_command(
             time.sleep(0.05)
 
     if signal is not None:
-        signal_monitor = threading.Thread(
-            target=_signal_monitor, daemon=True
-        )
+        signal_monitor = threading.Thread(target=_signal_monitor, daemon=True)
         signal_monitor.start()
     else:
         signal_monitor = None
@@ -575,10 +545,169 @@ def exec_command(
     return ExecResult(code=return_code, killed=killed)
 
 
+def spawn_background_command(
+    command: str,
+    args: list[str],
+    cwd: str,
+    options: Optional[ExecOptions] = None,
+    session_key: Optional[str] = None,
+) -> str:
+    """Spawn a shell command in the background and return a session ID.
+
+    Registers the spawned process in the in-memory ``ProcessRegistry``.
+
+    Returns
+    -------
+    str
+        The generated session ID.
+    """
+    from .process_registry import registry, ProcessSession
+    from src.tasks.detached_task_runtime import (
+        create_running_task_run,
+        finalize_task_run_by_run_id,
+    )
+
+    options = options or ExecOptions()
+    max_output_chars = _clamp_max_output_chars(options.max_output_chars)
+    effective_session_key = session_key or "agent:main:main"
+    full_cmd = command + " " + " ".join(args)
+
+    proc = _spawn(command, args, cwd, env=options.env)
+
+    session = ProcessSession(
+        command=full_cmd,
+        session_key=effective_session_key,
+        cwd=cwd,
+        pid=proc.pid,
+        proc=proc,
+        max_output_chars=max_output_chars,
+        backgrounded=True,
+    )
+    registry.register(session)
+
+    # Register in TaskRegistry for real-time task tracking
+    try:
+        create_running_task_run(
+            runtime="cli",
+            task_kind="background_exec",
+            source_id=session.id,
+            requester_session_key=effective_session_key,
+            owner_key=effective_session_key,
+            run_id=f"exec:{session.id}",
+            label=f"CLI command ({session.id})",
+            task=full_cmd[:120],
+            notify_policy="done_only",
+            started_at=int(session.started_at * 1000),
+            progress_summary="Command running in background",
+        )
+    except Exception:
+        pass
+
+    stdout_decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+    stderr_decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+
+    def background_drain(stream, decoder, is_stdout: bool) -> None:
+        while True:
+            try:
+                if stream is None:
+                    break
+                chunk = stream.read(4096)
+            except (ValueError, OSError):
+                break
+            if not chunk:
+                break
+
+            decoded = decoder.decode(chunk)
+
+            if is_stdout:
+                session.append_stdout(decoded)
+            else:
+                session.pending_stderr.append(decoded)
+                session.pending_stderr_chars += len(decoded)
+
+            session.total_output_chars += len(decoded)
+
+            if session.total_output_chars > session.max_output_chars:
+                session.truncated = True
+
+    def background_wait() -> None:
+        return_code = proc.wait()
+        # Flush
+        stdout_final = stdout_decoder.decode(b"", final=True)
+        stderr_final = stderr_decoder.decode(b"", final=True)
+        if stdout_final:
+            session.append_stdout(stdout_final)
+        if stderr_final:
+            session.pending_stderr.append(stderr_final)
+            session.pending_stderr_chars += len(stderr_final)
+
+        registry.mark_finished(session.id, code=return_code)
+
+        # Update TaskRegistry with terminal state
+        status = "succeeded" if return_code == 0 else "failed"
+        now_ms = int(time.time() * 1000)
+        try:
+            finalize_task_run_by_run_id(
+                run_id=f"exec:{session.id}",
+                runtime="cli",
+                session_key=effective_session_key,
+                status=status,
+                ended_at=now_ms,
+                terminal_summary=(
+                    "Command completed" if return_code == 0 else f"Command failed with code {return_code}"
+                ),
+                error=None if return_code == 0 else f"Command exited with code {return_code}",
+            )
+        except Exception:
+            pass
+
+        # Real-time reactive notification & agent wakeup
+        exit_label = f"exit code {return_code}" if return_code is not None else "terminated"
+        tail_output = "".join(session.pending_stdout[-3:]).strip() if session.pending_stdout else ""
+        if not tail_output and session.pending_stderr:
+            tail_output = "".join(session.pending_stderr[-3:]).strip()
+
+        summary_text = f"Exec {'completed' if return_code == 0 else 'failed'} ({session.id}, {exit_label})"
+        if tail_output:
+            snippet = tail_output if len(tail_output) <= 150 else tail_output[:147] + "..."
+            summary_text += f" :: {snippet}"
+
+        try:
+            from src.sessions.system_event_queue import enqueue_system_event
+            from src.infra.heartbeat_wake import request_heartbeat
+
+            enqueue_system_event(
+                summary_text,
+                {"sessionKey": effective_session_key, "contextKey": f"exec:{session.id}"},
+            )
+            request_heartbeat({
+                "source": "exec-event",
+                "intent": "immediate",
+                "reason": "exec-event",
+                "sessionKey": effective_session_key,
+            })
+        except Exception:
+            pass
+
+    if proc.stdout is not None:
+        threading.Thread(
+            target=background_drain, args=(proc.stdout, stdout_decoder, True), daemon=True
+        ).start()
+    if proc.stderr is not None:
+        threading.Thread(
+            target=background_drain, args=(proc.stderr, stderr_decoder, False), daemon=True
+        ).start()
+
+    threading.Thread(target=background_wait, daemon=True).start()
+
+    return session.id
+
+
 __all__ = [
     "DEFAULT_OUTPUT_LIMIT_CHARS",
     "ExecOptions",
     "ExecResult",
     "FORCE_KILL_GRACE_MS",
     "exec_command",
+    "spawn_background_command",
 ]

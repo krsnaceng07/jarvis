@@ -5,7 +5,7 @@ OpenClaw parity: mirrors
 """
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import List, Optional
 
 
 #: Marker key under ``meta.migrations`` that records the migration.

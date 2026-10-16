@@ -1,0 +1,9 @@
+{
+  "name": "jarvis-diffs-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@pierre/diffs": "1.2.12"
+  }
+}

@@ -9,7 +9,7 @@ callables for path segmentation. The Python port focuses on the
 from __future__ import annotations
 
 import re
-from typing import Any, Optional
+from typing import Any
 
 
 #: Matches a numeric path segment like ``[0]``.

@@ -3,6 +3,7 @@
 OpenClaw parity: mirrors the OpenClaw ``diagnostics-otel`` infra
 extension (28 files in the OpenClaw source).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

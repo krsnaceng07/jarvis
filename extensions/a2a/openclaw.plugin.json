@@ -1,0 +1,27 @@
+{
+  "id": "a2a",
+  "name": "Agent-to-Agent",
+  "description": "OpenClaw Agent-to-Agent decentralized protocol for multi-agent delegation.",
+  "activation": {
+    "onStartup": false
+  },
+  "channels": [
+    "a2a"
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "agentId": {
+        "type": "string"
+      },
+      "endpoint": {
+        "type": "string"
+      },
+      "apiKey": {
+        "type": "string"
+      }
+    }
+  },
+  "kind": "channel"
+}

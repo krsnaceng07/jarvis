@@ -1,0 +1,41 @@
+# packages/model_catalog_core — provider/model catalog ids, refs, and catalog shapes
+#
+# Mirrors OpenClaw's `packages/model-catalog-core/` (provider-id normalize,
+# catalog refs, catalog types, context windows, configured-model refs,
+# model-id normalization policies, remote bundle validation).
+# stdlib-only plus jarvis-normalization-core; providers live in extensions.
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jarvis-model-catalog-core"
+version = "0.1.0-rc1"
+description = "JARVIS model catalog core — provider ids, catalog refs, and catalog shapes (OpenClaw model-catalog-core parity)."
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+authors = [{ name = "JARVIS architect" }]
+keywords = ["jarvis", "model-catalog", "openclaw"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.13",
+]
+
+dependencies = [
+    "jarvis-normalization-core>=0.1.0-rc1",
+]
+
+[project.urls]
+Homepage = "https://github.com/jarvis-ai/jarvis"
+Repository = "https://github.com/jarvis-ai/jarvis.git"
+Issues = "https://github.com/jarvis-ai/jarvis/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jarvis_model_catalog"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/jarvis_model_catalog", "README.md"]

@@ -26,5 +26,6 @@
         "default": 5
       }
     }
-  }
+  },
+  "kind": "channel"
 }

@@ -4,7 +4,7 @@ OpenClaw parity: mirrors ``openclaw-main/src/shared/session-types.ts``.
 """
 from __future__ import annotations
 
-from typing import Generic, List, Optional, TypedDict, TypeVar
+from typing import Generic, List, TypedDict, TypeVar
 
 TDefaults = TypeVar("TDefaults")
 TRow = TypeVar("TRow")

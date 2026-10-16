@@ -28,6 +28,7 @@ The Python port uses the same name-shape as the source
 so call sites can be wired up cleanly when the
 follow-up phase lands.
 """
+
 from __future__ import annotations
 
 import logging

@@ -4,7 +4,7 @@ OpenClaw parity: mirrors ``openclaw-main/src/shared/gateway-method-policy.ts``.
 """
 from __future__ import annotations
 
-from typing import Tuple, TypeVar
+from typing import TypeVar
 
 TScope = TypeVar("TScope", bound=str)
 

@@ -1,14 +1,20 @@
 {
   "id": "web-readability",
-  "name": "Web Readability",
-  "description": "OpenClaw Web Readability infra extension port (Phase 5.15 stub).",
   "activation": {
     "onStartup": false
   },
   "enabledByDefault": true,
+  "name": "Web Readability Extraction",
+  "description": "Extract readable article content from local HTML web fetch responses.",
+  "contracts": {
+    "webContentExtractors": [
+      "readability"
+    ]
+  },
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
     "properties": {}
-  }
+  },
+  "kind": "tool"
 }

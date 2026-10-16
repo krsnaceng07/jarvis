@@ -29,9 +29,7 @@ can plug in the real filesystem + repair layers as they land.
 """
 from __future__ import annotations
 
-import json
-import threading
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple
+from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 
 #: A single entry persisted in the transcript file. Mirrors

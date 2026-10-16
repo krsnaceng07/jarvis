@@ -27,10 +27,10 @@ Python adaptations (documented in code):
 - TS ``Buffer``/``Uint8Array`` audio bytes → Python
   ``bytes``
 """
+
 from __future__ import annotations
 
 from typing import Any, Awaitable, Callable, Literal, TypedDict
-
 
 # ── Public literal unions ─────────────────────────────────
 
@@ -98,6 +98,9 @@ class SpeechProviderPlugin(TypedDict, total=False):
     id: str
     label: str
     description: str
+    aliases: list[str]
+    autoSelectOrder: int
+    defaultTimeoutMs: int
     """Provider's preferred output format (host hint)."""
     defaultFormat: SpeechOutputFormat
     """Provider id this one is the default for (host hint)."""

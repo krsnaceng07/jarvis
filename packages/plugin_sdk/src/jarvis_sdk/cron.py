@@ -55,6 +55,7 @@ class CronDecl:
     timezone: str = ""
     enabled: bool = True
     description: str = ""
+    automation_payload: dict[str, Any] | None = None
 
 
 __all__ = ["CronDecl"]

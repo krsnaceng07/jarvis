@@ -5,7 +5,7 @@ OpenClaw parity: mirrors ``openclaw-main/src/shared/subagents-format.ts``.
 from __future__ import annotations
 
 import math
-from typing import Any, Optional
+from typing import Optional
 
 
 def _truncate_utf16_safe(value: str, max_length: int) -> str:

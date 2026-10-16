@@ -13,6 +13,7 @@ This file is the shim the JARVIS plugin loader uses
 (``extensions/device-pair/__init__.py`` re-exports
 ``entry`` from here).
 """
+
 from __future__ import annotations
 
 from .lib import (

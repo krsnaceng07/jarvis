@@ -2,24 +2,20 @@
 
 from __future__ import annotations
 
-import tempfile
 from pathlib import Path
-import pytest
 
 from src.hooks.types import (
     Hook,
     HookEntry,
     HookMetadata,
-    InternalHookEvent,
     is_known_hook_event_key,
 )
 from src.hooks.policy import (
-    HookEnableState,
     resolve_hook_enable_state,
     resolve_hook_entries,
 )
 from src.hooks.plugin_hooks import resolve_plugin_hook_dirs
-from src.hooks.loader import load_hooks, load_hook_handler
+from src.hooks.loader import load_hooks
 
 
 def test_is_known_hook_event_key():

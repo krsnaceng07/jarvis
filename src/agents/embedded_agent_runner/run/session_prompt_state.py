@@ -12,7 +12,7 @@ Phase 7.6h-7 — focused minimal port.
 """
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 
 #: Continuation prompt used by mid-turn precheck + compacted-transcript retry.

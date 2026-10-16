@@ -1,0 +1,24 @@
+{
+  "id": "youtube",
+  "name": "YouTube",
+  "description": "YouTube media search, video playback control, tab affinity, and ad-skipping provider.",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "skills": [
+    "./skills"
+  ],
+  "contracts": {
+    "tools": [
+      "youtube_play",
+      "youtube_pause",
+      "youtube_resume",
+      "youtube_search",
+      "youtube_skip_ad",
+      "youtube_set_volume",
+      "youtube_get_state"
+    ]
+  },
+  "kind": "tool"
+}

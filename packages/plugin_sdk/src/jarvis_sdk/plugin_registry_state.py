@@ -29,6 +29,7 @@ Key port decisions:
 - ``Object.keys`` → ``list(...)``.
 - ``toSorted`` → ``sorted``.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal, TypedDict, TypeAlias, cast
@@ -145,6 +146,7 @@ def _create_stub_model_catalog_registration_handlers(
     the stub provides a no-op ``registerModelCatalogProvider``
     so ``create_plugin_registry_state`` has the same shape.
     """
+
     def _register_model_catalog_provider(
         record: Any,
         provider: Any,
@@ -211,9 +213,7 @@ def create_plugin_registry_state(
         "registry": registry,
         "registryParams": registry_params,
         "coreGatewayMethods": set(core_gateway_method_names),
-        "getHostCronService": lambda: (
-            (registry_params.get("hostServices") or {}).get("cron")  # type: ignore[union-attr]
-        ),
+        "getHostCronService": lambda: (registry_params.get("hostServices") or {}).get("cron"),  # type: ignore[union-attr]
         "pluginHookRollback": {},
         "pluginsWithChannelRegistrationConflict": set(),
         "pluginSideEffectGuards": {},

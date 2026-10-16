@@ -1,9 +1,8 @@
 """Phase 7.4c tests — tool-result-context-guard."""
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-import pytest
 
 from src.agents.embedded_agent_runner.tool_result_context_guard import (
     get_transcript_prompt_text,

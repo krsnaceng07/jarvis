@@ -4,7 +4,7 @@ OpenClaw parity: mirrors ``openclaw-main/src/config/channel-capabilities.ts``.
 """
 from __future__ import annotations
 
-from typing import Any, List, Optional
+from typing import List, Optional
 
 
 def _is_string_array(value) -> bool:

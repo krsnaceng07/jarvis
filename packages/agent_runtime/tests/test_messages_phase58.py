@@ -13,7 +13,7 @@ that only shows up on real user data, long after shipping.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 import pytest

@@ -1,0 +1,14 @@
+[project]
+name = "jarvis-plugin-web"
+version = "0.1.0"
+description = "Web fetching and content extraction tools."
+authors = [{ name = "Google OpenClaw" }]
+dependencies = [
+    "jarvis-plugin-sdk>=0.1.0-rc1",
+    "httpx",
+    "readability-lxml",
+    "markdownify",
+]
+
+[tool.uv]
+package = false

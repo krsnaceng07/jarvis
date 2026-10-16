@@ -8,6 +8,7 @@ The host picks which provider to use per capability
 (audio/image/video) based on each provider's
 ``auto_priority`` + any operator override.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -41,9 +42,7 @@ class SenseAudioPlugin(Plugin):
         picks the right provider per capability (audio in
         this case).
         """
-        api.register_media_understanding_provider(
-            senseaudio_media_understanding_provider
-        )
+        api.register_media_understanding_provider(senseaudio_media_understanding_provider)
 
 
 senseaudio_plugin = SenseAudioPlugin()

@@ -1,0 +1,7 @@
+{
+  "id": "qa_lab",
+  "name": "QA Lab",
+  "description": "Compatibility alias for qa-lab extension",
+  "version": "0.1.0",
+  "kind": "tool"
+}

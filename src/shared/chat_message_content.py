@@ -5,7 +5,7 @@ OpenClaw parity: mirrors ``openclaw-main/src/shared/chat-message-content.ts``.
 from __future__ import annotations
 
 import json
-from typing import Any, Optional, TypedDict
+from typing import Any, Optional
 
 
 AssistantPhase = str  # "commentary" | "final_answer"

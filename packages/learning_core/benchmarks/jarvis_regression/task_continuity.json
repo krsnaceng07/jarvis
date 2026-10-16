@@ -1,0 +1,4 @@
+[
+  {"id": "continuity_preserve_step", "description": "Multi-step task preserves previous step result", "severity": "high", "input": {"user_input": "now save the search results to a file", "context": "previous step: searched for Python tutorials, got 5 results"}, "expected_decision": {"tool": "filesystem.write"}, "max_steps": 2},
+  {"id": "continuity_maintain_context", "description": "Follow-up request maintains task context", "severity": "medium", "input": {"user_input": "play the next one", "context": "just finished playing Believer on YouTube"}, "expected_decision": {"tool": "browser.navigate_tab"}}
+]

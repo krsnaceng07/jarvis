@@ -19,7 +19,6 @@ from __future__ import annotations
 import tempfile
 from typing import Any
 
-import pytest
 
 from src.agents.sessions.agent_session import AgentSession
 from src.agents.sessions.agent_session_tree import AgentSessionTree

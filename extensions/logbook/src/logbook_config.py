@@ -11,6 +11,7 @@ Public surface (mirrors the TS source):
 - ``resolve_logbook_config(raw)`` — clamp + default
 - ``parse_model_ref(ref)`` — split ``"provider/model"`` ref
 """
+
 from __future__ import annotations
 
 from typing import Any, TypedDict
@@ -115,7 +116,11 @@ def resolve_logbook_config(raw: Any) -> LogbookConfig:
             365,
         ),
         **({"nodeId": node_id} if (node_id := _optional_string(value.get("nodeId"))) else {}),
-        **({"visionModel": vision} if (vision := _optional_string(value.get("visionModel"))) else {}),
+        **(
+            {"visionModel": vision}
+            if (vision := _optional_string(value.get("visionModel")))
+            else {}
+        ),
     }
 
 

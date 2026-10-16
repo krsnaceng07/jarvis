@@ -8,88 +8,91 @@ Covers:
 - talk_defaults, plugin_web_search_config, web_search_legacy_provider_keys
 - plugin_auto_enable_types, plugin_auto_enable_detect
 """
+
 from __future__ import annotations
 
 import asyncio
 
 import pytest
 
-from src.config.silent_reply import (
-    resolve_silent_reply_policy,
-    resolve_silent_reply_settings,
-)
 from src.config.io import (
     CircularIncludeError,
     ConfigIncludeError,
     MissingEnvVarError,
     get_runtime_config,
+    install_runtime_hooks,
     load_config,
+)
+from src.config.io_owner_display_secret import (
+    OwnerDisplaySecretRuntimeState,
+    retain_generated_owner_display_secret,
 )
 from src.config.io_snapshot_shared import (
     collect_invalid_config_legacy_issues,
     create_config_file_snapshot,
     finalize_read_config_snapshot_internal_result,
 )
-from src.config.sensitive_paths import (
-    SENSITIVE_KEY_WHITELIST_SUFFIXES,
-    SENSITIVE_PATTERNS,
-    is_sensitive_config_path,
+from src.config.mutation_conflict import ConfigMutationConflictError
+from src.config.mutation_types import ConfigMutationBase
+from src.config.patch_replace_paths import (
+    normalize_config_patch_replace_paths,
 )
-from src.config.runtime_source_projection import (
-    project_config_onto_runtime_source_snapshot,
+from src.config.plugin_auto_enable_detect import (
+    detect_plugin_auto_enable_candidates,
+)
+from src.config.plugin_auto_enable_types import (
+    PluginAutoEnableCandidate,
+    PluginAutoEnableResult,
+)
+from src.config.plugin_web_search_config import (
+    resolve_plugin_web_search_config,
+)
+from src.config.plugins_allowlist import ensure_plugin_allowlisted
+from src.config.port_defaults import (
+    DEFAULT_BROWSER_CDP_PORT_RANGE_END,
+    DEFAULT_BROWSER_CDP_PORT_RANGE_SPAN,
+    DEFAULT_BROWSER_CDP_PORT_RANGE_START,
+    derive_default_browser_cdp_port_range,
 )
 from src.config.runtime_schema import (
     load_gateway_runtime_config_schema,
     read_best_effort_runtime_config_schema,
 )
-from src.config.port_defaults import (
-    DEFAULT_BROWSER_CDP_PORT_RANGE_END,
-    DEFAULT_BROWSER_CDP_PORT_RANGE_START,
-    DEFAULT_BROWSER_CDP_PORT_RANGE_SPAN,
-    derive_default_browser_cdp_port_range,
+from src.config.runtime_source_projection import (
+    project_config_onto_runtime_source_snapshot,
+)
+from src.config.sensitive_paths import (
+    SENSITIVE_KEY_WHITELIST_SUFFIXES,
+    SENSITIVE_PATTERNS,
+    is_sensitive_config_path,
 )
 from src.config.sessions import (
     canonicalize_session_entry_aliases,
     delete_session_entry_lifecycle,
+    patch_session_entry_with_key,
+    reset_session_entry_lifecycle,
+    resolve_session_entry_candidate_target,
+)
+from src.config.shell_env_expected_keys import (
+    CORE_SHELL_ENV_EXPECTED_KEYS,
+    resolve_shell_env_expected_keys,
+)
+from src.config.silent_reply import (
+    resolve_silent_reply_settings,
+)
+from src.config.talk_defaults import (
+    TALK_SILENCE_TIMEOUT_MS_BY_PLATFORM,
+    describe_talk_silence_timeout_defaults,
 )
 from src.config.version import (
     compare_openclaw_versions,
     normalize_openclaw_version_base,
     should_warn_on_touched_version,
 )
-from src.config.io_owner_display_secret import (
-    OwnerDisplaySecretRuntimeState,
-    retain_generated_owner_display_secret,
-)
-from src.config.shell_env_expected_keys import (
-    CORE_SHELL_ENV_EXPECTED_KEYS,
-    resolve_shell_env_expected_keys,
-)
-from src.config.plugins_allowlist import ensure_plugin_allowlisted
-from src.config.patch_replace_paths import (
-    normalize_config_patch_replace_paths,
-)
-from src.config.mutation_conflict import ConfigMutationConflictError
-from src.config.mutation_types import ConfigMutationBase
-from src.config.talk_defaults import (
-    TALK_SILENCE_TIMEOUT_MS_BY_PLATFORM,
-    describe_talk_silence_timeout_defaults,
-)
-from src.config.plugin_web_search_config import (
-    resolve_plugin_web_search_config,
-)
 from src.config.web_search_legacy_provider_keys import (
     LEGACY_WEB_SEARCH_PROVIDER_CONFIG_KEYS,
     is_legacy_web_search_provider_config_key,
 )
-from src.config.plugin_auto_enable_types import (
-    PluginAutoEnableCandidate,
-    PluginAutoEnableResult,
-)
-from src.config.plugin_auto_enable_detect import (
-    detect_plugin_auto_enable_candidates,
-)
-
 
 # ============================================================================
 # silent_reply
@@ -106,9 +109,11 @@ class TestSilentReply:
         assert out["policy"] is not None
 
     def test_resolve_with_session_key(self) -> None:
-        out = resolve_silent_reply_settings({
-            "sessionKey": "agent:main:dm:user1",
-        })
+        out = resolve_silent_reply_settings(
+            {
+                "sessionKey": "agent:main:dm:user1",
+            }
+        )
         assert "policy" in out
 
     def test_resolve_with_surface(self) -> None:
@@ -147,18 +152,20 @@ class TestIoFacade:
 
 class TestIoSnapshotShared:
     def test_create_config_file_snapshot_minimal(self) -> None:
-        snap = create_config_file_snapshot({
-            "path": "/cfg.json",
-            "exists": True,
-            "raw": "{}",
-            "parsed": {},
-            "sourceConfig": {"a": 1},
-            "runtimeConfig": {"a": 1},
-            "valid": True,
-            "issues": [],
-            "warnings": [],
-            "legacyIssues": [],
-        })
+        snap = create_config_file_snapshot(
+            {
+                "path": "/cfg.json",
+                "exists": True,
+                "raw": "{}",
+                "parsed": {},
+                "sourceConfig": {"a": 1},
+                "runtimeConfig": {"a": 1},
+                "valid": True,
+                "issues": [],
+                "warnings": [],
+                "legacyIssues": [],
+            }
+        )
         assert snap["path"] == "/cfg.json"
         assert snap["sourceConfig"] == {"a": 1}
         assert snap["resolved"] == {"a": 1}
@@ -166,20 +173,22 @@ class TestIoSnapshotShared:
         assert snap["config"] == {"a": 1}
 
     def test_create_snapshot_with_hash_and_error(self) -> None:
-        snap = create_config_file_snapshot({
-            "path": "/cfg.json",
-            "exists": True,
-            "raw": "{}",
-            "parsed": {},
-            "sourceConfig": {},
-            "runtimeConfig": {},
-            "valid": False,
-            "issues": [{"path": "x", "message": "bad"}],
-            "warnings": [],
-            "legacyIssues": [],
-            "hash": "abc123",
-            "readError": {"code": "ENOENT"},
-        })
+        snap = create_config_file_snapshot(
+            {
+                "path": "/cfg.json",
+                "exists": True,
+                "raw": "{}",
+                "parsed": {},
+                "sourceConfig": {},
+                "runtimeConfig": {},
+                "valid": False,
+                "issues": [{"path": "x", "message": "bad"}],
+                "warnings": [],
+                "legacyIssues": [],
+                "hash": "abc123",
+                "readError": {"code": "ENOENT"},
+            }
+        )
         assert snap["hash"] == "abc123"
         assert snap["readError"] == {"code": "ENOENT"}
         assert len(snap["issues"]) == 1
@@ -233,7 +242,9 @@ class TestIoSnapshotShared:
                 return [{"path": "a", "message": "m"}]
 
             out = await collect_invalid_config_legacy_issues(
-                {"a": 1}, {"a": 2}, find_doctor_legacy_config_issues=find_issues,
+                {"a": 1},
+                {"a": 2},
+                find_doctor_legacy_config_issues=find_issues,
             )
             assert out == [{"path": "a", "message": "m"}]
             assert captured == [({"a": 1}, {"a": 2})]
@@ -279,7 +290,8 @@ class TestSensitivePaths:
 class TestRuntimeSourceProjection:
     def test_no_runtime_snapshot_returns_input(self) -> None:
         out = project_config_onto_runtime_source_snapshot(
-            {"a": 1}, get_runtime_config_snapshot_fn=lambda: None,
+            {"a": 1},
+            get_runtime_config_snapshot_fn=lambda: None,
             get_runtime_config_source_snapshot_fn=lambda: None,
         )
         assert out == {"a": 1}
@@ -410,6 +422,27 @@ class TestSessionsFacade:
         with pytest.raises(NotImplementedError):
             delete_session_entry_lifecycle()
 
+    def test_helpers_delegate_to_runtime_hooks(self) -> None:
+        install_runtime_hooks(
+            {
+                "canonicalize_session_entry_aliases": lambda *args, **kwargs: {
+                    "ok": "canonicalized"
+                },
+                "delete_session_entry_lifecycle": lambda *args, **kwargs: {"ok": "deleted"},
+                "patch_session_entry_with_key": lambda *args, **kwargs: {"ok": "patched"},
+                "reset_session_entry_lifecycle": lambda *args, **kwargs: {"ok": "reset"},
+                "resolve_session_entry_candidate_target": lambda *args, **kwargs: {
+                    "ok": "resolved"
+                },
+            }
+        )
+
+        assert canonicalize_session_entry_aliases() == {"ok": "canonicalized"}
+        assert delete_session_entry_lifecycle() == {"ok": "deleted"}
+        assert patch_session_entry_with_key() == {"ok": "patched"}
+        assert reset_session_entry_lifecycle() == {"ok": "reset"}
+        assert resolve_session_entry_candidate_target() == {"ok": "resolved"}
+
 
 # ============================================================================
 # version
@@ -470,18 +503,33 @@ class TestVersion:
                 return -1 if a["patch"] < b["patch"] else 1
             return 0
 
-        assert compare_openclaw_versions(
-            "1.0.0", "2.0.0",
-            parse_semver_fn=parse_semver, compare_openclaw_semver_fn=compare,
-        ) == -1
-        assert compare_openclaw_versions(
-            "invalid", "1.0.0", parse_semver_fn=parse_semver,
-        ) is None
+        assert (
+            compare_openclaw_versions(
+                "1.0.0",
+                "2.0.0",
+                parse_semver_fn=parse_semver,
+                compare_openclaw_semver_fn=compare,
+            )
+            == -1
+        )
+        assert (
+            compare_openclaw_versions(
+                "invalid",
+                "1.0.0",
+                parse_semver_fn=parse_semver,
+            )
+            is None
+        )
 
     def test_should_warn_older(self) -> None:
         def parse_semver(s):
             parts = s.split(".")
-            return {"major": int(parts[0]), "minor": int(parts[1]), "patch": int(parts[2]), "prerelease": []}
+            return {
+                "major": int(parts[0]),
+                "minor": int(parts[1]),
+                "patch": int(parts[2]),
+                "prerelease": [],
+            }
 
         def compare(a, b):
             if a["major"] != b["major"]:
@@ -489,10 +537,15 @@ class TestVersion:
             return 0
 
         # Current is older than touched => warn.
-        assert should_warn_on_touched_version(
-            "1.0.0", "2.0.0",
-            parse_semver_fn=parse_semver, compare_openclaw_semver_fn=compare,
-        ) is True
+        assert (
+            should_warn_on_touched_version(
+                "1.0.0",
+                "2.0.0",
+                parse_semver_fn=parse_semver,
+                compare_openclaw_semver_fn=compare,
+            )
+            is True
+        )
 
     def test_should_not_warn_same(self) -> None:
         class V:
@@ -515,11 +568,15 @@ class TestVersion:
                 return 0
             return -1
 
-        assert should_warn_on_touched_version(
-            "1.0.0", "1.0.0",
-            parse_semver_fn=parse_semver,
-            compare_openclaw_semver_fn=compare,
-        ) is False
+        assert (
+            should_warn_on_touched_version(
+                "1.0.0",
+                "1.0.0",
+                parse_semver_fn=parse_semver,
+                compare_openclaw_semver_fn=compare,
+            )
+            is False
+        )
 
 
 # ============================================================================
@@ -531,12 +588,14 @@ class TestIoOwnerDisplaySecret:
     def test_retain_with_secret(self) -> None:
         state: OwnerDisplaySecretRuntimeState = {"pendingByPath": {}}
         config = {"a": 1}
-        out = retain_generated_owner_display_secret({
-            "config": config,
-            "configPath": "plugins.entries.foo.apiKey",
-            "generatedSecret": "secret-123",
-            "state": state,
-        })
+        out = retain_generated_owner_display_secret(
+            {
+                "config": config,
+                "configPath": "plugins.entries.foo.apiKey",
+                "generatedSecret": "secret-123",
+                "state": state,
+            }
+        )
         assert out is config
         assert state["pendingByPath"]["plugins.entries.foo.apiKey"] == "secret-123"
 
@@ -545,11 +604,13 @@ class TestIoOwnerDisplaySecret:
             "pendingByPath": {"old.path": "old-secret"},
         }
         config = {"a": 1}
-        out = retain_generated_owner_display_secret({
-            "config": config,
-            "configPath": "old.path",
-            "state": state,
-        })
+        out = retain_generated_owner_display_secret(
+            {
+                "config": config,
+                "configPath": "old.path",
+                "state": state,
+            }
+        )
         assert out is config
         assert "old.path" not in state["pendingByPath"]
 
@@ -573,7 +634,8 @@ class TestShellEnvExpectedKeys:
             return ["DUP", "TELEGRAM_BOT_TOKEN"]
 
         keys = resolve_shell_env_expected_keys(
-            {}, list_known_provider_auth_env_var_names=list_provider,
+            {},
+            list_known_provider_auth_env_var_names=list_provider,
             list_known_channel_env_var_names=list_channel,
         )
         assert "OPENAI_API_KEY" in keys
@@ -802,19 +864,23 @@ class TestPluginAutoEnableDetect:
             return {"plugins": []}
 
         def candidates_resolver(params):
-            return [{
-                "pluginId": "telegram",
-                "kind": "channel-configured",
-                "channelId": "telegram",
-            }]
+            return [
+                {
+                    "pluginId": "telegram",
+                    "kind": "channel-configured",
+                    "channelId": "telegram",
+                }
+            ]
 
         out = detect_plugin_auto_enable_candidates(
             resolve_plugin_auto_enable_readiness_fn=readiness,
             resolve_plugin_auto_enable_manifest_registry_fn=registry_resolver,
             resolve_configured_plugin_auto_enable_candidates_fn=candidates_resolver,
         )
-        assert out == [{
-            "pluginId": "telegram",
-            "kind": "channel-configured",
-            "channelId": "telegram",
-        }]
+        assert out == [
+            {
+                "pluginId": "telegram",
+                "kind": "channel-configured",
+                "channelId": "telegram",
+            }
+        ]

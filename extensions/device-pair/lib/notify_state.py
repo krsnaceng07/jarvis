@@ -24,10 +24,12 @@ Python adaptations (documented in code):
 - TS ``Map`` / ``Set`` shapes → Python ``dict`` /
   ``set`` (membership only)
 """
+
 from __future__ import annotations
 
 import hashlib
 import json
+import re
 from typing import Literal, TypedDict, Union
 
 from jarvis_normalization_core.string_coerce import normalize_optional_string
@@ -46,9 +48,7 @@ DEVICE_PAIR_NOTIFY_MAX_SEEN_AGE_MS = 24 * 60 * 60 * 1000
 
 
 NotifySubscriptionMode = Literal["persistent", "once"]
-VALID_NOTIFY_SUBSCRIPTION_MODES: frozenset[str] = frozenset(
-    {"persistent", "once"}
-)
+VALID_NOTIFY_SUBSCRIPTION_MODES: frozenset[str] = frozenset({"persistent", "once"})
 
 
 class NotifySubscription(TypedDict, total=False):
@@ -107,9 +107,7 @@ def normalize_legacy_notify_state(raw: object) -> LegacyNotifyStateFile:
     root = raw if isinstance(raw, dict) else {}
     subscribers_raw = root.get("subscribers") if isinstance(root, dict) else None
     subscribers_input = subscribers_raw if isinstance(subscribers_raw, list) else []
-    notified_raw = (
-        root.get("notifiedRequestIds") if isinstance(root, dict) else None
-    )
+    notified_raw = root.get("notifiedRequestIds") if isinstance(root, dict) else None
     notified_input: dict = notified_raw if isinstance(notified_raw, dict) else {}
 
     subscribers: list[NotifySubscription] = []
@@ -120,14 +118,10 @@ def normalize_legacy_notify_state(raw: object) -> LegacyNotifyStateFile:
         if not to_value:
             continue
         account_id = normalize_optional_string(item.get("accountId")) or None
-        message_thread_id = _normalize_message_thread_id(
-            item.get("messageThreadId")
-        )
+        message_thread_id = _normalize_message_thread_id(item.get("messageThreadId"))
         mode = "once" if item.get("mode") == "once" else "persistent"
         added_at_ms_raw = item.get("addedAtMs")
-        if isinstance(added_at_ms_raw, (int, float)) and not isinstance(
-            added_at_ms_raw, bool
-        ):
+        if isinstance(added_at_ms_raw, (int, float)) and not isinstance(added_at_ms_raw, bool):
             try:
                 added_at_ms = int(added_at_ms_raw)
             except (TypeError, ValueError):
@@ -201,8 +195,6 @@ def _normalize_notify_thread_key(message_thread_id: object) -> str:
 def _is_integer_string(value: str) -> bool:
     return bool(_INTEGER_RE.match(value))
 
-
-import re
 
 _INTEGER_RE = re.compile(r"^-?\d+$")
 

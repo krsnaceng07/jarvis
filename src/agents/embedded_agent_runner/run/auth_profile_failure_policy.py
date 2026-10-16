@@ -14,7 +14,7 @@ Phase 7.6h-2 — focused minimal port.
 """
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, Optional
 
 
 #: Auth profile failure reason.

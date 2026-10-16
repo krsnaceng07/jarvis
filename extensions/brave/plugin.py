@@ -3,6 +3,7 @@
 OpenClaw parity: mirrors the OpenClaw ``brave`` infra
 extension (15 files in the OpenClaw source).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

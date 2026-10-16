@@ -47,7 +47,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Optional, Union
 
 from src.sessions.input_provenance import (
@@ -58,13 +58,11 @@ from src.sessions.user_turn_transcript_types import (
     PersistedUserTurnMediaInput,
     PersistedUserTurnMessage,
     UserTurnInput,
-    UserTurnMessagePersistenceParams,
     UserTurnTranscriptPersistResult,
     UserTurnTranscriptRecorder,
     UserTurnTranscriptTarget,
     UserTurnTranscriptTargetResolver,
     UserTurnTranscriptUpdateMode,
-    UserTurnTransport,
     UserTurnSender,
 )
 
@@ -74,6 +72,14 @@ __all__ = [
     "PersistedUserTurnMessage",
     "UserTurnInput",
     "UserTurnTranscriptRecorder",
+    "build_persisted_user_turn_media_inputs_from_fields",
+    "build_persisted_user_turn_message",
+    "build_run_user_turn_idempotency_key",
+    "create_user_turn_transcript_recorder",
+    "merge_prepared_user_turn_message_for_runtime",
+    "prepare_persisted_user_turn_message_for_transcript_write",
+    "resolve_persisted_user_turn_text",
+    "restore_prepared_user_turn_operational_meta_for_runtime",
     "buildPersistedUserTurnMediaInputsFromFields",
     "buildPersistedUserTurnMessage",
     "buildRunUserTurnIdempotencyKey",
@@ -958,3 +964,15 @@ def create_user_turn_transcript_recorder(
             }
         ),
     }
+
+
+# OpenClaw camelCase parity aliases:
+buildPersistedUserTurnMediaInputsFromFields = build_persisted_user_turn_media_inputs_from_fields
+buildPersistedUserTurnMessage = build_persisted_user_turn_message
+buildRunUserTurnIdempotencyKey = build_run_user_turn_idempotency_key
+createUserTurnTranscriptRecorder = create_user_turn_transcript_recorder
+mergePreparedUserTurnMessageForRuntime = merge_prepared_user_turn_message_for_runtime
+preparePersistedUserTurnMessageForTranscriptWrite = prepare_persisted_user_turn_message_for_transcript_write
+resolvePersistedUserTurnText = resolve_persisted_user_turn_text
+restorePreparedUserTurnOperationalMetaForRuntime = restore_prepared_user_turn_operational_meta_for_runtime
+

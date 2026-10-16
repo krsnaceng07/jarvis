@@ -684,11 +684,11 @@ class TestCollectDuplicateUserMessageEntryIdsForCompaction:
 
 class TestCompactEmbeddedAgentSessionDirect:
     @pytest.mark.asyncio
-    async def test_stub_raises(self) -> None:
-        # Phase 7.2a — the runtime
-        # lands in 7.2c.
-        with pytest.raises(NotImplementedError):
-            await compact_embedded_agent_session_direct({})
+    async def test_delegates_to_compact_runtime(self) -> None:
+        # Runtime is loaded dynamically and delegates to compact module
+        result = await compact_embedded_agent_session_direct({})
+        assert isinstance(result, dict)
+        assert "ok" in result
 
 
 # ============================================================================

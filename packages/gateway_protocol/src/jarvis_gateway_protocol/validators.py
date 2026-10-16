@@ -11,7 +11,9 @@ from typing import Any
 from .schema import GatewayError, GatewayRequest, GatewayResponse, RPCRequest, RPCResponse
 
 
-def validate_request(raw: Any) -> tuple[GatewayRequest | RPCRequest, None] | tuple[None, GatewayError]:
+def validate_request(
+    raw: Any,
+) -> tuple[GatewayRequest | RPCRequest, None] | tuple[None, GatewayError]:
     """Parse and validate a raw dict as either a ``GatewayRequest`` or a JSON-RPC ``RPCRequest``.
 
     Accepts both legacy Gateway frames (type='req') and JSON-RPC 2.0 frames (jsonrpc='2.0').
@@ -57,7 +59,9 @@ def validate_request(raw: Any) -> tuple[GatewayRequest | RPCRequest, None] | tup
     return GatewayRequest(method=method.strip(), id=id_, params=params), None
 
 
-def validate_response(raw: Any) -> tuple[GatewayResponse | RPCResponse, None] | tuple[None, GatewayError]:
+def validate_response(
+    raw: Any,
+) -> tuple[GatewayResponse | RPCResponse, None] | tuple[None, GatewayError]:
     """Parse and validate a raw dict as either a ``GatewayResponse`` or an ``RPCResponse``."""
     if not isinstance(raw, dict):
         return None, GatewayError.invalid_request("response must be a JSON object")

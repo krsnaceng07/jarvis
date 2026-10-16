@@ -27,6 +27,7 @@ Adaptations
   rewrite) is preserved via the local
   :mod:`edit_diff` module.
 """
+
 from __future__ import annotations
 
 import json
@@ -123,9 +124,7 @@ async def edit_file(
     if not edits:
         raise ValueError("edits must be a non-empty list")
     resolved = (
-        resolve_to_cwd(file_path, cwd or os.getcwd())
-        if not os.path.isabs(file_path)
-        else file_path
+        resolve_to_cwd(file_path, cwd or os.getcwd()) if not os.path.isabs(file_path) else file_path
     )
     if not os.path.exists(resolved):
         raise FileNotFoundError(f"File not found: {resolved}")
@@ -152,9 +151,7 @@ async def edit_file(
             return {"changed": False}
         # Write the new content (preserve
         # encoding).
-        Path(resolved).write_bytes(
-            new_text.encode(encoding, errors="replace")
-        )
+        Path(resolved).write_bytes(new_text.encode(encoding, errors="replace"))
         # Build the unified patch
         patch = create_unified_patch(resolved, original_text, new_text)
         # Display-friendly diff (the OpenClaw
@@ -196,13 +193,15 @@ def _first_changed_line(old: str, new: str) -> Optional[int]:
 # ============================================================================
 
 
-async def create_edit_tool_definition(
+def create_edit_tool_definition(
     cwd: str = "",
+    options: Optional[dict] = None,
 ) -> ToolDefinition:
     """Build the :class:`ToolDefinition` for
     the edit tool. Mirrors
     ``createEditToolDefinition`` (``edit.ts:392``).
     """
+
     async def _execute(
         tool_call_id: str,
         params: dict,
@@ -210,13 +209,27 @@ async def create_edit_tool_definition(
         on_update: object = None,
         ctx: object = None,
     ) -> AgentToolResult:
+        params = prepare_edit_arguments(params)
         path = params.get("path", "")
         edits = params.get("edits", [])
         if not path:
             raise ValueError("path is required")
         if not edits:
             raise ValueError("edits must be a non-empty list")
-        result = await edit_file(path, edits, cwd=cwd)
+
+        # Resolve path against cwd
+        resolved = resolve_to_cwd(path, cwd or os.getcwd()) if not os.path.isabs(path) else path
+
+        # Apply sandbox and tool policy security floor
+        from ...sandbox import guard_sandbox_tool_access
+
+        _, validated = guard_sandbox_tool_access(
+            "edit", resolved, cwd, options, ctx, is_mutation=True
+        )
+        if validated is not None:
+            resolved = str(validated)
+
+        result = await edit_file(resolved, edits, cwd=cwd)
         if not result.get("changed"):
             return {
                 "content": [
@@ -346,9 +359,9 @@ def prepare_edit_arguments(input_raw: Any) -> dict[str, Any]:
         except Exception:
             pass
 
-    # Legacy single-edit top-level fields.
-    old_text = args.get("oldText")
-    new_text = args.get("newText")
+    # Legacy single-edit top-level fields (supports camelCase and snake_case).
+    old_text = args.get("oldText") or args.get("old_text")
+    new_text = args.get("newText") or args.get("new_text")
     if isinstance(old_text, str) and isinstance(new_text, str):
         existing = args.get("edits") or []
         if not isinstance(existing, list):

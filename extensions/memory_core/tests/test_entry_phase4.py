@@ -6,12 +6,12 @@ Verifies the entry point wires the dreaming pipeline correctly:
 - /dreaming command handler routes through dreaming_command.handle_dreaming_command
 - _register calls dreaming_module.register_short_term_promotion_dreaming
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
 from unittest.mock import patch
 
-import pytest
 
 from extensions.memory_core import dreaming_state
 import extensions.memory_core as memory_core_module

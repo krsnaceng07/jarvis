@@ -1,0 +1,52 @@
+{
+  "id": "azure-speech",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "azure-speech"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "azure-speech",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "AZURE_SPEECH_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "azure-speech": {
+        "baseUrl": "https://eastus.tts.speech.microsoft.com",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "azure-tts",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

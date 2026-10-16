@@ -277,7 +277,7 @@ class AgentDefaultsConfig(TypedDict, total=False):
     voiceModel: object
     mediaGenerationAutoProviderFallback: bool
     pdfModel: object
-    pdfMaxBytesMb: int
+    pdfMaxMb: int
     pdfMaxPages: int
     models: dict
     modelPolicy: AgentModelPolicyConfig

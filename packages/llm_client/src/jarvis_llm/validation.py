@@ -55,7 +55,9 @@ from .types import Tool, ToolCall
 MAX_JSON_COERCE_LENGTH = 64 * 1024
 
 #: Parity: ``JSON_NUMBER_TOKEN_RE``. Anchored, case-insensitive exponent.
-_JSON_NUMBER_TOKEN_RE = re.compile(r"^[+-]?(?:(?:\d+\.?\d*)|(?:\.\d+))(?:e[+-]?\d+)?$", re.IGNORECASE)
+_JSON_NUMBER_TOKEN_RE = re.compile(
+    r"^[+-]?(?:(?:\d+\.?\d*)|(?:\.\d+))(?:e[+-]?\d+)?$", re.IGNORECASE
+)
 
 #: Largest integer JS treats as safe; ``Number.isSafeInteger`` parity.
 _MAX_SAFE_INTEGER = 2**53 - 1
@@ -468,9 +470,7 @@ def _collect_errors(value: Any, schema: Any, path: str) -> list[_ValidationIssue
     enum = schema.get("enum")
     if isinstance(enum, list) and not any(_json_equal(value, option) for option in enum):
         allowed = ", ".join(repr(option) for option in enum)
-        issues.append(
-            _ValidationIssue(path=path or "root", message=f"Expected one of: {allowed}")
-        )
+        issues.append(_ValidationIssue(path=path or "root", message=f"Expected one of: {allowed}"))
 
     issues.extend(_check_combinators(value, schema, path))
 
@@ -590,17 +590,13 @@ def _check_string(value: str, schema: dict[str, Any], path: str) -> list[_Valida
     min_length = schema.get("minLength")
     if isinstance(min_length, int) and not isinstance(min_length, bool) and len(value) < min_length:
         issues.append(
-            _ValidationIssue(
-                path=path or "root", message=f"Expected string length >= {min_length}"
-            )
+            _ValidationIssue(path=path or "root", message=f"Expected string length >= {min_length}")
         )
 
     max_length = schema.get("maxLength")
     if isinstance(max_length, int) and not isinstance(max_length, bool) and len(value) > max_length:
         issues.append(
-            _ValidationIssue(
-                path=path or "root", message=f"Expected string length <= {max_length}"
-            )
+            _ValidationIssue(path=path or "root", message=f"Expected string length <= {max_length}")
         )
 
     pattern = schema.get("pattern")
@@ -649,9 +645,7 @@ def _check_number(value: Any, schema: dict[str, Any], path: str) -> list[_Valida
             abs(remainder), abs(float(multiple_of)), abs_tol=1e-9
         ):
             issues.append(
-                _ValidationIssue(
-                    path=path or "root", message=f"Expected multiple of {multiple_of}"
-                )
+                _ValidationIssue(path=path or "root", message=f"Expected multiple of {multiple_of}")
             )
 
     return issues
@@ -666,9 +660,7 @@ def _json_equal(left: Any, right: Any) -> bool:
             _json_equal(left[key], right[key]) for key in left
         )
     if isinstance(left, list) and isinstance(right, list):
-        return len(left) == len(right) and all(
-            _json_equal(a, b) for a, b in zip(left, right)
-        )
+        return len(left) == len(right) and all(_json_equal(a, b) for a, b in zip(left, right))
     return bool(left == right)
 
 

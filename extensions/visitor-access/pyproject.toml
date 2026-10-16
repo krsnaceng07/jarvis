@@ -1,0 +1,12 @@
+[project]
+name = "jarvis-visitor-access"
+version = "0.1.0"
+description = "JARVIS Visitor Access extension for managing Cloudflare Access visitor grants."
+requires-python = ">=3.13"
+dependencies = [
+    "httpx>=0.27.0",
+    "jarvis-plugin-sdk>=0.1.0-rc1",
+]
+
+[tool.uv]
+package = false

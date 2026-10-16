@@ -1,0 +1,24 @@
+{
+  "id": "googlechat",
+  "name": "Google Chat",
+  "description": "JARVIS Google Chat channel plugin for spaces and direct messages.",
+  "channels": [
+    "googlechat"
+  ],
+  "activation": {
+    "onStartup": false
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "serviceAccountKey": {
+        "type": "string"
+      },
+      "webhookUrl": {
+        "type": "string"
+      }
+    }
+  },
+  "kind": "channel"
+}

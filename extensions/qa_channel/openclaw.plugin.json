@@ -1,0 +1,7 @@
+{
+  "id": "qa_channel",
+  "name": "QA Channel",
+  "description": "Compatibility alias for qa-channel extension",
+  "version": "0.1.0",
+  "kind": "channel"
+}

@@ -13,7 +13,7 @@ Phase 7.6h-2 — focused minimal port.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 
 #: Embedded-run context-recovery state shape. Mirrors

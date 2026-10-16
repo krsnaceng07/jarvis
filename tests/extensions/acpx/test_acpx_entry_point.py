@@ -21,7 +21,6 @@ import importlib.util
 import os
 import sys
 
-import pytest
 
 # Load the extension's ``plugin.py`` via
 # ``importlib.util.spec_from_file_location`` so the

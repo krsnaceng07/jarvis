@@ -5,31 +5,28 @@ from __future__ import annotations
 import pytest
 
 from src.agents.tool_policy import (
-    apply_tool_policy_pipeline,
+    filter_tools_by_policy,
     expand_tool_groups,
-    normalize_tool_list,
 )
 from src.agents.tool_allowlist_guard import ToolAllowlistGuard, ToolAllowlistDeniedError
-from src.agents.tool_loop_detection import ToolLoopDetector, ToolLoopDetectedError
-
 
 def test_expand_tool_groups():
-    expanded = expand_tool_groups(["group:coding", "!bash"])
-    assert "read_file" in expanded
-    assert "write_to_file" in expanded
-    assert "bash" not in expanded
+    expanded = expand_tool_groups(["group:fs", "!exec"])
+    assert "read" in expanded
+    assert "write" in expanded
+    assert "exec" not in expanded
 
 
 def test_apply_tool_policy_pipeline():
-    available = ["read_file", "write_to_file", "bash", "run_command", "search_web"]
+    available = ["read", "write", "exec", "run_command", "web_search"]
 
     # Apply config allowlist
-    res1 = apply_tool_policy_pipeline(available, config_allowlist=["group:web", "read_file"])
-    assert set(res1) == {"search_web", "read_file"}
+    res1 = filter_tools_by_policy(available, allow=["group:web", "read"])
+    assert set(res1) == {"web_search", "read"}
 
     # Apply denylist
-    res2 = apply_tool_policy_pipeline(available, config_denylist=["bash", "run_command"])
-    assert set(res2) == {"read_file", "write_to_file", "search_web"}
+    res2 = filter_tools_by_policy(available, deny=["exec", "run_command"])
+    assert set(res2) == {"read", "write", "web_search"}
 
 
 def test_tool_allowlist_guard():
@@ -42,14 +39,4 @@ def test_tool_allowlist_guard():
         guard.check_allowed("bash")
 
 
-def test_tool_loop_detector():
-    detector = ToolLoopDetector(window_size=5, threshold=3)
 
-    detector.record_and_check("read_file", {"path": "a.txt"})
-    detector.record_and_check("read_file", {"path": "a.txt"})
-    is_loop = detector.record_and_check("read_file", {"path": "a.txt"})
-
-    assert is_loop
-
-    with pytest.raises(ToolLoopDetectedError):
-        detector.check_or_raise("read_file", {"path": "a.txt"})

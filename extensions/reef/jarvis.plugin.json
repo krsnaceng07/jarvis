@@ -1,0 +1,24 @@
+{
+  "id": "reef",
+  "name": "Reef",
+  "description": "JARVIS Reef decentralized storage and pubsub transport.",
+  "channels": [
+    "reef"
+  ],
+  "activation": {
+    "onStartup": false
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "nodeId": {
+        "type": "string"
+      },
+      "storagePath": {
+        "type": "string"
+      }
+    }
+  },
+  "kind": "infra"
+}

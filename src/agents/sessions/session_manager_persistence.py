@@ -47,7 +47,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from typing import Any, Callable, Optional
 
 from .session_manager_core import (

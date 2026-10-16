@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import pytest
 
 from src.agents.tool_catalog import ToolCatalog, ToolDescriptor
-from src.agents.tool_search import tool_search_query, TOOL_SEARCH_TOOL_NAME
-from src.agents.tool_schema_projection import project_tool_schema, quarantine_tool
+from src.agents.tool_search import ToolSearchRuntime
+from src.agents.tool_schema_projection import project_tool_schema
 
 
 def test_tool_catalog_and_search():
@@ -22,7 +21,8 @@ def test_tool_catalog_and_search():
     assert len(cat.get_effective_inventory()) == 3
 
     # Search query
-    res = tool_search_query("read file", catalog=cat)
+    runtime = ToolSearchRuntime(catalog=cat)
+    res = runtime.search("read file")
     assert len(res) >= 1
     assert res[0]["name"] == "read_file"
 

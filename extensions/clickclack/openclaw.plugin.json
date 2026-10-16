@@ -1,0 +1,27 @@
+{
+  "id": "clickclack",
+  "doctorContract": {
+    "configRepair": true
+  },
+  "name": "ClickClack",
+  "description": "OpenClaw ClickClack interactive terminal channel plugin.",
+  "activation": {
+    "onStartup": false
+  },
+  "channels": [
+    "clickclack"
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "endpoint": {
+        "type": "string"
+      },
+      "apiKey": {
+        "type": "string"
+      }
+    }
+  },
+  "kind": "channel"
+}

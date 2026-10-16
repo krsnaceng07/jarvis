@@ -92,15 +92,7 @@ class AgentSession(AgentSessionTree):
         self.reconnect_to_agent()
         # 2. Install the before-/after-
         #    tool hooks on the agent.
-        #    STUB in 6.12h; the full
-        #    plumbing lands in 6.13+.
-        try:
-            self.install_agent_tool_hooks()
-        except Exception:
-            _LOG.debug(
-                "install_agent_tool_hooks raised (stub)",
-                exc_info=True,
-            )
+        self.install_agent_tool_hooks()
         # 3. Build the runtime.
         self.build_runtime(
             {

@@ -26,6 +26,7 @@ Key port decisions:
 - This module imports nothing from other jarvis_sdk
   modules — pure shapes.
 """
+
 from __future__ import annotations
 
 from typing import Any, Literal, TypedDict, TypeAlias

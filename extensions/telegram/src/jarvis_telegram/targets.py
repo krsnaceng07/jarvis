@@ -8,6 +8,7 @@ from typing import Literal
 @dataclass(frozen=True)
 class TelegramTarget:
     """Represents a parsed Telegram target."""
+
     chat_id: str
     message_thread_id: int | None = None
     chat_type: Literal["direct", "group", "unknown"] = "unknown"
@@ -23,7 +24,7 @@ class TelegramTarget:
 
 def parse_telegram_target(target_string: str) -> TelegramTarget:
     """Parse a JARVIS target string into a TelegramTarget.
-    
+
     Expected formats:
       telegram:123456
       telegram:-100987654321
@@ -32,12 +33,12 @@ def parse_telegram_target(target_string: str) -> TelegramTarget:
     """
     cleaned = target_string.strip()
     if cleaned.startswith("telegram:"):
-        cleaned = cleaned[len("telegram:"):]
-        
+        cleaned = cleaned[len("telegram:") :]
+
     topic_match = re.search(r":topic:(\d+)$", cleaned)
     if topic_match:
         thread_id = int(topic_match.group(1))
-        chat_id = cleaned[:topic_match.start()]
+        chat_id = cleaned[: topic_match.start()]
     else:
         thread_id = None
         chat_id = cleaned

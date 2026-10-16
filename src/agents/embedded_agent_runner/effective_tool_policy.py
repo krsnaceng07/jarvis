@@ -11,7 +11,7 @@ Phase 7.6h-3 — focused minimal port.
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 _apply_final_effective_tool_policy_hook = None
@@ -32,9 +32,12 @@ def apply_final_effective_tool_policy(params: Dict[str, Any]) -> List[Any]:
     bundled = list(params.get("bundledTools") or [])
     if not bundled:
         return bundled
-    # The full pipeline runs through the orchestrator's tool policy pipeline; the
-    # focused port returns the bundled tools as-is and defers the heavy
-    # filtering to the installable runtime hook.
+
+    policy = params.get("toolPolicy") or params.get("policy")
+    if isinstance(policy, dict):
+        from src.agents.tool_policy import filter_tools_by_policy
+        return filter_tools_by_policy(bundled, policy)
+
     return bundled
 
 

@@ -3,8 +3,12 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
+from jarvis_channels.allowlist import enforce_dm_policy
+from jarvis_channels.pairing import PairingStore
+from jarvis_channels.types import NormalizedLocation
+from jarvis_normalization_core.result import Err, Ok, Result
 from jarvis_sdk.contract import ChannelPlugin
-from jarvis_normalization_core.result import Result, Ok, Err
+from jarvis_state_core.database import StateDatabase
 
 from .actions import build_approval_keyboard, parse_callback_query
 from .client import TelegramClient
@@ -13,16 +17,11 @@ from .formatting import format_for_telegram
 from .polling import PollingWorker
 from .targets import parse_telegram_target
 
-from jarvis_channels.types import NormalizedLocation
-
-from jarvis_state_core.database import StateDatabase
-from jarvis_channels.pairing import PairingStore
-from jarvis_channels.allowlist import enforce_dm_policy
-
 if TYPE_CHECKING:
     from collections.abc import Callable
 
 _log = logging.getLogger("jarvis.telegram")
+
 
 class TelegramChannelPlugin(ChannelPlugin):
     """Telegram channel implementation for JARVIS."""
@@ -46,9 +45,13 @@ class TelegramChannelPlugin(ChannelPlugin):
 
         # Init pairing store
         import sqlite3
+
         from jarvis_state_core.database import StateDatabaseOptions
+
         db_path = ctx.workspace / "state" / "jarvis.sqlite"
-        opts = StateDatabaseOptions(connection_factory=lambda: sqlite3.connect(db_path, isolation_level=None))
+        opts = StateDatabaseOptions(
+            connection_factory=lambda: sqlite3.connect(db_path, isolation_level=None)
+        )
         self._pairing_store = PairingStore(StateDatabase(opts))
 
         # Validate config
@@ -69,7 +72,7 @@ class TelegramChannelPlugin(ChannelPlugin):
             self.worker = PollingWorker(
                 client=self.client,
                 callback=self._handle_update,
-                interval=self.config.pollingIntervalSec
+                interval=self.config.pollingIntervalSec,
             )
             # Worker is started when `listen` is called
 
@@ -83,7 +86,55 @@ class TelegramChannelPlugin(ChannelPlugin):
         if self.client:
             await self.client.close()
 
-    async def send(self, target: str, message: Any) -> Result[None]:
+    def reconfigure(
+        self,
+        config: TelegramConfig | dict[str, Any],
+        callback: Callable[[Any], None] | None = None,
+        auto_listen: bool = True,
+    ) -> None:
+        """Dynamically reconfigure the channel with new credentials or options."""
+        if isinstance(config, dict):
+            self.config = TelegramConfig(**config)
+        else:
+            self.config = config
+
+        if callback is not None:
+            self._callback = callback
+
+        if not self.config.is_valid:
+            _log.warning("Telegram botToken not set. Channel remains inactive.")
+            return
+
+        old_worker = self.worker
+        if old_worker and old_worker.is_running:
+            import asyncio
+
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    asyncio.create_task(old_worker.stop())
+                else:
+                    loop.run_until_complete(old_worker.stop())
+            except Exception:
+                pass
+
+        self.client = TelegramClient(token=self.config.botToken)
+        if self.config.transport == "polling":
+            self.worker = PollingWorker(
+                client=self.client,
+                callback=self._handle_update,
+                interval=self.config.pollingIntervalSec,
+            )
+            if auto_listen and self._callback is not None:
+                self.worker.start()
+
+    async def probe(self) -> dict[str, Any]:
+        """Probe the Telegram bot token and retrieve bot metadata."""
+        if not self.client:
+            return {"ok": False, "error": "Telegram client not initialized (missing botToken)"}
+        return await self.client.get_me()
+
+    async def send(self, target: str, message: Any) -> Result[Any]:
         """Send a message to a Telegram target."""
         if not self.client:
             return Err("Telegram client not initialized")
@@ -118,7 +169,27 @@ class TelegramChannelPlugin(ChannelPlugin):
         if approval_id:
             reply_markup = build_approval_keyboard(approval_id)
 
-        location = getattr(message, "location", None) or (message.get("location") if isinstance(message, dict) else None)
+        location = getattr(message, "location", None) or (
+            message.get("location") if isinstance(message, dict) else None
+        )
+
+        # Check for voice_bytes in message or metadata
+        voice_bytes = None
+        if isinstance(message, dict):
+            voice_bytes = message.get("voice_bytes")
+            if not voice_bytes and isinstance(message.get("metadata"), dict):
+                voice_bytes = message["metadata"].get("voice_bytes")
+        elif hasattr(message, "voice_bytes"):
+            voice_bytes = getattr(message, "voice_bytes", None)
+
+        # Synthesize voice note if enabled on Telegram and not already provided
+        if voice_bytes is None and getattr(self.config, "voiceReplies", True) and text:
+            try:
+                from src.talk.speech_synthesizer import synthesize_speech_wav_async
+
+                voice_bytes = await synthesize_speech_wav_async(text)
+            except Exception as e:
+                _log.debug("Telegram voice note synthesis skipped: %s", e)
 
         if location:
             if location.source == "place" and location.name and location.address:
@@ -130,7 +201,7 @@ class TelegramChannelPlugin(ChannelPlugin):
                     address=location.address,
                     reply_to_message_id=reply_to,
                     message_thread_id=parsed_target.message_thread_id,
-                    reply_markup=reply_markup
+                    reply_markup=reply_markup,
                 )
             else:
                 res = await self.client.send_location(
@@ -141,7 +212,7 @@ class TelegramChannelPlugin(ChannelPlugin):
                     live_period=86400 if location.is_live else None,
                     reply_to_message_id=reply_to,
                     message_thread_id=parsed_target.message_thread_id,
-                    reply_markup=reply_markup
+                    reply_markup=reply_markup,
                 )
         else:
             res = await self.client.send_message(
@@ -149,11 +220,32 @@ class TelegramChannelPlugin(ChannelPlugin):
                 text=formatted_text,
                 reply_to_message_id=reply_to,
                 message_thread_id=parsed_target.message_thread_id,
-                reply_markup=reply_markup
+                reply_markup=reply_markup,
             )
 
+        # Dual modality: also deliver the interactive voice note to Telegram
+        if voice_bytes and not location:
+            try:
+                await self.client.send_voice(
+                    chat_id=parsed_target.chat_id,
+                    voice_bytes=voice_bytes,
+                    filename="jarvis_reply.wav",
+                    reply_to_message_id=reply_to,
+                    message_thread_id=parsed_target.message_thread_id,
+                )
+            except Exception as e:
+                _log.warning("Telegram voice note delivery error: %s", e)
+
         if res.get("ok"):
-            return Ok(None)
+            sent = res.get("result") or {}
+            return Ok({
+                "channel": "telegram",
+                "account_id": getattr(self.config, "accountId", None) or "default",
+                "peer_id": parsed_target.chat_id,
+                "delivery_status": "sent",
+                "message_id": str(sent.get("message_id", "")),
+                "verified": True,
+            })
         return Err(res.get("error", "Unknown error"))
 
     async def listen(self, callback: Callable[[Any], None]) -> None:
@@ -185,33 +277,39 @@ class TelegramChannelPlugin(ChannelPlugin):
 
             assert self.config is not None
             assert self.client is not None
+            account_id = getattr(self.config, "accountId", None) or "default"
 
             # We'll construct a canonical target string for the inbound message.
             target_str = f"telegram:{chat_id}"
             if thread_id:
                 target_str += f":topic:{thread_id}"
 
-            # Enforce DM policy (Pairing / Allowlist)
-            is_allowed, pairing_msg = enforce_dm_policy(
-                sender_id=from_id,
-                sender_username=msg.get("from", {}).get("username"),
-                policy_str=self.config.dmPolicy,
-                allowlist=self.config.allowFrom,
-                channel_id="telegram",
-                account_id="main",
-                pairing_store=self._pairing_store
-            )
+            # Enforce DM policy (Open / Pairing / Allowlist)
+            if self.config.dmPolicy == "open":
+                is_allowed = True
+                pairing_msg = None
+            else:
+                is_allowed, pairing_msg = enforce_dm_policy(
+                    sender_id=from_id,
+                    sender_username=msg.get("from", {}).get("username"),
+                    policy_str=self.config.dmPolicy,
+                    allowlist=self.config.allowFrom,
+                    channel_id="telegram",
+                    account_id=account_id,
+                    pairing_store=self._pairing_store,
+                )
 
             if not is_allowed:
                 if pairing_msg:
                     # Send pairing message synchronously in the background task
                     import asyncio
+
                     asyncio.create_task(
                         self.client.send_message(
                             chat_id=chat_id,
                             text=format_for_telegram(pairing_msg),
                             reply_to_message_id=message_id,
-                            message_thread_id=thread_id
+                            message_thread_id=thread_id,
                         )
                     )
                 _log.info(f"Dropped message from {from_id} due to DM policy (pairing/allowlist)")
@@ -221,7 +319,7 @@ class TelegramChannelPlugin(ChannelPlugin):
             peer_kind = "user"
             peer_id = from_id
             if chat_id != from_id:
-                peer_kind = "channel" if str(chat_id).startswith("-100") else "group"
+                peer_kind = "group"
                 peer_id = chat_id
 
             # Parse location
@@ -238,7 +336,7 @@ class TelegramChannelPlugin(ChannelPlugin):
                     source="place",
                     name=venue_dict.get("title"),
                     address=venue_dict.get("address"),
-                    is_live=False
+                    is_live=False,
                 )
             elif location_dict:
                 is_live = "live_period" in location_dict
@@ -247,7 +345,7 @@ class TelegramChannelPlugin(ChannelPlugin):
                     longitude=location_dict.get("longitude", 0.0),
                     accuracy_m=location_dict.get("horizontal_accuracy"),
                     source="live" if is_live else "pin",
-                    is_live=is_live
+                    is_live=is_live,
                 )
 
             inbound = {
@@ -257,10 +355,19 @@ class TelegramChannelPlugin(ChannelPlugin):
                 "from_id": from_id,
                 "text": text,
                 "message_id": message_id,
+                "reply_to_message_id": message_id,
                 "target": target_str,
                 "peer_kind": peer_kind,
                 "peer_id": peer_id,
+                "account_id": account_id,
                 "location": normalized_location,
+                "origin_surface": "telegram",
+                "reply_route": {
+                    "channel": "telegram",
+                    "account_id": account_id,
+                    "target": target_str,
+                    "thread_id": str(thread_id) if thread_id is not None else None,
+                },
             }
             self._callback(inbound)
 
@@ -278,7 +385,7 @@ class TelegramChannelPlugin(ChannelPlugin):
                     "action": parsed["action"],
                     "approval_id": parsed["approval_id"],
                     "from_id": str(cb.get("from", {}).get("id", "")),
-                    "callback_query_id": cb_id
+                    "callback_query_id": cb_id,
                 }
                 self._callback(inbound_action)
 
@@ -287,6 +394,7 @@ class TelegramChannelPlugin(ChannelPlugin):
                 if self.client and self.ctx:
                     # Best effort ack in background
                     import asyncio
+
                     asyncio.create_task(self.client.answer_callback_query(cb_id))
 
 

@@ -2,6 +2,7 @@
 
 Mirrors the TypeScript ``test_dreaming-dreams-file.test.ts`` patterns.
 """
+
 from __future__ import annotations
 
 import os
@@ -204,9 +205,7 @@ def test_update_dreams_file_serializes_concurrent(tmp_path: Path) -> None:
 
 
 def test_update_deep_dreams_file_creates_block(tmp_path: Path) -> None:
-    result = df.update_deep_dreams_file(
-        str(tmp_path), ["- entry 1", "- entry 2"]
-    )
+    result = df.update_deep_dreams_file(str(tmp_path), ["- entry 1", "- entry 2"])
     assert result == str(tmp_path / "DREAMS.md")
     content = (tmp_path / "DREAMS.md").read_text(encoding="utf-8")
     assert "## Deep Sleep" in content
@@ -224,10 +223,7 @@ def test_update_deep_dreams_file_empty_body_uses_placeholder(tmp_path: Path) -> 
 
 def test_update_deep_dreams_file_replaces_existing_block(tmp_path: Path) -> None:
     """If the block already exists, replace its body in place."""
-    initial = (
-        "# Top\n\n## Deep Sleep\n\n"
-        f"{df.DEEP_START_MARKER}\nold body\n{df.DEEP_END_MARKER}\n"
-    )
+    initial = f"# Top\n\n## Deep Sleep\n\n{df.DEEP_START_MARKER}\nold body\n{df.DEEP_END_MARKER}\n"
     (tmp_path / "DREAMS.md").write_text(initial, encoding="utf-8")
     df.update_deep_dreams_file(str(tmp_path), ["new body line"])
     content = (tmp_path / "DREAMS.md").read_text(encoding="utf-8")

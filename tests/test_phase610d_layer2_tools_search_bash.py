@@ -11,18 +11,13 @@ Verifies the 5 search + bash modules:
 from __future__ import annotations
 
 import asyncio
-import os
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest
 
 from src.agents.sessions.tools import (
     BashOperations,
-    FindOperations,
-    GrepOperations,
-    LsOperations,
     create_bash_tool,
     create_bash_tool_definition,
     create_find_tool,
@@ -38,11 +33,6 @@ from src.agents.sessions.tools import (
     list_directory,
     resolve_bash_timeout_ms,
     DEFAULT_BASH_TIMEOUT_MS,
-    DEFAULT_IGNORE_PATTERNS,
-    FIND_DEFAULT_LIMIT,
-    GREP_DEFAULT_LIMIT,
-    LS_DEFAULT_LIMIT,
-    DEFAULT_CONTEXT,
 )
 
 
@@ -179,13 +169,13 @@ class TestExecuteBash:
 class TestCreateBashTool:
     @pytest.mark.asyncio
     async def test_factory(self) -> None:
-        tool = await create_bash_tool_definition()
+        tool = create_bash_tool_definition()
         assert tool["name"] == "bash"
         assert callable(tool["execute"])
 
     @pytest.mark.asyncio
     async def test_execute(self, tmp_path: Path) -> None:
-        tool = await create_bash_tool_definition(cwd=str(tmp_path))
+        tool = create_bash_tool_definition(cwd=str(tmp_path))
         result = await tool["execute"](
             "c1",
             {"command": "echo hi"},
@@ -197,13 +187,13 @@ class TestCreateBashTool:
 
     @pytest.mark.asyncio
     async def test_execute_missing_command(self) -> None:
-        tool = await create_bash_tool_definition()
+        tool = create_bash_tool_definition()
         with pytest.raises(ValueError, match="command is required"):
             await tool["execute"]("c1", {}, None, None, None)
 
     @pytest.mark.asyncio
     async def test_alias(self) -> None:
-        tool = await create_bash_tool()
+        tool = create_bash_tool()
         assert tool["name"] == "bash"
 
 
@@ -261,14 +251,14 @@ class TestFindFiles:
 class TestCreateFindTool:
     @pytest.mark.asyncio
     async def test_factory(self) -> None:
-        tool = await create_find_tool_definition()
+        tool = create_find_tool_definition()
         assert tool["name"] == "find"
         assert callable(tool["execute"])
 
     @pytest.mark.asyncio
     async def test_execute(self, tmp_path: Path) -> None:
         (tmp_path / "x.py").write_text("x")
-        tool = await create_find_tool_definition(cwd=str(tmp_path))
+        tool = create_find_tool_definition(cwd=str(tmp_path))
         result = await tool["execute"](
             "c1", {"pattern": "*.py"}, None, None, None
         )
@@ -276,7 +266,7 @@ class TestCreateFindTool:
 
     @pytest.mark.asyncio
     async def test_execute_no_match(self, tmp_path: Path) -> None:
-        tool = await create_find_tool_definition(cwd=str(tmp_path))
+        tool = create_find_tool_definition(cwd=str(tmp_path))
         result = await tool["execute"](
             "c1", {"pattern": "*.zzz"}, None, None, None
         )
@@ -284,13 +274,13 @@ class TestCreateFindTool:
 
     @pytest.mark.asyncio
     async def test_execute_missing_pattern(self) -> None:
-        tool = await create_find_tool_definition()
+        tool = create_find_tool_definition()
         with pytest.raises(ValueError, match="pattern is required"):
             await tool["execute"]("c1", {}, None, None, None)
 
     @pytest.mark.asyncio
     async def test_alias(self) -> None:
-        tool = await create_find_tool()
+        tool = create_find_tool()
         assert tool["name"] == "find"
 
 
@@ -370,14 +360,14 @@ class TestGrepFiles:
 class TestCreateGrepTool:
     @pytest.mark.asyncio
     async def test_factory(self) -> None:
-        tool = await create_grep_tool_definition()
+        tool = create_grep_tool_definition()
         assert tool["name"] == "grep"
         assert callable(tool["execute"])
 
     @pytest.mark.asyncio
     async def test_execute(self, tmp_path: Path) -> None:
         (tmp_path / "a.py").write_text("hello world\n")
-        tool = await create_grep_tool_definition(cwd=str(tmp_path))
+        tool = create_grep_tool_definition(cwd=str(tmp_path))
         result = await tool["execute"](
             "c1", {"pattern": "hello"}, None, None, None
         )
@@ -385,7 +375,7 @@ class TestCreateGrepTool:
 
     @pytest.mark.asyncio
     async def test_execute_no_match(self, tmp_path: Path) -> None:
-        tool = await create_grep_tool_definition(cwd=str(tmp_path))
+        tool = create_grep_tool_definition(cwd=str(tmp_path))
         result = await tool["execute"](
             "c1", {"pattern": "nothing"}, None, None, None
         )
@@ -393,13 +383,13 @@ class TestCreateGrepTool:
 
     @pytest.mark.asyncio
     async def test_execute_missing_pattern(self) -> None:
-        tool = await create_grep_tool_definition()
+        tool = create_grep_tool_definition()
         with pytest.raises(ValueError, match="pattern is required"):
             await tool["execute"]("c1", {}, None, None, None)
 
     @pytest.mark.asyncio
     async def test_alias(self) -> None:
-        tool = await create_grep_tool()
+        tool = create_grep_tool()
         assert tool["name"] == "grep"
 
 
@@ -459,14 +449,14 @@ class TestListDirectory:
 class TestCreateLsTool:
     @pytest.mark.asyncio
     async def test_factory(self) -> None:
-        tool = await create_ls_tool_definition()
+        tool = create_ls_tool_definition()
         assert tool["name"] == "ls"
         assert callable(tool["execute"])
 
     @pytest.mark.asyncio
     async def test_execute(self, tmp_path: Path) -> None:
         (tmp_path / "a.txt").write_text("a")
-        tool = await create_ls_tool_definition(cwd=str(tmp_path))
+        tool = create_ls_tool_definition(cwd=str(tmp_path))
         result = await tool["execute"](
             "c1", {"path": str(tmp_path)}, None, None, None
         )
@@ -476,7 +466,7 @@ class TestCreateLsTool:
     async def test_execute_empty(self, tmp_path: Path) -> None:
         sub = tmp_path / "empty"
         sub.mkdir()
-        tool = await create_ls_tool_definition(cwd=str(tmp_path))
+        tool = create_ls_tool_definition(cwd=str(tmp_path))
         result = await tool["execute"](
             "c1", {"path": str(sub)}, None, None, None
         )
@@ -484,5 +474,5 @@ class TestCreateLsTool:
 
     @pytest.mark.asyncio
     async def test_alias(self) -> None:
-        tool = await create_ls_tool()
+        tool = create_ls_tool()
         assert tool["name"] == "ls"

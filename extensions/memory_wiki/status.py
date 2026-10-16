@@ -341,7 +341,7 @@ def build_warnings(
             MemoryWikiStatusWarning(
                 code="obsidian-cli-missing",
                 message=(
-                    "Obsidian CLI is enabled in config but `obsidian` is not " "available on PATH."
+                    "Obsidian CLI is enabled in config but `obsidian` is not available on PATH."
                 ),
             )
         )
@@ -378,23 +378,21 @@ def build_warnings(
         warnings.append(
             MemoryWikiStatusWarning(
                 code="unsafe-local-disabled",
-                message=(
-                    "vaultMode is `unsafe-local` but private memory-core " "access is disabled."
-                ),
+                message=("vaultMode is `unsafe-local` but private memory-core access is disabled."),
             )
         )
     if vault_mode == "unsafe-local" and allow_private and len(unsafe_local_paths) == 0:
         warnings.append(
             MemoryWikiStatusWarning(
                 code="unsafe-local-paths-missing",
-                message=("unsafe-local access is enabled but no private paths are " "configured."),
+                message=("unsafe-local access is enabled but no private paths are configured."),
             )
         )
     if vault_mode != "unsafe-local" and allow_private:
         warnings.append(
             MemoryWikiStatusWarning(
                 code="unsafe-local-without-mode",
-                message=("Private memory-core access is enabled outside " "unsafe-local mode."),
+                message=("Private memory-core access is enabled outside unsafe-local mode."),
             )
         )
     return warnings
@@ -523,7 +521,7 @@ def _fix_message_for(code: str) -> str:
     if code == "vault-missing":
         return "Run `openclaw wiki init` to create the vault layout."
     if code == "obsidian-cli-missing":
-        return "Install the official Obsidian CLI or disable " "`obsidian.useOfficialCli`."
+        return "Install the official Obsidian CLI or disable `obsidian.useOfficialCli`."
     if code == "bridge-disabled":
         return (
             "Enable `plugins.entries.memory-wiki.config.bridge.enabled` or "
@@ -541,8 +539,8 @@ def _fix_message_for(code: str) -> str:
             "vaultMode away from `unsafe-local`."
         )
     if code == "unsafe-local-paths-missing":
-        return "Add explicit `unsafeLocal.paths` entries before running " "unsafe-local imports."
-    return "Disable private memory-core access unless you explicitly want " "unsafe-local mode."
+        return "Add explicit `unsafeLocal.paths` entries before running unsafe-local imports."
+    return "Disable private memory-core access unless you explicitly want unsafe-local mode."
 
 
 # ── Renderers ───────────────────────────────────────────────

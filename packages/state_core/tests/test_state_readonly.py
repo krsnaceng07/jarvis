@@ -7,6 +7,7 @@ Covers:
 - legacy schemas (lower user_version) are tolerated
 - the read-only handle cannot mutate the file
 """
+
 from __future__ import annotations
 
 import os
@@ -57,9 +58,7 @@ def test_readonly_applies_busy_timeout(state_db_path):
     captured = {}
 
     def op(handle):
-        captured["busy_timeout"] = handle.db.execute(
-            "PRAGMA busy_timeout"
-        ).fetchone()[0]
+        captured["busy_timeout"] = handle.db.execute("PRAGMA busy_timeout").fetchone()[0]
         return None
 
     with_state_database_read_only(op, path=str(state_db_path))
@@ -67,9 +66,7 @@ def test_readonly_applies_busy_timeout(state_db_path):
 
 
 def test_readonly_refuses_newer_schema(state_db_path, monkeypatch):
-    monkeypatch.setattr(
-        "jarvis_state_core.readonly.STATE_SCHEMA_VERSION", 1
-    )
+    monkeypatch.setattr("jarvis_state_core.readonly.STATE_SCHEMA_VERSION", 1)
     conn = sqlite3.connect(str(state_db_path))
     conn.execute("PRAGMA user_version = 99")
     conn.commit()
@@ -132,9 +129,7 @@ def test_readonly_uses_default_path_when_no_path(default_state_db_path):
         return None
 
     with_state_database_read_only(op)
-    assert seen[0] == os.path.abspath(
-        str(default_state_db_path)
-    )
+    assert seen[0] == os.path.abspath(str(default_state_db_path))
 
 
 def test_readonly_opens_with_row_factory(state_db_path):

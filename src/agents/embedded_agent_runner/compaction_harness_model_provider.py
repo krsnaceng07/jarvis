@@ -18,7 +18,7 @@ lands in 7.2b+ (when
 ported)."""
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Optional
 
 
 def build_compaction_harness_model_provider(

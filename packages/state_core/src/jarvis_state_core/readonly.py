@@ -12,6 +12,7 @@ journal-mode setup, checkpoints, and permission mutation
 owned by writers means readonly callers can never block
 or corrupt the writable lifecycle.
 """
+
 from __future__ import annotations
 
 import os
@@ -85,12 +86,8 @@ def with_state_database_read_only(
     are tolerated.
     """
     if not isinstance(operation, dict) and not callable(operation):
-        raise TypeError(
-            "with_state_database_read_only: operation must be callable"
-        )
-    pathname = os.path.abspath(
-        path or resolve_state_sqlite_path(env or os.environ)
-    )
+        raise TypeError("with_state_database_read_only: operation must be callable")
+    pathname = os.path.abspath(path or resolve_state_sqlite_path(env or os.environ))
     conn = _open_readonly_sqlite(pathname)
     try:
         conn.execute(f"PRAGMA busy_timeout = {int(SQLITE_BUSY_TIMEOUT_MS)}")

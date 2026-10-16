@@ -62,8 +62,7 @@ from __future__ import annotations
 import logging
 import os
 import subprocess
-from pathlib import Path
-from typing import Callable, Optional, Union
+from typing import Callable, Optional
 
 
 _LOG = logging.getLogger(

@@ -2,6 +2,7 @@
 
 Mirrors the TypeScript ``test_dreaming-shadow-trial.test.ts`` patterns.
 """
+
 from __future__ import annotations
 
 import os
@@ -103,10 +104,7 @@ def test_content_hash_differs_per_field() -> None:
         ("c", "p", "b", "x", "helpful", "r", ["risk"], []),
         ("c", "p", "b", "x", "helpful", "r", [], ["ev"]),
     ]
-    hashes = {
-        dst._resolve_report_content_hash(*cand)
-        for cand in candidates
-    }
+    hashes = {dst._resolve_report_content_hash(*cand) for cand in candidates}
     assert len(hashes) == len(candidates)
     assert base not in hashes
 
@@ -219,9 +217,7 @@ def test_build_report_with_lists() -> None:
 
 def test_build_report_with_workspace(tmp_path: Path) -> None:
     """``workspaceDir`` enables default path resolution."""
-    report = dst.build_dreaming_shadow_trial_report(
-        _input(workspaceDir=str(tmp_path))
-    )
+    report = dst.build_dreaming_shadow_trial_report(_input(workspaceDir=str(tmp_path)))
     assert "reportPath" in report
     expected_suffix = os.path.join("memory", "dreaming", "shadow-trials")
     assert expected_suffix in report["reportPath"]

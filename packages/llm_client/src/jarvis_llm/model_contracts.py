@@ -241,9 +241,7 @@ def requires_claude_default_sampling(ref: ClaudeModelRef) -> bool:
     these models reject them outright.
     """
     model_id = resolve_claude_model_identity(ref)
-    return (
-        supports_claude_native_xhigh_effort(ref) or _MYTHOS_PREVIEW.search(model_id) is not None
-    )
+    return supports_claude_native_xhigh_effort(ref) or _MYTHOS_PREVIEW.search(model_id) is not None
 
 
 def resolve_claude_native_thinking_level_map(

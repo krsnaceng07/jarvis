@@ -36,6 +36,7 @@ Adaptations
   ``force``) plus the exported ``KillProcessTreeOptions = dict``
   alias for wire-shape parity.
 """
+
 from __future__ import annotations
 
 import os
@@ -87,9 +88,7 @@ def _is_process_alive(pid: int) -> bool:
 def _parse_process_group_id(value: object) -> Optional[int]:
     """Mirrors ``parseProcessGroupId``
     (``kill-tree.ts:99-105``)."""
-    if not isinstance(value, str) or not re.fullmatch(
-        r"\d+", value.strip()
-    ):
+    if not isinstance(value, str) or not re.fullmatch(r"\d+", value.strip()):
         return None
     pgid = int(value.strip())
     # JS Number.isSafeInteger + > 0.
@@ -138,16 +137,8 @@ def _is_process_group_leader(pid: int) -> bool:
     (``kill-tree.ts:141-146``)."""
     # Linux exposes the fact in procfs; avoid a synchronous
     # child process on the common path.
-    proc_pgid = (
-        _read_process_group_id_from_proc(pid)
-        if sys.platform.startswith("linux")
-        else None
-    )
-    pgid = (
-        proc_pgid
-        if proc_pgid is not None
-        else _read_process_group_id_from_ps(pid)
-    )
+    proc_pgid = _read_process_group_id_from_proc(pid) if sys.platform.startswith("linux") else None
+    pgid = proc_pgid if proc_pgid is not None else _read_process_group_id_from_ps(pid)
     return pgid == pid
 
 
@@ -159,9 +150,7 @@ def _to_signal(signal_name: str) -> int:
     return _signal.SIGTERM
 
 
-def _signal_process_tree_unix(
-    pid: int, signal_name: str, use_group_kill: bool
-) -> None:
+def _signal_process_tree_unix(pid: int, signal_name: str, use_group_kill: bool) -> None:
     """Mirrors ``signalProcessTreeUnix``
     (``kill-tree.ts:148-167``)."""
     sig = _to_signal(signal_name)
@@ -185,9 +174,9 @@ def _run_taskkill(args: list) -> None:
     try:
         creationflags = 0
         if _is_windows():  # pragma: no cover - Windows only
-            creationflags = getattr(
-                subprocess, "CREATE_NO_WINDOW", 0
-            ) | getattr(subprocess, "DETACHED_PROCESS", 0)
+            creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(
+                subprocess, "DETACHED_PROCESS", 0
+            )
         subprocess.Popen(
             ["taskkill", *args],
             stdin=subprocess.DEVNULL,
@@ -203,11 +192,7 @@ def _run_taskkill(args: list) -> None:
 def _signal_process_tree_windows(pid: int, signal_name: str) -> None:
     """Mirrors ``signalProcessTreeWindows``
     (``kill-tree.ts:193-197``)."""
-    args = (
-        ["/F", "/T", "/PID", str(pid)]
-        if signal_name == "SIGKILL"
-        else ["/T", "/PID", str(pid)]
-    )
+    args = ["/F", "/T", "/PID", str(pid)] if signal_name == "SIGKILL" else ["/T", "/PID", str(pid)]
     _run_taskkill(args)
 
 
@@ -252,8 +237,7 @@ def kill_process_tree(
         return
 
     use_group_kill = opts.get("detached") is True or (
-        opts.get("detached") is not False
-        and _is_process_group_leader(pid)
+        opts.get("detached") is not False and _is_process_group_leader(pid)
     )
     if opts.get("force") is True:
         _signal_process_tree_unix(pid, "SIGKILL", use_group_kill)
@@ -294,8 +278,7 @@ def signal_process_tree(
         return
 
     use_group_kill = opts.get("detached") is True or (
-        opts.get("detached") is not False
-        and _is_process_group_leader(pid)
+        opts.get("detached") is not False and _is_process_group_leader(pid)
     )
     _signal_process_tree_unix(pid, signal_name, use_group_kill)
 

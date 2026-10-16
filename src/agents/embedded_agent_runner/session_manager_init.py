@@ -23,7 +23,7 @@ filesystem + repair layers as they land.
 """
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, Optional
 
 
 #: Session header entry shape. Mirrors ``SessionHeaderEntry``

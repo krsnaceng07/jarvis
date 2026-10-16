@@ -13,12 +13,9 @@ Verifies the public surface of:
 """
 from __future__ import annotations
 
-import os
 import textwrap
 from pathlib import Path
-from typing import Any
 
-import pytest
 
 from src.agents.sessions.frontmatter import (
     parse_frontmatter,

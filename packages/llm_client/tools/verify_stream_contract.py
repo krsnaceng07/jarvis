@@ -339,9 +339,7 @@ class ValidationTest(unittest.TestCase):
 
     def test_string_bool_coerced(self) -> None:
         tool = self.tool({"type": "object", "properties": {"b": {"type": "boolean"}}})
-        self.assertEqual(
-            validate_tool_arguments(tool, self.call({"b": "true"})), {"b": True}
-        )
+        self.assertEqual(validate_tool_arguments(tool, self.call({"b": "true"})), {"b": True})
 
     def test_json_string_object_coerced(self) -> None:
         tool = self.tool(

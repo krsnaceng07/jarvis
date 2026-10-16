@@ -1,0 +1,85 @@
+{
+  "id": "cohere",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "cohere"
+  ],
+  "providerEndpoints": [
+    {
+      "endpointClass": "cohere-native",
+      "hosts": [
+        "api.cohere.ai"
+      ]
+    }
+  ],
+  "providerRequest": {
+    "providers": {
+      "cohere": {
+        "family": "cohere"
+      }
+    }
+  },
+  "setup": {
+    "providers": [
+      {
+        "id": "cohere",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "COHERE_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "cohere": {
+        "baseUrl": "https://api.cohere.ai/compatibility/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "command-a-plus-05-2026",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "command-r-plus-08-2026",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "command-r-08-2026",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "embed-english-v3.0",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

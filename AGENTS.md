@@ -21,14 +21,15 @@ JARVIS is a personal AI assistant that follows the OpenClaw architecture: a mult
 - **CODEOWNERS:** maintainer/refactor/tests ok. Larger behavior/product/security/ownership: owner ask/review.
 - **Product/docs/UI/changelog wording:** "extension/extensions"; `extensions/` is internal implementation.
 - **New extension/plugin/app/doc surface:** update `.github/labeler.yml` + GH labels.
+- **Frontend / UI development:** When designing, building, styling, or reviewing any frontend code, components, layout, or interfaces (in `frontend/`, `ui/`, or desktop UI), ALWAYS automatically use the `ui-ux-pro-max` skill (`.agents/skills/ui-ux-pro-max/scripts/search.py` or `.agents/skills/ui-ux-pro-max/SKILL.md`) without waiting for user reminders. Always follow its design systems, WCAG accessibility, color harmonies, typography pairings, and responsive patterns.
 
 ## Map
 
 - **Apps (user-facing):** `apps/desktop/` (PyQt6 HUD), `apps/cli/` (headless gateway CLI), `apps/tui/` (terminal UI, optional).
+- **Frontend:** `frontend/` (new modern web frontend, UI/UX Pro Max intelligence). **UI (legacy):** `ui/` (optional legacy web frontend).
 - **Core libraries:** `packages/<name>/` — each has its own `pyproject.toml` and is installable as a workspace member. Key packages: `plugin_sdk/`, `agent_runtime/`, `llm_client/`, `memory_host_sdk/`, `channels_core/`, `gateway_protocol/`, `config_core/`, `cron_core/`, `hooks_core/`, `logging_core/`, `secrets_core/`, `events_core/`, `audio_core/`, `live_session/`, `net_policy/`, `normalization/`, `transcript_core/`, `session_core/`, `media_core/`, `markdown_core/`, `cli_backend/`, `tool_call_repair/`, `retry_core/`, `i18n_core/`, `workboard_contract/`.
 - **Plugins (extensions):** `extensions/<id>/` — each ships a `jarvis.plugin.json` manifest. Categories: channels, providers, media, memory, tools, productivity, voice, infrastructure, migration.
 - **Skills (declarative):** `skills/<id>/SKILL.md` — markdown only, YAML frontmatter.
-- **UI:** `ui/` (optional web frontend, Phase 12).
 - **Protocol:** `packages/gateway_protocol/` (JSON-RPC schema for gateway ↔ clients).
 - **Loader:** `packages/plugin_sdk/src/jarvis_sdk/loader.py` discovers and loads extensions.
 - **Docs:** `docs/<category>/`. **Tests:** `test/<category>/`. **Tooling:** `tools/scripts/`, `tools/ci/`, `tools/git-hooks/`, `tools/codegen/`. **Security:** `security/opengrep/` (Phase 12). **QA:** `qa/scenarios/`. **Examples:** `examples/`. **Deploy:** `deploy/`.
@@ -207,6 +208,14 @@ JARVIS is a personal AI assistant that follows the OpenClaw architecture: a mult
 - **Releases/publish/version bumps need explicit approval.** Use `$release-jarvis-maintainer`.
 - **Active release scope lock:** freeze the operator-selected cut SHA and release identity through publish and verification. Moving `main`, unrelated CI, optional backports, refactors, cleanup, and normal forward-ports are not part of the release work queue.
 - **Touch `main` during a release only** when the operator requests it or the smallest critical main-owned blocker prevents that release. Return to the release branch immediately; defer broader main work until closeout.
+
+## User Model (`USER.md`)
+
+- **Role:** `USER.md` is the optional user-model artifact in an agent workspace. It stores stable preferences, communication style, relationships, and active-project context as directives that guide future sessions.
+- **Write directives, not observations:** Begin with an imperative (e.g., `Always`, `Never`, `Prefer`). Record the date observed. Keep one behavioral instruction per directive.
+- **Format:** `<!-- observed: YYYY-MM-DD | status: active -->` followed by `- Prefer [directive]`.
+- **Supersede in place:** When a preference changes, update its existing section. Change the old status to `superseded` and append the new active directive below it. Do not append a second active directive elsewhere in the file.
+- **Scope:** Store stable preferences and communication styles here. Move durable non-profile facts, decisions, or detailed observations to `MEMORY.md` or daily memory.
 
 ## Contribution rules (one-liner)
 

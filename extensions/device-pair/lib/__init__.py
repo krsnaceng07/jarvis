@@ -58,11 +58,11 @@ Python adaptations (documented in code):
   (the host wires the real runners in a follow-up
   phase; the entry point structure stays the same).
 """
+
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, Optional
+from typing import Any, Callable, Optional
 
 from jarvis_sdk import Plugin, PluginApi
 
@@ -145,9 +145,7 @@ def _resolve_mobile_pairing_url(
     pick_tailnet_host: Optional[Callable[[], Optional[str]]] = None,
     resolve_remote_urls: Optional[Callable[[int], list[str]]] = None,
     pick_lan_host: Optional[Callable[[], Optional[str]]] = None,
-    pick_tailscale_serve_urls: Optional[
-        Callable[[int], list[str]]
-    ] = None,
+    pick_tailscale_serve_urls: Optional[Callable[[int], list[str]]] = None,
 ) -> dict:
     """Resolve the mobile-pairing gateway URL.
 
@@ -164,7 +162,9 @@ def _resolve_mobile_pairing_url(
     # 1. Plugin-level publicUrl wins.
     public_url = normalize_optional_string(plugin_config.get("publicUrl"))
     if public_url:
-        return {"error": "Configured publicUrl is invalid."}  # full URL normalization not ported in stub
+        return {
+            "error": "Configured publicUrl is invalid."
+        }  # full URL normalization not ported in stub
 
     # 2. Tailscale serve / funnel.
     tailscale_mode = (
@@ -175,16 +175,12 @@ def _resolve_mobile_pairing_url(
     if tailscale_mode in ("serve", "funnel"):
         host = pick_tailnet_host() if pick_tailnet_host else None
         if not host:
-            return {
-                "error": "Tailscale Serve is enabled, but MagicDNS could not be resolved."
-            }
+            return {"error": "Tailscale Serve is enabled, but MagicDNS could not be resolved."}
         return {"url": f"wss://{host}", "source": f"gateway.tailscale.mode={tailscale_mode}"}
 
     # 3. Gateway remote URL.
     remote_url = (
-        config.get("gateway", {}).get("remote", {}).get("url")
-        if isinstance(config, dict)
-        else None
+        config.get("gateway", {}).get("remote", {}).get("url") if isinstance(config, dict) else None
     )
     if remote_url:
         # The Python port doesn't normalize the remote
@@ -304,9 +300,7 @@ def run_pair_command(
     issue_bootstrap_token: Optional[Callable[[dict], dict]] = None,
     revoke_bootstrap_token: Optional[Callable[[dict], None]] = None,
     render_qr_png_data_url: Optional[Callable[[str], None]] = None,
-    write_qr_png_temp_file: Optional[Callable[
-        [str, dict], dict
-    ]] = None,
+    write_qr_png_temp_file: Optional[Callable[[str, dict], dict]] = None,
     arm_pair_notify_once: Optional[Callable[[dict], bool]] = None,
     send_qr_png_to_channel: Optional[Callable[[dict], bool]] = None,
     env_get: Optional[Callable[[str], Optional[str]]] = None,
@@ -336,7 +330,11 @@ def run_pair_command(
     # 2. /pair status / pending
     if action in ("status", "pending"):
         if list_pairing is None and api is not None:
-            list_pairing = lambda: _list_pending_pairing(api)
+
+            def _default_list_pairing() -> dict[str, Any]:
+                return _list_pending_pairing(api)
+
+            list_pairing = _default_list_pairing
         listing = list_pairing() if list_pairing else {"pending": []}
         return {"text": _format_pending_requests(listing.get("pending", []))}
 
@@ -354,7 +352,11 @@ def run_pair_command(
     # 4. /pair approve
     if action == "approve":
         if list_pairing is None and api is not None:
-            list_pairing = lambda: _list_pending_pairing(api)
+
+            def _default_list_pairing_approve() -> dict[str, Any]:
+                return _list_pending_pairing(api)
+
+            list_pairing = _default_list_pairing_approve
         listing = list_pairing() if list_pairing else {"pending": []}
         selected = select_pending_approval_request(
             {"pending": listing.get("pending", []), "requested": requested}
@@ -372,7 +374,11 @@ def run_pair_command(
     # 5. /pair cleanup / clear / revoke
     if action in ("cleanup", "clear", "revoke"):
         if clear_bootstrap_tokens is None and api is not None:
-            clear_bootstrap_tokens = lambda: _clear_bootstrap_tokens(api)
+
+            def _default_clear_bootstrap_tokens() -> dict[str, Any]:
+                return _clear_bootstrap_tokens(api)
+
+            clear_bootstrap_tokens = _default_clear_bootstrap_tokens
         cleared = clear_bootstrap_tokens() if clear_bootstrap_tokens else {"removed": 0}
         removed = int(cleared.get("removed", 0))
         return {
@@ -396,29 +402,29 @@ def run_pair_command(
     # production). The default falls back to the
     # plugin-config + bind-derived heuristic.
     plugin_config = (
-        config.get("plugins", {}).get("entries", {}).get(
-            "device-pair", {}
-        ).get("config", {}) if isinstance(config, dict) else {}
+        config.get("plugins", {}).get("entries", {}).get("device-pair", {}).get("config", {})
+        if isinstance(config, dict)
+        else {}
     )
     if resolve_url is None:
-        url_result = _resolve_mobile_pairing_url(
-            config=config, plugin_config=plugin_config
-        )
+        url_result = _resolve_mobile_pairing_url(config=config, plugin_config=plugin_config)
     else:
         url_result = resolve_url(config, plugin_config)
     if not url_result.get("url"):
-        return {
-            "text": f"Error: {url_result.get('error', 'Gateway URL unavailable.')}"
-        }
+        return {"text": f"Error: {url_result.get('error', 'Gateway URL unavailable.')}"}
     auth_label = auth_label_result.get("label", "auth")
 
     # 7. /pair qr → render + send + fall back to setup code
     if action == "qr":
         if issue_bootstrap_token is None and api is not None:
-            issue_bootstrap_token = lambda profile: {
-                "token": "stub-token",
-                "expiresAtMs": _now_ms() + 10 * 60 * 1000,
-            }
+
+            def _default_issue_bootstrap_token_qr(profile: dict[str, Any]) -> dict[str, Any]:
+                return {
+                    "token": "stub-token",
+                    "expiresAtMs": _now_ms() + 10 * 60 * 1000,
+                }
+
+            issue_bootstrap_token = _default_issue_bootstrap_token_qr
         profile = (
             {"fullAccess": True, "purpose": "mobile-full"}
             if auth_state.get("canIssueFullAccessSetup")
@@ -442,10 +448,14 @@ def run_pair_command(
 
     # 8. Default: emit the pasteable setup code.
     if issue_bootstrap_token is None and api is not None:
-        issue_bootstrap_token = lambda profile: {
-            "token": "stub-token",
-            "expiresAtMs": _now_ms() + 10 * 60 * 1000,
-        }
+
+        def _default_issue_bootstrap_token(profile: dict[str, Any]) -> dict[str, Any]:
+            return {
+                "token": "stub-token",
+                "expiresAtMs": _now_ms() + 10 * 60 * 1000,
+            }
+
+        issue_bootstrap_token = _default_issue_bootstrap_token
     issued = issue_bootstrap_token({"fullAccess": auth_state.get("canIssueFullAccessSetup", False)})
     payload = _issue_setup_payload(
         url=url_result["url"],
@@ -540,32 +550,18 @@ class DevicePairingPlugin(Plugin):
             request context, then delegates to
             ``run_pair_command``.
             """
-            args = (
-                ctx.get("args")
-                if isinstance(ctx, dict)
-                else getattr(ctx, "args", None)
-            ) or ""
+            args = (ctx.get("args") if isinstance(ctx, dict) else getattr(ctx, "args", None)) or ""
             tokens = [t for t in args.split() if t]
             action = (tokens[0] if tokens else "new").strip().lower()
-            notify_action = (
-                (tokens[1] if len(tokens) > 1 else "status").strip().lower()
-            )
+            notify_action = (tokens[1] if len(tokens) > 1 else "status").strip().lower()
             requested = tokens[1] if len(tokens) > 1 else None
             channel = (
-                ctx.get("channel")
-                if isinstance(ctx, dict)
-                else getattr(ctx, "channel", "")
+                ctx.get("channel") if isinstance(ctx, dict) else getattr(ctx, "channel", "")
             ) or ""
             sender_id = (
-                ctx.get("senderId")
-                if isinstance(ctx, dict)
-                else getattr(ctx, "senderId", None)
+                ctx.get("senderId") if isinstance(ctx, dict) else getattr(ctx, "senderId", None)
             )
-            sender_to = (
-                ctx.get("to")
-                if isinstance(ctx, dict)
-                else getattr(ctx, "to", None)
-            )
+            sender_to = ctx.get("to") if isinstance(ctx, dict) else getattr(ctx, "to", None)
             gateway_client_scopes = (
                 ctx.get("gatewayClientScopes")
                 if isinstance(ctx, dict)
@@ -600,9 +596,7 @@ class DevicePairingPlugin(Plugin):
             api.register_command(
                 {
                     "name": "pair",
-                    "description": (
-                        "Generate setup codes and approve device pairing requests."
-                    ),
+                    "description": ("Generate setup codes and approve device pairing requests."),
                     "accepts_args": True,
                     "expose_sender_is_owner": True,
                     "handler": _handler,
@@ -618,6 +612,12 @@ entry = device_pair_plugin
 # extensions.device-pair.lib import resolve_pairing_command_auth_state``
 # without reaching into the sub-modules.
 __all__ = [
+    "DEVICE_PAIR_NOTIFY_LEGACY_STATE_FILE",
+    "DEVICE_PAIR_NOTIFY_MAX_SEEN_AGE_MS",
+    "DEVICE_PAIR_NOTIFY_SEEN_REQUEST_MAX_ENTRIES",
+    "DEVICE_PAIR_NOTIFY_SEEN_REQUEST_NAMESPACE",
+    "DEVICE_PAIR_NOTIFY_SUBSCRIBER_MAX_ENTRIES",
+    "DEVICE_PAIR_NOTIFY_SUBSCRIBER_NAMESPACE",
     "DevicePairingPlugin",
     "build_device_pair_pairing_qr_channel_data",
     "build_missing_pairing_scope_reply",

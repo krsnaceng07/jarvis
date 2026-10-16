@@ -5,7 +5,7 @@ OpenClaw parity: mirrors
 """
 from __future__ import annotations
 
-from typing import Any, Optional, TypedDict
+from typing import Optional, TypedDict
 
 
 class ConfigObserveSuspiciousBaseline(TypedDict, total=False):

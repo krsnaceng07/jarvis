@@ -60,8 +60,7 @@ import os
 import re
 import shlex
 from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Optional, TypedDict, Union
+from typing import Optional, TypedDict
 
 from .diagnostics import ResourceDiagnostic
 from .frontmatter import parse_frontmatter

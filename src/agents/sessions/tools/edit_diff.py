@@ -55,7 +55,6 @@ from __future__ import annotations
 import difflib
 import re
 import unicodedata
-from typing import Optional
 
 
 # ============================================================================

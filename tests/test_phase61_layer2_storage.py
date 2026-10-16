@@ -27,7 +27,6 @@ from __future__ import annotations
 import asyncio
 import json
 import os
-import subprocess
 import sys
 import threading
 import time
@@ -52,7 +51,6 @@ from src.agents.sessions import (  # noqa: E402
     BashExecutorOptions,
     BashOperations,
     BashResult,
-    KeybindingDef,
     KeybindingsManager,
     OutputAccumulator,
     acquire_lock_sync_with_retry,

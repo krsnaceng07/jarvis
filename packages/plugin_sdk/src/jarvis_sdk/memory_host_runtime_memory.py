@@ -31,6 +31,7 @@ Key port decisions:
 - ``should_skip_root_memory_auxiliary_path`` is synchronous
   in the Python port (the OpenClaw source is also sync).
 """
+
 from __future__ import annotations
 
 import os

@@ -1,0 +1,11 @@
+id: personal-task-followthrough-status
+goal: Proof-backed task status reporting that keeps pending, blocked, and done separate
+preconditions:
+  - Task tracker tool is active and mocked
+steps:
+  - user: "What is the status of my ongoing tasks?"
+expected_outcomes:
+  - Agent must report correct categorization: pending, blocked, and done.
+  - Agent must not mix categories or fabricate tasks.
+cleanup:
+  - Reset task mock state

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 import subprocess
-import sys
 
 from src.agents.worktrees.service import ManagedWorktreeService
 

@@ -253,7 +253,7 @@ async def find_files(
 # ============================================================================
 
 
-async def create_find_tool_definition(
+def create_find_tool_definition(
     cwd: str = "",
     operations: Optional[FindOperations] = None,
 ) -> ToolDefinition:

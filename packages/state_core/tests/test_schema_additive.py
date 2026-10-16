@@ -13,6 +13,7 @@ Covers:
 - the operator-approval resolution-ref namespace is wired
   through the additive ensure
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -104,10 +105,7 @@ def test_cron_run_logs_adds_all_columns():
         conn.execute("CREATE TABLE cron_run_logs (id INTEGER)")
         conn.commit()
         ensure_additive_state_columns(conn)
-        cols = {
-            row["name"]
-            for row in conn.execute("PRAGMA table_info(cron_run_logs)").fetchall()
-        }
+        cols = {row["name"] for row in conn.execute("PRAGMA table_info(cron_run_logs)").fetchall()}
         # Spot-check a few representative columns.
         assert {"status", "error", "summary", "session_id", "entry_json"}.issubset(cols)
         assert "created_at" in cols
@@ -124,10 +122,7 @@ def test_cron_jobs_adds_all_columns():
         conn.execute("CREATE TABLE cron_jobs (id INTEGER)")
         conn.commit()
         ensure_additive_state_columns(conn)
-        cols = {
-            row["name"]
-            for row in conn.execute("PRAGMA table_info(cron_jobs)").fetchall()
-        }
+        cols = {row["name"] for row in conn.execute("PRAGMA table_info(cron_jobs)").fetchall()}
         for required in (
             "name",
             "enabled",
@@ -187,26 +182,19 @@ def test_cron_jobs_delivery_thread_id_type_migration_runs():
 def test_task_runs_adds_columns_and_runs_status_repair():
     conn = _fresh_db()
     try:
-        conn.execute(
-            "CREATE TABLE task_runs (id INTEGER, delivery_status TEXT)"
-        )
+        conn.execute("CREATE TABLE task_runs (id INTEGER, delivery_status TEXT)")
         conn.execute(
             "INSERT INTO task_runs (id, delivery_status) "
             "VALUES (1, 'not-requested'), (2, 'delivered')"
         )
         conn.commit()
         ensure_additive_state_columns(conn)
-        cols = {
-            row["name"]
-            for row in conn.execute("PRAGMA table_info(task_runs)").fetchall()
-        }
+        cols = {row["name"] for row in conn.execute("PRAGMA table_info(task_runs)").fetchall()}
         assert "requester_agent_id" in cols
         # Status repair normalizes 'not-requested'.
         statuses = {
             r["id"]: r["delivery_status"]
-            for r in conn.execute(
-                "SELECT id, delivery_status FROM task_runs"
-            ).fetchall()
+            for r in conn.execute("SELECT id, delivery_status FROM task_runs").fetchall()
         }
         assert statuses[1] == "not_applicable"
         assert statuses[2] == "delivered"
@@ -229,10 +217,7 @@ def test_additive_ensure_wires_resolution_refs():
             ) STRICT;
             """
         )
-        conn.execute(
-            "INSERT INTO operator_approvals (approval_id, kind) "
-            "VALUES ('a1', 'exec')"
-        )
+        conn.execute("INSERT INTO operator_approvals (approval_id, kind) VALUES ('a1', 'exec')")
         conn.commit()
         ensure_additive_state_columns(conn)
         row = conn.execute(

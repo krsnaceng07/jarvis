@@ -64,9 +64,8 @@ import json
 import logging
 import os
 import threading
-from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Optional
 
 from .storage_lock import acquire_lock_sync_with_retry, UnlockFn
 

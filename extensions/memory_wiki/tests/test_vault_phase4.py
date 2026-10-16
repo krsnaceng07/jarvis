@@ -90,9 +90,9 @@ class TestInitializeMemoryWikiVault:
 
         expected_abs = {normalize(os.path.join(str(tmp_path), p)) for p in WIKI_VAULT_SCAFFOLD}
         actual_abs = {normalize(p) for p in result.created_files}
-        assert (
-            actual_abs == expected_abs
-        ), f"actual={sorted(actual_abs)}\nexpected={sorted(expected_abs)}"
+        assert actual_abs == expected_abs, (
+            f"actual={sorted(actual_abs)}\nexpected={sorted(expected_abs)}"
+        )
 
     def test_scaffold_files_have_expected_content(
         self, tmp_path: Path, wiki_config: object

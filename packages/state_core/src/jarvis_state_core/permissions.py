@@ -21,6 +21,7 @@ brick the gateway at open time. Azure Files / NFS /
 Docker volume cases are exactly the failure modes
 OpenClaw designed for (issue #91919).
 """
+
 from __future__ import annotations
 
 import os
@@ -38,9 +39,7 @@ def _path_resolve(pathname: str) -> str:
     return os.path.abspath(pathname)
 
 
-def _is_under_default_state_dir(
-    pathname: str, default_state_dir: str
-) -> bool:
+def _is_under_default_state_dir(pathname: str, default_state_dir: str) -> bool:
     """True when ``pathname`` lives directly inside the default state dir.
 
     Mirrors OpenClaw's ``isDefaultStateDatabase`` check.
@@ -68,9 +67,7 @@ def _safe_chmod(target: str, mode: int) -> bool:
         return False
 
 
-def ensure_state_permissions(
-    pathname: str, env: Optional[dict[str, str]] = None
-) -> None:
+def ensure_state_permissions(pathname: str, env: Optional[dict[str, str]] = None) -> None:
     """Ensure the state DB file + parent dir are private by contract.
 
     Mirrors ``ensureOpenClawStatePermissions``. The dir
@@ -85,14 +82,10 @@ def ensure_state_permissions(
     resolved_path = _path_resolve(pathname)
     dir_path = os.path.dirname(resolved_path)
     default_dir = _path_resolve(resolve_state_sqlite_dir(env))
-    is_default = _path_resolve(
-        resolve_state_sqlite_path(env)
-    ) == resolved_path
+    is_default = _path_resolve(resolve_state_sqlite_path(env)) == resolved_path
 
     if is_default and not _is_under_default_state_dir(resolved_path, default_dir):
-        raise ValueError(
-            f"State database path resolved outside its state dir: {pathname}"
-        )
+        raise ValueError(f"State database path resolved outside its state dir: {pathname}")
 
     dir_existed = os.path.isdir(dir_path)
     os.makedirs(dir_path, exist_ok=True)

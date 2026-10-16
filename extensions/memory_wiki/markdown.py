@@ -130,12 +130,7 @@ def replace_managed_markdown_block(params: ReplaceManagedBlockParams) -> str:
     original = params.original
     if not original.endswith("\n"):
         original = original + "\n"
-    new_block = (
-        f"{params.start_marker}\n"
-        f"{params.heading}\n\n"
-        f"{params.body}\n"
-        f"{params.end_marker}\n"
-    )
+    new_block = f"{params.start_marker}\n{params.heading}\n\n{params.body}\n{params.end_marker}\n"
     return with_trailing_newline(original + new_block)
 
 

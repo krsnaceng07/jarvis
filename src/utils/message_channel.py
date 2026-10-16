@@ -27,7 +27,7 @@ Phase 8.1 — focused minimal port.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, Optional
 
 from .message_channel_constants import (  # noqa: F401
     INTERNAL_MESSAGE_CHANNEL,

@@ -1,16 +1,12 @@
 """Phase 7.5b tests — transcript-file-state."""
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, List
 
 import pytest
 
 from src.agents.embedded_agent_runner.transcript_file_state import (
-    SessionEntry,
-    SessionHeader,
     TranscriptFileState,
-    TranscriptLeafControlEntry,
-    TranscriptPersistedEntry,
     create_transcript_file_state_from_persisted_entries,
     persist_transcript_state_mutation,
     read_transcript_file_state,

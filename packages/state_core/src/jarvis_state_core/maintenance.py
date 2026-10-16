@@ -20,6 +20,7 @@ Public surface:
   set of additive column definitions the runtime
   tolerates alongside the canonical v2+ shape
 """
+
 from __future__ import annotations
 
 import os
@@ -54,36 +55,20 @@ STATE_MAINTENANCE_SCHEMA_COMPATIBILITY: _MaintenanceSchemaCompatibility = {
         "diagnostic_events.sequence": ["sequence INTEGER NOT NULL DEFAULT 0"],
         "commitments.attempts": ["attempts INTEGER NOT NULL DEFAULT 0"],
         "commitments.confidence": ["confidence REAL NOT NULL DEFAULT 0"],
-        "commitments.created_at_ms": [
-            "created_at_ms INTEGER NOT NULL DEFAULT 0"
-        ],
+        "commitments.created_at_ms": ["created_at_ms INTEGER NOT NULL DEFAULT 0"],
         "commitments.dedupe_key": ["dedupe_key TEXT NOT NULL DEFAULT ''"],
-        "commitments.due_timezone": [
-            "due_timezone TEXT NOT NULL DEFAULT 'UTC'"
-        ],
+        "commitments.due_timezone": ["due_timezone TEXT NOT NULL DEFAULT 'UTC'"],
         "commitments.kind": ["kind TEXT NOT NULL DEFAULT 'followup'"],
         "commitments.reason": ["reason TEXT NOT NULL DEFAULT ''"],
-        "commitments.sensitivity": [
-            "sensitivity TEXT NOT NULL DEFAULT 'normal'"
-        ],
+        "commitments.sensitivity": ["sensitivity TEXT NOT NULL DEFAULT 'normal'"],
         "commitments.source": ["source TEXT NOT NULL DEFAULT 'unknown'"],
-        "commitments.suggested_text": [
-            "suggested_text TEXT NOT NULL DEFAULT ''"
-        ],
-        "cron_jobs.created_at_ms": [
-            "created_at_ms INTEGER NOT NULL DEFAULT 0"
-        ],
+        "commitments.suggested_text": ["suggested_text TEXT NOT NULL DEFAULT ''"],
+        "cron_jobs.created_at_ms": ["created_at_ms INTEGER NOT NULL DEFAULT 0"],
         "cron_jobs.enabled": ["enabled INTEGER NOT NULL DEFAULT 1"],
         "cron_jobs.name": ["name TEXT NOT NULL DEFAULT ''"],
-        "cron_jobs.payload_kind": [
-            "payload_kind TEXT NOT NULL DEFAULT 'message'"
-        ],
-        "cron_jobs.schedule_kind": [
-            "schedule_kind TEXT NOT NULL DEFAULT 'manual'"
-        ],
-        "cron_jobs.session_target": [
-            "session_target TEXT NOT NULL DEFAULT 'main'"
-        ],
+        "cron_jobs.payload_kind": ["payload_kind TEXT NOT NULL DEFAULT 'message'"],
+        "cron_jobs.schedule_kind": ["schedule_kind TEXT NOT NULL DEFAULT 'manual'"],
+        "cron_jobs.session_target": ["session_target TEXT NOT NULL DEFAULT 'main'"],
         "cron_jobs.wake_mode": ["wake_mode TEXT NOT NULL DEFAULT 'auto'"],
         "current_conversation_bindings.conversation_kind": [
             "conversation_kind TEXT NOT NULL DEFAULT 'channel'"
@@ -174,9 +159,7 @@ def _create_newer_sqlite_schema_version_error(
     )
 
 
-def assert_supported_schema_version(
-    conn: sqlite3.Connection, pathname: str
-) -> None:
+def assert_supported_schema_version(conn: sqlite3.Connection, pathname: str) -> None:
     """Raise when ``PRAGMA user_version`` is newer than the build supports.
 
     Mirrors ``assertSupportedSchemaVersion``. Older
@@ -219,9 +202,7 @@ def assert_jarvis_state_database_for_maintenance(
     """
     pathname = options.get("pathname")
     if not pathname:
-        raise ValueError(
-            "assert_jarvis_state_database_for_maintenance: pathname required"
-        )
+        raise ValueError("assert_jarvis_state_database_for_maintenance: pathname required")
     user_version = _read_sqlite_user_version(database)
     if user_version > int(STATE_SCHEMA_VERSION):
         raise _create_newer_sqlite_schema_version_error(
@@ -236,8 +217,7 @@ def assert_jarvis_state_database_for_maintenance(
             f"{user_version}; run jarvis doctor --fix before compacting it."
         )
     metadata_row = database.execute(
-        "SELECT role, schema_version FROM schema_meta "
-        "WHERE meta_key = 'primary' LIMIT 1"
+        "SELECT role, schema_version FROM schema_meta WHERE meta_key = 'primary' LIMIT 1"
     ).fetchone()
     if metadata_row is None:
         role = "missing"
@@ -247,15 +227,10 @@ def assert_jarvis_state_database_for_maintenance(
         schema_version_value = metadata_row[1]
     if role != "global":
         raise RuntimeError(
-            f"JARVIS state database {pathname} has schema role {role}; "
-            "expected global."
+            f"JARVIS state database {pathname} has schema role {role}; expected global."
         )
     if schema_version_value != int(STATE_SCHEMA_VERSION):
-        reported = (
-            schema_version_value
-            if isinstance(schema_version_value, int)
-            else "invalid"
-        )
+        reported = schema_version_value if isinstance(schema_version_value, int) else "invalid"
         raise RuntimeError(
             f"JARVIS state database {pathname} metadata schema version "
             f"{reported} does not match {int(STATE_SCHEMA_VERSION)}; run "

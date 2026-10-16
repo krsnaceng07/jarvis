@@ -4,7 +4,7 @@ OpenClaw parity: mirrors ``openclaw-main/src/shared/node-resolve.ts``.
 """
 from __future__ import annotations
 
-from typing import Callable, List, Optional, TypeVar
+from typing import List, Optional, TypeVar
 
 from .node_match import NodeMatchCandidate, resolve_node_id_from_candidates
 

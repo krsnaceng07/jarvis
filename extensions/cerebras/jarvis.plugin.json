@@ -1,0 +1,58 @@
+{
+  "id": "cerebras",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "cerebras"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "cerebras",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "CEREBRAS_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "cerebras": {
+        "baseUrl": "https://api.cerebras.ai/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "cerebras-llama-3.3-70b",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "cerebras-llama-3.1-8b",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

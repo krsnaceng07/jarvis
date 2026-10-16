@@ -14,6 +14,7 @@ physically move the modules here and update all
 ``jarvis_sdk.memory_host_*`` import sites to the new
 ``jarvis_memory_host_sdk.memory_host_*`` location.
 """
+
 from __future__ import annotations
 
 # Phase 5.1 — event store (4 modules).
@@ -143,7 +144,6 @@ from jarvis_sdk.memory_host_fs_utils import (  # noqa: F401
     stat_regular_file,
     walk_directory,
 )
-from jarvis_sdk.memory_host_concurrency import run_with_concurrency  # noqa: F401
 from jarvis_sdk.memory_host_cjk_chars import (  # noqa: F401
     CHARS_PER_TOKEN_ESTIMATE,
     estimate_string_chars,

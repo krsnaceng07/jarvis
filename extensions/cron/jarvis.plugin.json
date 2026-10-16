@@ -1,0 +1,64 @@
+{
+  "id": "cron",
+  "activation": "on_startup",
+  "kind": "infra",
+  "contracts": {
+    "tools": [
+      "cron_schedule",
+      "cron_list",
+      "cron_cancel"
+    ]
+  },
+  "permissions": [
+    "os:scheduler"
+  ],
+  "tools": [
+    {
+      "name": "cron_schedule",
+      "description": "Schedules a recurring or one-shot job.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": true,
+          "description": "Stable id."
+        },
+        {
+          "name": "schedule",
+          "type": "string",
+          "required": true,
+          "description": "Cron expression or ISO timestamp."
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "required": false,
+          "description": "Human-readable description."
+        },
+        {
+          "name": "enabled",
+          "type": "boolean",
+          "required": false,
+          "description": "Active (default: true)."
+        }
+      ]
+    },
+    {
+      "name": "cron_list",
+      "description": "Lists registered cron jobs.",
+      "parameters": []
+    },
+    {
+      "name": "cron_cancel",
+      "description": "Removes a cron job by id.",
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": true,
+          "description": "The job id to remove."
+        }
+      ]
+    }
+  ]
+}

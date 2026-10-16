@@ -296,8 +296,6 @@ class SqliteSessionTranscriptReader:
         options bag is the same shape as every other
         2nd consumer (sessions, state_core).
         """
-        import sqlite3 as _sqlite
-        from typing import Callable as _Callable, Optional as _Optional
 
         # Local import keeps the module's import cost
         # low for callers that only use the default

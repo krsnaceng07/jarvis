@@ -6,6 +6,7 @@ indirectly by ``openai-compatible-audio.test.ts``). The
 Python port tests the descriptor shape + the transcribe
 function with a mocked HTTP transport.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -21,7 +22,6 @@ from extensions.senseaudio import (
 )
 from jarvis_sdk import (
     AudioTranscriptionRequest,
-    MediaUnderstandingProvider,
     PluginApi,
 )
 from jarvis_sdk.context import PluginContext
@@ -49,9 +49,7 @@ class TestSenseAudioPluginEntry:
         """``register(api)`` adds the provider to ``api.media_understanding_providers``."""
         from extensions.senseaudio import senseaudio_plugin
 
-        api = PluginApi(
-            ctx=PluginContext(plugin_id="senseaudio", plugin_kind="infra")
-        )
+        api = PluginApi(ctx=PluginContext(plugin_id="senseaudio", plugin_kind="infra"))
         senseaudio_plugin.register(api)
         providers = api.media_understanding_providers
         assert len(providers) == 1
@@ -95,6 +93,7 @@ class TestTranscribeSenseAudioAudio:
 
             async def fake_transcribe(params):
                 from jarvis_sdk import AudioTranscriptionResult
+
                 return AudioTranscriptionResult(
                     text="hello world",
                     model=params.model or params.default_model,

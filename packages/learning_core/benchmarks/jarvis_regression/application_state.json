@@ -1,0 +1,4 @@
+[
+  {"id": "app_already_running", "description": "App already running — do not launch again", "severity": "medium", "input": {"user_input": "open Spotify", "context": "Spotify is already running"}, "expected_decision": {"tool": "app.focus"}, "forbidden_actions": ["app.launch"]},
+  {"id": "app_not_running", "description": "App not running — launch it", "severity": "medium", "input": {"user_input": "open Spotify", "context": "Spotify is not running"}, "expected_decision": {"tool": "app.launch"}}
+]

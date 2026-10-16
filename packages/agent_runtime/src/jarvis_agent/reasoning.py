@@ -46,9 +46,7 @@ ENABLED_THINKING_LEVELS: frozenset[str] = frozenset(
 #: APIs whose Claude routes need the "off means low" fallback. Parity: the
 #: inline ``model.api === ... || model.api === ...`` check. Bedrock is
 #: included because the same model is reached through a different API id.
-_ANTHROPIC_STYLE_APIS: frozenset[str] = frozenset(
-    {"anthropic-messages", "bedrock-converse-stream"}
-)
+_ANTHROPIC_STYLE_APIS: frozenset[str] = frozenset({"anthropic-messages", "bedrock-converse-stream"})
 
 
 def is_enabled_thinking_level(value: Any) -> bool:

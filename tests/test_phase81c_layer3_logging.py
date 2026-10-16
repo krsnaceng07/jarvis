@@ -1,11 +1,9 @@
 """Phase 8.1c tests — src/logging/ (10 small files)."""
 from __future__ import annotations
 
-import asyncio
 import os
 import sys
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
 
 import pytest
 

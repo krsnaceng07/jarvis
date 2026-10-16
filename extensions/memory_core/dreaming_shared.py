@@ -11,6 +11,7 @@ OpenClaw parity: mirrors ``extensions/memory-core/src/dreaming-shared.ts``
 - ``includes_system_event_token`` — line-by-line substring match for
   the dreaming system event token (used to detect cron firings).
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -101,10 +102,10 @@ def includes_system_event_token(cleaned_body: str, event_text: str) -> bool:
             return True
         # Strip the [cron:<id>] prefix if present.
         if trimmed.startswith(_CRON_WRAPPER_PREFIX):
-            rest = trimmed[len(_CRON_WRAPPER_PREFIX):]
+            rest = trimmed[len(_CRON_WRAPPER_PREFIX) :]
             closing = rest.find("]")
             if closing != -1:
-                stripped = rest[closing + 1:].strip()
+                stripped = rest[closing + 1 :].strip()
                 if stripped == normalized_event:
                     return True
     return False

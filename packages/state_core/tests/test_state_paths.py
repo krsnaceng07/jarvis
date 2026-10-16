@@ -5,6 +5,7 @@ Covers:
 - per-agent path layout
 - the canonical JARVIS state root + state dir + state DB
 """
+
 from __future__ import annotations
 
 import os
@@ -61,9 +62,7 @@ def test_state_sqlite_path_default_filename(monkeypatch, tmp_path):
 def test_agent_sqlite_dir_layout(monkeypatch, tmp_path):
     monkeypatch.setenv("JARVIS_STATE_DIR", str(tmp_path / "state"))
     agent_dir = resolve_agent_sqlite_dir("main")
-    expected = os.path.join(
-        os.path.abspath(str(tmp_path)), "agents", "main"
-    )
+    expected = os.path.join(os.path.abspath(str(tmp_path)), "agents", "main")
     assert agent_dir == expected
 
 
@@ -81,15 +80,9 @@ def test_agent_sqlite_path_rejects_empty():
 def test_paths_use_env_dict_not_environ_when_provided(tmp_path):
     """Pass an explicit env dict to bypass os.environ."""
     env = {"JARVIS_STATE_DIR": str(tmp_path / "injected")}
-    assert resolve_state_root_dir(env) == os.path.abspath(
-        str(tmp_path / "injected")
-    )
-    assert resolve_state_sqlite_dir(env) == os.path.abspath(
-        str(tmp_path / "injected")
-    )
+    assert resolve_state_root_dir(env) == os.path.abspath(str(tmp_path / "injected"))
+    assert resolve_state_sqlite_dir(env) == os.path.abspath(str(tmp_path / "injected"))
     assert resolve_state_sqlite_path(env) == os.path.abspath(
         os.path.join(str(tmp_path / "injected"), "jarvis.sqlite")
     )
-    assert resolve_agent_sqlite_path("beta", env).endswith(
-        os.path.join("beta", "agent.sqlite")
-    )
+    assert resolve_agent_sqlite_path("beta", env).endswith(os.path.join("beta", "agent.sqlite"))

@@ -1,0 +1,16 @@
+{
+  "id": "admin-http-rpc",
+  "name": "Admin HTTP RPC",
+  "description": "Exposes an allowlisted set of Gateway control-plane methods over HTTP for trusted host automation.",
+  "version": "0.1.0",
+  "kind": "infra",
+  "enabledByDefault": false,
+  "contracts": {
+    "gatewayMethodDispatch": ["authenticated-request"]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  }
+}

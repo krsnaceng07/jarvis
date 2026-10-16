@@ -4,7 +4,7 @@ OpenClaw parity: mirrors ``openclaw-main/src/shared/usage-types.ts``.
 """
 from __future__ import annotations
 
-from typing import List, Optional, TypedDict, Union
+from typing import List, TypedDict, Union
 
 
 class SessionUsageOrigin(TypedDict, total=False):

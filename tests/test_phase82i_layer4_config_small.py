@@ -8,9 +8,7 @@ Covers:
 """
 from __future__ import annotations
 
-import os
 
-import pytest
 
 from src.config.zod_schema import (
     install_zod_default_locale,

@@ -237,7 +237,7 @@ def _format_grep_output(matches: list[dict]) -> str:
 # ============================================================================
 
 
-async def create_grep_tool_definition(
+def create_grep_tool_definition(
     cwd: str = "",
     operations: Optional[GrepOperations] = None,
 ) -> ToolDefinition:

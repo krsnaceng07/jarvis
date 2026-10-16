@@ -3,6 +3,7 @@
 OpenClaw parity: mirrors the OpenClaw ``sms`` channel
 extension (35 files in the OpenClaw source).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -33,7 +34,7 @@ class SMSPlugin(ChannelPlugin):
 
         return Result.err(
             "channel_stub",
-            f"sms channel send is a Phase 5.15 stub",
+            "sms channel send is a Phase 5.15 stub",
         )
 
     async def listen(self, callback: Any) -> None:  # type: ignore[override]

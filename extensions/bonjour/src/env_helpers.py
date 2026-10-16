@@ -21,6 +21,7 @@ helper functions (the parts that don't require ciao):
 - ``safe_service_name`` / ``prettify_instance_name`` —
   mDNS name helpers.
 """
+
 from __future__ import annotations
 
 import os
@@ -154,9 +155,7 @@ def resolve_system_mdns_hostname() -> Optional[str]:
     trimmed = raw.strip()
     if not trimmed:
         return None
-    first_label = (
-        trimmed.replace(".local", "").split(".")[0].strip() if trimmed else ""
-    )
+    first_label = trimmed.replace(".local", "").split(".")[0].strip() if trimmed else ""
     if not DNS_LABEL_RE.match(first_label):
         return None
     return first_label

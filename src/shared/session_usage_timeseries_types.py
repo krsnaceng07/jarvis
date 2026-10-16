@@ -5,7 +5,7 @@ OpenClaw parity: mirrors
 """
 from __future__ import annotations
 
-from typing import List, Optional, TypedDict
+from typing import List, TypedDict
 
 
 class SessionUsageTimePoint(TypedDict, total=False):

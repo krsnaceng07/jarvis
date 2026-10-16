@@ -36,7 +36,7 @@ from __future__ import annotations
 
 import re
 import time
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, Optional
 
 
 #: Default runtime-event user prompt. Mirrors

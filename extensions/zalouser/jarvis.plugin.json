@@ -1,0 +1,24 @@
+{
+  "id": "zalouser",
+  "name": "Zalo Personal Account",
+  "description": "JARVIS Zalo Personal Account channel plugin via user session.",
+  "channels": [
+    "zalouser"
+  ],
+  "activation": {
+    "onStartup": false
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "imei": {
+        "type": "string"
+      },
+      "cookie": {
+        "type": "string"
+      }
+    }
+  },
+  "kind": "channel"
+}

@@ -4,6 +4,7 @@ OpenClaw parity: mirrors the query facade re-export in
 ``packages/memory-host-sdk/src/query.ts`` (2 LOC). Re-exports the
 keyword extraction helpers from ``memory_host_query_expansion``.
 """
+
 from __future__ import annotations
 
 from .memory_host_query_expansion import (

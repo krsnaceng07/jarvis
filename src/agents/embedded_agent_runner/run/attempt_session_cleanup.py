@@ -12,7 +12,7 @@ Phase 7.6h-1 — focused minimal port.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict
 
 
 #: Installable hook for the cleanup-embedded-attempt-session-phase step.

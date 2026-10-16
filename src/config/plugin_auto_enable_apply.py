@@ -11,7 +11,7 @@ callables.
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
 from src.config.plugin_auto_enable_detect import detect_plugin_auto_enable_candidates
 from src.config.plugin_auto_enable_types import PluginAutoEnableResult

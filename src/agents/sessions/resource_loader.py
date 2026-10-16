@@ -843,8 +843,13 @@ def load_context_files_from_dir(dir_path: str) -> list[AgentsFile]:
                         continue  # Skip blank files
 
                     # Truncate large files
-                    if len(content) > 100000:
-                        content = content[:100000] + f"\n\n<!-- [truncated: {filename} is too large] -->"
+                    if filename.upper() == "USER.MD":
+                        limit = 4000
+                    else:
+                        limit = 100000
+
+                    if len(content) > limit:
+                        content = content[:limit] + f"\n\n<!-- [truncated: {filename} is too large] -->"
 
                     files.append(AgentsFile(path=file_path, content=content))
             except OSError as exc:

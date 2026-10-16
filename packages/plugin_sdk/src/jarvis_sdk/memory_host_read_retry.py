@@ -29,6 +29,7 @@ Key port decisions:
   the translated "Unknown system error -11" string that some
   Windows / macOS runtimes surface.
 """
+
 from __future__ import annotations
 
 import re
@@ -49,9 +50,7 @@ _TRANSIENT_MEMORY_READ_ERRNO: int = -11
 # Mirrors OpenClaw's ``TRANSIENT_MEMORY_READ_CODES`` set.
 # These are the Node ``code`` values that indicate a transient
 # resource-availability failure worth retrying.
-_TRANSIENT_MEMORY_READ_CODES: frozenset[str] = frozenset(
-    {"EAGAIN", "EWOULDBLOCK", "EDEADLK"}
-)
+_TRANSIENT_MEMORY_READ_CODES: frozenset[str] = frozenset({"EAGAIN", "EWOULDBLOCK", "EDEADLK"})
 
 # Mirrors OpenClaw's ``TRANSIENT_MEMORY_READ_MESSAGE`` regex.
 # Some platforms (notably Windows + macOS) don't surface the

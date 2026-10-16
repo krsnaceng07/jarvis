@@ -4,7 +4,7 @@ OpenClaw parity: mirrors ``openclaw-main/src/shared/node-list-types.ts``.
 """
 from __future__ import annotations
 
-from typing import List, Optional, TypedDict
+from typing import List, TypedDict
 
 
 class NodeListNode(TypedDict, total=False):

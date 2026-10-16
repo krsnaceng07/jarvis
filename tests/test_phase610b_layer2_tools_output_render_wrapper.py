@@ -17,7 +17,6 @@ from __future__ import annotations
 import asyncio
 import os
 import stat
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -25,7 +24,6 @@ import pytest
 from src.agents.sessions.tools import (
     OutputAccumulator,
     OutputAccumulatorOptions,
-    OutputSnapshot,
     create_private_temp_write_stream,
     write_private_temp_file,
     shorten_path,

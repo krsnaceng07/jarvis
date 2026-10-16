@@ -24,10 +24,8 @@ def create_config_io(*args: Any, **kwargs: Any) -> Any:  # pragma: no cover
     implementation so callers can exercise the stable read/write facade
     without requiring a full runtime installation.
     """
-    if args or kwargs:
-        _create_config_io_callable = cast(Callable[..., Any], _create_config_io)
-        return _create_config_io_callable(*args, **kwargs)
-    raise NotImplementedError("createConfigIO facade — install via runtime hooks")
+    _create_config_io_callable = cast(Callable[..., Any], _create_config_io)
+    return _create_config_io_callable(*args, **kwargs)
 
 
 def make_deps(

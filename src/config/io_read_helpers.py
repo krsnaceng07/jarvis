@@ -13,7 +13,6 @@ from __future__ import annotations
 import hashlib
 import os
 import re
-from typing import Optional
 
 
 #: Regex matching a value that starts with `~` followed by end-of-string or a path separator.

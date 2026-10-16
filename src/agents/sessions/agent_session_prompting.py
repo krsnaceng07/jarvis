@@ -373,6 +373,41 @@ class AgentSessionPrompting(AgentSessionBase):
                     self.base_system_prompt,
                     self.base_system_prompt_options,
                 )
+
+            # Emit before_prompt_build hook for active memory parity
+            from src.hooks import HookBus
+            bus = HookBus()
+            if hasattr(self, "api") and hasattr(self.api, "_hooks"):
+                for hook in self.api._hooks:
+                    bus.register(hook)
+                    
+            if bus.count("before_prompt_build") > 0:
+                payload = {
+                    "event": "before_prompt_build",
+                    "prompt": expanded_text,
+                    "messages": messages,
+                    "hookCtx": {
+                        "runId": getattr(self.agent, "run_id", ""),
+                        "trace": None,
+                        "agentId": getattr(self.agent, "id", ""),
+                        "sessionKey": self.config.get("id", "") if isinstance(self.config, dict) else getattr(self.config, "id", ""),
+                        "sessionId": self.config.get("id", "") if isinstance(self.config, dict) else getattr(self.config, "id", ""),
+                        "workspaceDir": self.config.get("workspaceDir", "") if isinstance(self.config, dict) else getattr(self.config, "workspaceDir", ""),
+                        "modelProviderId": self.model.provider if self.model else "",
+                        "modelId": self.model.id if self.model else "",
+                        "trigger": getattr(self.agent, "trigger", "manual"),
+                    }
+                }
+                await bus.fire("before_prompt_build", payload)
+                if payload.get("prependContext"):
+                    expanded_text = f"{payload['prependContext']}\n\n{expanded_text}"
+                if payload.get("appendContext"):
+                    expanded_text = f"{expanded_text}\n\n{payload['appendContext']}"
+                if payload.get("systemPrompt"):
+                    if result is None:
+                        result = {}
+                    result["systemPrompt"] = payload["systemPrompt"]
+
             # Add all custom messages from
             # extensions.
             if result is not None and result.get("messages"):

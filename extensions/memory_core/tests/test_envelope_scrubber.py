@@ -54,9 +54,9 @@ class TestMemoryTriggers:
         ],
     )
     def test_trigger_matches(self, text: str) -> None:
-        assert any(
-            p.search(text) for p in MEMORY_TRIGGERS
-        ), f"expected {text!r} to match a memory trigger"
+        assert any(p.search(text) for p in MEMORY_TRIGGERS), (
+            f"expected {text!r} to match a memory trigger"
+        )
 
     @pytest.mark.parametrize(
         "text",
@@ -190,7 +190,7 @@ class TestMiscMarkers:
 
     def test_envelope_json(self) -> None:
         # JSON blob with envelope field names.
-        text = "{\n" '  "chat_id": 123,\n' '  "message_id": 456\n' "}"
+        text = '{\n  "chat_id": 123,\n  "message_id": 456\n}'
         assert looks_like_envelope_sludge(text)
 
     def test_timestamp_prefix_envelope(self) -> None:
@@ -322,9 +322,7 @@ class TestSanitize:
 
     def test_strips_fenced_json_sentinel(self) -> None:
         text = (
-            "Conversation info (untrusted metadata):\n"
-            '```json\n{"chat_id": 1}\n```\n'
-            "I like pizza."
+            'Conversation info (untrusted metadata):\n```json\n{"chat_id": 1}\n```\nI like pizza.'
         )
         result = sanitize_for_memory_capture(text)
         assert "Conversation info" not in result

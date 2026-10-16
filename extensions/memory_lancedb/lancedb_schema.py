@@ -68,10 +68,7 @@ def has_agent_scope_column(schema: object) -> bool:
     fields = getattr(schema, "fields", None)
     if not fields:
         return False
-    return any(
-        getattr(field, "name", None) == MEMORY_AGENT_ID_COLUMN
-        for field in fields
-    )
+    return any(getattr(field, "name", None) == MEMORY_AGENT_ID_COLUMN for field in fields)
 
 
 def is_valid_memory_id(memory_id: str) -> bool:

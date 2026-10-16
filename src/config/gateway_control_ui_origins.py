@@ -5,7 +5,7 @@ OpenClaw parity: mirrors
 """
 from __future__ import annotations
 
-from typing import List, Optional, TypedDict
+from typing import List, Optional
 
 
 #: Default gateway port used by the dispatch config when none is configured.

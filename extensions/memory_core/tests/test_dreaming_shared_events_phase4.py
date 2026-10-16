@@ -2,12 +2,11 @@
 
 Mirrors the TypeScript ``test_dreaming-shared.test.ts`` patterns.
 """
+
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
-import pytest
 
 from extensions.memory_core import dreaming_events, dreaming_shared, time
 
@@ -33,42 +32,33 @@ def test_normalize_trimmed_string_rejects_non_string() -> None:
 
 
 def test_includes_system_event_token_exact_match() -> None:
-    assert dreaming_shared.includes_system_event_token(
-        "memory-core-dream-firing", "memory-core-dream-firing"
-    ) is True
+    assert (
+        dreaming_shared.includes_system_event_token(
+            "memory-core-dream-firing", "memory-core-dream-firing"
+        )
+        is True
+    )
 
 
 def test_includes_system_event_token_on_its_own_line() -> None:
     body = "line 1\nmemory-core-dream-firing\nline 3"
-    assert dreaming_shared.includes_system_event_token(
-        body, "memory-core-dream-firing"
-    ) is True
+    assert dreaming_shared.includes_system_event_token(body, "memory-core-dream-firing") is True
 
 
 def test_includes_system_event_token_strips_cron_wrapper() -> None:
     body = "[cron:dream-daily-2026-07-23] memory-core-dream-firing"
-    assert dreaming_shared.includes_system_event_token(
-        body, "memory-core-dream-firing"
-    ) is True
+    assert dreaming_shared.includes_system_event_token(body, "memory-core-dream-firing") is True
 
 
 def test_includes_system_event_token_rejects_substring_match() -> None:
     """Substring match should NOT match (avoid false positives)."""
     body = "this is a memory-core-dream-firing-like but not exact"
-    assert dreaming_shared.includes_system_event_token(
-        body, "memory-core-dream-firing"
-    ) is False
+    assert dreaming_shared.includes_system_event_token(body, "memory-core-dream-firing") is False
 
 
 def test_includes_system_event_token_returns_false_for_empty() -> None:
-    assert (
-        dreaming_shared.includes_system_event_token("", "memory-core-dream-firing")
-        is False
-    )
-    assert (
-        dreaming_shared.includes_system_event_token("hello", "")
-        is False
-    )
+    assert dreaming_shared.includes_system_event_token("", "memory-core-dream-firing") is False
+    assert dreaming_shared.includes_system_event_token("hello", "") is False
 
 
 # ── Time helpers ──────────────────────────────────────────────────────────

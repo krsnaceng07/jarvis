@@ -208,10 +208,18 @@ class ExecRuntimeConfig(TypedDict, total=False):
     """Exec tool runtime config."""
     timeoutSeconds: int
     maxOutputBytes: int
+    host: str  # "auto" | "sandbox" | "gateway" | "node"
+    mode: str  # "deny" | "allowlist" | "ask" | "auto" | "full"
+    security: str  # "deny" | "allowlist" | "full"
+    ask: str  # "off" | "on-miss" | "always"
+    node: str
+    safeBins: list
     safeBinProfile: str
     safeBinTrustedDirs: list
+    safeBinProfiles: dict  # Record<string, SafeBinProfileFixture>
     allowInsecurePath: bool
     binding: dict
+    reviewer: dict  # { model?: dict }
 
 
 class CodeModeConfig(TypedDict, total=False):
@@ -227,6 +235,30 @@ class ToolHeartbeatConfig(TypedDict, total=False):
     timeoutMs: int
 
 
+class ToolLoopDetectionDetectorConfig(TypedDict, total=False):
+    """Tool loop detection detector toggles."""
+    genericRepeat: bool
+    knownPollNoProgress: bool
+    pingPong: bool
+
+
+class ToolLoopPostCompactionGuardConfig(TypedDict, total=False):
+    """Post-compaction loop guard config."""
+    windowSize: int
+
+
+class ToolLoopDetectionConfig(TypedDict, total=False):
+    """Tool loop-detection config."""
+    enabled: bool
+    historySize: int
+    warningThreshold: int
+    unknownToolThreshold: int
+    criticalThreshold: int
+    globalCircuitBreakerThreshold: int
+    detectors: ToolLoopDetectionDetectorConfig
+    postCompactionGuard: ToolLoopPostCompactionGuardConfig
+
+
 class AgentToolsConfig(TypedDict, total=False):
     """Per-agent tool overrides."""
     allow: list
@@ -237,6 +269,7 @@ class AgentToolsConfig(TypedDict, total=False):
     byProvider: dict
     progress: ToolProgressDetail
     heartbeat: ToolHeartbeatConfig
+    loopDetection: ToolLoopDetectionConfig
     web: WebToolsConfig
     media: MediaToolsConfig
     exec: ExecRuntimeConfig
@@ -254,6 +287,7 @@ class ToolsConfig(TypedDict, total=False):
     byProvider: dict
     progress: ToolProgressDetail
     heartbeat: ToolHeartbeatConfig
+    loopDetection: ToolLoopDetectionConfig
     web: WebToolsConfig
     media: MediaToolsConfig
     exec: ExecRuntimeConfig
@@ -293,6 +327,9 @@ __all__ = [
     "ExecRuntimeConfig",
     "CodeModeConfig",
     "ToolHeartbeatConfig",
+    "ToolLoopDetectionDetectorConfig",
+    "ToolLoopPostCompactionGuardConfig",
+    "ToolLoopDetectionConfig",
     "AgentToolsConfig",
     "ToolsConfig",
     "ToolProfileConfig",

@@ -5,13 +5,11 @@ The LLM orchestrators are stubbed; we test the deterministic building
 blocks (lookback filter, snippet extraction, dedupe, diary coverage,
 ingestion state normalizers, session ingestion helpers).
 """
+
 from __future__ import annotations
 
-import os
 from datetime import datetime, timezone
-from pathlib import Path
 
-import pytest
 
 from extensions.memory_core import dreaming_phases as dp
 
@@ -111,10 +109,10 @@ def test_filter_recall_entries_within_lookback_mixed() -> None:
         },
     ]
     # Use a cutoff that includes 2023-11-15 but excludes 2020-01-01
-    cutoff = int(
-        datetime(2023, 11, 14, 0, 0, 0, tzinfo=timezone.utc).timestamp() * 1000
+    cutoff = int(datetime(2023, 11, 14, 0, 0, 0, tzinfo=timezone.utc).timestamp() * 1000)
+    result = dp.filter_recall_entries_within_lookback(
+        entries, now_ms=cutoff + 86_400_000, lookback_days=1
     )
-    result = dp.filter_recall_entries_within_lookback(entries, now_ms=cutoff + 86_400_000, lookback_days=1)
     assert len(result) == 1
     assert result[0]["key"] == "k1"
 
@@ -538,19 +536,37 @@ def test_normalize_session_ingestion_state_caps_seen_messages() -> None:
     raw = {
         "files": {},
         "seenMessages": {
-            "scope": [f"hash-{i}" for i in range(dp.SESSION_INGESTION_MAX_TRACKED_MESSAGES_PER_SESSION + 100)]
+            "scope": [
+                f"hash-{i}"
+                for i in range(dp.SESSION_INGESTION_MAX_TRACKED_MESSAGES_PER_SESSION + 100)
+            ]
         },
     }
     result = dp.normalize_session_ingestion_state(raw)
-    assert len(result["seenMessages"]["scope"]) == dp.SESSION_INGESTION_MAX_TRACKED_MESSAGES_PER_SESSION
+    assert (
+        len(result["seenMessages"]["scope"])
+        == dp.SESSION_INGESTION_MAX_TRACKED_MESSAGES_PER_SESSION
+    )
 
 
 def test_normalize_session_ingestion_state_drops_invalid_files() -> None:
     """Files with negative mtime/size are dropped."""
     raw = {
         "files": {
-            "ok": {"mtimeMs": 1.0, "size": 1.0, "contentHash": "h", "lineCount": 1, "lastContentLine": 1},
-            "bad": {"mtimeMs": -1, "size": 1.0, "contentHash": "h", "lineCount": 1, "lastContentLine": 1},
+            "ok": {
+                "mtimeMs": 1.0,
+                "size": 1.0,
+                "contentHash": "h",
+                "lineCount": 1,
+                "lastContentLine": 1,
+            },
+            "bad": {
+                "mtimeMs": -1,
+                "size": 1.0,
+                "contentHash": "h",
+                "lineCount": 1,
+                "lastContentLine": 1,
+            },
         },
         "seenMessages": {},
     }

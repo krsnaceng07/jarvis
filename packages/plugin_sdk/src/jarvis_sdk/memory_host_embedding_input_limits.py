@@ -16,6 +16,7 @@ Public API:
   splits ``text`` into chunks each no larger than
   ``max_bytes`` UTF-8 bytes, preserving surrogate pairs.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

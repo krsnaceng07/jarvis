@@ -38,9 +38,8 @@ land.
 """
 from __future__ import annotations
 
-import asyncio
 import re
-from typing import Any, Awaitable, Callable, Dict, Optional, Set
+from typing import Any, Callable, Dict, Optional, Set
 from urllib.parse import urlparse
 
 

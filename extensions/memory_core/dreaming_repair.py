@@ -33,16 +33,14 @@ Key port decisions:
      ``DREAMING_SESSION_INGESTION_SEEN_NAMESPACE`` namespaces is
      cleared via ``clear_memory_core_workspace_namespace``.
 """
+
 from __future__ import annotations
 
-import asyncio
 import os
 import shutil
-import sys
 import uuid
 from datetime import datetime
-from pathlib import Path
-from typing import Any, Literal, TypedDict
+from typing import Literal, TypedDict
 
 from .dreaming_dreams_file import DREAMS_FILENAMES
 from .dreaming_state import (
@@ -156,9 +154,8 @@ def _is_suspicious_session_corpus_line(line: str) -> bool:
     — the session corpus should contain user-session text, not
     generated dream diary content.
     """
-    return (
-        DREAMING_NARRATIVE_PROMPT_PREFIX in line
-        and (DREAMING_NARRATIVE_RUN_PREFIX in line or "dreaming-narrative-" in line)
+    return DREAMING_NARRATIVE_PROMPT_PREFIX in line and (
+        DREAMING_NARRATIVE_RUN_PREFIX in line or "dreaming-narrative-" in line
     )
 
 
@@ -377,12 +374,8 @@ def _clear_session_ingestion_state(workspace_dir: str) -> None:
     errors propagate to the caller, which records them as warnings.
     """
     # Sequential is fine here — these are in-process store operations.
-    clear_memory_core_workspace_namespace(
-        DREAMING_SESSION_INGESTION_FILES_NAMESPACE, workspace_dir
-    )
-    clear_memory_core_workspace_namespace(
-        DREAMING_SESSION_INGESTION_SEEN_NAMESPACE, workspace_dir
-    )
+    clear_memory_core_workspace_namespace(DREAMING_SESSION_INGESTION_FILES_NAMESPACE, workspace_dir)
+    clear_memory_core_workspace_namespace(DREAMING_SESSION_INGESTION_SEEN_NAMESPACE, workspace_dir)
 
 
 def repair_dreaming_artifacts(

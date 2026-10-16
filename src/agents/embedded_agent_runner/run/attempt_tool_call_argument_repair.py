@@ -19,7 +19,7 @@ public surface and delegates the heavy work to installable hooks.
 """
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict
 
 
 #: StreamFn shape.

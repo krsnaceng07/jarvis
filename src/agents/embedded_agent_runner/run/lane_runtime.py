@@ -20,7 +20,7 @@ Phase 7.6g — focused minimal port.
 """
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict
 
 
 #: Default lane-timeout grace period (ms). Mirrors

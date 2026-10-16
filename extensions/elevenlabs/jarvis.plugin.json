@@ -1,0 +1,52 @@
+{
+  "id": "elevenlabs",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "elevenlabs"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "elevenlabs",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "ELEVENLABS_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "elevenlabs": {
+        "baseUrl": "https://api.elevenlabs.io/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "eleven_multilingual_v2",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Sequence, Any
+from typing import Sequence
 
 _log = logging.getLogger("jarvis.agents.tool_allowlist_guard")
 

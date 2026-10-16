@@ -2,11 +2,12 @@
 
 Covers path safety, transient retry, and agent config integration.
 """
+
 from __future__ import annotations
 
-import os
 import sys
 from pathlib import Path
+from typing import cast
 
 import pytest
 
@@ -16,6 +17,7 @@ _SRC = _PKG_ROOT / "src"
 if str(_SRC) not in sys.path:
     sys.path.insert(0, str(_SRC))
 
+from jarvis_sdk.memory_host_config_utils import OpenClawConfig  # noqa: E402
 from jarvis_sdk.memory_host_read_file import (  # noqa: E402
     read_agent_memory_file,
     read_memory_file,
@@ -153,9 +155,9 @@ async def test_read_memory_file_respects_from_and_lines(tmp_path: Path) -> None:
     )
     assert result["text"].startswith("line 5\nline 6\nline 7")
     assert "from=8" in result["text"]  # continuation notice
-    assert result["from"] == 5
-    assert result["lines"] == 3
-    assert result["nextFrom"] == 8
+    assert result["from"] == 5  # type: ignore[typeddict-item]
+    assert result.get("lines") == 3
+    assert result.get("nextFrom") == 8
 
 
 @pytest.mark.asyncio
@@ -202,16 +204,19 @@ async def test_read_memory_file_extra_paths_missing_file_empty_text(tmp_path: Pa
 @pytest.mark.asyncio
 async def test_read_agent_memory_disabled_raises(tmp_path: Path) -> None:
     """``memory search disabled`` is raised when the agent has it off."""
-    cfg = {
-        "agents": {
-            "list": [
-                {
-                    "id": "main",
-                    "memorySearch": {"enabled": False},
-                }
-            ]
-        }
-    }
+    cfg = cast(
+        OpenClawConfig,
+        {
+            "agents": {
+                "list": [
+                    {
+                        "id": "main",
+                        "memorySearch": {"enabled": False},
+                    }
+                ]
+            }
+        },
+    )
     with pytest.raises(ValueError, match="memory search disabled"):
         await read_agent_memory_file(cfg, "main", "MEMORY.md")
 
@@ -222,19 +227,22 @@ async def test_read_agent_memory_default_workspace(tmp_path: Path) -> None:
     workspace = tmp_path / "agent_workspace"
     workspace.mkdir()
     (workspace / "MEMORY.md").write_text("agent notes", encoding="utf-8")
-    cfg = {
-        "agents": {
-            "list": [
-                {
-                    "id": "main",
-                    "workspace": str(workspace),
-                    "memorySearch": {"enabled": True},
-                }
-            ]
-        }
-    }
+    cfg = cast(
+        OpenClawConfig,
+        {
+            "agents": {
+                "list": [
+                    {
+                        "id": "main",
+                        "workspace": str(workspace),
+                        "memorySearch": {"enabled": True},
+                    }
+                ]
+            }
+        },
+    )
     result = await read_agent_memory_file(cfg, "main", "MEMORY.md")
-    assert result["text"] == "agent notes"
+    assert result.get("text") == "agent notes"
 
 
 @pytest.mark.asyncio
@@ -245,22 +253,25 @@ async def test_read_agent_memory_extra_paths(tmp_path: Path) -> None:
     extra = tmp_path / "extra"
     extra.mkdir()
     (extra / "x.md").write_text("extra content", encoding="utf-8")
-    cfg = {
-        "agents": {
-            "list": [
-                {
-                    "id": "main",
-                    "workspace": str(workspace),
-                    "memorySearch": {
-                        "enabled": True,
-                        "extraPaths": [str(extra)],
-                    },
-                }
-            ]
-        }
-    }
+    cfg = cast(
+        OpenClawConfig,
+        {
+            "agents": {
+                "list": [
+                    {
+                        "id": "main",
+                        "workspace": str(workspace),
+                        "memorySearch": {
+                            "enabled": True,
+                            "extraPaths": [str(extra)],
+                        },
+                    }
+                ]
+            }
+        },
+    )
     result = await read_agent_memory_file(cfg, "main", str(extra / "x.md"))
-    assert result["text"] == "extra content"
+    assert result.get("text") == "extra content"
 
 
 @pytest.mark.asyncio
@@ -270,18 +281,21 @@ async def test_read_agent_memory_context_limits_applied(tmp_path: Path) -> None:
     workspace.mkdir()
     content = "\n".join(f"L{i}" for i in range(50))
     (workspace / "MEMORY.md").write_text(content, encoding="utf-8")
-    cfg = {
-        "agents": {
-            "list": [
-                {
-                    "id": "main",
-                    "workspace": str(workspace),
-                    "memorySearch": {"enabled": True},
-                    "contextLimits": {"memoryGetDefaultLines": 5},
-                }
-            ]
-        }
-    }
+    cfg = cast(
+        OpenClawConfig,
+        {
+            "agents": {
+                "list": [
+                    {
+                        "id": "main",
+                        "workspace": str(workspace),
+                        "memorySearch": {"enabled": True},
+                        "contextLimits": {"memoryGetDefaultLines": 5},
+                    }
+                ]
+            }
+        },
+    )
     result = await read_agent_memory_file(cfg, "main", "MEMORY.md")
     # Only 5 lines returned.
-    assert result["lines"] == 5
+    assert result.get("lines") == 5

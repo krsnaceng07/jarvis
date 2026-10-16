@@ -6,6 +6,7 @@ host calls to verify the channel is wired). The Python
 port ships the equivalent as a function returning a dict
 the host's ``doctor`` tool can render.
 """
+
 from __future__ import annotations
 
 from .runtime import get_discord_runtime

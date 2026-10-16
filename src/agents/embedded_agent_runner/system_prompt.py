@@ -12,7 +12,7 @@ Phase 7.6h-4 — focused minimal port.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from ..sessions.system_prompt import build_system_prompt as _build_session_system_prompt
 

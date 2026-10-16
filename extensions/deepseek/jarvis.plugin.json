@@ -1,0 +1,73 @@
+{
+  "id": "deepseek",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "deepseek"
+  ],
+  "providerEndpoints": [
+    {
+      "endpointClass": "deepseek-native",
+      "hosts": [
+        "api.deepseek.com"
+      ]
+    }
+  ],
+  "providerRequest": {
+    "providers": {
+      "deepseek": {
+        "family": "deepseek"
+      }
+    }
+  },
+  "setup": {
+    "providers": [
+      {
+        "id": "deepseek",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "DEEPSEEK_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "deepseek": {
+        "baseUrl": "https://api.deepseek.com/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "deepseek-chat",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "deepseek-reasoner",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

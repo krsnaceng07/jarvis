@@ -17,7 +17,7 @@ Phase 7.6d-7 — focused minimal port.
 """
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, Optional
 
 
 #: Loop-detection shape.

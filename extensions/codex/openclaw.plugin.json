@@ -47,5 +47,17 @@
         "type": "integer"
       }
     }
+  },
+  "kind": "tool",
+  "contracts": {
+    "tools": [
+      "codex_threads",
+      "codex_plugins",
+      "codex_endpoint_probe",
+      "codex_sessions_list",
+      "codex_session_read",
+      "codex_session_send",
+      "codex_session_interrupt"
+    ]
   }
 }

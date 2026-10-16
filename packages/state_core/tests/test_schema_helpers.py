@@ -8,6 +8,7 @@ Covers:
 - ensure_column refuses when the table is missing
 - index_exists + table_index_list
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -87,10 +88,7 @@ def test_table_has_column_is_case_sensitive():
 def test_table_primary_key_columns_for_composite_pk():
     conn = _fresh_db()
     try:
-        conn.execute(
-            "CREATE TABLE foo (a TEXT NOT NULL, b TEXT NOT NULL, "
-            "PRIMARY KEY (a, b))"
-        )
+        conn.execute("CREATE TABLE foo (a TEXT NOT NULL, b TEXT NOT NULL, PRIMARY KEY (a, b))")
         assert table_primary_key_columns(conn, "foo") == ["a", "b"]
     finally:
         conn.close()
@@ -99,9 +97,7 @@ def test_table_primary_key_columns_for_composite_pk():
 def test_table_primary_key_columns_for_single_pk():
     conn = _fresh_db()
     try:
-        conn.execute(
-            "CREATE TABLE foo (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)"
-        )
+        conn.execute("CREATE TABLE foo (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT)")
         assert table_primary_key_columns(conn, "foo") == ["id"]
     finally:
         conn.close()
@@ -165,9 +161,10 @@ def test_ensure_column_uses_first_token_as_column_name():
         conn.execute("CREATE TABLE foo (id INTEGER)")
         # ``column_sql`` can have many tokens (type, default, check).
         # The first whitespace-delimited token is the column name.
-        assert ensure_column(
-            conn, "foo", "score INTEGER NOT NULL DEFAULT 0 CHECK (score >= 0)"
-        ) is True
+        assert (
+            ensure_column(conn, "foo", "score INTEGER NOT NULL DEFAULT 0 CHECK (score >= 0)")
+            is True
+        )
         assert table_has_column(conn, "foo", "score") is True
     finally:
         conn.close()

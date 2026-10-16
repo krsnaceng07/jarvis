@@ -156,6 +156,8 @@ class SessionHeader:
     parent_session: Optional[str] = None
     version: Optional[int] = None
     type: Literal["session"] = "session"
+    created_actor: Optional[str] = None
+    is_draft: bool = False
 
 
 # ============================================================================
@@ -170,6 +172,8 @@ class NewSessionOptions:
 
     id: Optional[str] = None
     parent_session: Optional[str] = None
+    created_actor: Optional[str] = None
+    is_draft: bool = False
 
 
 # ============================================================================

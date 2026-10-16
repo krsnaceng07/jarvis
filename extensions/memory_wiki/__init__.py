@@ -455,7 +455,7 @@ entry = define_plugin_entry(
     id="memory_wiki",
     kind="memory",
     name="Memory Wiki",
-    description=("Persistent wiki compiler and Obsidian-friendly " "knowledge vault for JARVIS."),
+    description=("Persistent wiki compiler and Obsidian-friendly knowledge vault for JARVIS."),
     activation="on_startup",
     register=register_memory_wiki,
 )

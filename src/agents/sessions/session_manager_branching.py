@@ -41,7 +41,7 @@ from __future__ import annotations
 import logging
 import os
 from datetime import datetime, timezone
-from typing import Any, Optional, Union
+from typing import Optional
 
 from .session_manager_codec import (
     CURRENT_SESSION_VERSION,

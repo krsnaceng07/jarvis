@@ -15,6 +15,7 @@ Key port decisions:
   ``plugin_registry_types.py``.
 - ``workerProviders`` is a dict (OpenClaw's ``Map``).
 """
+
 from __future__ import annotations
 
 from .plugin_registry_types import PluginRegistry

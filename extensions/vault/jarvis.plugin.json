@@ -1,0 +1,72 @@
+{
+  "id": "vault",
+  "name": "Vault",
+  "kind": "infra",
+  "version": "0.1.0",
+  "description": "HashiCorp Vault SecretRefs provider.",
+  "activation": {
+    "onStartup": true,
+    "onDemand": true
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "vaultAddr": {
+        "type": "string",
+        "description": "Vault server base URL (e.g. https://vault.example.com)."
+      },
+      "authMethod": {
+        "type": "string",
+        "enum": ["token", "token_file", "jwt", "kubernetes"],
+        "default": "token",
+        "description": "Authentication method to acquire client token."
+      },
+      "token": {
+        "type": "string",
+        "description": "Vault client token for 'token' auth."
+      },
+      "tokenFile": {
+        "type": "string",
+        "description": "Path to client token sink file for 'token_file' auth."
+      },
+      "authMount": {
+        "type": "string",
+        "description": "Custom auth mount path for JWT or Kubernetes login."
+      },
+      "authRole": {
+        "type": "string",
+        "description": "Vault auth role for JWT or Kubernetes login."
+      },
+      "jwtFile": {
+        "type": "string",
+        "description": "Path to JWT/workload identity token file."
+      },
+      "namespace": {
+        "type": "string",
+        "description": "Vault Enterprise namespace header (X-Vault-Namespace)."
+      },
+      "kvMount": {
+        "type": "string",
+        "default": "secret",
+        "description": "KV engine mount path (default 'secret')."
+      },
+      "kvVersion": {
+        "type": "integer",
+        "enum": [1, 2],
+        "default": 2,
+        "description": "KV secrets engine version (1 or 2, default 2)."
+      },
+      "timeoutMs": {
+        "type": "integer",
+        "minimum": 1000,
+        "default": 15000,
+        "description": "HTTP request timeout in milliseconds."
+      },
+      "caCert": {
+        "type": "string",
+        "description": "Optional path to custom CA certificate PEM bundle."
+      }
+    }
+  }
+}

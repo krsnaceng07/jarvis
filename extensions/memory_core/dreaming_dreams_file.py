@@ -12,6 +12,7 @@ OpenClaw parity: mirrors ``extensions/memory-core/src/dreaming-dreams-file.ts``
 - ``update_deep_dreams_file({workspace_dir, body_lines})`` — convenience
   helper that updates the "Deep Sleep" managed markdown block.
 """
+
 from __future__ import annotations
 
 import os
@@ -182,7 +183,11 @@ def _write_dreams_file_atomic(dreams_path: str, content: str) -> None:
         # Preserve existing mode if file exists.
         if os.path.exists(dreams_path):
             try:
-                existing_mode = stat.S_IMODE(os.stat(dreams_path).st_mode) if (stat := __import__("stat")) else 0o600  # noqa: F821
+                existing_mode = (
+                    stat.S_IMODE(os.stat(dreams_path).st_mode)
+                    if (stat := __import__("stat"))
+                    else 0o600
+                )  # noqa: F821
             except OSError:
                 existing_mode = 0o600
         else:
@@ -264,9 +269,7 @@ def update_deep_dreams_file(workspace_dir: str, body_lines: list[str]) -> str:
 # Mirrors OpenClaw's ``replaceManagedMarkdownBlock`` from
 # ``openclaw/plugin-sdk/memory-host-markdown``. Inlined here since the
 # SDK's memory-host-markdown module isn't ported yet.
-_MARKER_RE = re.compile(
-    r"^[ \t]*<!--[ \t]*([\w-]+):([\w.-]+):start[ \t]*-->$", re.MULTILINE
-)
+_MARKER_RE = re.compile(r"^[ \t]*<!--[ \t]*([\w-]+):([\w.-]+):start[ \t]*-->$", re.MULTILINE)
 
 
 def _replace_managed_markdown_block(
@@ -286,7 +289,7 @@ def _replace_managed_markdown_block(
         start_idx = original.index(start_marker)
         end_idx = original.index(end_marker, start_idx)
         before = original[:start_idx]
-        after = original[end_idx + len(end_marker):]
+        after = original[end_idx + len(end_marker) :]
         return f"{before}{start_marker}\n{body}\n{end_marker}{after}"
 
     # No existing block — append a new section.

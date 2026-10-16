@@ -69,7 +69,6 @@ from pathlib import Path
 from typing import Any, Optional
 
 from .types import (
-    DEFAULT_STALE_MESSAGE,
     EventBus,
     Extension,
     ExtensionAPI,
@@ -79,8 +78,6 @@ from .types import (
     LoadExtensionsResult,
     MessageRenderer,
     ProviderConfig,
-    RegisteredCommand,
-    SourceInfo,
     ToolDefinition,
 )
 

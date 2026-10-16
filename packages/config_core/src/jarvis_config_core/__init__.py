@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Any
@@ -53,6 +52,7 @@ class AgentConfig:
     workspace: str = ""
     default: bool = False
 
+
 @dataclass(frozen=True, slots=True)
 class BindingMatch:
     channel: str | None = None
@@ -63,27 +63,75 @@ class BindingMatch:
     team_id: str | None = None
     roles: list[str] | None = None
 
+
 @dataclass(frozen=True, slots=True)
 class BindingConfig:
     match: BindingMatch
     agent_id: str
     session_dm_scope: str | None = None
 
+
 @dataclass(frozen=True, slots=True)
 class SessionConfig:
     dm_scope: str = "main"
+    identityLinks: dict[str, list[str]] = field(default_factory=dict)
+
 
 @dataclass(frozen=True, slots=True)
 class BroadcastConfig:
     strategy: str = "parallel"
     groups: dict[str, list[str]] = field(default_factory=dict)
 
+
 @dataclass(frozen=True, slots=True)
 class AgentIdentity:
     """Agent identity persisted from bootstrap ritual."""
+
     name: str = "JARVIS"
     soul: str = ""  # voice/tone description
     workspace_configured: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class McpToolFilter:
+    include: list[str] = field(default_factory=list)
+    exclude: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True, slots=True)
+class McpServerConfig:
+    url: str | None = None
+    transport: str = "stdio"
+    enabled: bool = True
+    command: str | None = None
+    args: list[str] = field(default_factory=list)
+    cwd: str | None = None
+    connectionTimeoutMs: int = 5000
+    requestTimeoutMs: int = 20000
+    toolFilter: McpToolFilter = field(default_factory=McpToolFilter)
+    auth: str | None = None
+    oauth: dict[str, Any] = field(default_factory=dict)
+    headers: dict[str, str] = field(default_factory=dict)
+    env: dict[str, str] = field(default_factory=dict)
+
+
+@dataclass(frozen=True, slots=True)
+class ToolSearchConfig:
+    mode: str = "code"
+    codeTimeoutMs: int = 10000
+    searchDefaultLimit: int = 8
+    maxSearchLimit: int = 20
+
+
+@dataclass(frozen=True, slots=True)
+class ToolsConfig:
+    toolSearch: ToolSearchConfig | bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class McpConfig:
+    servers: dict[str, McpServerConfig] = field(default_factory=dict)
+
 
 @dataclass(frozen=True, slots=True)
 class JarvisConfig:
@@ -108,6 +156,15 @@ class JarvisConfig:
     bindings: list[BindingConfig] = field(default_factory=list)
     session: SessionConfig = field(default_factory=SessionConfig)
     broadcast: BroadcastConfig = field(default_factory=BroadcastConfig)
+
+    # MCP
+    mcp: McpConfig = field(default_factory=McpConfig)
+
+    # Tools config (Tool Search, etc)
+    tools: ToolsConfig = field(default_factory=ToolsConfig)
+
+    # Internal hooks
+    hooks: dict[str, Any] = field(default_factory=dict)
 
     @property
     def is_configured(self) -> bool:
@@ -158,7 +215,9 @@ class JarvisConfig:
                     "match": {
                         "channel": b.match.channel,
                         "accountId": b.match.account_id,
-                        "peer": {"kind": b.match.peer_kind, "id": b.match.peer_id} if b.match.peer_kind else None,
+                        "peer": {"kind": b.match.peer_kind, "id": b.match.peer_id}
+                        if b.match.peer_kind
+                        else None,
                         "guildId": b.match.guild_id,
                         "teamId": b.match.team_id,
                         "roles": b.match.roles,
@@ -172,7 +231,43 @@ class JarvisConfig:
             "broadcast": {
                 "strategy": self.broadcast.strategy,
                 **self.broadcast.groups,
-            }
+            },
+            "mcp": {
+                "servers": {
+                    name: {
+                        "url": srv.url,
+                        "transport": srv.transport,
+                        "enabled": srv.enabled,
+                        "command": srv.command,
+                        "args": srv.args,
+                        "cwd": srv.cwd,
+                        "connectionTimeoutMs": srv.connectionTimeoutMs,
+                        "requestTimeoutMs": srv.requestTimeoutMs,
+                        "toolFilter": {
+                            "include": srv.toolFilter.include,
+                            "exclude": srv.toolFilter.exclude,
+                        },
+                        "auth": srv.auth,
+                        "oauth": srv.oauth,
+                        "headers": srv.headers,
+                        "env": srv.env,
+                    }
+                    for name, srv in self.mcp.servers.items()
+                }
+            },
+            "tools": {
+                "toolSearch": (
+                    self.tools.toolSearch
+                    if isinstance(self.tools.toolSearch, bool)
+                    else {
+                        "mode": self.tools.toolSearch.mode,
+                        "codeTimeoutMs": self.tools.toolSearch.codeTimeoutMs,
+                        "searchDefaultLimit": self.tools.toolSearch.searchDefaultLimit,
+                        "maxSearchLimit": self.tools.toolSearch.maxSearchLimit,
+                    }
+                )
+            },
+            "hooks": self.hooks,
         }
 
 
@@ -202,9 +297,7 @@ def load_config(
     elif legacy_app_dir is not None:
         legacy = legacy_app_dir / _LEGACY_API_KEYS_RELPATH
         if legacy.exists():
-            _log.info(
-                "config_core: canonical config not found; reading legacy %s", legacy
-            )
+            _log.info("config_core: canonical config not found; reading legacy %s", legacy)
             raw = _read_json(legacy)
     else:
         _log.debug("config_core: no config at %s; using defaults", path)
@@ -291,12 +384,14 @@ def _parse(raw: dict[str, Any]) -> JarvisConfig:
         agent_list: list[AgentConfig] = []
         for a in raw["agents"].get("list", []):
             if isinstance(a, dict) and "id" in a:
-                agent_list.append(AgentConfig(
-                    id=str(a["id"]),
-                    name=str(a.get("name", "")),
-                    workspace=str(a.get("workspace", "")),
-                    default=bool(a.get("default", False)),
-                ))
+                agent_list.append(
+                    AgentConfig(
+                        id=str(a["id"]),
+                        name=str(a.get("name", "")),
+                        workspace=str(a.get("workspace", "")),
+                        default=bool(a.get("default", False)),
+                    )
+                )
         kwargs["agents"] = {"list": agent_list}
 
     if "bindings" in raw and isinstance(raw["bindings"], list):
@@ -320,18 +415,23 @@ def _parse(raw: dict[str, Any]) -> JarvisConfig:
                     )
 
                     session_raw = b.get("session")
-                    session_dm_scope = session_raw.get("dmScope") if isinstance(session_raw, dict) else None
+                    session_dm_scope = (
+                        session_raw.get("dmScope") if isinstance(session_raw, dict) else None
+                    )
 
-                    bindings_list.append(BindingConfig(
-                        match=bm,
-                        agent_id=str(b["agentId"]),
-                        session_dm_scope=session_dm_scope,
-                    ))
+                    bindings_list.append(
+                        BindingConfig(
+                            match=bm,
+                            agent_id=str(b["agentId"]),
+                            session_dm_scope=session_dm_scope,
+                        )
+                    )
         kwargs["bindings"] = bindings_list
 
     if "session" in raw and isinstance(raw["session"], dict):
         dm_scope = raw["session"].get("dmScope", "main")
-        kwargs["session"] = SessionConfig(dm_scope=str(dm_scope))
+        identity_links = raw["session"].get("identityLinks", {})
+        kwargs["session"] = SessionConfig(dm_scope=str(dm_scope), identityLinks=identity_links)
 
     if "broadcast" in raw and isinstance(raw["broadcast"], dict):
         b_raw = raw["broadcast"]
@@ -341,6 +441,52 @@ def _parse(raw: dict[str, Any]) -> JarvisConfig:
             if k != "strategy" and isinstance(v, list):
                 groups[k] = [str(x) for x in v]
         kwargs["broadcast"] = BroadcastConfig(strategy=str(strategy), groups=groups)
+
+    if "mcp" in raw and isinstance(raw["mcp"], dict):
+        mcp_raw = raw["mcp"]
+        servers_dict = {}
+        if "servers" in mcp_raw and isinstance(mcp_raw["servers"], dict):
+            for name, s_raw in mcp_raw["servers"].items():
+                if isinstance(s_raw, dict):
+                    tf_raw = s_raw.get("toolFilter", {})
+                    tf = McpToolFilter(
+                        include=tf_raw.get("include", []),
+                        exclude=tf_raw.get("exclude", []),
+                    )
+                    servers_dict[name] = McpServerConfig(
+                        url=s_raw.get("url"),
+                        transport=s_raw.get("transport", "stdio"),
+                        enabled=bool(s_raw.get("enabled", True)),
+                        command=s_raw.get("command"),
+                        args=s_raw.get("args", []),
+                        cwd=s_raw.get("cwd"),
+                        connectionTimeoutMs=int(s_raw.get("connectionTimeoutMs", 5000)),
+                        requestTimeoutMs=int(s_raw.get("requestTimeoutMs", 20000)),
+                        toolFilter=tf,
+                        auth=s_raw.get("auth"),
+                        oauth=s_raw.get("oauth", {}),
+                        headers=s_raw.get("headers", {}),
+                        env=s_raw.get("env", {}),
+                    )
+        kwargs["mcp"] = McpConfig(servers=servers_dict)
+
+    if "tools" in raw and isinstance(raw["tools"], dict):
+        tools_raw = raw["tools"]
+        ts_val = tools_raw.get("toolSearch", False)
+        if isinstance(ts_val, bool):
+            kwargs["tools"] = ToolsConfig(toolSearch=ts_val)
+        elif isinstance(ts_val, dict):
+            kwargs["tools"] = ToolsConfig(
+                toolSearch=ToolSearchConfig(
+                    mode=str(ts_val.get("mode", "code")),
+                    codeTimeoutMs=int(ts_val.get("codeTimeoutMs", 10000)),
+                    searchDefaultLimit=int(ts_val.get("searchDefaultLimit", 8)),
+                    maxSearchLimit=int(ts_val.get("maxSearchLimit", 20)),
+                )
+            )
+
+    if "hooks" in raw and isinstance(raw["hooks"], dict):
+        kwargs["hooks"] = raw["hooks"]
 
     unknown = set(raw) - known
     if unknown:
@@ -358,6 +504,11 @@ __all__ = [
     "BindingConfig",
     "SessionConfig",
     "BroadcastConfig",
+    "McpToolFilter",
+    "McpServerConfig",
+    "McpConfig",
+    "ToolSearchConfig",
+    "ToolsConfig",
     "JarvisConfig",
     "load_config",
     "patch_config",

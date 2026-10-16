@@ -1,0 +1,20 @@
+{
+  "id": "cua-computer",
+  "name": "CUA Computer",
+  "description": "Experimental CUA Driver computer control for macOS, Windows, and Linux node hosts.",
+  "entry": "plugin.py",
+  "activation": {
+    "onStartup": true
+  },
+  "enabledByDefault": true,
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "driverPath": {
+        "type": "string"
+      }
+    }
+  },
+  "kind": "tool"
+}

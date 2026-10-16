@@ -18,15 +18,12 @@ Verifies the foundational tool surface:
 from __future__ import annotations
 
 import os
-import tempfile
 from pathlib import Path
 
-import pytest
 
 from src.agents.sessions.tools import (
     BashToolDetails,
     BashToolInput,
-    EditToolDetails,
     EditToolInput,
     FindToolDetails,
     FindToolInput,
@@ -34,9 +31,7 @@ from src.agents.sessions.tools import (
     GrepToolInput,
     LsToolDetails,
     LsToolInput,
-    ReadToolDetails,
     ReadToolInput,
-    ReadToolTruncationDetails,
     TruncationResult,
     WriteToolInput,
     format_full_output_footer,

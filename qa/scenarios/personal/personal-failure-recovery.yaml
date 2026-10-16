@@ -1,0 +1,12 @@
+id: personal-failure-recovery
+goal: Failure recovery that reports partial status and keeps retry boundaries clear
+preconditions:
+  - Multi-step tool is mocked to fail on step 2 of 3
+steps:
+  - user: "Run the data import pipeline."
+  - agent: "Attempting import..."
+expected_outcomes:
+  - Agent must accurately report step 1 succeeded and step 2 failed.
+  - Agent must ask if the user wants to retry from step 2, keeping boundaries clear.
+cleanup:
+  - Reset mock pipeline state

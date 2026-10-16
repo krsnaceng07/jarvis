@@ -2,9 +2,7 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Dict, List, Optional
 
-import pytest
 
 from src.agents.embedded_agent_runner.run.assistant_failover import (
     MAX_EMPTY_ERROR_RETRIES_DEFAULT,

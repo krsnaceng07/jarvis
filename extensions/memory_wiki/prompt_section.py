@@ -476,7 +476,7 @@ def build_wiki_tool_guidance(available_tools: set[str] | frozenset[str]) -> list
         )
     elif has_wiki_get:
         lines.append(
-            "Use `wiki_get` to inspect specific wiki pages or imported memory files " "by path/id."
+            "Use `wiki_get` to inspect specific wiki pages or imported memory files by path/id."
         )
     if has_wiki_apply:
         lines.append(

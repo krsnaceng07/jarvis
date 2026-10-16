@@ -140,7 +140,7 @@ class TestParseWikiFrontmatter:
         assert parsed.body == source
 
     def test_basic_frontmatter(self) -> None:
-        source = "---\n" "title: Alpha\n" "kind: entity\n" "---\n" "\n" "# Body\n"
+        source = "---\ntitle: Alpha\nkind: entity\n---\n\n# Body\n"
         parsed = parse_wiki_frontmatter(source)
         assert parsed.has_frontmatter is True
         assert parsed.frontmatter["title"] == "Alpha"
@@ -148,12 +148,12 @@ class TestParseWikiFrontmatter:
         assert parsed.body.startswith("# Body")
 
     def test_list_value_is_coerced(self) -> None:
-        source = "---\n" "aliases:\n" "  - alpha\n" "  - beta\n" "---\n" "body"
+        source = "---\naliases:\n  - alpha\n  - beta\n---\nbody"
         parsed = parse_wiki_frontmatter(source)
         assert parsed.frontmatter["aliases"] == ["alpha", "beta"]
 
     def test_nested_dict(self) -> None:
-        source = "---\n" "claim:\n" "  text: foo\n" "  status: review\n" "---\n" "body"
+        source = "---\nclaim:\n  text: foo\n  status: review\n---\nbody"
         parsed = parse_wiki_frontmatter(source)
         claim = parsed.frontmatter["claim"]
         assert isinstance(claim, dict)
@@ -166,7 +166,7 @@ class TestParseWikiFrontmatter:
         assert parsed.frontmatter["title"] == "spaced"
 
     def test_invalid_yaml_returns_empty_dict(self) -> None:
-        source = "---\n" "title: : :\n" "  : not yaml\n" "---\n" "body"
+        source = "---\ntitle: : :\n  : not yaml\n---\nbody"
         parsed = parse_wiki_frontmatter(source)
         # Malformed YAML degrades to an empty
         # frontmatter dict; body is still extracted.
@@ -189,7 +189,7 @@ class TestParseWikiFrontmatter:
         assert parsed.body == source
 
     def test_raw_source_marker_preserved_in_body(self) -> None:
-        source = "---\n" "title: Raw\n" "---\n" f"{WIKI_RAW_SOURCE_MARKER}\n" "# Body\n"
+        source = f"---\ntitle: Raw\n---\n{WIKI_RAW_SOURCE_MARKER}\n# Body\n"
         parsed = parse_wiki_frontmatter(source)
         assert WIKI_RAW_SOURCE_MARKER in parsed.body
         assert parsed.frontmatter["title"] == "Raw"

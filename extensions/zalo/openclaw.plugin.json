@@ -1,0 +1,30 @@
+{
+  "id": "zalo",
+  "doctorContract": {
+    "configRepair": true
+  },
+  "name": "Zalo",
+  "description": "OpenClaw Zalo Official Account channel plugin for customer chat and broadcasts.",
+  "activation": {
+    "onStartup": false
+  },
+  "channels": [
+    "zalo"
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "accessToken": {
+        "type": "string"
+      },
+      "appId": {
+        "type": "string"
+      },
+      "secretKey": {
+        "type": "string"
+      }
+    }
+  },
+  "kind": "channel"
+}

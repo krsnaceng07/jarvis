@@ -4,7 +4,7 @@ OpenClaw parity: mirrors ``openclaw-main/src/shared/lazy-runtime.ts``.
 """
 from __future__ import annotations
 
-from typing import Awaitable, Callable, Generic, TypeVar
+from typing import Awaitable, Callable, TypeVar
 
 from .lazy_promise import create_lazy_promise_loader
 

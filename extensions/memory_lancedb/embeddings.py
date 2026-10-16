@@ -28,7 +28,6 @@ import json
 import logging
 import math
 import struct
-import threading
 import time
 import urllib.error
 import urllib.request
@@ -241,9 +240,73 @@ class OpenAiCompatibleEmbeddings(Embeddings):
         timeout_s: float | None = None
         if timeout_ms is not None:
             timeout_s = max(0.001, timeout_ms / 1000.0)
-        with self._request(req, timeout=timeout_s) as resp:  # type: ignore[call-arg]
-            raw = resp.read()
-        return json.loads(raw.decode("utf-8"))
+
+        def _do_call() -> dict[str, Any]:
+            with self._request(req, timeout=timeout_s) as resp:  # type: ignore[call-arg]
+                raw = resp.read()
+            return json.loads(raw.decode("utf-8"))
+
+        return await asyncio.to_thread(_do_call)
+
+
+# ── Direct Ollama HTTP client ───────────────────────────────────
+
+
+class OllamaEmbeddings(Embeddings):
+    """Direct client for Ollama's native ``POST /api/embed`` endpoint.
+
+    Mirrors OpenClaw's Ollama embedding adapter behavior.
+    """
+
+    def __init__(
+        self,
+        model: str,
+        base_url: str | None = None,
+        dimensions: int | None = None,
+        api_key: str | None = None,
+        *,
+        request: Callable[..., Any] | None = None,
+    ) -> None:
+        self._model = model
+        self._base_url = (base_url or "http://127.0.0.1:11434").rstrip("/")
+        self._dimensions = dimensions
+        self._api_key = api_key
+        self._request = request or urllib.request.urlopen
+
+    async def embed(self, text: str, *, timeout_ms: int | None = None) -> list[float]:
+        params: dict[str, Any] = {"model": self._model, "input": text}
+        if isinstance(self._dimensions, int):
+            params["dimensions"] = self._dimensions
+        body = json.dumps(params).encode("utf-8")
+        url = f"{self._base_url}/api/embed"
+        headers = {"Content-Type": "application/json"}
+        if self._api_key:
+            headers["Authorization"] = f"Bearer {self._api_key}"
+        req = urllib.request.Request(  # noqa: S310
+            url,
+            data=body,
+            headers=headers,
+            method="POST",
+        )
+        timeout_s: float | None = None
+        if timeout_ms is not None:
+            timeout_s = max(0.001, timeout_ms / 1000.0)
+
+        def _do_call() -> dict[str, Any]:
+            with self._request(req, timeout=timeout_s) as resp:  # type: ignore[call-arg]
+                raw = resp.read()
+            return json.loads(raw.decode("utf-8"))
+
+        payload = await asyncio.to_thread(_do_call)
+        if (
+            "embeddings" in payload
+            and isinstance(payload["embeddings"], list)
+            and payload["embeddings"]
+        ):
+            return normalize_embedding_vector(payload["embeddings"][0])
+        if "embedding" in payload:
+            return normalize_embedding_vector(payload["embedding"])
+        raise ValueError(f"Ollama embedding response missing vector: {payload}")
 
 
 # ── Provider adapter ────────────────────────────────────────────
@@ -274,7 +337,7 @@ class ProviderAdapterEmbeddings(Embeddings):
         self._config_provider = config_provider
         self._get_provider = get_provider
         self._create_provider = create_provider
-        self._lock = threading.Lock()
+        self._async_lock: asyncio.Lock | None = None
         self._provider: MemoryEmbeddingProvider | None = None
         self._failed: BaseException | None = None
 
@@ -287,44 +350,106 @@ class ProviderAdapterEmbeddings(Embeddings):
     async def _get_or_create_provider(self) -> MemoryEmbeddingProvider:
         if self._provider is not None:
             return self._provider
-        with self._lock:
+        if self._async_lock is None:
+            self._async_lock = asyncio.Lock()
+        async with self._async_lock:
             if self._provider is not None:
                 return self._provider
             if self._failed is not None:
                 # Retry the failure path so transient auth repairs work.
                 self._failed = None
             try:
-                provider = self._create_provider_fn()
+                provider = await self._create_provider_fn()
             except BaseException as exc:
                 self._failed = exc
                 raise
             self._provider = provider
             return provider
 
-    def _create_provider_fn(self) -> MemoryEmbeddingProvider:
+    async def _create_provider_fn(self) -> MemoryEmbeddingProvider:
         if self._create_provider is not None:
             created = self._create_provider()
-        elif self._get_provider is not None and self._config_provider is not None:
-            adapter = self._get_provider(self._provider_id, self._config_provider())
-            if adapter is None:
-                raise RuntimeError(f"Unknown memory embedding provider: {self._provider_id}")
-            created = adapter.create(
-                config=self._config_provider(),
-                provider=self._provider_id,
-                fallback="none",
-                model=self._model,
-                **(
-                    {"outputDimensionality": self._dimensions}
-                    if isinstance(self._dimensions, int)
-                    else {}
-                ),
-            )
-            if not getattr(created, "provider", None):
-                raise RuntimeError(f"Memory embedding provider {self._provider_id} is unavailable.")
-            created = created.provider
-        else:  # pragma: no cover - defensive
-            raise RuntimeError("ProviderAdapterEmbeddings not configured")
-        return created
+            if asyncio.iscoroutine(created):
+                created = await created
+            if hasattr(created, "provider") and created.provider is not None:
+                return created.provider
+            return created
+
+        get_provider = self._get_provider
+        if get_provider is None:
+            from jarvis_sdk.memory_embeddings import get_memory_embedding_provider
+
+            get_provider = get_memory_embedding_provider
+
+        cfg = self._config_provider() if self._config_provider is not None else {}
+        provider_id = self._provider_id
+        adapter = get_provider(provider_id, cfg)
+
+        # Provider fallback if requested provider is not found
+        if adapter is None and provider_id == "openai":
+            adapter = get_provider("google", cfg) or get_provider("gemini", cfg)
+            if adapter is not None:
+                provider_id = "google"
+        elif adapter is None and provider_id in ("google", "gemini"):
+            adapter = get_provider("openai", cfg)
+            if adapter is not None:
+                provider_id = "openai"
+
+        if adapter is None:
+            raise RuntimeError(f"Unknown memory embedding provider: {self._provider_id}")
+
+        model = self._model
+        default_model = getattr(adapter, "default_model", None) or getattr(adapter, "defaultModel", None)
+        if provider_id in ("google", "gemini") and (not model or "openai" in model or "text-embedding" in model):
+            if default_model:
+                model = default_model
+        elif provider_id == "openai" and default_model and "gemini" in model:
+            model = default_model
+
+        create_kwargs: dict[str, Any] = {
+            "config": cfg,
+            "provider": provider_id,
+            "fallback": "none",
+            "model": model,
+        }
+        if isinstance(self._dimensions, int):
+            create_kwargs["outputDimensionality"] = self._dimensions
+            create_kwargs["dimensions"] = self._dimensions
+
+        try:
+            created = adapter.create(**create_kwargs)
+            if asyncio.iscoroutine(created):
+                created = await created
+        except Exception:
+            # If default provider creation fails (e.g. missing OpenAI API key), try Google fallback
+            if provider_id == "openai":
+                google_adapter = get_provider("google", cfg) or get_provider("gemini", cfg)
+                if google_adapter is not None:
+                    fb_model = getattr(google_adapter, "default_model", None) or "gemini-embedding-001"
+                    fb_kwargs: dict[str, Any] = {
+                        "config": cfg,
+                        "provider": "google",
+                        "fallback": "none",
+                        "model": fb_model,
+                    }
+                    if isinstance(self._dimensions, int):
+                        fb_kwargs["outputDimensionality"] = self._dimensions
+                    created = google_adapter.create(**fb_kwargs)
+                    if asyncio.iscoroutine(created):
+                        created = await created
+                    provider_id = "google"
+                else:
+                    raise
+            else:
+                raise
+
+        prov = (
+            getattr(created, "provider", None)
+            or (created.get("provider") if isinstance(created, dict) else created)
+        )
+        if not prov:
+            raise RuntimeError(f"Memory embedding provider {self._provider_id} is unavailable.")
+        return prov
 
 
 async def _run_embed_with_timeout(
@@ -360,7 +485,8 @@ def create_embeddings(
 
     Mirrors OpenClaw's ``createEmbeddings``. Direct OpenAI
     when ``provider == "openai"`` AND an ``apiKey`` is
-    present; otherwise fall back to the provider adapter.
+    present; direct Ollama when ``provider == "ollama"``;
+    otherwise fall back to the provider adapter.
     """
     if (
         cfg.embedding_provider == "openai"
@@ -375,11 +501,23 @@ def create_embeddings(
             dimensions=cfg.embedding_dimensions,
             request=request,
         )
+    if cfg.embedding_provider == "ollama" and create_provider is None and get_provider is None:
+        return OllamaEmbeddings(
+            model=cfg.embedding_model,
+            base_url=cfg.embedding_base_url,
+            dimensions=cfg.embedding_dimensions,
+            api_key=cfg.embedding_api_key,
+            request=request,
+        )
+    if get_provider is None and create_provider is None:
+        from jarvis_sdk.memory_embeddings import get_memory_embedding_provider
+
+        get_provider = get_memory_embedding_provider
     return ProviderAdapterEmbeddings(
         provider_id=cfg.embedding_provider,
         embedding_model=cfg.embedding_model,
         embedding_dimensions=cfg.embedding_dimensions,
-        config_provider=config_provider,
+        config_provider=config_provider or (lambda: {}),
         get_provider=get_provider,
         create_provider=create_provider,
     )
@@ -387,6 +525,7 @@ def create_embeddings(
 
 __all__ = [
     "Embeddings",
+    "OllamaEmbeddings",
     "OpenAiCompatibleEmbeddings",
     "ProviderAdapterEmbeddings",
     "create_embeddings",

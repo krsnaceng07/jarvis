@@ -88,12 +88,21 @@ next session.
 <!-- seeded by src.bootstrap; edit me -->
 """
 
-STARTER_USER_MD = """# User
+_TODAY = datetime.now().strftime("%Y-%m-%d")
 
-Operator's preferred name: Sir
-Operator's timezone: (auto-detect at first run)
-Operator's preferred language: en
-Operator's notification style: voice (speak) + on-screen log
+STARTER_USER_MD = f"""# User Model
+
+<!-- observed: {_TODAY} | status: active -->
+- Operator's preferred name is Sir.
+
+<!-- observed: {_TODAY} | status: active -->
+- Operator's timezone is auto-detected.
+
+<!-- observed: {_TODAY} | status: active -->
+- Operator's preferred language is en.
+
+<!-- observed: {_TODAY} | status: active -->
+- Prefer voice (speak) + on-screen log for notifications.
 
 <!-- seeded by src.bootstrap; edit me -->
 """
@@ -214,6 +223,12 @@ def seed_workspace(workspace: Path, skip_bootstrap: bool = False) -> BootstrapRe
             skipped.append(str(path))
             _log.info("bootstrap: kept user-edited %s", label)
 
+    # Initialize runtime artifacts (model registry, auth storage) from workspace config
+    try:
+        _init_runtime_from_workspace(workspace)
+    except Exception:
+        _log.debug("bootstrap: init runtime artifacts failed", exc_info=True)
+
     return BootstrapResult(
         config_path=config_path,
         memory_path=memory_path,
@@ -226,6 +241,22 @@ def seed_workspace(workspace: Path, skip_bootstrap: bool = False) -> BootstrapRe
         root_skipped=root_skipped,
         root_removed=root_removed,
     )
+
+
+def _init_runtime_from_workspace(workspace: Path) -> None:
+    """Load runtime artifacts that should be available on startup.
+
+    Currently this wires the model registry + auth storage from the
+    workspace-local `config/` directory by calling
+    `src.sessions.model_registry.init_from_default_paths()`.
+    """
+    try:
+        # Import lazily to avoid import-time cycles during tests
+        from src.sessions.model_registry import init_from_default_paths
+
+        init_from_default_paths()
+    except Exception:
+        _log.debug("bootstrap: failed to init runtime artifacts from workspace", exc_info=True)
 
 
 def _is_workspace_configured(workspace: Path) -> bool:

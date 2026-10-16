@@ -1,24 +1,30 @@
 """PluginApi initializer and core runtime state for the internal PluginApi implementation."""
+
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 if TYPE_CHECKING:
     from .context import PluginContext
 
-from .api import (
-    PluginAgentApi,
-    PluginLifecycleApi,
-    PluginRunContextApi,
-    PluginSessionApi,
-    _PluginRuntimeNamespace,
-)
+#: Valid registration modes — mirrors OpenClaw's ``api.registrationMode`` literal union.
+#: ``"full"``           — normal startup: register everything.
+#: ``"cli-metadata"``   — CLI scan: register only CLI metadata, no tools/channels.
+#: ``"discovery"``      — capability enumeration: register channels + providers only.
+#: ``"tool-discovery"`` — tool-name enumeration: register tool names only.
+RegistrationMode = Literal["full", "cli-metadata", "discovery", "tool-discovery"]
 
 
 class PluginApiInit:
-    def __init__(self, ctx: "PluginContext", logger: Any = None) -> None:
+    def __init__(
+        self, ctx: "PluginContext", logger: Any = None, registration_mode: RegistrationMode = "full"
+    ) -> None:
         self._ctx = ctx
         self._logger = logger or ctx.logger
+        # Mirrors OpenClaw's ``api.registrationMode``. The loader sets this
+        # before calling ``entry.register(api)``; channel plugins gate what
+        # they register based on this value.
+        self._registration_mode: RegistrationMode = registration_mode
 
         # ── Accumulators (private) ────────────────────────────────────
         self._tools: list[tuple[Any, list[str] | None]] = []
@@ -85,6 +91,19 @@ class PluginApiInit:
         self._plugin_config: Any = None
         self._config: Any = None
 
+        # Import here to break the api.py ↔ _plugin_api_init.py circular import.
+        # These classes are defined early in api.py (before the _plugin_api_impl
+        # import at line 469), but the module isn't fully initialised when the
+        # mixin chain is first resolved, so a top-level import would silently
+        # fall back to PluginApiInit = object in the try/except blocks.
+        from .api import (  # noqa: PLC0415
+            PluginAgentApi,
+            PluginLifecycleApi,
+            PluginRunContextApi,
+            PluginSessionApi,
+            _PluginRuntimeNamespace,
+        )
+
         self.session = PluginSessionApi()
         self.agent = PluginAgentApi()
         self.run_context = PluginRunContextApi()
@@ -106,6 +125,21 @@ class PluginApiInit:
         except Exception:
             return []
 
+    def _declared_str_list(self, key: str) -> list[str]:
+        """Return a trimmed string list for a top-level manifest ``key``.
+
+        Generic passthrough for OpenClaw manifest metadata (``channels``,
+        ``providers``, ``cliCommands``) so the host reads ownership facts
+        without per-extension branches. Unknown shapes yield ``[]``.
+        """
+        try:
+            raw = self._manifest.get(key)
+            if not isinstance(raw, list):
+                return []
+            return [cast(str, item).strip() for item in raw if isinstance(item, str)]
+        except Exception:
+            return []
+
     @property
     def ctx(self) -> "PluginContext":
         return self._ctx
@@ -117,8 +151,29 @@ class PluginApiInit:
     @property
     def config(self) -> Any:
         """The host config (the full ``OpenClawConfig`` / ``JarvisConfig``)."""
-        return self._config
+        return self._config if self._config is not None else {}
 
     def set_config(self, config: Any) -> None:
         """Provide the host config to the plugin API."""
         self._config = config
+
+    @property
+    def registration_mode(self) -> RegistrationMode:
+        """Current registration scope — mirrors OpenClaw's ``api.registrationMode``.
+
+        Channel plugins should check this before registering capabilities:
+
+        .. code-block:: python
+
+            if api.registration_mode == "full":
+                api.register_channel(my_channel)
+            else:
+                api.register_cli(cli_descriptor)  # always safe
+
+        Values:
+            ``"full"``           — startup: register everything.
+            ``"cli-metadata"``   — CLI scan only.
+            ``"discovery"``      — channels + providers only.
+            ``"tool-discovery"`` — tool names only.
+        """
+        return self._registration_mode

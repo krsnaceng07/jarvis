@@ -1,7 +1,7 @@
 """Phase 7.6b-2 tests — setup + auth-plan + attempt-result + attempt-execution-settle."""
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 import pytest
 

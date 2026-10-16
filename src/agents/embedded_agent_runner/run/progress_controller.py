@@ -15,7 +15,7 @@ Phase 7.6h-2 — focused minimal port.
 from __future__ import annotations
 
 import time
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, Optional
 
 
 #: Per-run last-progress-poll timestamp.

@@ -11,13 +11,12 @@ persists the choice to IDENTITY.md, SOUL.md, config.json (agent section).
 
 from __future__ import annotations
 
-import sys
 from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from jarvis_config_core import JarvisConfig, AgentIdentity
+    from jarvis_config_core import JarvisConfig
 
 _RITUAL_HEADER = """
 ╔════════════════════════════════════════════════════════════════════╗

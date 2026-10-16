@@ -1,0 +1,45 @@
+{
+  "id": "msteams",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "msteams"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "msteams",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "MSTEAMS_TENANT_ID"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "msteams": {
+        "baseUrl": "https://graph.microsoft.com/v1.0",
+        "api": "openai-completions",
+        "models": []
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "channel"
+}

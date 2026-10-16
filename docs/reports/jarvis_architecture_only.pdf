@@ -1,0 +1,191 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+5 0 obj
+<< /Length 1577 >>
+stream
+BT
+/F1 20 Tf
+50 740 Td
+(JARVIS Architecture) Tj
+ET
+BT
+/F1 12 Tf
+50 710 Td
+(1. Core System) Tj
+ET
+BT
+/F1 11 Tf
+60 690 Td
+(Apps: Desktop HUD, CLI, TUI) Tj
+ET
+BT
+/F1 11 Tf
+60 675 Td
+(Core Packages: plugin_sdk, agent_runtime, llm_client, gateway_protocol, config_core, memory_host_sdk, channels_core, etc.) Tj
+ET
+BT
+/F1 12 Tf
+50 650 Td
+(2. Extension Layer) Tj
+ET
+BT
+/F1 11 Tf
+60 630 Td
+(Extensions provide channels, providers, media, memory, tools, productivity, voice, and infrastructure capabilities.) Tj
+ET
+BT
+/F1 11 Tf
+60 615 Td
+(Each extension follows strict SDK and plugin-boundary rules.) Tj
+ET
+BT
+/F1 12 Tf
+50 590 Td
+(3. Skills Layer) Tj
+ET
+BT
+/F1 11 Tf
+60 570 Td
+(Skills are declarative markdown files under skills/. They describe intent, usage, and invocation patterns.) Tj
+ET
+BT
+/F1 12 Tf
+50 545 Td
+(4. Memory and State) Tj
+ET
+BT
+/F1 11 Tf
+60 525 Td
+(State and memory use canonical storage patterns, with SQLite preferred for runtime state and persistence.) Tj
+ET
+BT
+/F1 12 Tf
+50 500 Td
+(5. Runtime Workflow) Tj
+ET
+BT
+/F1 11 Tf
+60 480 Td
+(User request -> app/channel -> gateway/runtime -> model/provider -> tools/plugins -> state/memory -> response) Tj
+ET
+BT
+/F1 12 Tf
+50 455 Td
+(6. Design Principles) Tj
+ET
+BT
+/F1 11 Tf
+60 435 Td
+(Core stays plugin-agnostic.) Tj
+ET
+BT
+/F1 11 Tf
+60 420 Td
+(Extensions communicate through jarvis_sdk.* and public contracts.) Tj
+ET
+BT
+/F1 11 Tf
+60 405 Td
+(Doctor and migration flows handle config/state upgrades.) Tj
+ET
+BT
+/F1 11 Tf
+60 390 Td
+(Lean architecture: no silent compatibility shims or fallback sprawl.) Tj
+ET
+BT
+/F1 12 Tf
+50 365 Td
+(7. Full Architecture View) Tj
+ET
+BT
+/F1 11 Tf
+60 345 Td
+(User-facing Apps) Tj
+ET
+BT
+/F1 11 Tf
+60 330 Td
+(      |) Tj
+ET
+BT
+/F1 11 Tf
+60 315 Td
+(      v) Tj
+ET
+BT
+/F1 11 Tf
+60 300 Td
+(Gateway / Runtime Layer) Tj
+ET
+BT
+/F1 11 Tf
+60 285 Td
+(      |) Tj
+ET
+BT
+/F1 11 Tf
+60 270 Td
+(      v) Tj
+ET
+BT
+/F1 11 Tf
+60 255 Td
+(LLM Providers + Tools + Extensions) Tj
+ET
+BT
+/F1 11 Tf
+60 240 Td
+(      |) Tj
+ET
+BT
+/F1 11 Tf
+60 225 Td
+(      v) Tj
+ET
+BT
+/F1 11 Tf
+60 210 Td
+(Memory / Config / State / Skills) Tj
+ET
+BT
+/F1 11 Tf
+60 195 Td
+(      |) Tj
+ET
+BT
+/F1 11 Tf
+60 180 Td
+(      v) Tj
+ET
+BT
+/F1 11 Tf
+60 165 Td
+(Structured Response to User / Channel) Tj
+ET
+endstream
+endobj
+xref
+0 6
+0000000000 65535 f
+0000000010 00000 n
+0000000063 00000 n
+0000000126 00000 n
+0000000240 00000 n
+0000001658 00000 n
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1744
+%%EOF

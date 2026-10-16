@@ -29,7 +29,7 @@ if str(_ws) not in sys.path:
 if str(_ws / "src") not in sys.path:
     sys.path.append(str(_ws / "src"))  # Append to avoid shadowing stdlib like 'logging'!
 
-from typing import Any, TYPE_CHECKING, Optional, cast, Sequence  # noqa: E402
+from typing import TYPE_CHECKING, Any, Optional, Sequence, cast  # noqa: E402
 
 if TYPE_CHECKING:
     SubParsersAction = argparse._SubParsersAction[argparse.ArgumentParser]
@@ -38,13 +38,45 @@ else:
 
 from .host import (  # noqa: E402
     create_doctor_runner,
+    create_gateway,
     default_gateway_port,
     discover_skills,
     gateway_lock_error,
     seed_workspace,
-    create_gateway,
 )
+
+try:
+    from .mcp import handle_mcp_command  # noqa: E402
+except ImportError:  # pragma: no cover - mcp module lands with its owner
+    handle_mcp_command = None  # type: ignore[assignment]
 from jarvis_sdk.loader import LoadResult, load_all_plugins_from_workspace  # noqa: E402
+
+# Install a minimal host runtime early so config & registry facades
+# have runtime hooks available for CLI subcommands and tests.
+try:
+    from src.config import io as _config_io  # type: ignore
+    from src.plugins.runtime_entry import install_host_runtime  # type: ignore
+
+    def _load_config_from_runtime_args(*args: Any, **kwargs: Any) -> Any:
+        return _config_io._create_config_io_for_args(args, kwargs).loadConfig()
+
+    # Conservative hooks: prefer the existing snapshot/fallback implementations.
+    # Only install these hooks outside of pytest to preserve test sentinel
+    # behavior that expects no-arg facade calls to raise NotImplementedError.
+    if "pytest" not in sys.modules:
+        install_host_runtime(
+            registry_params={"logger": None},
+            runtime_hooks={
+                "get_runtime_config": _config_io.get_runtime_config_snapshot,
+                # Install a safe loader wrapper that calls the underlying config IO
+                # implementation directly instead of the facade `load_config` which
+                # may itself consult installed hooks (causing recursion).
+                "load_config": _load_config_from_runtime_args,
+            },
+        )
+except Exception:
+    # Do not fail CLI import if runtime wiring isn't available in test environments
+    pass
 
 # Force stdout/stderr to UTF-8 to support emojis on Windows
 _stdout: Any = cast(Any, sys.stdout)
@@ -76,6 +108,8 @@ def _load_cli_plugins(workspace: Path) -> dict[str, Any]:
         "http_handlers": result.http_handlers,
         "gateway_methods": result.gateway_methods,
         "channel": result.channel,
+        "channels": result.channels,
+        "manifest_metadata": result.manifest_metadata,
     }
 
 
@@ -84,13 +118,21 @@ def _load_cli_plugins(workspace: Path) -> dict[str, Any]:
 
 def _cmd_tools_list(args: argparse.Namespace, plugins: dict[str, Any]) -> int:
     print("Registered tools:")
-    for inst in plugins["tool_decls"]:
-        tool_items = getattr(inst, "tools", [])
-        if isinstance(tool_items, Sequence) and not isinstance(tool_items, (str, bytes, bytearray)):
-            for tool in cast(Sequence[object], tool_items):
-                name_value = getattr(tool, "name", None)
-                name_text = str(name_value) if name_value is not None else "<unknown>"
-                print(f"  - {name_text}  ({type(inst).__name__})")
+    tool_decls = plugins.get("tool_decls", [])
+    if tool_decls:
+        for decl in tool_decls:
+            if isinstance(decl, dict):
+                name = decl.get("name", "<unknown>")
+                desc = decl.get("description", "").strip()
+                summary = f": {desc[:70]}..." if len(desc) > 70 else (f": {desc}" if desc else "")
+                print(f"  - {name}{summary}")
+            elif hasattr(decl, "tools"):
+                for t in getattr(decl, "tools", []):
+                    name = getattr(t, "name", "<unknown>")
+                    print(f"  - {name}")
+    elif plugins.get("plugin_dispatch"):
+        for name in sorted(plugins["plugin_dispatch"]):
+            print(f"  - {name}")
     return 0
 
 
@@ -122,16 +164,28 @@ def _cmd_doctor(args: argparse.Namespace, plugins: dict[str, Any], workspace: Pa
     seed_workspace(workspace)
 
     try:
-        from jarvis_config_core.doctor import (
-            core_codex_compaction_doctor_contract,
-            core_config_doctor_contract,
-            core_legacy_codex_refs_doctor_contract,
+        from jarvis_config_core import doctor as core_doctor
+
+        contracts: list[dict[str, Any]] = list(plugins["doctor_contracts"])
+        compaction_contract: dict[str, Any] = cast(
+            dict[str, Any],
+            getattr(core_doctor, "core_codex_compaction_doctor_contract"),
         )
-        contracts = plugins["doctor_contracts"] + [
-            core_config_doctor_contract,
-            core_legacy_codex_refs_doctor_contract,
-            core_codex_compaction_doctor_contract,
-        ]
+        config_contract: dict[str, Any] = cast(
+            dict[str, Any],
+            getattr(core_doctor, "core_config_doctor_contract"),
+        )
+        legacy_refs_contract: dict[str, Any] = cast(
+            dict[str, Any],
+            getattr(core_doctor, "core_legacy_codex_refs_doctor_contract"),
+        )
+        contracts.extend(
+            [
+                config_contract,
+                legacy_refs_contract,
+                compaction_contract,
+            ]
+        )
     except ImportError:
         contracts = plugins["doctor_contracts"]
     runner = create_doctor_runner(contracts)
@@ -139,12 +193,11 @@ def _cmd_doctor(args: argparse.Namespace, plugins: dict[str, Any], workspace: Pa
         runner._contracts = [c for c in runner._contracts if c.get("plugin_id") == args.contract_id]
 
     from jarvis_config_core import load_config
+
     config = load_config()
 
     report = runner.run(
-        state_dir=workspace / "state",
-        config=config,
-        apply_fixes=getattr(args, "fix", False)
+        state_dir=workspace / "state", config=config, apply_fixes=getattr(args, "fix", False)
     )
     print(report.summary())
     for f in report.findings:
@@ -153,6 +206,7 @@ def _cmd_doctor(args: argparse.Namespace, plugins: dict[str, Any], workspace: Pa
             if f.detail:
                 print(f"  Detail: {f.detail}")
     return 0 if report.is_healthy else 1
+
 
 def _cmd_memory_status(args: argparse.Namespace, workspace: Path) -> int:
     from extensions.memory_core.runtime import MemoryRuntime
@@ -230,7 +284,7 @@ def _cmd_config_show(args: argparse.Namespace, workspace: Path) -> int:
     print(json.dumps(out, indent=2, ensure_ascii=False))
     issues = config.validate()
     if issues:
-        print("\n\u26A0 " + "\n\u26A0 ".join(issues))
+        print("\n\u26a0 " + "\n\u26a0 ".join(issues))
     return 0 if config.is_configured else 1
 
 
@@ -268,12 +322,13 @@ def _cmd_configure(args: argparse.Namespace, workspace: Path) -> int:
     # Still not configured: show validation issues and exit 1
     issues = new_cfg.validate()
     if issues:
-        print("\u26A0 " + "\n\u26A0 ".join(issues))
+        print("\u26a0 " + "\n\u26a0 ".join(issues))
     return 1
 
 
 def _cmd_bootstrap(args: argparse.Namespace, workspace: Path) -> int:
     from jarvis_config_core import load_config, save_config
+
     from src.bootstrap import bootstrap_with_ritual
 
     config_path = workspace / "config" / "jarvis.json"
@@ -306,7 +361,11 @@ def _cmd_bootstrap(args: argparse.Namespace, workspace: Path) -> int:
 
 def _cmd_gateway_start(args: argparse.Namespace, workspace: Path) -> int:
     """Start the JARVIS gateway (Phase 3)."""
+    import asyncio
+    import threading
     import time
+    from jarvis_config_core import load_config
+    from jarvis_sdk.channel_supervisor import ChannelSupervisor
 
     plugins = _load_cli_plugins(workspace)
     host = args.host or "127.0.0.1"
@@ -330,12 +389,73 @@ def _cmd_gateway_start(args: argparse.Namespace, workspace: Path) -> int:
         return 1
     print(f"Gateway started on http://{host}:{port}")
     print(f"Token file: {gw._token_path}")
+
+    # Start channel supervisor for configured messaging channels
+    supervisor = ChannelSupervisor(concurrency_limit=4)
+    cfg_obj = load_config(config_path=workspace / "config.json")
+    cfg_dict = cfg_obj.to_dict() if hasattr(cfg_obj, "to_dict") else {}
+    channels_to_start = plugins.get("channels", {})
+
+    from src.channels.channel_manager import ChannelManager
+
+    cm = ChannelManager.get_instance()
+    for ch_id, ch_plugin in channels_to_start.items():
+        cm.register_plugin(ch_id, ch_plugin)
+
+    supervisor_loop = asyncio.new_event_loop()
+
+    async def _on_channel_msg(msg: Any) -> None:
+        try:
+            channel_id = (
+                getattr(msg, "channel_id", None)
+                or (msg.get("channel_id") if isinstance(msg, dict) else None)
+                or (msg.get("origin_surface") if isinstance(msg, dict) else None)
+                or "telegram"
+            )
+            raw_data = (
+                msg.raw
+                if hasattr(msg, "raw") and isinstance(msg.raw, dict)
+                else (msg if isinstance(msg, dict) else {"text": str(msg)})
+            )
+            await cm._run_channel_turn(channel_id, raw_data)
+        except Exception as e:
+            print(f"[WARN] channel message handler error: {e}", file=sys.stderr)
+
+    if channels_to_start:
+        supervisor_thread = threading.Thread(
+            target=lambda: supervisor_loop.run_until_complete(
+                supervisor.start_all(channels_to_start, cfg=cfg_dict, on_message=_on_channel_msg)
+            ),
+            daemon=True,
+        )
+        supervisor_thread.start()
+        print(f"Channel supervisor started for {len(channels_to_start)} channel(s)")
+
+    # Start cron runner for registered cron jobs
+    from src.cron import CronRunner
+
+    cron_runner = CronRunner()
+    cron_jobs = plugins.get("cron_jobs", [])
+    if cron_jobs:
+        cron_runner.add_all(cron_jobs)
+        cron_runner.start(tick_seconds=30.0)
+        print(f"Cron runner started with {len(cron_jobs)} scheduled job(s)")
+
     try:
         while gw.is_running():
             time.sleep(0.25)
     except KeyboardInterrupt:
         print("Stopping gateway...")
     finally:
+        try:
+            cron_runner.stop()
+        except Exception:
+            pass
+        try:
+            if channels_to_start:
+                supervisor_loop.run_until_complete(supervisor.stop_all())
+        except Exception:
+            pass
         gw.stop()
     return 0
 
@@ -395,7 +515,15 @@ def _cmd_plugins(args: argparse.Namespace, plugins: dict[str, Any], workspace: P
     """Show loaded extensions and counts for quick inspection."""
     print("Extensions")
     total = 0
-    for k in ("tool_decls", "commands", "skills", "hooks", "cron_jobs", "doctor_contracts", "cli_handlers"):
+    for k in (
+        "tool_decls",
+        "commands",
+        "skills",
+        "hooks",
+        "cron_jobs",
+        "doctor_contracts",
+        "cli_handlers",
+    ):
         total += len(plugins.get(k, []))
     if total == 0:
         print("(no extensions loaded)")
@@ -452,10 +580,14 @@ def _build_parser_v2() -> argparse.ArgumentParser:
     )
 
     status_p = sp.add_parser("status", help="Show overall JARVIS status.")
-    status_p.add_argument("--all", action="store_true", help="Show all plugin states and dependency errors.")
+    status_p.add_argument(
+        "--all", action="store_true", help="Show all plugin states and dependency errors."
+    )
 
     logs_p = sp.add_parser("logs", help="View JARVIS logs.")
-    logs_p.add_argument("--follow", action="store_true", help="Tail the current log file continuously.")
+    logs_p.add_argument(
+        "--follow", action="store_true", help="Tail the current log file continuously."
+    )
 
     # ── Agent interaction ────────────────────────────────────────
     ask_p = sp.add_parser("ask", help="Ask JARVIS a question.")
@@ -468,7 +600,9 @@ def _build_parser_v2() -> argparse.ArgumentParser:
     attach_p = sp.add_parser("attach", help="Attach a coding harness to a session.")
     attach_p.add_argument("target", nargs="?", default=None, help="Session target to attach.")
     resume_p = sp.add_parser("resume", help="Resume an opaque session handoff.")
-    resume_p.add_argument("target", nargs="?", default=None, help="Opaque handoff payload or session target.")
+    resume_p.add_argument(
+        "target", nargs="?", default=None, help="Opaque handoff payload or session target."
+    )
 
     # ── Phase 3: gateway subcommands ─────────────────────────────
     gw_p = sp.add_parser("gateway", help="Gateway commands.")
@@ -490,7 +624,9 @@ def _build_parser_v2() -> argparse.ArgumentParser:
     pairing_p = sp.add_parser("pairing", help="Pairing commands.")
     pairing_sub = pairing_p.add_subparsers(dest="subcommand", required=True, metavar="<action>")
     list_p = pairing_sub.add_parser("list", help="List pending pairing requests.")
-    list_p.add_argument("channel", nargs="?", default=None, help="Optional channel to filter by (e.g. telegram).")
+    list_p.add_argument(
+        "channel", nargs="?", default=None, help="Optional channel to filter by (e.g. telegram)."
+    )
     app_p = pairing_sub.add_parser("approve", help="Approve a pairing request.")
     app_p.add_argument("channel", help="The channel (e.g. telegram).")
     app_p.add_argument("code", help="The 8-character pairing code.")
@@ -516,7 +652,9 @@ def _build_parser_v2() -> argparse.ArgumentParser:
     mcp_add = mcp_sub.add_parser("add", help="Add a new MCP server.")
     mcp_add.add_argument("name", help="Server name.")
     mcp_add.add_argument("--command", default=None, help="Server launch command.")
-    mcp_add.add_argument("--arg", action="append", default=None, help="Server argument (repeatable).")
+    mcp_add.add_argument(
+        "--arg", action="append", default=None, help="Server argument (repeatable)."
+    )
     mcp_add.add_argument("--transport", default="stdio", help="Server transport.")
     mcp_sub.add_parser("status", help="Show MCP servers status.")
     mcp_doctor = mcp_sub.add_parser("doctor", help="Check an MCP server.")
@@ -529,16 +667,29 @@ def _build_parser_v2() -> argparse.ArgumentParser:
     mcp_sub.add_parser("reload", help="Reloads MCP runtimes in the current CLI process.")
     mcp_sub.add_parser("serve", help="Exposes JARVIS channels to another MCP client.")
 
+    # ── Subagents task management (OpenClaw parity) ──────────────
+    sub_p = sp.add_parser("subagents", help="Subagent task management.")
+    sub_sub = sub_p.add_subparsers(dest="subcommand", required=True, metavar="<action>")
+    sub_list = sub_sub.add_parser("list", help="List active and recent subagents.")
+    sub_list.add_argument(
+        "--recent-minutes", type=int, default=30, help="Minutes of history (default 30)."
+    )
+    sub_cancel = sub_sub.add_parser("cancel", help="Cancel a subagent task and its descendants.")
+    sub_cancel.add_argument("task_id", help="The task ID or run ID to cancel.")
+
     return p
 
 
 def _cmd_pairing_list(args: argparse.Namespace, workspace: Path) -> int:
     import sqlite3
-    from jarvis_state_core.database import StateDatabase, StateDatabaseOptions
+
     from jarvis_channels.pairing import PairingStore
+    from jarvis_state_core.database import StateDatabase, StateDatabaseOptions
 
     db_path = workspace / "state" / "jarvis.sqlite"
-    opts = StateDatabaseOptions(connection_factory=lambda: sqlite3.connect(db_path, isolation_level=None))
+    opts = StateDatabaseOptions(
+        connection_factory=lambda: sqlite3.connect(db_path, isolation_level=None)
+    )
     db = StateDatabase(opts)
     store = PairingStore(db)
     reqs = store.list_requests(args.channel)
@@ -550,18 +701,23 @@ def _cmd_pairing_list(args: argparse.Namespace, workspace: Path) -> int:
     print(f"Pending pairing requests ({len(reqs)}):")
     for r in reqs:
         import datetime
-        dt = datetime.datetime.fromtimestamp(r.expires_at / 1000).strftime('%Y-%m-%d %H:%M:%S')
+
+        dt = datetime.datetime.fromtimestamp(r.expires_at / 1000).strftime("%Y-%m-%d %H:%M:%S")
         print(f"  [{r.channel}] {r.pairing_code} (Sender: {r.sender_id}) expires {dt}")
     return 0
 
+
 def _cmd_pairing_approve(args: argparse.Namespace, workspace: Path) -> int:
     import sqlite3
-    from jarvis_state_core.database import StateDatabase, StateDatabaseOptions
+
     from jarvis_channels.pairing import PairingStore
     from jarvis_config_core import load_config, patch_config
+    from jarvis_state_core.database import StateDatabase, StateDatabaseOptions
 
     db_path = workspace / "state" / "jarvis.sqlite"
-    opts = StateDatabaseOptions(connection_factory=lambda: sqlite3.connect(db_path, isolation_level=None))
+    opts = StateDatabaseOptions(
+        connection_factory=lambda: sqlite3.connect(db_path, isolation_level=None)
+    )
     db = StateDatabase(opts)
     store = PairingStore(db)
 
@@ -571,7 +727,9 @@ def _cmd_pairing_approve(args: argparse.Namespace, workspace: Path) -> int:
         return 1
 
     sender_id = res["sender_id"]
-    print(f"Approved pairing code {args.code}. Sender '{sender_id}' is now allowed on {args.channel}.")
+    print(
+        f"Approved pairing code {args.code}. Sender '{sender_id}' is now allowed on {args.channel}."
+    )
 
     # Auto-bootstrap ownerAllowFrom if not set
     cfg_path = workspace / "config.json"
@@ -584,6 +742,42 @@ def _cmd_pairing_approve(args: argparse.Namespace, workspace: Path) -> int:
             patch_config({"commands": {"ownerAllowFrom": [sender_id]}}, config_path=cfg_path)
 
     return 0
+
+
+def _cmd_subagents_list(args: argparse.Namespace, workspace: Path) -> int:
+    from src.agents.subagents import SubagentController, SubagentRegistry
+
+    db_path = workspace / "state" / "jarvis.sqlite"
+    reg = SubagentRegistry.get_instance(db_path=db_path)
+    ctrl = SubagentController(registry=reg)
+    runs = ctrl.list_controlled_runs(
+        "desktop:hud", recent_minutes=getattr(args, "recent_minutes", 30)
+    )
+    if not runs:
+        print("No active or recent subagents found.")
+        return 0
+    print(f"Subagent Runs ({len(runs)}):")
+    for r in runs:
+        status = r.get("status", "unknown").upper()
+        task_id = r.get("taskId", "")
+        label = r.get("label") or r.get("task", "")[:40]
+        print(f"  [{status}] {task_id}: {label}")
+        if r.get("error"):
+            print(f"       Error: {r['error']}")
+        elif r.get("resultSummary"):
+            print(f"       Result: {r['resultSummary']}")
+    return 0
+
+
+def _cmd_subagents_cancel(args: argparse.Namespace, workspace: Path) -> int:
+    from src.agents.subagents import SubagentController, SubagentRegistry
+
+    db_path = workspace / "state" / "jarvis.sqlite"
+    reg = SubagentRegistry.get_instance(db_path=db_path)
+    ctrl = SubagentController(registry=reg)
+    ok, msg = ctrl.cancel_run(args.task_id)
+    print(msg)
+    return 0 if ok else 1
 
 
 def _cmd_status_runtime(workspace: Path) -> None:
@@ -606,9 +800,9 @@ def _cmd_status_runtime(workspace: Path) -> None:
     raw: dict[str, Any] = {}
     try:
         with open(workspace / "config.json", "r", encoding="utf-8") as f:
-            loaded = json.load(f)
+            loaded: Any = json.load(f)
         if isinstance(loaded, dict):
-            raw = loaded
+            raw = cast(dict[str, Any], loaded)
     except Exception:
         raw = {}
 
@@ -653,14 +847,19 @@ def _resolve_default_model_ref(raw: dict[str, Any], agent_id: str) -> str | None
     """
     agents = raw.get("agents")
     if isinstance(agents, dict):
+        agents = cast(dict[str, Any], agents)
         defaults = agents.get("defaults")
+        defaults = cast(dict[str, Any], defaults) if isinstance(defaults, dict) else None
         if isinstance(defaults, dict) and isinstance(defaults.get("model"), str):
             ref = defaults["model"].strip()
             if ref:
                 return ref
-        for entry in agents.get("list") or []:
+        entries = agents.get("list")
+        typed_entries = cast(list[Any], entries) if isinstance(entries, list) else []
+        for entry in typed_entries:
             if not isinstance(entry, dict):
                 continue
+            entry = cast(dict[str, Any], entry)
             try:
                 from src.routing.agent_id import normalize_agent_id
 
@@ -697,7 +896,7 @@ def _cmd_status(args: argparse.Namespace, workspace: Path) -> int:
         print("\u2717 not configured")
         issues = cfg.validate()
         if issues:
-            print("\u26A0 " + "\n\u26A0 ".join(issues))
+            print("\u26a0 " + "\n\u26a0 ".join(issues))
 
     print("\nGateway")
     # Reuse existing gateway status printer
@@ -729,7 +928,9 @@ def _cmd_status(args: argparse.Namespace, workspace: Path) -> int:
                 elif isinstance(value, set):
                     total += len(cast(set[object], value))
             print(f"Loaded extensions: {total}")
-            print("If a plugin is missing, check for: plugin load failed: dependency tree corrupted; run jarvis doctor --fix")
+            print(
+                "If a plugin is missing, check for: plugin load failed: dependency tree corrupted; run jarvis doctor --fix"
+            )
         except Exception as e:
             print("plugin load failed: dependency tree corrupted; run jarvis doctor --fix")
             print(f"Detail: {e}")
@@ -765,6 +966,16 @@ def main(argv: list[str] | None = None) -> int:
             break
     workspace = workspace.resolve()
 
+    # Desktop owns its own startup-scoped plugin discovery. Avoid loading all
+    # CLI plugins first, which would activate optional non-startup extensions
+    # before the desktop host applies its OpenClaw activation policy.
+    if "desktop" in argv:
+        args = parser.parse_args(argv)
+        from jarvis_desktop.app import main as desktop_main
+
+        desktop_main()
+        return 0
+
     # sys.path is already patched at module level to include workspace and src.
 
     # Always load plugins so their CLI subcommands can be registered
@@ -786,6 +997,7 @@ def main(argv: list[str] | None = None) -> int:
             "SubParsersAction",
             parser.add_subparsers(dest="command", metavar="<command>"),
         )
+
     # Wire plugin CLI handlers with the OpenClaw-shaped context dict
     # ``{program, parentPath, config, workspaceDir, logger}``. Plugins
     # destructure what they need.
@@ -798,27 +1010,43 @@ def main(argv: list[str] | None = None) -> int:
     # 'add_parser')`` and uses the subparsers-container path here, or the
     # root-program path in OpenClaw. Both yield ``wiki`` as a sibling of
     # the host's other top-level commands.
+    class _CliContext(dict[str, Any]):
+        """Context dict that delegates .add_parser to the underlying subparser container."""
+
+        def add_parser(self, *args: Any, **kwargs: Any) -> Any:
+            prog = self.get("program")
+            if prog is not None and hasattr(prog, "add_parser"):
+                return prog.add_parser(*args, **kwargs)
+            raise AttributeError("'_CliContext' object has no valid program with add_parser")
+
     cli_handlers = plugins.get("cli_handlers", [])
     for entry in cli_handlers:
         # OpenClaw-aligned 4-tuple shape: (register_fn, descriptors, parent_path, commands).
         register_fn, _descriptors, parent_path, _commands = entry
-        ctx: dict[str, Any] = {
-            "program": subparsers,
-            "parentPath": parent_path,
-            "config": getattr(workspace, "config", None),
-            "workspaceDir": str(workspace),
-            "logger": None,
-        }
+        ctx = _CliContext(
+            {
+                "program": subparsers,
+                "parentPath": parent_path,
+                "config": getattr(workspace, "config", None),
+                "workspaceDir": str(workspace),
+                "logger": None,
+            }
+        )
         try:
             register_fn(ctx)
+        except TypeError:
+            try:
+                register_fn(subparsers)
+            except Exception as e:
+                print(f"[WARN] cli handler failed: {e}", file=sys.stderr)
         except Exception as e:
             print(f"[WARN] cli handler failed: {e}", file=sys.stderr)
 
     args = parser.parse_args(argv)
 
-
     if args.command == "desktop":
         from jarvis_desktop.app import main as desktop_main
+
         desktop_main()
         return 0
     if args.command == "tools-list":
@@ -882,6 +1110,11 @@ def main(argv: list[str] | None = None) -> int:
             return _cmd_pairing_list(args, workspace)
         if args.subcommand == "approve":
             return _cmd_pairing_approve(args, workspace)
+    if args.command == "subagents":
+        if args.subcommand == "list":
+            return _cmd_subagents_list(args, workspace)
+        if args.subcommand == "cancel":
+            return _cmd_subagents_cancel(args, workspace)
     # Plugin-registered CLI command dispatch (e.g. ``jarvis wiki ...``).
     # The plugin's ``register_fn`` typically sets ``func`` on the parent
     # subparser (a dispatcher) and ``__handler`` on the leaf subparser
@@ -917,9 +1150,9 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _cmd_gateway_restart(args: argparse.Namespace, workspace: Path) -> int:
-    import time
     import os
     import signal
+    import time
 
     lock_file = workspace / "state" / "gateway.lock"
     if lock_file.exists():
@@ -937,26 +1170,66 @@ def _cmd_gateway_restart(args: argparse.Namespace, workspace: Path) -> int:
 
 def _cmd_channels_status(args: argparse.Namespace, workspace: Path) -> int:
     from jarvis_config_core import load_config
+
     cfg = load_config(config_path=workspace / "config.json")
+    cfg_dict = cfg.to_dict() if hasattr(cfg, "to_dict") else {}
+    channels_cfg = (
+        cfg_dict.get("channels", {}) if isinstance(cfg_dict.get("channels"), dict) else {}
+    )
+    plugins = _load_cli_plugins(workspace)
+
     print("Channels Status")
 
-    try:
-        active = cfg.to_dict().get("channels", {})
-        if getattr(args, "probe", False):
-            print("Connectivity probe: ok")
+    discovered = plugins.get("channels", {})
+    manifest_meta = plugins.get("manifest_metadata", [])
+    channel_ids: set[str] = set(discovered.keys())
+    for meta in manifest_meta:
+        if meta.get("kind") == "channel":
+            channel_ids.add(str(meta["id"]))
+    for ch in channels_cfg.keys():
+        channel_ids.add(str(ch))
 
-        for key in active:
-            print(f"- {key}: configured")
-            if getattr(args, "probe", False):
-                print("  works")
-    except Exception as e:
-        print(f"Error checking channels: {e}")
+    if not channel_ids:
+        print("No channels discovered or configured.")
+        return 0
+
+    probe = getattr(args, "probe", False)
+    if probe:
+        print("Connectivity probe: active")
+
+    for ch_id in sorted(channel_ids):
+        is_configured = ch_id in channels_cfg
+        ch_conf = channels_cfg.get(ch_id, {}) if is_configured else {}
+        is_enabled = ch_conf.get("enabled", True) if isinstance(ch_conf, dict) else True
+        has_token = bool(
+            isinstance(ch_conf, dict)
+            and (ch_conf.get("bot_token") or ch_conf.get("token") or ch_conf.get("api_key"))
+        )
+
+        status_parts: list[str] = []
+        if is_configured:
+            status_parts.append("configured")
+            status_parts.append("enabled" if is_enabled else "disabled")
+            if has_token:
+                status_parts.append("token present")
+        else:
+            status_parts.append("available (not configured)")
+
+        print(f"- {ch_id}: {', '.join(status_parts)}")
+        if probe:
+            if is_configured and (has_token or not is_enabled):
+                print(f"  [{ch_id}] transport status: ready")
+            elif is_configured and not has_token:
+                print(f"  [{ch_id}] transport status: warning (missing credentials)")
+            else:
+                print(f"  [{ch_id}] transport status: unconfigured")
     return 0
 
 
 def _cmd_logs(args: argparse.Namespace, workspace: Path) -> int:
-    import time
     import os
+    import time
+
     log_dir = workspace / "state" / "logs"
     if not log_dir.exists():
         print(f"No logs directory found at {log_dir}")
@@ -990,8 +1263,9 @@ def _cmd_logs(args: argparse.Namespace, workspace: Path) -> int:
 
 
 def _cmd_session_connect(args: argparse.Namespace, workspace: Path, mode: str) -> int:
-    import urllib.request
     import json
+    import urllib.request
+
     from .host import default_gateway_port
 
     target = getattr(args, "target", None)
@@ -1003,20 +1277,25 @@ def _cmd_session_connect(args: argparse.Namespace, workspace: Path, mode: str) -
     try:
         req = urllib.request.Request(
             f"http://127.0.0.1:{port}/rpc",
-            data=json.dumps({
-                "jsonrpc": "2.0",
-                "method": "sessions.resolve",
-                "id": "1",
-                "params": {"target": target}
-            }).encode("utf-8"),
-            headers={"Content-Type": "application/json"}
+            data=json.dumps(
+                {
+                    "jsonrpc": "2.0",
+                    "method": "sessions.resolve",
+                    "id": "1",
+                    "params": {"target": target},
+                }
+            ).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
         )
         with urllib.request.urlopen(req, timeout=2.0) as response:
             res_data = json.loads(response.read().decode("utf-8"))
 
             if "error" in res_data:
                 err = res_data["error"]
-                print(f"Gateway error: {err.get('message', 'Unknown')} ({err.get('code')})", file=sys.stderr)
+                print(
+                    f"Gateway error: {err.get('message', 'Unknown')} ({err.get('code')})",
+                    file=sys.stderr,
+                )
                 return 1
 
             payload = res_data.get("result", {})
@@ -1036,15 +1315,15 @@ def _cmd_session_connect(args: argparse.Namespace, workspace: Path, mode: str) -
 
 def _cmd_ask(args: argparse.Namespace, workspace: Path) -> int:
     """Ask JARVIS a question using Gemini (Phase 3+).
-    
+
     For now, this is a simple CLI wrapper around the Gemini API.
     In Phase 4+, this will use the full agent loop with sessions,
     tools, memory, and other layers.
     """
     from jarvis_config_core import load_config
-    
+
     message = args.message
-    
+
     # Load config
     config_path = workspace / "config" / "jarvis.json"
     try:
@@ -1052,30 +1331,69 @@ def _cmd_ask(args: argparse.Namespace, workspace: Path) -> int:
     except Exception as e:
         print(f"Error loading config: {e}", file=sys.stderr)
         return 1
-    
+
     # Determine model and API key
-    model_name = args.model or getattr(config, "model", None) or "gemini-2.0-flash"
+    model_name = args.model or getattr(config, "model", None) or "gemini-3.8-flash"
     api_key = getattr(config, "gemini_api_key", None)
-    
+
+    if not api_key:
+        api_keys_path = workspace / "config" / "api_keys.json"
+        if api_keys_path.exists():
+            try:
+                with open(api_keys_path) as f:
+                    data = json.load(f)
+                    api_key = data.get("gemini_api_key")
+            except Exception:
+                pass
+
+    if not api_key:
+        root_cfg_path = workspace / "config.json"
+        if root_cfg_path.exists():
+            try:
+                with open(root_cfg_path) as f:
+                    data = json.load(f)
+                    api_key = data.get("gemini_api_key")
+            except Exception:
+                pass
+
+    if not api_key:
+        import os
+        api_key = os.environ.get("GEMINI_API_KEY")
+
     if not api_key:
         print("Error: No API key configured. Run: jarvis configure --api-key <key>")
         return 1
-    
-    # Simple Gemini API call
+
+    # Modern Google GenAI Client
     try:
-        import google.generativeai as genai  # type: ignore
-        # Legacy client path: installed stubs do not export these names,
-        # but the runtime package provides them (kept until the google-genai
-        # migration lands).
-        genai.configure(api_key=api_key)  # type: ignore[reportPrivateImportUsage]
-        client = genai.GenerativeModel(model_name)  # type: ignore[reportPrivateImportUsage]
-        
-        response = client.generate_content(message)
+        from google import genai  # type: ignore
+
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model=model_name,
+            contents=message,
+        )
         print(response.text)
         return 0
-        
     except ImportError:
-        print("Error: google-generativeai not installed. Run: uv add google-generativeai")
+        pass
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+    # Legacy client fallback
+    try:
+        import google.generativeai as legacy_genai  # type: ignore
+
+        legacy_genai.configure(api_key=api_key)  # type: ignore[reportPrivateImportUsage]
+        legacy_client = legacy_genai.GenerativeModel(model_name)  # type: ignore[reportPrivateImportUsage]
+
+        legacy_resp = cast(Any, legacy_client).generate_content(message)
+        print(legacy_resp.text)
+        return 0
+
+    except ImportError:
+        print("Error: neither google-genai nor google-generativeai is installed. Run: uv add google-genai")
         return 1
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)

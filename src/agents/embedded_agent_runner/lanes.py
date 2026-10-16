@@ -28,14 +28,22 @@ class CommandLane:
     """The built-in command-queue
     lane names. Mirrors
     :class:`CommandLane`
-    (``lanes.ts:5`` — the OpenClaw
-    source uses ``CommandLane``
-    as a TypeScript namespace with
-    string constants)."""
+    (``process/lanes.ts`` in OpenClaw).
+
+    Lane meanings
+    -------------
+    Main      -- top-level agent turns
+    Cron      -- scheduled cron jobs
+    CronNested-- embedded runs started from cron
+    Nested    -- serialized nested/sessions.send work (concurrency=1)
+    Subagent  -- child agent runs spawned via sessions_spawn
+    """
 
     Main: str = "main"
     Cron: str = "cron"
     CronNested: str = "cron-nested"
+    Nested: str = "nested"
+    Subagent: str = "subagent"
 
 
 def resolve_session_lane(key: str) -> str:

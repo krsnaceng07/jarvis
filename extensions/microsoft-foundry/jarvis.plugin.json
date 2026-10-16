@@ -1,0 +1,52 @@
+{
+  "id": "microsoft-foundry",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "microsoft-foundry"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "microsoft-foundry",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "FOUNDRY_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "microsoft-foundry": {
+        "baseUrl": "https://api.foundry.microsoft.com/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "phi-3-medium-128k",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

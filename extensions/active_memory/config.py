@@ -639,7 +639,7 @@ def require_transient_workspace_dir(temp_dir: str | None) -> str:
     if isinstance(temp_dir, str) and temp_dir.strip():
         return temp_dir
     raise RuntimeError(
-        "active-memory: transient workspace dir is required when " "persistTranscripts is disabled"
+        "active-memory: transient workspace dir is required when persistTranscripts is disabled"
     )
 
 

@@ -1,0 +1,27 @@
+{
+  "id": "raft",
+  "name": "Raft",
+  "description": "JARVIS Raft distributed consensus channel plugin for state replication.",
+  "channels": [
+    "raft"
+  ],
+  "activation": {
+    "onStartup": false
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "nodeId": {
+        "type": "string"
+      },
+      "peers": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "kind": "infra"
+}

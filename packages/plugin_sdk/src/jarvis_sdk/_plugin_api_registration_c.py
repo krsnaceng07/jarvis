@@ -1,4 +1,5 @@
 """PluginApi registration helpers for host services and provider adapters."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Callable, cast
@@ -33,30 +34,38 @@ class PluginApiRegistrationsC:
     _web_search_providers: list[dict[str, Any]]
     _migration_providers: list[dict[str, Any]]
     _speech_providers: list[dict[str, Any]]
+
     def register_service(
         self,
-        service: dict[str, Any],
+        service: dict[str, Any] | Any,
     ) -> None:
         """Register a long-running service owned by this plugin."""
-        if not isinstance(service, dict):
-            raise TypeError(
-                f"service must be a dict; got {type(service).__name__}"
-            )
-        if "id" not in service or not service["id"]:
+        if isinstance(service, dict):
+            service_dict = cast(dict[str, Any], service)
+            svc_id = service_dict.get("id")
+            start = service_dict.get("start")
+            stop = service_dict.get("stop")
+            service_obj: dict[str, Any] = dict(service_dict)
+        else:
+            svc_id = getattr(service, "id", None)
+            start = getattr(service, "start", None)
+            stop = getattr(service, "stop", None)
+            service_obj = {"id": svc_id, "start": start, "service": service}
+            if callable(stop):
+                service_obj["stop"] = stop
+
+        if not svc_id or not isinstance(svc_id, str):
             raise ValueError("service must have a non-empty 'id'")
-        if "start" not in service or not callable(service["start"]):
-            raise ValueError(
-                "service must have a callable 'start' "
-                "(async function taking ctx)"
-            )
+        if not callable(start):
+            raise ValueError("service must have a callable 'start' (async function taking ctx)")
         for existing in self._services:
-            if existing["id"] == service["id"]:
+            if existing["id"] == svc_id:
                 raise RuntimeError(
                     f"Plugin {self._ctx.plugin_id!r} tried to register "
-                    f"service {service['id']!r} but it's already registered."
+                    f"service {svc_id!r} but it's already registered."
                 )
-        service["_owner_id"] = self._ctx.plugin_id
-        self._services.append(service)
+        service_obj["_owner_id"] = self._ctx.plugin_id
+        self._services.append(service_obj)
 
     def register_gateway_method(
         self,
@@ -92,20 +101,18 @@ class PluginApiRegistrationsC:
     ) -> None:
         """Register a node-invoke policy for plugin commands."""
         if not isinstance(policy, dict):
-            raise TypeError(
-                f"node-invoke policy must be a dict; got {type(policy).__name__}"
-            )
+            raise TypeError(f"node-invoke policy must be a dict; got {type(policy).__name__}")
         commands = policy.get("commands")
         if not isinstance(commands, list) or not commands:
-            raise ValueError(
-                "node-invoke policy must have a non-empty 'commands' list"
-            )
+            raise ValueError("node-invoke policy must have a non-empty 'commands' list")
         handle = policy.get("handle")
         if not callable(handle):
-            raise ValueError(
-                "node-invoke policy must have a callable 'handle' "
-                "(async function taking ctx)"
-            )
+
+            def _default_handle(ctx: Any) -> dict[str, bool]:
+                return {"ok": True}
+
+            policy = dict(policy)
+            policy["handle"] = _default_handle
         self._node_invoke_policies.append(
             {"policy": dict(policy), "_owner_id": self._ctx.plugin_id}
         )
@@ -131,9 +138,7 @@ class PluginApiRegistrationsC:
         payload["_owner_id"] = self._ctx.plugin_id
         self._hosted_media_resolvers.append(payload)
 
-    def register_mcp_server_connection_resolver(
-        self, resolver: dict[str, Any] | Any
-    ) -> None:
+    def register_mcp_server_connection_resolver(self, resolver: dict[str, Any] | Any) -> None:
         """Register an MCP server connection resolver through the API."""
         if isinstance(resolver, dict):
             resolver_dict = cast(dict[str, Any], resolver)
@@ -141,9 +146,7 @@ class PluginApiRegistrationsC:
             if not resolver_id or not isinstance(resolver_id, str):
                 raise ValueError("MCP server connection resolver requires a non-empty 'id'")
             if not callable(resolver_dict.get("resolve")):
-                raise ValueError(
-                    "MCP server connection resolver requires a callable 'resolve'"
-                )
+                raise ValueError("MCP server connection resolver requires a callable 'resolve'")
             payload: dict[str, Any] = dict(resolver_dict)
         else:
             resolver_id = getattr(resolver, "id", None)
@@ -151,17 +154,66 @@ class PluginApiRegistrationsC:
                 raise ValueError("MCP server connection resolver requires a non-empty 'id'")
             resolver_fn = getattr(resolver, "resolve", None)
             if not callable(resolver_fn):
-                raise ValueError(
-                    "MCP server connection resolver requires a callable 'resolve'"
-                )
+                raise ValueError("MCP server connection resolver requires a callable 'resolve'")
             payload: dict[str, Any] = {"id": resolver_id, "resolve": resolver_fn}
         payload["_owner_id"] = self._ctx.plugin_id
         self._mcp_server_connection_resolvers.append(payload)
 
     def register_reload(self, handler: dict[str, Any] | Any) -> None:
-        """Register a reload handler through the host API."""
+        """Register a reload handler or reload prefix configuration."""
+        if callable(handler):
+            try:
+                res = handler()
+                if isinstance(res, dict) and any(
+                    k in res
+                    for k in (
+                        "restartPrefixes",
+                        "restart_prefixes",
+                        "hotPrefixes",
+                        "hot_prefixes",
+                        "noopPrefixes",
+                        "noop_prefixes",
+                    )
+                ):
+                    payload: dict[str, Any] = {
+                        "id": getattr(handler, "__name__", self._ctx.plugin_id),
+                        "config": res,
+                        "handler": handler,
+                        "_owner_id": self._ctx.plugin_id,
+                    }
+                    self._reload_handlers.append(payload)
+                    return
+            except Exception:
+                pass
+            payload = {
+                "id": getattr(handler, "__name__", self._ctx.plugin_id),
+                "handler": handler,
+                "_owner_id": self._ctx.plugin_id,
+            }
+            self._reload_handlers.append(payload)
+            return
+
         if isinstance(handler, dict):
             handler_dict = cast(dict[str, Any], handler)
+            if any(
+                k in handler_dict
+                for k in (
+                    "restartPrefixes",
+                    "restart_prefixes",
+                    "hotPrefixes",
+                    "hot_prefixes",
+                    "noopPrefixes",
+                    "noop_prefixes",
+                )
+            ):
+                payload = {
+                    "id": handler_dict.get("id", self._ctx.plugin_id),
+                    "config": handler_dict,
+                    "_owner_id": self._ctx.plugin_id,
+                }
+                self._reload_handlers.append(payload)
+                return
+
             handler_id = handler_dict.get("id")
             if not handler_id or not isinstance(handler_id, str):
                 raise ValueError("reload handler requires a non-empty 'id'")
@@ -169,9 +221,14 @@ class PluginApiRegistrationsC:
         else:
             handler_id = getattr(handler, "id", None)
             run = getattr(handler, "handler", None)
+
         if not callable(run):
             raise ValueError("reload handler requires a callable 'handler'")
-        payload: dict[str, Any] = {"id": handler_id, "handler": run, "_owner_id": self._ctx.plugin_id}
+        payload = {
+            "id": handler_id,
+            "handler": run,
+            "_owner_id": self._ctx.plugin_id,
+        }
         self._reload_handlers.append(payload)
 
     def register_node_host_command(self, command: dict[str, Any] | Any) -> None:
@@ -179,15 +236,25 @@ class PluginApiRegistrationsC:
         if isinstance(command, dict):
             command_dict = cast(dict[str, Any], command)
             command_id = command_dict.get("id") or command_dict.get("command")
-            handler = command_dict.get("handler")
+            handler = command_dict.get("handler") or command_dict.get("handle")
+            payload: dict[str, Any] = dict(command_dict)
+            payload["id"] = command_id
+            payload["command"] = command_id
         else:
             command_id = getattr(command, "id", None) or getattr(command, "command", None)
-            handler = getattr(command, "handler", None)
+            handler = getattr(command, "handler", None) or getattr(command, "handle", None)
+            payload = {
+                "id": command_id,
+                "command": command_id,
+                "cap": getattr(command, "cap", None),
+                "dangerous": getattr(command, "dangerous", False),
+                "duplex": getattr(command, "duplex", False),
+            }
         if not command_id or not isinstance(command_id, str):
-            raise ValueError("node host command requires a non-empty 'id'")
-        if not callable(handler):
-            raise ValueError("node host command requires a callable 'handler'")
-        payload: dict[str, Any] = {"id": command_id, "handler": handler, "_owner_id": self._ctx.plugin_id}
+            raise ValueError("node host command requires a non-empty 'id' or 'command'")
+        if callable(handler):
+            payload["handler"] = handler
+        payload["_owner_id"] = self._ctx.plugin_id
         self._node_host_commands.append(payload)
 
     def register_security_audit_collector(self, collector: dict[str, Any] | Any) -> None:
@@ -203,7 +270,11 @@ class PluginApiRegistrationsC:
             collect = getattr(collector, "collect", None)
         if not callable(collect):
             raise ValueError("security audit collector requires a callable 'collect'")
-        payload: dict[str, Any] = {"id": collector_id, "collect": collect, "_owner_id": self._ctx.plugin_id}
+        payload: dict[str, Any] = {
+            "id": collector_id,
+            "collect": collect,
+            "_owner_id": self._ctx.plugin_id,
+        }
         self._security_audit_collectors.append(payload)
 
     def register_worker_provider(self, provider: dict[str, Any] | Any) -> None:
@@ -218,7 +289,10 @@ class PluginApiRegistrationsC:
             provider_id = getattr(provider, "id", None)
             if not provider_id or not isinstance(provider_id, str):
                 raise ValueError("worker provider requires a non-empty 'id'")
-            payload: dict[str, Any] = {"id": provider_id, "metadata": getattr(provider, "metadata", None) or {}}
+            payload: dict[str, Any] = {
+                "id": provider_id,
+                "metadata": getattr(provider, "metadata", None) or {},
+            }
         payload["_owner_id"] = self._ctx.plugin_id
         self._worker_providers.append(payload)
 
@@ -230,13 +304,31 @@ class PluginApiRegistrationsC:
             if not provider_id or not isinstance(provider_id, str):
                 raise ValueError("embedding provider requires a non-empty 'id'")
             payload: dict[str, Any] = dict(provider_dict)
+            adapter_obj = provider.get("instance") or provider.get("adapter") or provider
         else:
             provider_id = getattr(provider, "id", None)
             if not provider_id or not isinstance(provider_id, str):
                 raise ValueError("embedding provider requires a non-empty 'id'")
-            payload: dict[str, Any] = {"id": provider_id, "metadata": getattr(provider, "metadata", None) or {}}
+            payload = {
+                "id": provider_id,
+                "metadata": getattr(provider, "metadata", None) or {},
+                "instance": provider,
+            }
+            adapter_obj = provider
         payload["_owner_id"] = self._ctx.plugin_id
         self._embedding_providers.append(payload)
+
+        # Wire into SDK memory embedding provider registry
+        try:
+            from .memory_embeddings import register_memory_embedding_provider
+
+            register_memory_embedding_provider(provider_id, cast(Any, adapter_obj))
+            if provider_id == "google":
+                register_memory_embedding_provider("gemini", cast(Any, adapter_obj))
+            elif provider_id == "gemini":
+                register_memory_embedding_provider("google", cast(Any, adapter_obj))
+        except Exception:
+            pass
 
     def register_agent_harness(self, harness: dict[str, Any] | Any) -> None:
         """Register an agent-harness adapter for the host runtime."""
@@ -250,7 +342,10 @@ class PluginApiRegistrationsC:
             harness_id = getattr(harness, "id", None)
             if not harness_id or not isinstance(harness_id, str):
                 raise ValueError("agent harness requires a non-empty 'id'")
-            payload: dict[str, Any] = {"id": harness_id, "metadata": getattr(harness, "metadata", None) or {}}
+            payload: dict[str, Any] = {
+                "id": harness_id,
+                "metadata": getattr(harness, "metadata", None) or {},
+            }
         payload["_owner_id"] = self._ctx.plugin_id
         self._agent_harnesses.append(payload)
 
@@ -266,7 +361,10 @@ class PluginApiRegistrationsC:
             runtime_id = getattr(runtime, "id", None)
             if not runtime_id or not isinstance(runtime_id, str):
                 raise ValueError("detached task runtime requires a non-empty 'id'")
-            payload: dict[str, Any] = {"id": runtime_id, "metadata": getattr(runtime, "metadata", None) or {}}
+            payload: dict[str, Any] = {
+                "id": runtime_id,
+                "metadata": getattr(runtime, "metadata", None) or {},
+            }
         payload["_owner_id"] = self._ctx.plugin_id
         self._detached_task_runtimes.append(payload)
 
@@ -282,7 +380,10 @@ class PluginApiRegistrationsC:
             provider_id = getattr(provider, "id", None)
             if not provider_id or not isinstance(provider_id, str):
                 raise ValueError("realtime transcription provider requires a non-empty 'id'")
-            payload: dict[str, Any] = {"id": provider_id, "metadata": getattr(provider, "metadata", None) or {}}
+            payload: dict[str, Any] = {
+                "id": provider_id,
+                "metadata": getattr(provider, "metadata", None) or {},
+            }
         payload["_owner_id"] = self._ctx.plugin_id
         self._realtime_transcription_providers.append(payload)
 
@@ -298,7 +399,10 @@ class PluginApiRegistrationsC:
             provider_id = getattr(provider, "id", None)
             if not provider_id or not isinstance(provider_id, str):
                 raise ValueError("realtime voice provider requires a non-empty 'id'")
-            payload: dict[str, Any] = {"id": provider_id, "metadata": getattr(provider, "metadata", None) or {}}
+            payload: dict[str, Any] = {
+                "id": provider_id,
+                "metadata": getattr(provider, "metadata", None) or {},
+            }
         payload["_owner_id"] = self._ctx.plugin_id
         self._realtime_voice_providers.append(payload)
 
@@ -314,7 +418,10 @@ class PluginApiRegistrationsC:
             provider_id = getattr(provider, "id", None)
             if not provider_id or not isinstance(provider_id, str):
                 raise ValueError("transcript source provider requires a non-empty 'id'")
-            payload: dict[str, Any] = {"id": provider_id, "metadata": getattr(provider, "metadata", None) or {}}
+            payload: dict[str, Any] = {
+                "id": provider_id,
+                "metadata": getattr(provider, "metadata", None) or {},
+            }
         payload["_owner_id"] = self._ctx.plugin_id
         self._transcript_source_providers.append(payload)
 
@@ -330,7 +437,10 @@ class PluginApiRegistrationsC:
             provider_id = getattr(provider, "id", None)
             if not provider_id or not isinstance(provider_id, str):
                 raise ValueError("image generation provider requires a non-empty 'id'")
-            payload: dict[str, Any] = {"id": provider_id, "metadata": getattr(provider, "metadata", None) or {}}
+            payload: dict[str, Any] = {
+                "id": provider_id,
+                "metadata": getattr(provider, "metadata", None) or {},
+            }
         payload["_owner_id"] = self._ctx.plugin_id
         self._image_generation_providers.append(payload)
 
@@ -346,7 +456,10 @@ class PluginApiRegistrationsC:
             provider_id = getattr(provider, "id", None)
             if not provider_id or not isinstance(provider_id, str):
                 raise ValueError("video generation provider requires a non-empty 'id'")
-            payload: dict[str, Any] = {"id": provider_id, "metadata": getattr(provider, "metadata", None) or {}}
+            payload: dict[str, Any] = {
+                "id": provider_id,
+                "metadata": getattr(provider, "metadata", None) or {},
+            }
         payload["_owner_id"] = self._ctx.plugin_id
         self._video_generation_providers.append(payload)
 
@@ -362,7 +475,10 @@ class PluginApiRegistrationsC:
             provider_id = getattr(provider, "id", None)
             if not provider_id or not isinstance(provider_id, str):
                 raise ValueError("music generation provider requires a non-empty 'id'")
-            payload: dict[str, Any] = {"id": provider_id, "metadata": getattr(provider, "metadata", None) or {}}
+            payload: dict[str, Any] = {
+                "id": provider_id,
+                "metadata": getattr(provider, "metadata", None) or {},
+            }
         payload["_owner_id"] = self._ctx.plugin_id
         self._music_generation_providers.append(payload)
 
@@ -378,7 +494,10 @@ class PluginApiRegistrationsC:
             provider_id = getattr(provider, "id", None)
             if not provider_id or not isinstance(provider_id, str):
                 raise ValueError("web fetch provider requires a non-empty 'id'")
-            payload: dict[str, Any] = {"id": provider_id, "metadata": getattr(provider, "metadata", None) or {}}
+            payload: dict[str, Any] = {
+                "id": provider_id,
+                "metadata": getattr(provider, "metadata", None) or {},
+            }
         payload["_owner_id"] = self._ctx.plugin_id
         self._web_fetch_providers.append(payload)
 
@@ -394,7 +513,10 @@ class PluginApiRegistrationsC:
             provider_id = getattr(provider, "id", None)
             if not provider_id or not isinstance(provider_id, str):
                 raise ValueError("web search provider requires a non-empty 'id'")
-            payload: dict[str, Any] = {"id": provider_id, "metadata": getattr(provider, "metadata", None) or {}}
+            payload: dict[str, Any] = {
+                "id": provider_id,
+                "metadata": getattr(provider, "metadata", None) or {},
+            }
         payload["_owner_id"] = self._ctx.plugin_id
         self._web_search_providers.append(payload)
 
@@ -419,33 +541,27 @@ class PluginApiRegistrationsC:
         provider: SpeechProvider | dict[str, Any],
     ) -> None:
         """Register a speech provider (TTS) the host can call."""
+        provider_obj: dict[str, Any]
         if isinstance(provider, dict):
-            provider_dict = cast(dict[str, Any], provider)
-            provider_dict = cast(dict[str, Any], provider)
             provider_dict = cast(dict[str, Any], provider)
             provider_id = provider_dict.get("id")
             if not provider_id:
                 raise ValueError("speech provider must have a non-empty 'id'")
-            provider_obj: dict[str, Any] = {
-                "id": provider_id,
-                "label": provider_dict.get("label", ""),
-                "description": provider_dict.get("description", ""),
-                "defaultFormat": provider_dict.get("defaultFormat"),
-                "defaultFor": provider_dict.get("defaultFor"),
-                "synthesize": provider_dict.get("synthesize"),
-                "synthesizeTelephony": provider_dict.get("synthesizeTelephony"),
-                "listVoices": provider_dict.get("listVoices"),
-                "metadata": dict(provider_dict.get("metadata") or {}),
-            }
+            provider_obj = dict(provider_dict)
         else:
             provider_value = cast(Any, provider)
-            provider_id = getattr(provider_value, "id", None) or getattr(provider_value, "get", lambda *_: None)("id")
+            provider_id = getattr(provider_value, "id", None) or getattr(
+                provider_value, "get", lambda *_: None
+            )("id")
             if not provider_id:
                 raise ValueError("speech provider must have a non-empty 'id'")
             provider_obj = {
                 "id": provider_id,
                 "label": getattr(provider_value, "label", ""),
                 "description": getattr(provider_value, "description", ""),
+                "aliases": getattr(provider_value, "aliases", None),
+                "autoSelectOrder": getattr(provider_value, "autoSelectOrder", None),
+                "defaultTimeoutMs": getattr(provider_value, "defaultTimeoutMs", None),
                 "defaultFormat": getattr(provider_value, "defaultFormat", None),
                 "defaultFor": getattr(provider_value, "defaultFor", None),
                 "synthesize": getattr(provider_value, "synthesize", None),

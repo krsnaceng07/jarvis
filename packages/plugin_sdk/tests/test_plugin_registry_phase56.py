@@ -3,6 +3,7 @@
 Covers the public surface of the 4 clean plugin-registry
 modules ported in Phase 5.6a.
 """
+
 from __future__ import annotations
 
 import sys
@@ -100,21 +101,58 @@ def test_empty_registry_has_empty_lists() -> None:
 def test_empty_registry_worker_providers_is_empty_dict() -> None:
     """``workerProviders`` is a dict (OpenClaw's ``Map``)."""
     registry = create_empty_plugin_registry()
-    assert registry["workerProviders"] == {}
+    assert registry.get("workerProviders") == {}
 
 
 def test_empty_registry_gateway_handlers_is_empty_dict() -> None:
     """``gatewayHandlers`` starts as an empty dict."""
     registry = create_empty_plugin_registry()
-    assert registry["gatewayHandlers"] == {}
+    assert registry.get("gatewayHandlers") == {}
 
 
 def test_empty_registry_is_independent() -> None:
     """Each call returns a fresh registry (no shared state)."""
     r1 = create_empty_plugin_registry()
     r2 = create_empty_plugin_registry()
-    r1["plugins"].append({"id": "x", "name": "x", "source": "s", "origin": "o", "enabled": True, "status": "loaded", "toolNames": [], "hookNames": [], "channelIds": [], "cliBackendIds": [], "providerIds": [], "embeddingProviderIds": [], "speechProviderIds": [], "realtimeTranscriptionProviderIds": [], "realtimeVoiceProviderIds": [], "mediaUnderstandingProviderIds": [], "transcriptSourceProviderIds": [], "imageGenerationProviderIds": [], "videoGenerationProviderIds": [], "musicGenerationProviderIds": [], "webFetchProviderIds": [], "webSearchProviderIds": [], "migrationProviderIds": [], "memoryEmbeddingProviderIds": [], "agentHarnessIds": [], "cliCommands": [], "services": [], "gatewayDiscoveryServiceIds": [], "commands": [], "httpRoutes": 0, "hookCount": 0, "configSchema": False})
-    assert r2["plugins"] == []
+    plugins_list = r1.get("plugins")
+    if plugins_list is not None:
+        plugins_list.append(
+            {
+                "id": "x",
+                "name": "x",
+                "source": "s",
+                "origin": "o",
+                "enabled": True,
+                "status": "loaded",
+                "toolNames": [],
+                "hookNames": [],
+                "channelIds": [],
+                "cliBackendIds": [],
+                "providerIds": [],
+                "embeddingProviderIds": [],
+                "speechProviderIds": [],
+                "realtimeTranscriptionProviderIds": [],
+                "realtimeVoiceProviderIds": [],
+                "mediaUnderstandingProviderIds": [],
+                "transcriptSourceProviderIds": [],
+                "imageGenerationProviderIds": [],
+                "videoGenerationProviderIds": [],
+                "musicGenerationProviderIds": [],
+                "webFetchProviderIds": [],
+                "webSearchProviderIds": [],
+                "migrationProviderIds": [],
+                "memoryEmbeddingProviderIds": [],
+                "agentHarnessIds": [],
+                "cliCommands": [],
+                "services": [],
+                "gatewayDiscoveryServiceIds": [],
+                "commands": [],
+                "httpRoutes": 0,
+                "hookCount": 0,
+                "configSchema": False,
+            }
+        )
+    assert r2.get("plugins") == []
 
 
 # ── plugin_registry_lifecycle ──────────────────────────────────────
@@ -234,47 +272,48 @@ def test_plugin_registry_shape() -> None:
     assert "sessionSchedulerJobs" in registry
     assert "sessionActions" in registry
 
+
 # -- plugin_registry_state - resolve_plugin_registration_capabilities -
 
 
 def test_resolve_capabilities_full() -> None:
     """``"full"`` mode enables all capability flags."""
     caps = resolve_plugin_registration_capabilities("full")
-    assert caps["capabilityHandlers"] is True
-    assert caps["setupRuntimeHandlers"] is False
-    assert caps["runtimeChannel"] is True
+    assert caps.get("capabilityHandlers") is True
+    assert caps.get("setupRuntimeHandlers") is False
+    assert caps.get("runtimeChannel") is True
 
 
 def test_resolve_capabilities_discovery() -> None:
     """``"discovery"`` mode enables capability handlers + runtime channel."""
     caps = resolve_plugin_registration_capabilities("discovery")
-    assert caps["capabilityHandlers"] is True
-    assert caps["setupRuntimeHandlers"] is False
-    assert caps["runtimeChannel"] is True
+    assert caps.get("capabilityHandlers") is True
+    assert caps.get("setupRuntimeHandlers") is False
+    assert caps.get("runtimeChannel") is True
 
 
 def test_resolve_capabilities_tool_discovery() -> None:
     """``"tool-discovery"`` enables capability handlers but suppresses runtime channel."""
     caps = resolve_plugin_registration_capabilities("tool-discovery")
-    assert caps["capabilityHandlers"] is True
-    assert caps["setupRuntimeHandlers"] is False
-    assert caps["runtimeChannel"] is False
+    assert caps.get("capabilityHandlers") is True
+    assert caps.get("setupRuntimeHandlers") is False
+    assert caps.get("runtimeChannel") is False
 
 
 def test_resolve_capabilities_setup_runtime() -> None:
     """``"setup-runtime"`` mode enables setup-runtime handlers only."""
     caps = resolve_plugin_registration_capabilities("setup-runtime")
-    assert caps["capabilityHandlers"] is False
-    assert caps["setupRuntimeHandlers"] is True
-    assert caps["runtimeChannel"] is True
+    assert caps.get("capabilityHandlers") is False
+    assert caps.get("setupRuntimeHandlers") is True
+    assert caps.get("runtimeChannel") is True
 
 
 def test_resolve_capabilities_setup_only() -> None:
     """``"setup-only"`` mode suppresses capability handlers + runtime channel."""
     caps = resolve_plugin_registration_capabilities("setup-only")
-    assert caps["capabilityHandlers"] is False
-    assert caps["setupRuntimeHandlers"] is False
-    assert caps["runtimeChannel"] is False
+    assert caps.get("capabilityHandlers") is False
+    assert caps.get("setupRuntimeHandlers") is False
+    assert caps.get("runtimeChannel") is False
 
 
 # -- plugin_registry_state � resolve_typed_hook_timeout_ms -----------
@@ -319,10 +358,13 @@ def test_resolve_timeout_none_when_unset() -> None:
 def test_resolve_timeout_rejects_non_positive() -> None:
     """Non-positive / non-finite values are dropped (skipped, not normalized)."""
     for bad in (0, -1, -100):
-        assert resolve_typed_hook_timeout_ms(
-            hook_name="x",
-            opts={"timeoutMs": bad},
-        ) is None
+        assert (
+            resolve_typed_hook_timeout_ms(
+                hook_name="x",
+                opts={"timeoutMs": bad},
+            )
+            is None
+        )
 
 
 # -- plugin_registry_state � create_plugin_registry_state ----------
@@ -388,13 +430,12 @@ def test_create_state_has_channel_conflict_set() -> None:
 
 def test_create_state_get_host_cron_service() -> None:
     """``getHostCronService`` reads from the params at call time."""
+
     class _FakeCron:
         pass
 
     fake = _FakeCron()
-    state = create_plugin_registry_state(
-        {"logger": None, "hostServices": {"cron": fake}}
-    )
+    state = create_plugin_registry_state({"logger": None, "hostServices": {"cron": fake}})
     assert state["getHostCronService"]() is fake
 
 

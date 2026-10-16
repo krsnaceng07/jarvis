@@ -1,0 +1,15 @@
+{
+  "id": "openshell",
+  "name": "OpenShell",
+  "description": "OpenClaw OpenShell infra extension port (Phase 5.15 stub).",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  },
+  "kind": "infra"
+}

@@ -9,7 +9,7 @@ Public surface:
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Awaitable, Optional, TypeVar
+from typing import Awaitable, Optional, TypeVar
 
 T = TypeVar("T")
 

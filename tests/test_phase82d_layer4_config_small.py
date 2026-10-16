@@ -9,7 +9,6 @@ Covers:
 """
 from __future__ import annotations
 
-import pytest
 
 from src.config.types_memory import (
     MemoryBackend,
@@ -40,7 +39,6 @@ from src.config.types_channel_messaging_common import CommonChannelMessagingConf
 from src.config.types_auth import (
     AuthCooldownsConfig,
     AuthConfig,
-    AuthMode,
     AuthProfileConfig,
 )
 from src.config.types_irc import (
@@ -76,8 +74,6 @@ from src.config.types_approvals import (
     NativeExecApprovalEnableMode,
 )
 from src.config.types_installs import (
-    ArtifactFormat,
-    ArtifactKind,
     ClawhubChannel,
     ClawhubFamily,
     ClawhubTrustDisposition,

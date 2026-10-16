@@ -170,7 +170,7 @@ class TestScanWikiPageSummary:
         # No ``title`` in frontmatter AND no H1
         # in the body; falls back to the relative
         # path.
-        source = "---\nkind: entity\n---\n" "No heading here.\n"
+        source = "---\nkind: entity\n---\nNo heading here.\n"
         result = scan_wiki_page_summary(
             absolute_path="/vault/entities/x.md",
             relative_path="entities/x.md",

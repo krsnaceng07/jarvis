@@ -2,12 +2,12 @@
 
 Mirrors the TypeScript ``test_dreaming-command.test.ts`` patterns.
 """
+
 from __future__ import annotations
 
 import asyncio
 from types import SimpleNamespace
 
-import pytest
 
 from extensions.memory_core import dreaming_command as dc
 
@@ -30,7 +30,9 @@ class _Api:
         self.runtime = SimpleNamespace(config=_RuntimeConfig(config))
 
 
-def _ctx(args: str = "", sender_is_owner: bool = False, gateway_scopes: list[str] | None = None) -> dict:
+def _ctx(
+    args: str = "", sender_is_owner: bool = False, gateway_scopes: list[str] | None = None
+) -> dict:
     return {
         "args": args,
         "senderIsOwner": sender_is_owner,
@@ -46,9 +48,7 @@ def test_resolve_dreaming_plugin_config_valid() -> None:
     cfg = {
         "plugins": {
             "entries": {
-                "memory-core": {
-                    "config": {"dreaming": {"enabled": True, "frequency": "0 4 * * *"}}
-                }
+                "memory-core": {"config": {"dreaming": {"enabled": True, "frequency": "0 4 * * *"}}}
             }
         }
     }
@@ -73,7 +73,13 @@ def test_update_dreaming_enabled_in_config_enables() -> None:
 
 def test_update_dreaming_enabled_in_config_disables() -> None:
     """``enabled=False`` is set in the dreaming config."""
-    cfg = {"plugins": {"entries": {"memory-core": {"config": {"dreaming": {"enabled": True, "frequency": "0 4 * * *"}}}}}}
+    cfg = {
+        "plugins": {
+            "entries": {
+                "memory-core": {"config": {"dreaming": {"enabled": True, "frequency": "0 4 * * *"}}}
+            }
+        }
+    }
     result = dc.update_dreaming_enabled_in_config(cfg, enabled=False)
     dreaming = result["plugins"]["entries"]["memory-core"]["config"]["dreaming"]
     assert dreaming["enabled"] is False
@@ -148,9 +154,7 @@ def test_format_status_uses_default_promotion_policy() -> None:
     cfg = {
         "plugins": {
             "entries": {
-                "memory-core": {
-                    "config": {"dreaming": {"enabled": True, "frequency": "0 3 * * *"}}
-                }
+                "memory-core": {"config": {"dreaming": {"enabled": True, "frequency": "0 3 * * *"}}}
             }
         }
     }
@@ -210,9 +214,7 @@ def test_handle_dreaming_command_status() -> None:
     cfg = {
         "plugins": {
             "entries": {
-                "memory-core": {
-                    "config": {"dreaming": {"enabled": True, "frequency": "0 4 * * *"}}
-                }
+                "memory-core": {"config": {"dreaming": {"enabled": True, "frequency": "0 4 * * *"}}}
             }
         }
     }
@@ -224,35 +226,19 @@ def test_handle_dreaming_command_status() -> None:
 
 def test_handle_dreaming_command_on_owner() -> None:
     """``on`` from channel owner → enabled + status."""
-    cfg = {
-        "plugins": {
-            "entries": {
-                "memory-core": {"config": {"dreaming": {"enabled": False}}}
-            }
-        }
-    }
+    cfg = {"plugins": {"entries": {"memory-core": {"config": {"dreaming": {"enabled": False}}}}}}
     api = _Api(cfg)
-    result = asyncio.run(
-        dc.handle_dreaming_command(api, _ctx(args="on", sender_is_owner=True))
-    )
+    result = asyncio.run(dc.handle_dreaming_command(api, _ctx(args="on", sender_is_owner=True)))
     assert "Dreaming enabled." in result["text"]
     assert "- enabled: on" in result["text"]
 
 
 def test_handle_dreaming_command_off_gateway_admin() -> None:
     """``off`` from gateway client with ``operator.admin`` → disabled + status."""
-    cfg = {
-        "plugins": {
-            "entries": {
-                "memory-core": {"config": {"dreaming": {"enabled": True}}}
-            }
-        }
-    }
+    cfg = {"plugins": {"entries": {"memory-core": {"config": {"dreaming": {"enabled": True}}}}}}
     api = _Api(cfg)
     result = asyncio.run(
-        dc.handle_dreaming_command(
-            api, _ctx(args="off", gateway_scopes=["operator.admin"])
-        )
+        dc.handle_dreaming_command(api, _ctx(args="off", gateway_scopes=["operator.admin"]))
     )
     assert "Dreaming disabled." in result["text"]
     assert "- enabled: off" in result["text"]
@@ -261,9 +247,7 @@ def test_handle_dreaming_command_off_gateway_admin() -> None:
 def test_handle_dreaming_command_on_denied() -> None:
     """``on`` from non-owner / non-admin → permission error."""
     api = _Api({})
-    result = asyncio.run(
-        dc.handle_dreaming_command(api, _ctx(args="on", sender_is_owner=False))
-    )
+    result = asyncio.run(dc.handle_dreaming_command(api, _ctx(args="on", sender_is_owner=False)))
     assert "⚠️" in result["text"]
     assert "owner" in result["text"] or "admin" in result["text"]
 
@@ -272,9 +256,7 @@ def test_handle_dreaming_command_off_denied_gateway() -> None:
     """``off`` from gateway client without admin scope → permission error."""
     api = _Api({})
     result = asyncio.run(
-        dc.handle_dreaming_command(
-            api, _ctx(args="off", gateway_scopes=["operator.read"])
-        )
+        dc.handle_dreaming_command(api, _ctx(args="off", gateway_scopes=["operator.read"]))
     )
     assert "⚠️" in result["text"]
 
@@ -282,9 +264,7 @@ def test_handle_dreaming_command_off_denied_gateway() -> None:
 def test_handle_dreaming_command_unknown_token() -> None:
     """Unknown token → usage + status (graceful fallback)."""
     api = _Api({})
-    result = asyncio.run(
-        dc.handle_dreaming_command(api, _ctx(args="bogus"))
-    )
+    result = asyncio.run(dc.handle_dreaming_command(api, _ctx(args="bogus")))
     assert "Usage:" in result["text"]
     assert "Dreaming status:" in result["text"]
 
@@ -292,7 +272,5 @@ def test_handle_dreaming_command_unknown_token() -> None:
 def test_handle_dreaming_command_extra_args_ignored() -> None:
     """Extra whitespace-separated tokens after the first are ignored."""
     api = _Api({})
-    result = asyncio.run(
-        dc.handle_dreaming_command(api, _ctx(args="status --verbose"))
-    )
+    result = asyncio.run(dc.handle_dreaming_command(api, _ctx(args="status --verbose")))
     assert "Dreaming status:" in result["text"]

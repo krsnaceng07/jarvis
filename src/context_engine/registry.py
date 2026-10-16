@@ -16,7 +16,6 @@ import json
 import os
 import re
 import sys
-import time
 import weakref
 from datetime import datetime
 from typing import Any, Awaitable, Callable, Iterable, Iterator

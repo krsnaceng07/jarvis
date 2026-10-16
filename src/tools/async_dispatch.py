@@ -11,7 +11,6 @@ import asyncio
 import json
 import logging
 import time
-from collections.abc import Callable
 from typing import Any
 
 from src.tools.dispatch import PluginDispatchFn, ToolCallResult

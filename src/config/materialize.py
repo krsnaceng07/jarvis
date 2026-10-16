@@ -10,7 +10,7 @@ callables until those subsystems land.
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Literal
+from typing import Callable, Literal
 
 MaterializationMode = Literal["load", "missing", "snapshot"]
 

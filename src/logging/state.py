@@ -8,7 +8,7 @@ Public surface:
 """
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 
 _LOGGING_STATE_KEY = "openclaw.loggingState"

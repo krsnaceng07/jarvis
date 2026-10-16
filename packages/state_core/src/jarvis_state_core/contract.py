@@ -16,6 +16,7 @@ Public surface:
 - ``StateDatabaseSchemaMigration`` — typed migration kind
 - ``StateDatabaseSchemaMigrationKind`` — closed set of kinds
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

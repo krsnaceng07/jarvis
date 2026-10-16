@@ -25,7 +25,6 @@ from src.sessions.transcript_events import (
     on_session_transcript_update,
     _reset_transcript_event_listeners_for_tests,
 )
-from src.sessions.session_key_utils import is_subagent_session_key
 
 
 # ── session_state_notices ────────────────────────────────────────

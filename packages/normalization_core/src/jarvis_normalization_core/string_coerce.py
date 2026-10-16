@@ -138,6 +138,17 @@ def normalize_trimmed_string_list(value: object) -> list[str]:
     return out
 
 
+def normalize_optional_trimmed_string_list(value: object) -> list[str] | None:
+    """Normalize an array-backed string list; ``None`` when empty.
+
+    Mirrors ``@openclaw/normalization-core/string-normalization``'s
+    ``normalizeOptionalTrimmedStringList``. Callers use the ``None``
+    case to omit the field instead of publishing an empty list.
+    """
+    normalized = normalize_trimmed_string_list(value)
+    return normalized if normalized else None
+
+
 def normalize_single_or_trimmed_string_list(value: object) -> list[str]:
     """Normalize a string-or-list input into a string list.
 

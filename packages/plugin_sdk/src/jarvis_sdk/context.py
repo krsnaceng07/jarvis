@@ -48,7 +48,7 @@ class PluginContext:
     http: Any = None  # SSRF-checked HTTP client
     fs: Any = None  # path-containment filesystem
     emit_event: Callable[[str, dict[str, object]], None] = field(
-        default_factory=lambda: (lambda *_: None)
+        default_factory=lambda: lambda *_: None
     )
 
     def log(self, msg: str, *, level: str = "info") -> None:

@@ -5,7 +5,7 @@ OpenClaw parity: mirrors ``openclaw-main/src/shared/requirements.ts``.
 from __future__ import annotations
 
 import sys
-from typing import Any, Callable, List, Optional, TypedDict
+from typing import Callable, List, Optional, TypedDict
 
 
 class Requirements(TypedDict, total=False):

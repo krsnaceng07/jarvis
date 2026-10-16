@@ -1,0 +1,12 @@
+id: personal-memory-preference-recall
+goal: Fake preference recall from the temporary QA workspace memory files
+preconditions:
+  - Memory core is active
+  - Fake preference "User prefers Python for scripts" is injected into memory
+steps:
+  - user: "Write a short script to sum two numbers based on my preferred language."
+expected_outcomes:
+  - Agent must generate a Python script.
+  - Agent must acknowledge the preference from memory.
+cleanup:
+  - Wipe QA memory file

@@ -1,0 +1,31 @@
+{
+  "id": "learning",
+  "name": "JARVIS Continual Learning Engine",
+  "version": "0.2.0",
+  "description": "Self-learning and continual-learning engine for JARVIS. Captures experiences, learns strategies, detects failure patterns, and influences future decisions.",
+  "kind": "infra",
+  "activation": "always",
+  "entrypoint": "plugin:register",
+  "capabilities": ["learning", "hooks", "routing"],
+  "hooks": [
+    "before_prompt_build",
+    "before_agent_start",
+    "before_tool_call",
+    "tool_called",
+    "after_tool_call",
+    "tool_completed",
+    "agent_end",
+    "session_start",
+    "session_end"
+  ],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "enabled": {"type": "boolean", "default": true},
+      "local_models_enabled": {"type": "boolean", "default": false},
+      "reflection_enabled": {"type": "boolean", "default": true},
+      "training_enabled": {"type": "boolean", "default": false},
+      "shadow_mode": {"type": "boolean", "default": true}
+    }
+  }
+}

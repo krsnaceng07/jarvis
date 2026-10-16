@@ -1,0 +1,34 @@
+{
+  "id": "fish-audio-speech",
+  "name": "Fish Audio",
+  "description": "Fish Audio S2.1 hosted text-to-speech with streaming, voice notes, and telephony output.",
+  "entry": "plugin.py",
+  "legacyPluginIds": [
+    "fish-audio"
+  ],
+  "activation": {
+    "onStartup": false
+  },
+  "setup": {
+    "providers": [
+      {
+        "id": "fish-audio",
+        "envVars": [
+          "FISH_API_KEY",
+          "FISH_AUDIO_API_KEY"
+        ]
+      }
+    ]
+  },
+  "contracts": {
+    "speechProviders": [
+      "fish-audio"
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  },
+  "kind": "provider"
+}

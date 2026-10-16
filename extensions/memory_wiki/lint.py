@@ -391,8 +391,7 @@ def _collect_page_issues(
                     code="page-type-mismatch",
                     path=relative,
                     message=(
-                        f"Expected pageType `{_to_expected_page_type(page)}`, "
-                        f"found `{page_type}`."
+                        f"Expected pageType `{_to_expected_page_type(page)}`, found `{page_type}`."
                     ),
                 )
             )
@@ -545,8 +544,7 @@ def _collect_page_issues(
                     code="stale-claim",
                     path=claim_path,
                     message=(
-                        f"Claim {claim_label} freshness needs review "
-                        f"({claim_freshness_reason})."
+                        f"Claim {claim_label} freshness needs review ({claim_freshness_reason})."
                     ),
                 )
             )

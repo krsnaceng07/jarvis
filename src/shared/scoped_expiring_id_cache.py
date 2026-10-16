@@ -10,8 +10,7 @@ Public surface:
 """
 from __future__ import annotations
 
-import math
-from typing import Any, Callable, Dict, Generic, Optional, TypeVar, Union
+from typing import Any, Dict, Generic, Optional, TypeVar, Union
 
 
 _ScopeT = TypeVar("_ScopeT", bound=Union[str, int])

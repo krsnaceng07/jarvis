@@ -52,6 +52,7 @@ Python adaptations (documented in code):
 - TS ``isIP(address)`` → Python ``ipaddress.ip_address``
   family check (``ip_address(addr).version``).
 """
+
 from __future__ import annotations
 
 import ipaddress
@@ -89,7 +90,7 @@ def normalize_lowercase_string_or_empty(value: Any) -> str:
 # ── Host / IP primitives ───────────────────────────────────
 
 
-def _normalize_host_for_ip_check(host: str) -> str:
+def normalize_host_for_ip_check(host: str) -> str:
     """Strip brackets, trailing dots, and zone-id from a host string.
 
     Mirrors ``normalizeHostForIpCheck`` (private helper
@@ -104,6 +105,9 @@ def _normalize_host_for_ip_check(host: str) -> str:
     if zone_index >= 0:
         normalized = normalized[:zone_index]
     return normalized
+
+
+_normalize_host_for_ip_check = normalize_host_for_ip_check
 
 
 def parse_ipv4_octets(address: str) -> Optional[tuple[int, int, int, int]]:
@@ -263,9 +267,7 @@ def parse_normalized_gateway_url(raw: str) -> Optional[str]:
     if parsed.username or parsed.password:
         return None
     scheme = parsed.scheme
-    normalized_scheme = (
-        "ws" if scheme == "http" else "wss" if scheme == "https" else scheme
-    )
+    normalized_scheme = "ws" if scheme == "http" else "wss" if scheme == "https" else scheme
     if normalized_scheme not in ("ws", "wss"):
         return None
     if not parsed.hostname:
@@ -334,9 +336,7 @@ def describe_secure_mobile_pairing_fix(source: Optional[str] = None) -> str:
     )
 
 
-def validate_mobile_pairing_url(
-    url: str, source: Optional[str] = None
-) -> Optional[str]:
+def validate_mobile_pairing_url(url: str, source: Optional[str] = None) -> Optional[str]:
     """Return an error message when ``url`` is invalid for mobile pairing.
 
     Mirrors ``validateMobilePairingUrl``. Returns
@@ -352,11 +352,7 @@ def validate_mobile_pairing_url(
     # variants to the WS(S) protocols so the
     # downstream checks match the TS source.
     protocol = (
-        "wss"
-        if parsed.scheme == "https"
-        else "ws"
-        if parsed.scheme == "http"
-        else parsed.scheme
+        "wss" if parsed.scheme == "https" else "ws" if parsed.scheme == "http" else parsed.scheme
     )
     if protocol == "wss":
         return None
@@ -439,9 +435,7 @@ def _pick_first_defined(candidates: list[Any]) -> Optional[str]:
     return None
 
 
-def _resolve_required_auth_label(
-    mode: str, values: dict
-) -> dict:
+def _resolve_required_auth_label(mode: str, values: dict) -> dict:
     """Return the resolved auth label or a structured error.
 
     Mirrors ``resolveRequiredAuthLabel``.
@@ -470,9 +464,7 @@ def resolve_auth_label(cfg: dict, env: Optional[dict] = None) -> dict:
     mode = auth.get("mode") if isinstance(auth, dict) else None
     env = env or {}
     token = _pick_first_defined([env.get("JARVIS_GATEWAY_TOKEN"), auth.get("token")])
-    password = _pick_first_defined(
-        [env.get("JARVIS_GATEWAY_PASSWORD"), auth.get("password")]
-    )
+    password = _pick_first_defined([env.get("JARVIS_GATEWAY_PASSWORD"), auth.get("password")])
     if mode in ("token", "password"):
         return _resolve_required_auth_label(mode, {"token": token, "password": password})
     if token:

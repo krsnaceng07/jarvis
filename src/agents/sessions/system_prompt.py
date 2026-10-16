@@ -48,7 +48,6 @@ from __future__ import annotations
 
 import logging
 import os
-from dataclasses import dataclass, field
 from typing import Optional, TypedDict
 
 
@@ -99,6 +98,7 @@ class BuildSystemPromptOptions(TypedDict, total=False):
     contextFiles: Optional[list[dict]]
     skills: Optional[list[SkillDict]]
     isFirstTurn: Optional[bool]
+    toolDirectory: Optional[str]
 
 
 # ============================================================================
@@ -231,6 +231,7 @@ def build_system_prompt(options: BuildSystemPromptOptions) -> str:
     context_files = options.get("contextFiles") or []
     skills = options.get("skills") or []
     is_first_turn = options.get("isFirstTurn", False)
+    tool_directory = options.get("toolDirectory")
 
     # The OpenClaw source's
     # ``resolvedCwd.replace(/\\/g, "/")``
@@ -278,6 +279,11 @@ def build_system_prompt(options: BuildSystemPromptOptions) -> str:
         # Date + cwd.
         prompt += f"\nCurrent date: {date_str}"
         prompt += f"\nCurrent working directory: {prompt_cwd}"
+        
+        # Append capability directory if provided
+        if tool_directory:
+            prompt += f"\n\n# Available Capabilities\n\n{tool_directory}"
+            
         return prompt
 
     # Default mode: build the tool
@@ -332,7 +338,7 @@ def build_system_prompt(options: BuildSystemPromptOptions) -> str:
     ) if guidelines_list else "(none)"
 
     sections: list[str] = [
-        f"You are JARVIS, an AI assistant that helps users with tasks.",
+        "You are JARVIS, an AI assistant that helps users with tasks.",
         "",
         f"Current date: {date_str}",
         f"Current working directory: {prompt_cwd}",
@@ -379,6 +385,15 @@ def build_system_prompt(options: BuildSystemPromptOptions) -> str:
     has_read = "read" in tools
     if has_read and skills:
         sections.append(_format_skills_for_prompt(skills))
+
+    # Append capability directory if provided
+    if tool_directory:
+        sections.extend([
+            "",
+            "# Available Capabilities",
+            "",
+            tool_directory,
+        ])
 
     if append_section:
         sections.append(append_section)

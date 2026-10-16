@@ -1,11 +1,16 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "jarvis-lobster"
 version = "0.1.0"
-description = "JARVIS Lobster infra extension (Phase 5.15 minimum scaffold matching the OpenClaw lobster extension shape)."
+description = "JARVIS Lobster infra extension (Phase 5.16 full infra surface)."
 requires-python = ">=3.13"
 dependencies = [
     "jarvis-plugin-sdk>=0.1.0-rc1",
+    "pyyaml>=6.0",
 ]
 
-[tool.uv]
-package = false
+[tool.hatch.build.targets.wheel]
+packages = ["src/jarvis_lobster"]

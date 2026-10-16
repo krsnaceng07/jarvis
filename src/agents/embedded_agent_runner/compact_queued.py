@@ -42,8 +42,7 @@ upstream layers land.
 """
 from __future__ import annotations
 
-import logging
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Union
+from typing import Any, Awaitable, Callable, Dict, Optional
 
 from .compact_types import CompactEmbeddedAgentSessionParams
 from .logger import log

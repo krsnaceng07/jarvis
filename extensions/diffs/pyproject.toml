@@ -1,9 +1,10 @@
 [project]
 name = "jarvis-diffs"
 version = "0.1.0"
-description = "JARVIS Diffs infra extension (Phase 5.15 minimum scaffold matching the OpenClaw diffs extension shape)."
+description = "Diffs plugin for Jarvis (OpenClaw parity)."
 requires-python = ">=3.13"
 dependencies = [
+    "playwright>=1.40.0",
     "jarvis-plugin-sdk>=0.1.0-rc1",
 ]
 

@@ -1,4 +1,5 @@
 """PluginApi registration helpers for the internal SDK implementation."""
+
 from __future__ import annotations
 
 import logging
@@ -6,7 +7,9 @@ from typing import TYPE_CHECKING, Any, Callable, cast
 
 if TYPE_CHECKING:
     from .api import CommandDecl
-    from .types import MediaUnderstandingProvider
+    from ._plugin_api_init import PluginApiInit
+else:
+    PluginApiInit = object
 
 from .cli import CliDescriptor
 
@@ -31,16 +34,59 @@ def _find_undeclared_plugin_tool_names(declared: list[str], tool_names: list[str
     declared_set = set(declared or ())
     return [n for n in tool_names if n not in declared_set]
 
+
 _log = logging.getLogger("jarvis_sdk.api")
 
 
-class PluginApiRegistrationsA:
+class PluginApiRegistrationsA(PluginApiInit):
     def register_tool(
         self,
-        tool: Any,
+        tool: Any = None,
         opts: dict[str, Any] | None = None,
+        *,
+        name: str | None = None,
+        description: str | None = None,
+        parameters: dict[str, Any] | None = None,
+        execute: Callable[..., Any] | None = None,
+        output_schema: dict[str, Any] | None = None,
+        optional: bool = False,
     ) -> None:
         """Register a tool. Mirrors OpenClaw's ``registerTool``."""
+        if tool is None and name is not None:
+
+            class _DynamicTool:
+                def __init__(
+                    self,
+                    t_name: str,
+                    t_desc: str,
+                    t_params: Any,
+                    t_exec: Callable[..., Any] | None = None,
+                ):
+                    self.name = t_name
+                    self.description = t_desc
+                    self.parameters = t_params
+                    self.execute = t_exec
+
+                async def call(self, name: str, args: dict[str, Any]) -> Any:
+                    if self.execute:
+                        import inspect
+
+                        res = self.execute(args)
+                        if inspect.isawaitable(res):
+                            res = await res
+                        return res
+                    return None
+
+            tool = _DynamicTool(
+                t_name=name,
+                t_desc=description or "",
+                t_params=parameters or {"type": "OBJECT", "properties": {}},
+                t_exec=execute,
+            )
+            opts = opts or {"name": name}
+        elif tool is not None and name is not None and opts is None:
+            opts = {"name": name}
+
         opts = opts or {}
         declared = self._declared_tool_names()
         merged: list[str] = []
@@ -48,8 +94,10 @@ class PluginApiRegistrationsA:
             merged.append(opts["name"])
         if isinstance(opts.get("names"), list):
             merged.extend(opts["names"])
-        if not callable(tool) and hasattr(tool, "name"):
-            merged.append(tool.name)
+        if tool is not None and not callable(tool) and hasattr(tool, "name"):
+            tool_name = getattr(tool, "name", None)
+            if tool_name is not None:
+                merged.append(str(tool_name))
         normalized = _normalize_plugin_tool_names(merged)
         undeclared = _find_undeclared_plugin_tool_names(declared, normalized)
         if undeclared:
@@ -75,6 +123,8 @@ class PluginApiRegistrationsA:
                 d["accepts_args"] = d.pop("acceptsArgs")
             if "requiredScopes" in d:
                 d["expose_sender_is_owner"] = "operator.pairing" in d.pop("requiredScopes", [])
+            if "description" not in d:
+                d["description"] = d.get("name", "")
             from .api import CommandDecl
 
             command = CommandDecl(**d)
@@ -248,7 +298,9 @@ class PluginApiRegistrationsA:
         else:
             provider_value = cast(Any, provider)
             provider_id = getattr(provider_value, "id", None)
-            compact = getattr(provider_value, "compact", None) or getattr(provider_value, "handler", None)
+            compact = getattr(provider_value, "compact", None) or getattr(
+                provider_value, "handler", None
+            )
             if not provider_id or not isinstance(provider_id, str):
                 raise ValueError("compaction provider requires a non-empty 'id'")
             if not callable(compact):
@@ -275,22 +327,42 @@ class PluginApiRegistrationsA:
             catalog_id = catalog_dict.get("id")
             handler = catalog_dict.get("handler")
             is_stub = catalog_dict.get("stub") is True
+            has_methods = bool(
+                callable(catalog_dict.get("list"))
+                or callable(catalog_dict.get("list_sessions"))
+                or callable(catalog_dict.get("read"))
+                or callable(catalog_dict.get("get_session"))
+            )
             if not catalog_id or not isinstance(catalog_id, str):
                 raise ValueError("session catalog requires a non-empty 'id'")
-            if not callable(handler) and not is_stub:
-                raise ValueError("session catalog requires a callable 'handler'")
+            if not callable(handler) and not is_stub and not has_methods:
+                raise ValueError(
+                    "session catalog requires a callable 'handler' or provider methods"
+                )
             payload: dict[str, Any] = dict(catalog_dict)
         else:
             catalog_id = getattr(catalog, "id", None)
             handler = getattr(catalog, "handler", None)
+            list_fn = getattr(catalog, "list", None) or getattr(catalog, "list_sessions", None)
+            read_fn = getattr(catalog, "read", None) or getattr(catalog, "get_session", None)
             is_stub = getattr(catalog, "stub", False) is True
+            has_methods = bool(callable(list_fn) or callable(read_fn))
             if not catalog_id or not isinstance(catalog_id, str):
                 raise ValueError("session catalog requires a non-empty 'id'")
-            if not callable(handler) and not is_stub:
-                raise ValueError("session catalog requires a callable 'handler'")
-            payload = {"id": catalog_id}
+            if not callable(handler) and not is_stub and not has_methods:
+                raise ValueError(
+                    "session catalog requires a callable 'handler' or provider methods"
+                )
+            payload = {"id": catalog_id, "provider": catalog}
+            label = getattr(catalog, "label", None)
+            if label is not None:
+                payload["label"] = label
             if callable(handler):
                 payload["handler"] = handler
+            if callable(list_fn):
+                payload["list"] = list_fn
+            if callable(read_fn):
+                payload["read"] = read_fn
             if is_stub:
                 payload["stub"] = True
             kind = getattr(catalog, "kind", None)
@@ -365,9 +437,7 @@ class PluginApiRegistrationsA:
         payload["_owner_id"] = self._ctx.plugin_id
         self._session_extensions.append(payload)
 
-    def register_codex_app_server_extension_factory(
-        self, factory: dict[str, Any] | Any
-    ) -> None:
+    def register_codex_app_server_extension_factory(self, factory: dict[str, Any] | Any) -> None:
         """Register a Codex app-server extension factory."""
         if isinstance(factory, dict):
             factory_dict = cast(dict[str, Any], factory)

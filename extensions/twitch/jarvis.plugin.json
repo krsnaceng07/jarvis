@@ -1,0 +1,30 @@
+{
+  "id": "twitch",
+  "name": "Twitch",
+  "description": "JARVIS Twitch channel plugin for stream chat and events.",
+  "channels": [
+    "twitch"
+  ],
+  "activation": {
+    "onStartup": false
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "oauthToken": {
+        "type": "string"
+      },
+      "botUsername": {
+        "type": "string"
+      },
+      "channels": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "kind": "channel"
+}

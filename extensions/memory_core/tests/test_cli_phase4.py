@@ -3,10 +3,10 @@
 Verifies the OpenClaw-shaped ``register_memory_cli`` produces the
 correct argparse subcommand tree and dispatches the right handlers.
 """
+
 from __future__ import annotations
 
 import argparse
-from unittest.mock import patch
 
 import pytest
 
@@ -168,7 +168,9 @@ def test_resolve_workspace_falls_back_to_cwd(monkeypatch: pytest.MonkeyPatch) ->
 # ── Handler invocation (smoke) ────────────────────────────────────
 
 
-def test_cmd_memory_promote_explain_calls_emit_unavailable(capsys: pytest.CaptureFixture[str]) -> None:
+def test_cmd_memory_promote_explain_calls_emit_unavailable(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
     """``memory promote-explain`` emits a "not yet available" message."""
     args = argparse.Namespace(key="x")
     rc = cli_module._cmd_memory_promote_explain(args)

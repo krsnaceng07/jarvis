@@ -10,7 +10,7 @@ Public surface:
 from __future__ import annotations
 
 import json
-from typing import Any, Callable, Optional, Protocol
+from typing import Any, Optional, Protocol
 
 
 class ZodLike(Protocol):

@@ -342,7 +342,7 @@ def _build_synthesis_body(
     if original_body and original_body.strip():
         base = original_body
     else:
-        base = f"# {title}\n\n## Notes\n" f"{HUMAN_START_MARKER}\n{HUMAN_END_MARKER}\n"
+        base = f"# {title}\n\n## Notes\n{HUMAN_START_MARKER}\n{HUMAN_END_MARKER}\n"
     with_generated = markdown.replace_managed_markdown_block(
         markdown.ReplaceManagedBlockParams(
             original=base,

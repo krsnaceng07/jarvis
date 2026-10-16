@@ -11,8 +11,6 @@ import pytest
 from src.sessions.level_overrides import (
     ParsedTraceOverride,
     ParsedVerboseOverride,
-    TraceLevel,
-    VerboseLevel,
     apply_trace_override,
     apply_verbose_override,
     normalize_trace_level,

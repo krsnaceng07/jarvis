@@ -10,6 +10,7 @@ The Python port re-exports the same public surface from
 - ``format_error_message`` — format + redact secrets.
 - ``redact_sensitive_text`` — apply the SECRET_PATTERNS list.
 """
+
 from __future__ import annotations
 
 from .memory_host_error_utils import (

@@ -123,7 +123,7 @@ from typing import (
     Callable,
     Optional,
     TypedDict,
-    Union,
+    cast,
 )
 
 from .agent_session import AgentSession
@@ -134,11 +134,9 @@ from .agent_session_types import (
 )
 from .auth_storage import AuthStorage
 from .auth_storage_oauth_registry import (
-    OAuthProviderRegistry,
     get_auth_storage_oauth_provider_registry,
 )
 from .extensions.types import (
-    Extension,
     ExtensionAPI,
     ExtensionContext,
     ExtensionFactory,
@@ -149,7 +147,6 @@ from .extensions.runner import ExtensionRunner
 from .model_registry import ModelRegistry
 from .model_resolver import find_initial_model
 from .model_registry_runtime import (
-    ModelRegistryRuntime,
     get_model_registry_runtime,
 )
 from .resource_loader import DefaultResourceLoader
@@ -214,6 +211,8 @@ class CreateAgentSessionOptions(TypedDict, total=False):
     sessionStartEvent: Optional[SessionStartEvent]
     withSessionWriteLock: Optional[Callable[..., Awaitable[Any]]]
     skipBootstrap: Optional[bool]
+    createdActor: Optional[str]
+    isDraft: Optional[bool]
 
 
 class CreateAgentSessionResult(TypedDict):
@@ -398,7 +397,11 @@ def create_session_prepare_next_turn_with_context(
         prepare_fn = getattr(agent, "prepare_next_turn", None)
         if callable(prepare_fn):
             try:
-                previous_snapshot = await prepare_fn(signal)
+                import inspect
+                if inspect.iscoroutinefunction(prepare_fn):
+                    previous_snapshot = await prepare_fn(signal)
+                else:
+                    previous_snapshot = prepare_fn(signal) # type: ignore
             except Exception:
                 previous_snapshot = None
         # The session state (model +
@@ -595,11 +598,12 @@ async def create_agent_session(
     options = options or CreateAgentSessionOptions()
 
     # 1. Resolve cwd + agentDir.
+    session_manager = options.get("sessionManager")
     cwd = (
         options.get("cwd")
         or (
-            options.get("sessionManager").get_cwd()
-            if options.get("sessionManager")
+            session_manager.get_cwd() # type: ignore
+            if session_manager
             else None
         )
         or os.getcwd()
@@ -612,11 +616,7 @@ async def create_agent_session(
     resource_loader = options.get("resourceLoader")
 
     # 3. AuthStorage + ModelRegistry.
-    auth_path = (
-        os.path.join(agent_dir, "auth.json")
-        if options.get("agentDir") or options.get("authStorage")
-        else None
-    )
+    auth_path = os.path.join(agent_dir, "auth.json")
     models_path = (
         os.path.join(agent_dir, "models.json")
         if options.get("agentDir") or options.get("modelRegistry")
@@ -633,19 +633,11 @@ async def create_agent_session(
         from .auth_storage import (
             FileAuthStorageBackend,
         )
-        if auth_path:
-            auth_storage = AuthStorage(FileAuthStorageBackend(auth_path))
-        else:
-            # Use in-memory when no path
-            # provided.
-            from .auth_storage import (
-                InMemoryAuthStorageBackend,
-            )
-            auth_storage = AuthStorage(InMemoryAuthStorageBackend())
+        auth_storage = AuthStorage(FileAuthStorageBackend(auth_path))
     # Initialize the OAuth provider
     # registry (idempotent).
     try:
-        get_auth_storage_oauth_provider_registry()
+        get_auth_storage_oauth_provider_registry(auth_storage) # type: ignore
     except Exception:
         pass
     model_registry = options.get("modelRegistry")
@@ -654,7 +646,9 @@ async def create_agent_session(
         # `ModelRegistry.create()` is
         # the factory; here we use the
         # default constructor.
-        model_registry = ModelRegistry(auth_storage, models_path)
+        # The constructor with None creates an empty catalog. The factory resolves
+        # the canonical models path and its provider-owned catalog shards.
+        model_registry = ModelRegistry.create(auth_storage, models_path)
 
     # 4. Settings manager.
     settings_manager = options.get("settingsManager")
@@ -676,6 +670,8 @@ async def create_agent_session(
                 "agent_id": agent_id,
                 "store_path": os.path.join(agent_dir, "agent.sqlite"),
             },
+            created_actor=options.get("createdActor"),
+            is_draft=bool(options.get("isDraft", False)),
         )
 
     # 6. Create the resource loader
@@ -689,14 +685,14 @@ async def create_agent_session(
                 cwd=cwd,
                 agent_dir=agent_dir,
                 settings_manager=settings_manager,
-                no_context_files=options.get("skipBootstrap", False),
+                no_context_files=bool(options.get("skipBootstrap", False)),
             )
         )
         reload = getattr(resource_loader, "reload", None)
         if callable(reload):
             result = reload()
             if hasattr(result, "__await__"):
-                await result
+                await result  # type: ignore[misc]
         refresh = getattr(model_registry, "refresh", None)
         if callable(refresh):
             refresh()
@@ -709,7 +705,8 @@ async def create_agent_session(
     existing_session: dict = {}
     if callable(build_ctx):
         try:
-            existing_session = build_ctx() or {}
+            ctx_result = build_ctx()
+            existing_session = ctx_result if isinstance(ctx_result, dict) else {}
         except Exception:
             existing_session = {}
     existing_messages = (
@@ -724,7 +721,7 @@ async def create_agent_session(
     )
     has_thinking_entry = any(
         isinstance(e, dict) and e.get("type") == "thinking_level_change"
-        for e in (branch_entries or [])
+        for e in (branch_entries if isinstance(branch_entries, list) else [])
     )
 
     # 8. Try to restore the model
@@ -755,7 +752,7 @@ async def create_agent_session(
             except Exception:
                 restored = None
             if restored and model_registry.has_configured_auth(
-                restored
+                restored  # type: ignore[arg-type]
             ):
                 model = restored
         if not model and provider and model_id:
@@ -866,6 +863,18 @@ async def create_agent_session(
         "bash",
         "edit",
         "write",
+        "sessions_send",
+        "session_status",
+        "sessions_list",
+        "sessions",
+        "sessions_search",
+        "sessions_history",
+        "conversations_list",
+        "conversations_send",
+        "conversations_turn",
+        "sessions_spawn",
+        "sessions_yield",
+        "subagents",
     ]
     custom_tool_names: list[str] = [
         tool.get("name", "")
@@ -933,8 +942,8 @@ async def create_agent_session(
     )
     initial_state_obj = _AgentInitialState(
         system_prompt="",
-        model=model,
-        thinking_level=thinking_level,
+        model=model,  # type: ignore[arg-type]
+        thinking_level=thinking_level,  # type: ignore[arg-type]
         tools=[],
     )
 
@@ -951,7 +960,7 @@ async def create_agent_session(
             raise RuntimeError(
                 "model_registry has no get_api_key_and_headers"
             )
-        auth = await get_key(model_result)
+        auth = await get_key(model_result)  # type: ignore[misc]
         if not auth.get("ok"):
             raise RuntimeError(auth.get("error", "auth error"))
         provider_retry = settings_manager.get_provider_retry_settings()
@@ -1020,9 +1029,43 @@ async def create_agent_session(
             })
         )
 
+    last_pruned_time_ref = {"time": 0.0}
+
     async def _transform_context(
         messages: list,
     ) -> list:
+        # Apply pruning logic first
+        try:
+            from .context_pruning import apply_context_pruning
+            import time
+            current_time = time.time()
+            prune_config = settings_manager.get_agent_defaults().get("prune") if hasattr(settings_manager, "get_agent_defaults") else None
+            pruned_messages, new_time, modified = apply_context_pruning(
+                messages=messages,
+                prune_config=prune_config,
+                last_pruned_time=last_pruned_time_ref["time"],
+                current_time=current_time
+            )
+            if modified:
+                last_pruned_time_ref["time"] = new_time
+                messages = pruned_messages
+        except Exception:
+            # Fallback on failure
+            pass
+
+        try:
+            from src.sessions.system_event_queue import dequeue_system_events
+            session_key = session_manager.get_session_id()
+            if session_key:
+                system_events = dequeue_system_events(session_key)
+                for event in system_events:
+                    messages.append({
+                        "role": "user",
+                        "content": [{"type": "text", "text": event["message"]}],
+                    })
+        except Exception as e:
+            _LOG.warning(f"Failed to dequeue system events: {e}")
+            
         runner = extension_runner_ref.get("current")
         if runner is None:
             return messages
@@ -1032,7 +1075,7 @@ async def create_agent_session(
         _AgentOptions(
             initial_state=initial_state_obj,
             convert_to_llm=_convert,
-            stream_fn=_stream_fn,
+            stream_fn=cast(Any, _stream_fn),
             on_payload=_on_payload,
             on_response=_on_response,
             transform_context=_transform_context,
@@ -1043,10 +1086,10 @@ async def create_agent_session(
                 )
             ),
             session_id=session_manager.get_session_id(),
-            steering_mode=settings_manager.get_steering_mode(),
-            follow_up_mode=settings_manager.get_follow_up_mode(),
-            transport=settings_manager.get_transport(),
-            thinking_budgets=settings_manager.get_thinking_budgets(),
+            steering_mode=cast(Any, settings_manager.get_steering_mode()),
+            follow_up_mode=cast(Any, settings_manager.get_follow_up_mode()),
+            transport=cast(Any, settings_manager.get_transport()),
+            thinking_budgets=cast(Any, settings_manager.get_thinking_budgets()),
             max_retry_delay_ms=(
                 settings_manager.get_provider_retry_settings().get(
                     "maxRetryDelayMs"
@@ -1108,6 +1151,39 @@ async def create_agent_session(
             except Exception:
                 pass
 
+    # Fetch built-in tools
+    base_tools_override = options.get("baseToolsOverride")
+    if base_tools_override is None:
+        base_tools = create_coding_tools(cwd)
+        
+        # Inject MCP tools
+        mcp_tool_names = []
+        try:
+            from jarvis_config_core import load_config
+            from jarvis_mcp import McpRegistry, adapt_mcp_tool
+            cfg = load_config()
+            if cfg.mcp and cfg.mcp.servers:
+                mcp_registry = McpRegistry(cfg)
+                mcp_tools = await mcp_registry.get_all_tools()
+                for srv_name, tool in mcp_tools:
+                    adapted = adapt_mcp_tool(srv_name, tool, mcp_registry)
+                    base_tools.append(adapted)
+                    mcp_tool_names.append(adapted["name"])
+        except Exception as e:
+            _LOG.error(f"Failed to load MCP tools: {e}")
+            
+        base_tools_override = {t["name"]: t for t in base_tools}
+        
+        # If MCP tools were loaded, ensure they are in the active tool list
+        if mcp_tool_names:
+            if "tools" not in options or not options["tools"]:
+                options["tools"] = ["read", "bash", "edit", "write", "sessions_send", "session_status", "sessions_list"]
+            options["tools"].extend(mcp_tool_names)
+            
+            # Since initial_active_tool_names was evaluated earlier, we must update it too
+            if 'initial_active_tool_names' in locals():
+                initial_active_tool_names.extend(mcp_tool_names)
+
     # 19. Create the AgentSession.
     config: AgentSessionConfig = AgentSessionConfig(
         agent=agent,
@@ -1116,8 +1192,8 @@ async def create_agent_session(
         cwd=cwd,
         resource_loader=resource_loader,
         model_registry=model_registry,
-        scoped_models=options.get("scopedModels"),
-        custom_tools=options.get("customTools"),
+        scoped_models=options.get("scopedModels") or [],
+        custom_tools=options.get("customTools") or [],
         initial_active_tool_names=initial_active_tool_names,
         allowed_tool_names=(
             list(allowed_tool_names)
@@ -1125,6 +1201,7 @@ async def create_agent_session(
             else None
         ),
         disable_built_in_tools=disable_built_in_tools,
+        base_tools_override=base_tools_override,
         extension_runner_ref=extension_runner_ref,
         session_start_event=options.get("sessionStartEvent"),
         with_session_write_lock=external_lock,

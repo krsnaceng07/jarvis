@@ -10,7 +10,7 @@ from __future__ import annotations
 import os
 import shutil
 import tempfile
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Tuple
 
 
 def _ensure_parent(path: str) -> None:

@@ -142,7 +142,11 @@ def test_a_first_kept_id_that_matches_nothing_drops_the_whole_prefix() -> None:
     entries: list[SessionTreeEntry] = [
         user_entry("a", None, "before"),
         CompactionEntry(
-            id="comp", timestamp=TIMESTAMP, summary="s", first_kept_entry_id="ghost", tokens_before=1
+            id="comp",
+            timestamp=TIMESTAMP,
+            summary="s",
+            first_kept_entry_id="ghost",
+            tokens_before=1,
         ),
         user_entry("z", "comp", "after"),
     ]

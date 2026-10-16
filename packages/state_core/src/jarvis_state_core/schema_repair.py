@@ -31,6 +31,7 @@ Public surface:
 - ``detect_jarvis_state_database_schema_migrations(env, path)``
   -> ``list[StateDatabaseSchemaMigration]``
 """
+
 from __future__ import annotations
 
 import os
@@ -135,11 +136,7 @@ def has_canonical_agent_databases_primary_key(conn: sqlite3.Connection) -> bool:
     if not table_exists(conn, "agent_databases"):
         return True
     primary_key = table_primary_key_columns(conn, "agent_databases")
-    return (
-        len(primary_key) == 2
-        and primary_key[0] == "agent_id"
-        and primary_key[1] == "path"
-    )
+    return len(primary_key) == 2 and primary_key[0] == "agent_id" and primary_key[1] == "path"
 
 
 _AGENT_DATABASES_REQUIRED_COLUMNS = (
@@ -177,10 +174,9 @@ def repair_agent_databases_composite_primary_key(conn: sqlite3.Connection) -> bo
     when the table is already canonical, missing, or not
     exactly repairable.
     """
-    if (
-        has_canonical_agent_databases_primary_key(conn)
-        or not can_repair_agent_databases_primary_key(conn)
-    ):
+    if has_canonical_agent_databases_primary_key(
+        conn
+    ) or not can_repair_agent_databases_primary_key(conn):
         return False
     conn.executescript(
         """
@@ -229,16 +225,12 @@ def mark_current_state_schema_version(conn: sqlite3.Connection) -> None:
     if not table_exists(conn, "audit_events"):
         return
     conn.execute(f"PRAGMA user_version = {int(STATE_SCHEMA_VERSION)};")
-    if (
-        table_exists(conn, "schema_meta")
-        and all(
-            table_has_column(conn, "schema_meta", column)
-            for column in ("meta_key", "schema_version", "updated_at")
-        )
+    if table_exists(conn, "schema_meta") and all(
+        table_has_column(conn, "schema_meta", column)
+        for column in ("meta_key", "schema_version", "updated_at")
     ):
         conn.execute(
-            "UPDATE schema_meta SET schema_version = ?, updated_at = ? "
-            "WHERE meta_key = 'primary'",
+            "UPDATE schema_meta SET schema_version = ?, updated_at = ? WHERE meta_key = 'primary'",
             (int(STATE_SCHEMA_VERSION), _now_ms()),
         )
 
@@ -253,9 +245,7 @@ def _now_ms() -> int:
 # ── Assert canonical schema shape ──────────────────────────
 
 
-def assert_canonical_state_schema_shape(
-    conn: sqlite3.Connection, pathname: str
-) -> None:
+def assert_canonical_state_schema_shape(conn: sqlite3.Connection, pathname: str) -> None:
     """Raise when the on-disk state DB shape is not canonical.
 
     Mirrors ``assertCanonicalStateSchemaShape``. The
@@ -331,13 +321,8 @@ def detect_jarvis_state_database_schema_migrations(
 
         if not has_canonical_audit_events_schema(conn):
             migrations.append({"kind": "audit-events-v2", "path": pathname})
-        if (
-            table_exists(conn, "audit_events")
-            and user_version < int(STATE_STRICT_SCHEMA_VERSION)
-        ):
-            migrations.append(
-                {"kind": "strict-tables-v3", "path": pathname}
-            )
+        if table_exists(conn, "audit_events") and user_version < int(STATE_STRICT_SCHEMA_VERSION):
+            migrations.append({"kind": "strict-tables-v3", "path": pathname})
         if needs_session_watch_cursor_provenance_migration(conn, user_version):
             migrations.append(
                 {

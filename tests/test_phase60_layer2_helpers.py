@@ -43,8 +43,6 @@ from src.agents.sessions import (  # noqa: E402
     ResourceDiagnostic,
     SlashCommandInfo,
     SourceInfo,
-    SourceOrigin,
-    SourceScope,
     UNKNOWN_PROVIDER,
     clear_config_value_cache,
     create_event_bus,

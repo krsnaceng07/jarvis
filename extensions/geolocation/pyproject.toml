@@ -1,0 +1,11 @@
+[project]
+name = "jarvis-geolocation"
+version = "0.1.0"
+description = "JARVIS Geolocation extension matching OpenClaw geolocation shape."
+requires-python = ">=3.13"
+dependencies = [
+    "jarvis-plugin-sdk>=0.1.0-rc1",
+]
+
+[tool.uv]
+package = false

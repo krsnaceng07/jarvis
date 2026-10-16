@@ -46,6 +46,7 @@ Key port decisions:
   filename excluded from auxiliary scans by the
   ``should_skip_root_memory_auxiliary_path`` predicate).
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -161,6 +162,7 @@ _DISABLED_MULTIMODAL_SETTINGS: MemoryMultimodalSettings = {
 # ``config-utils.ts``. The canonical root memory file name.
 MEMORY_HOST_ROOT_FILENAME: str = _CANONICAL_ROOT_MEMORY_FILENAME
 
+
 # Mirrors OpenClaw's ``normalizeStringEntries`` (drops
 # empties + de-dups preserving order).
 def _normalize_string_entries(values: list[str] | None) -> list[str]:
@@ -253,9 +255,9 @@ def normalize_extra_memory_paths(
     resolved = _normalize_string_entries(extra_paths)
     resolved = [_expand_home_path(value) for value in resolved]
     resolved = [
-        os.path.abspath(value) if os.path.isabs(value) else os.path.abspath(
-            os.path.join(workspace_dir, value)
-        )
+        os.path.abspath(value)
+        if os.path.isabs(value)
+        else os.path.abspath(os.path.join(workspace_dir, value))
         for value in resolved
     ]
     return _unique_strings(resolved)
@@ -325,11 +327,10 @@ async def _collect_memory_files_from_dir(
             "symlinks": "skip",
             "descend": lambda entry: _should_descend_memory_entry(entry, should_skip_path),
             "include": lambda entry: (
-                should_skip_path is None
-                or not should_skip_path(entry["path"])
-            )
-            and entry.get("kind") == "file"
-            and _is_allowed_memory_file_path(entry["path"], multimodal),
+                (should_skip_path is None or not should_skip_path(entry["path"]))
+                and entry.get("kind") == "file"
+                and _is_allowed_memory_file_path(entry["path"], multimodal)
+            ),
         },
     )
     for entry in scan["entries"]:
@@ -452,9 +453,7 @@ async def build_file_entry(
             return None
 
         async def _do_read_multimodal() -> dict[str, bytes]:
-            return read_regular_file(
-                file_path=abs_path, max_bytes=settings["maxFileBytes"]
-            )
+            return read_regular_file(file_path=abs_path, max_bytes=settings["maxFileBytes"])
 
         try:
             read_result = await retry_transient_memory_read(

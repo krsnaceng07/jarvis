@@ -146,7 +146,7 @@ def format_duplicate_agent_dir_error(dups: List[DuplicateAgentDir]) -> str:
         "",
         "Conflicts:",
         *[
-            f'- {d["agentDir"]}: {", ".join(f"\"" + a + "\"" for a in d["agentIds"])}'
+            f'- {d["agentDir"]}: {", ".join("\"" + a + "\"" for a in d["agentIds"])}'
             for d in dups
         ],
         "",

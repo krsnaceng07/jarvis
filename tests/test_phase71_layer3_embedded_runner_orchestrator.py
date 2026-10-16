@@ -18,7 +18,6 @@ the 7.1 modules:
 """
 from __future__ import annotations
 
-import asyncio
 import pytest
 
 from src.agents.embedded_agent_runner import (

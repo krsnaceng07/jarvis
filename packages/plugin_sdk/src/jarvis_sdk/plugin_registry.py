@@ -31,6 +31,7 @@ no-ops until the per-domain registrar files are
 ported. The composition surface (the public method
 names) is stable.
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable, cast
@@ -74,7 +75,9 @@ def create_plugin_registry(
     state = create_plugin_registry_state(registry_params)
     registrars: dict[str, Callable[..., Any]] = create_plugin_registrars(state)
 
-    def _create_api(record: dict[str, Any] | None = None, opts: dict[str, Any] | None = None) -> dict[str, Any]:
+    def _create_api(
+        record: dict[str, Any] | None = None, opts: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Stub for the full ``createApi`` factory.
 
         The real implementation lives in
@@ -102,61 +105,61 @@ def create_plugin_registry(
             record.get("manifest") or record.get("package") or {},
         )
         try:
-          api_obj.set_manifest(manifest)
+            api_obj.set_manifest(manifest)
         except Exception:
-          # set_manifest is best-effort in older SDK shapes.
-          pass
+            # set_manifest is best-effort in older SDK shapes.
+            pass
         try:
-          api_obj.set_config(opts.get("config"))
+            api_obj.set_config(opts.get("config"))
         except Exception:
-          pass
+            pass
 
         # Build the plain dict view expected by legacy consumers.
         out: dict[str, Any] = {
-          # Legacy host stub returns an empty id/name in the plain dict view.
-          # Advanced consumers must use ``pluginApi`` for the live plugin identity.
-          "id": "",
-          "name": "",
-          "config": api_obj._plugin_config or {},
-          "logger": api_obj.logger,
-          "runtime": api_obj.runtime,
+            # Legacy host stub returns an empty id/name in the plain dict view.
+            # Advanced consumers must use ``pluginApi`` for the live plugin identity.
+            "id": "",
+            "name": "",
+            "config": api_obj._plugin_config or {},
+            "logger": api_obj.logger,
+            "runtime": api_obj.runtime,
         }
         # Expose the live PluginApi instance for advanced host consumers.
         out["pluginApi"] = api_obj
 
         # Helper: map CamelCase registrar name to PluginApi snake_case method
         def camel_to_snake(name: str) -> str:
-          # registerTool -> register_tool
-          s = name[0].lower()
-          for ch in name[1:]:
-            if ch.isupper():
-              s += "_" + ch.lower()
-            else:
-              s += ch
-          return s
+            # registerTool -> register_tool
+            s = name[0].lower()
+            for ch in name[1:]:
+                if ch.isupper():
+                    s += "_" + ch.lower()
+                else:
+                    s += ch
+            return s
 
         # Attach registrar wrappers that call the PluginApi instance
         for name, fn in registrars.items():
-          snake = camel_to_snake(name)
-          if hasattr(api_obj, snake) and callable(getattr(api_obj, snake)):
-            meth = getattr(api_obj, snake)
+            snake = camel_to_snake(name)
+            if hasattr(api_obj, snake) and callable(getattr(api_obj, snake)):
+                meth = getattr(api_obj, snake)
 
-            def _bind(m: Callable[..., Any]) -> Callable[..., Any]:
-              def _call(*a: Any, **k: Any) -> Any:
-                return m(*a, **k)
+                def _bind(m: Callable[..., Any]) -> Callable[..., Any]:
+                    def _call(*a: Any, **k: Any) -> Any:
+                        return m(*a, **k)
 
-              return _call
+                    return _call
 
-            out[name] = _bind(meth)
-          else:
-            # Fallback to the registrar stub (wrapped)
-            def _wrap(f: Callable[..., Any]) -> Callable[..., Any]:
-              def _call(*a: Any, **k: Any) -> Any:
-                return f(*a, **k)
+                out[name] = _bind(meth)
+            else:
+                # Fallback to the registrar stub (wrapped)
+                def _wrap(f: Callable[..., Any]) -> Callable[..., Any]:
+                    def _call(*a: Any, **k: Any) -> Any:
+                        return f(*a, **k)
 
-              return _call
+                    return _call
 
-            out[name] = _wrap(fn)
+                out[name] = _wrap(fn)
 
         # Historical aliases
         out.setdefault("registerCli", out.get("registerCli", _noop_registrar))

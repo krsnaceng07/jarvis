@@ -47,9 +47,9 @@ Python adaptations (documented in code):
   port accepts the LLM client + temp workspace deps
   as callables so the test suite can inject stubs)
 """
+
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, TypedDict
 
@@ -92,9 +92,7 @@ _LLM_TASK_MAX_TOKENS: int = 131_072
 _LLM_TASK_MAX_TIMEOUT_MS: int = 600_000
 
 
-def _clamp_positive_int(
-    value: Any, fallback: int, maximum: int
-) -> int:
+def _clamp_positive_int(value: Any, fallback: int, maximum: int) -> int:
     """Clamp ``value`` to a positive integer in ``[1, maximum]``.
 
     Mirrors the OpenClaw source's
@@ -102,10 +100,7 @@ def _clamp_positive_int(
     Returns ``fallback`` for non-numeric / non-positive
     / non-finite values.
     """
-    if (
-        not isinstance(value, (int, float))
-        or isinstance(value, bool)
-    ):
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
         return fallback
     if value != value:  # NaN
         return fallback
@@ -217,12 +212,14 @@ def build_llm_task_tool(
     LLM task handler lands in a follow-up phase.
     """
     if call_llm is None:
+
         def call_llm(_request: dict) -> dict:
             return {
                 "ok": False,
                 "reason": "llm_task_call_llm_not_ported",
                 "request": _request,
             }
+
     return {
         "name": LLM_TASK_TOOL_NAME,
         "description": LLM_TASK_TOOL_DESCRIPTION,
@@ -233,6 +230,21 @@ def build_llm_task_tool(
                 "prompt": {
                     "type": "string",
                     "description": "User prompt to send to the LLM.",
+                },
+                "input": {
+                    "description": "Optional payload to append to the prompt.",
+                },
+                "schema": {
+                    "type": "object",
+                    "description": "Optional JSON schema to validate and structure the LLM output.",
+                },
+                "thinking": {
+                    "type": "string",
+                    "description": "Optional reasoning level (e.g. none, low, medium, high).",
+                },
+                "temperature": {
+                    "type": "number",
+                    "description": "Optional model temperature.",
                 },
                 "system": {
                     "type": "string",
@@ -251,31 +263,27 @@ def build_llm_task_tool(
                 "model": {
                     "type": "string",
                     "description": (
-                        "Model id (e.g. gpt-5.6); falls back to "
-                        "config.defaultModel when omitted."
+                        "Model id (e.g. gpt-5.6); falls back to config.defaultModel when omitted."
                     ),
                 },
                 "authProfileId": {
                     "type": "string",
                     "description": (
-                        "Auth profile id; falls back to "
-                        "config.defaultAuthProfileId when omitted."
+                        "Auth profile id; falls back to config.defaultAuthProfileId when omitted."
                     ),
                 },
                 "maxTokens": {
                     "type": "integer",
                     "minimum": 1,
                     "description": (
-                        "Request max_tokens; falls back to "
-                        "config.maxTokens when omitted."
+                        "Request max_tokens; falls back to config.maxTokens when omitted."
                     ),
                 },
                 "timeoutMs": {
                     "type": "integer",
                     "minimum": 1,
                     "description": (
-                        "Request timeoutMs; falls back to "
-                        "config.timeoutMs when omitted."
+                        "Request timeoutMs; falls back to config.timeoutMs when omitted."
                     ),
                 },
             },
@@ -286,9 +294,7 @@ def build_llm_task_tool(
     }
 
 
-def _make_handler(
-    config: LlmTaskConfig, call_llm: Callable[[dict], Any]
-) -> Callable[[dict], Any]:
+def _make_handler(config: LlmTaskConfig, call_llm: Callable[[dict], Any]) -> Callable[[dict], Any]:
     """Build the tool handler closure.
 
     Mirrors the inline ``handler`` in the OpenClaw
@@ -308,19 +314,13 @@ def _make_handler(
             or config.get("defaultProvider")
             or "openai"
         )
-        model = (
-            _optional_string(input_payload.get("model"))
-            or config.get("defaultModel")
-        )
-        auth_profile = (
-            _optional_string(input_payload.get("authProfileId"))
-            or config.get("defaultAuthProfileId")
+        model = _optional_string(input_payload.get("model")) or config.get("defaultModel")
+        auth_profile = _optional_string(input_payload.get("authProfileId")) or config.get(
+            "defaultAuthProfileId"
         )
         allowed = config.get("allowedModels")
         if model is not None:
-            if not _validate_model_key(
-                f"{provider}/{model}", allowed
-            ):
+            if not _validate_model_key(f"{provider}/{model}", allowed):
                 return {"ok": False, "reason": "model_not_allowed"}
         max_tokens = _clamp_positive_int(
             input_payload.get("maxTokens"),
@@ -341,13 +341,72 @@ def _make_handler(
             "maxTokens": max_tokens,
             "timeoutMs": timeout_ms,
         }
+
+        input_data = input_payload.get("input")
+        if input_data is not None:
+            if isinstance(input_data, str):
+                request["prompt"] += "\n\n" + input_data
+            else:
+                import json
+
+                request["prompt"] += "\n\n" + json.dumps(input_data)
+
+        schema = input_payload.get("schema")
+        if schema is not None:
+            request["jsonSchema"] = schema
+
+        thinking = input_payload.get("thinking")
+        if thinking is not None:
+            request["thinking"] = thinking
+
+        temperature = input_payload.get("temperature")
+        if temperature is not None:
+            if isinstance(temperature, (int, float)):
+                request["temperature"] = float(temperature)
+
         try:
             result = call_llm(request)
         except Exception as error:  # noqa: BLE001 — best-effort
             return {"ok": False, "reason": str(error)}
+
         if not isinstance(result, dict):
             return {"ok": False, "reason": "llm_returned_non_object"}
-        return {"ok": True, "result": result}
+
+        # If call_llm returned a structured outcome dict (ok, reason, …),
+        # wrap it as the result payload directly — the outer ok=True
+        # signals that the handler dispatched successfully, while the
+        # inner result carries the structured outcome. This is the
+        # canonical pattern mirrors OpenClaw's "not yet ported" stub.
+        if "ok" in result or "reason" in result:
+            return {"ok": True, "result": result}
+
+        details = {
+            "provider": result.get("provider", provider),
+            "model": result.get("model", model),
+        }
+
+        if schema is not None:
+            import json
+
+            text_result = result.get("text")
+            if not text_result:
+                return {"ok": False, "reason": "llm_returned_empty_text"}
+            try:
+                # Strip typical markdown json blocks before parsing if any
+                cleaned_text = text_result.strip()
+                if cleaned_text.startswith("```json"):
+                    cleaned_text = cleaned_text[7:]
+                if cleaned_text.startswith("```"):
+                    cleaned_text = cleaned_text[3:]
+                if cleaned_text.endswith("```"):
+                    cleaned_text = cleaned_text[:-3]
+                details["json"] = json.loads(cleaned_text.strip())
+            except json.JSONDecodeError as error:
+                return {"ok": False, "reason": "llm_returned_invalid_json", "error": str(error)}
+        else:
+            details["text"] = result.get("text")
+
+        return {"ok": True, "result": {"details": details}}
 
     return _handler
 
@@ -390,12 +449,16 @@ class LLMTaskPlugin(Plugin):
         2. ``api.registerTool(build_llm_task_tool(config))``
            — registers the JSON-only LLM task tool
         """
-        config = resolve_llm_task_config(
-            getattr(api, "plugin_config", None)
-        )
+        config = resolve_llm_task_config(getattr(api, "plugin_config", None))
         if hasattr(api, "register_tool"):
+            # Provide run_embedded_agent to bridge tool directly to host's
+            # isolated completion capability
+            call_llm_fn = None
+            if hasattr(api, "agent") and hasattr(api.agent, "run_embedded_agent"):
+                call_llm_fn = api.agent.run_embedded_agent
+
             api.register_tool(
-                build_llm_task_tool(config),
+                build_llm_task_tool(config, call_llm=call_llm_fn),
                 {"optional": True},
             )
 

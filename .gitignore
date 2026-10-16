@@ -42,6 +42,10 @@ htmlcov/
 .mypy_cache/
 .pyright_cache/
 .ruff_cache/
+.hypothesis/
+.temp/
+.tmp_*
+test_export/
 coverage.xml
 *.cover
 

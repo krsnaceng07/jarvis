@@ -1,0 +1,67 @@
+{
+  "id": "telegram",
+  "activation": "on_startup",
+  "kind": "channel",
+  "icon": "https://cdn.simpleicons.org/telegram",
+  "permissions": [
+    "network:outbound"
+  ],
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "botToken": {
+        "type": "string",
+        "description": "Telegram Bot API token."
+      },
+      "transport": {
+        "type": "string",
+        "enum": [
+          "polling",
+          "webhook"
+        ],
+        "default": "polling"
+      },
+      "pollingIntervalSec": {
+        "type": "integer",
+        "default": 1,
+        "minimum": 1
+      },
+      "dmPolicy": {
+        "type": "string",
+        "enum": [
+          "pairing",
+          "allowlist",
+          "deny"
+        ],
+        "default": "pairing"
+      },
+      "allowFrom": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "default": []
+      },
+      "groupPolicy": {
+        "type": "string",
+        "enum": [
+          "require_mention",
+          "allowlist",
+          "deny"
+        ],
+        "default": "require_mention"
+      },
+      "groupAllowFrom": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "default": []
+      }
+    },
+    "required": [
+      "botToken"
+    ]
+  },
+  "entrypoint": "src.jarvis_telegram.plugin:plugin"
+}

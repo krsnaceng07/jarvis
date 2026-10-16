@@ -39,6 +39,7 @@ Public surface:
 - ``reset_lease_state_for_tests`` — clear the per-process
   state for test isolation
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -189,26 +190,15 @@ def _invalid_input(message: str) -> StateLeaseError:
     return StateLeaseError(message, code="STATE_LEASE_INVALID_INPUT")
 
 
-def _validate_duration(
-    value: Any, label: str, minimum: int, maximum: int
-) -> int:
-    if (
-        not isinstance(value, int)
-        or isinstance(value, bool)
-        or value < minimum
-        or value > maximum
-    ):
-        raise _invalid_input(
-            f"{label} must be an integer between {minimum} and {maximum}"
-        )
+def _validate_duration(value: Any, label: str, minimum: int, maximum: int) -> int:
+    if not isinstance(value, int) or isinstance(value, bool) or value < minimum or value > maximum:
+        raise _invalid_input(f"{label} must be an integer between {minimum} and {maximum}")
     return int(value)
 
 
 def _validate_non_empty_string(value: Any, label: str) -> str:
     if not isinstance(value, str) or not value.strip() or "\0" in value:
-        raise _invalid_input(
-            f"{label} must be a non-empty string without NUL bytes"
-        )
+        raise _invalid_input(f"{label} must be a non-empty string without NUL bytes")
     return value
 
 
@@ -225,26 +215,16 @@ def _validate_options(options: dict) -> _ValidatedOptions:
     if scope not in ("shared", "agent"):
         raise _invalid_input("state lease database scope must be shared or agent")
     if scope == "agent":
-        _validate_non_empty_string(
-            database.get("agent_id"), "state lease agent database agent_id"
-        )
+        _validate_non_empty_string(database.get("agent_id"), "state lease agent database agent_id")
     lease_label = options.get("lease_label", "state lease")
     if lease_label != "state lease":
-        lease_label = _validate_non_empty_string(
-            lease_label, "state lease label"
-        )
+        lease_label = _validate_non_empty_string(lease_label, "state lease label")
     operation_label = options.get("operation_label", "state.lease")
     if operation_label != "state.lease":
-        operation_label = _validate_non_empty_string(
-            operation_label, "state lease operation_label"
-        )
+        operation_label = _validate_non_empty_string(operation_label, "state lease operation_label")
     return _ValidatedOptions(
-        scope=_validate_non_empty_string(
-            options.get("scope"), f"{lease_label} scope"
-        ),
-        key=_validate_non_empty_string(
-            options.get("key"), f"{lease_label} key"
-        ),
+        scope=_validate_non_empty_string(options.get("scope"), f"{lease_label} scope"),
+        key=_validate_non_empty_string(options.get("key"), f"{lease_label} key"),
         database=database,
         lease_ms=_validate_duration(
             options.get("lease_ms"),
@@ -361,8 +341,7 @@ def _try_acquire(
         try:
             now = int(time.time() * 1000)
             conn.execute(
-                "DELETE FROM state_leases "
-                "WHERE scope = ? AND lease_key = ? AND expires_at <= ?",
+                "DELETE FROM state_leases WHERE scope = ? AND lease_key = ? AND expires_at <= ?",
                 (identity.scope, identity.key, now),
             )
             expires_at = now + lease_ms
@@ -502,8 +481,7 @@ def _release(
         conn.execute("BEGIN IMMEDIATE")
         try:
             conn.execute(
-                "DELETE FROM state_leases "
-                "WHERE scope = ? AND lease_key = ? AND owner = ?",
+                "DELETE FROM state_leases WHERE scope = ? AND lease_key = ? AND owner = ?",
                 (identity.scope, identity.key, identity.owner),
             )
             conn.commit()
@@ -612,9 +590,7 @@ async def with_state_lease(
     )
     while confirmed_expires_at is None:
         if validated.signal is not None and validated.signal.is_set():
-            raise _abort_error(
-                validated.signal, "acquisition", validated.lease_label
-            )
+            raise _abort_error(validated.signal, "acquisition", validated.lease_label)
         try:
             confirmed_expires_at = _try_acquire(
                 database=validated.database,
@@ -627,8 +603,7 @@ async def with_state_lease(
         except Exception as error:  # noqa: BLE001
             if not _is_sqlite_lock_error(error):
                 raise StateLeaseError(
-                    f"failed to acquire {validated.lease_label} "
-                    f"{validated.scope}/{validated.key}",
+                    f"failed to acquire {validated.lease_label} {validated.scope}/{validated.key}",
                     code="STATE_LEASE_STORAGE_FAILED",
                     cause=error,
                 )
@@ -642,9 +617,7 @@ async def with_state_lease(
                     identity=identity,
                 )
                 if aborted:
-                    raise _abort_error(
-                        validated.signal, "acquisition", validated.lease_label
-                    )
+                    raise _abort_error(validated.signal, "acquisition", validated.lease_label)
                 raise StateLeaseError(
                     f"timed out waiting for {validated.lease_label} "
                     f"{validated.scope}/{validated.key}",
@@ -653,17 +626,14 @@ async def with_state_lease(
             break
         if now_mono >= deadline:
             raise StateLeaseError(
-                f"timed out waiting for {validated.lease_label} "
-                f"{validated.scope}/{validated.key}",
+                f"timed out waiting for {validated.lease_label} {validated.scope}/{validated.key}",
                 code="STATE_LEASE_TIMEOUT",
             )
         attempt += 1
         delay = min(deadline - now_mono, _compute_backoff(attempt) / 1000.0)
         # Honor the caller's signal during the backoff sleep.
         if validated.signal is not None and validated.signal.is_set():
-            raise _abort_error(
-                validated.signal, "acquisition", validated.lease_label
-            )
+            raise _abort_error(validated.signal, "acquisition", validated.lease_label)
         await asyncio.sleep(max(0.0, delay))
 
     lease_lost = threading.Event()
@@ -688,8 +658,7 @@ async def with_state_lease(
             expiry_timer.cancel()
         delay_ms = max(
             1,
-            int(confirmed_expires_at or int(time.time() * 1000))
-            - int(time.time() * 1000),
+            int(confirmed_expires_at or int(time.time() * 1000)) - int(time.time() * 1000),
         )
 
         def _fire() -> None:
@@ -721,8 +690,7 @@ async def with_state_lease(
             if error.code == "STATE_LEASE_LOST":
                 _abort_lost(error)
             elif (
-                confirmed_expires_at is not None
-                and int(time.time() * 1000) >= confirmed_expires_at
+                confirmed_expires_at is not None and int(time.time() * 1000) >= confirmed_expires_at
             ):
                 _abort_lost(error)
 

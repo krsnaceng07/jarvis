@@ -41,27 +41,25 @@ Adaptations
   lands in Phase 6.10d with the full bash
   executor refactor.
 """
+
 from __future__ import annotations
 
 import base64
 import mimetypes
 import os
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional
 
 from ..extensions.types import (
     AgentToolResult,
-    ExtensionContext,
     ToolDefinition,
 )
-from .path_utils import resolve_read_path
+from .path_utils import resolve_unicode_path
 from .truncate import (
     DEFAULT_MAX_BYTES,
     DEFAULT_MAX_LINES,
-    truncate_head,
     truncate_tail,
 )
-from .tool_contracts import ReadToolDetails, ReadToolInput
 
 
 # ============================================================================
@@ -141,13 +139,14 @@ def read_text_file(
     """
     if offset is not None and (not isinstance(offset, int) or offset < 1):
         raise ValueError("Offset must be an integer at least 1")
-    resolved = (
-        resolve_read_path(file_path, cwd or os.getcwd())
-        if not os.path.isabs(file_path)
-        else file_path
-    )
+    resolved = resolve_unicode_path(file_path, cwd or os.getcwd())
     if not os.path.exists(resolved):
         raise FileNotFoundError(f"File not found: {resolved}")
+    if os.path.isdir(resolved):
+        raise IsADirectoryError(
+            f"Read requires a file path, but '{resolved}' is a directory. "
+            "Use 'ls' to list its contents, then read a specific file."
+        )
     # Read raw bytes (we need byte-accurate
     # truncation; we decode after slicing).
     raw = Path(resolved).read_bytes()
@@ -168,13 +167,8 @@ def read_text_file(
     # user is reading forward; limit only
     # bounds the line count, not the bytes).
     truncation = None
-    if (
-        len(selected) > max_lines
-        or len(selected_text.encode("utf-8")) > max_bytes
-    ):
-        truncation = truncate_tail(
-            selected_text, max_lines=max_lines, max_bytes=max_bytes
-        )
+    if len(selected) > max_lines or len(selected_text.encode("utf-8")) > max_bytes:
+        truncation = truncate_tail(selected_text, max_lines=max_lines, max_bytes=max_bytes)
         return {
             "content": truncation.content,
             "truncation": truncation,
@@ -190,14 +184,18 @@ def read_image_file(file_path: str) -> dict:
 
     Returns ``{"data": str, "mimeType": str}``.
     """
-    if not os.path.exists(file_path):
-        raise FileNotFoundError(f"File not found: {file_path}")
-    raw = Path(file_path).read_bytes()
-    mime = detect_image_mime_type(file_path)
-    if mime is None:
-        raise ValueError(
-            f"Not an image file (cannot detect MIME type): {file_path}"
+    resolved = resolve_unicode_path(file_path)
+    if not os.path.exists(resolved):
+        raise FileNotFoundError(f"File not found: {resolved}")
+    if os.path.isdir(resolved):
+        raise IsADirectoryError(
+            f"Read requires a file path, but '{resolved}' is a directory. "
+            "Use 'ls' to list its contents, then read a specific file."
         )
+    raw = Path(resolved).read_bytes()
+    mime = detect_image_mime_type(resolved)
+    if mime is None:
+        raise ValueError(f"Not an image file (cannot detect MIME type): {resolved}")
     return {
         "data": base64.b64encode(raw).decode("ascii"),
         "mimeType": mime,
@@ -209,13 +207,15 @@ def read_image_file(file_path: str) -> dict:
 # ============================================================================
 
 
-async def create_read_tool_definition(
+def create_read_tool_definition(
     cwd: str = "",
+    options: Optional[dict] = None,
 ) -> ToolDefinition:
     """Build the :class:`ToolDefinition` for
     the read tool. Mirrors
     ``createReadToolDefinition`` (``read.ts:329``).
     """
+
     async def _execute(
         tool_call_id: str,
         params: dict,
@@ -230,43 +230,62 @@ async def create_read_tool_definition(
         limit = params.get("limit")
         if not path:
             raise ValueError("path is required")
-        # Resolve the path (with macOS variants)
-        resolved = resolve_read_path(path, cwd)
-        # Check if it's an image
-        mime = detect_image_mime_type(resolved)
-        if mime is not None and mime in IMAGE_MIME_TYPES:
-            image = read_image_file(resolved)
-            return {
-                "content": [
-                    {
-                        "type": "image",
-                        "data": image["data"],
+        # Resolve the path (with Unicode, slash hygiene, and variants)
+        resolved = resolve_unicode_path(path, cwd)
+
+        # Apply sandbox and tool policy security floor
+        from ...sandbox import guard_sandbox_tool_access
+
+        _, validated = guard_sandbox_tool_access(
+            "read", resolved, cwd, options, ctx, is_mutation=False
+        )
+        if validated is not None:
+            resolved = str(validated)
+
+        # Check if resolved is a directory before attempting file operations (OpenClaw parity)
+        if os.path.isdir(resolved):
+            raise IsADirectoryError(
+                f"Read requires a file path, but '{resolved}' is a directory. "
+                "Use 'ls' to list its contents, then read a specific file."
+            )
+
+        try:
+            # Check if it's an image
+            mime = detect_image_mime_type(resolved)
+            if mime is not None and mime in IMAGE_MIME_TYPES:
+                image = read_image_file(resolved)
+                return {
+                    "content": [
+                        {
+                            "type": "image",
+                            "data": image["data"],
+                            "mimeType": image["mimeType"],
+                        }
+                    ],
+                    "details": {
+                        "kind": "image",
+                        "content": image["data"],
                         "mimeType": image["mimeType"],
-                    }
-                ],
-                "details": {
-                    "kind": "image",
-                    "content": image["data"],
-                    "mimeType": image["mimeType"],
-                },
-            }
-        # Text file
-        result = read_text_file(resolved, offset=offset, limit=limit)
+                    },
+                }
+            # Text file
+            result = read_text_file(resolved, offset=offset, limit=limit)
+        except (IsADirectoryError, PermissionError) as err:
+            if os.path.isdir(resolved):
+                raise IsADirectoryError(
+                    f"Read requires a file path, but '{resolved}' is a directory. "
+                    "Use 'ls' to list its contents, then read a specific file."
+                ) from err
+            raise
         if result["truncation"] is not None:
             details = {
                 "kind": "truncated",
                 "content": result["content"],
                 "truncation": {
                     "truncated": result["truncation"].truncated,
-                    "truncatedBy": getattr(
-                        result["truncation"], "truncated_by", None
-                    ),
-                    "maxLines": getattr(
-                        result["truncation"], "max_lines", None
-                    ),
-                    "maxBytes": getattr(
-                        result["truncation"], "max_bytes", None
-                    ),
+                    "truncatedBy": getattr(result["truncation"], "truncated_by", None),
+                    "maxLines": getattr(result["truncation"], "max_lines", None),
+                    "maxBytes": getattr(result["truncation"], "max_bytes", None),
                 },
             }
         else:
@@ -284,9 +303,7 @@ async def create_read_tool_definition(
             f"or {DEFAULT_MAX_BYTES // 1024}KB. Use offset/limit for large files."
         ),
         "promptSnippet": "Read file contents",
-        "promptGuidelines": [
-            "Use read to examine files instead of cat or sed."
-        ],
+        "promptGuidelines": ["Use read to examine files instead of cat or sed."],
         "parameters": {
             "type": "object",
             "properties": {

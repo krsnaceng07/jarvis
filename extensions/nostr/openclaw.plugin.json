@@ -1,0 +1,30 @@
+{
+  "id": "nostr",
+  "doctorContract": {
+    "configRepair": true
+  },
+  "name": "Nostr",
+  "description": "OpenClaw Nostr decentralized protocol channel plugin.",
+  "activation": {
+    "onStartup": false
+  },
+  "channels": [
+    "nostr"
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "privateKey": {
+        "type": "string"
+      },
+      "relays": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "kind": "channel"
+}

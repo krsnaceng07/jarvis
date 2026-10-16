@@ -18,11 +18,8 @@ in 7.2c (when the main
 from __future__ import annotations
 
 import logging
-from typing import Any, Awaitable, Callable, Optional
+from typing import Any, Optional
 
-from .compact_runtime_types import (
-    CompactEmbeddedAgentSessionDirect,
-)
 
 
 _LOG = logging.getLogger(
@@ -42,20 +39,17 @@ def _load_compact_runtime() -> Any:
     module (lazy). Mirrors the
     OpenClaw source's
     :func:`loadCompactRuntime`
-    (``compact.runtime.ts:9-11`).
-
-    Phase 7.2a — STUB. Returns
-    ``None`` until 7.2c ports the
-    main :mod:`compact` module.
+    (``compact.runtime.ts:9-11``).
     """
     global _runtime_module
     if _runtime_module is None:
-        # Phase 7.2a — STUB.
-        _LOG.debug(
-            "compact runtime not yet loaded; "
-            "lands in 7.2c"
-        )
-        _runtime_module = None
+        try:
+            from . import compact as _compact_mod
+
+            _runtime_module = _compact_mod
+        except Exception as err:
+            _LOG.warning("Failed to load compact module: %s", err)
+            _runtime_module = None
     return _runtime_module
 
 

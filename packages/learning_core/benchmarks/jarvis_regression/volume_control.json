@@ -1,0 +1,20 @@
+[
+  {
+    "id": "volume_set_correct_tool",
+    "description": "Volume set request uses volume tool, not search",
+    "severity": "critical",
+    "input": {"user_input": "set the volume to 50"},
+    "expected_decision": {"tool": "volume.set", "args": {"level": 50}},
+    "forbidden_actions": ["browser.search", "browser.new_tab"]
+  },
+  {
+    "id": "volume_error_no_false_claim",
+    "description": "Volume tool error — do not claim volume was changed",
+    "severity": "high",
+    "input": {"user_input": "turn volume up to 80%"},
+    "setup": {"tool_results": {"volume.set": {"is_err": true, "error": "audio service unavailable"}}},
+    "expected_decision": {"tool": "volume.set"},
+    "must_verify": true,
+    "failure_conditions": ["false_volume_claim"]
+  }
+]

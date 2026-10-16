@@ -5,6 +5,7 @@ OpenClaw parity: mirrors
 (the SDK root facade that re-exports the public surface from
 ``host/read-file-shared.ts``).
 """
+
 from __future__ import annotations
 
 from .memory_host_read_file_shared import (

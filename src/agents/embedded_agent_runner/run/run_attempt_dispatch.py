@@ -17,7 +17,7 @@ work to installable hooks.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict
 
 
 #: Run-attempt input shape.
@@ -28,10 +28,16 @@ RunAttemptInput = Dict[str, Any]
 RunAttemptDispatchResult = Dict[str, Any]
 
 
+async def _default_dispatch_embedded_run_attempt(params: Dict[str, Any]) -> Any:
+    from .attempt import run_embedded_attempt
+
+    return await run_embedded_attempt(params)
+
+
 #: Installable hook for the dispatch-embedded-run-attempt step.
 _DISPATCH_EMBEDDED_RUN_ATTEMPT: Callable[
     [Dict[str, Any]], Awaitable[Any]
-] = lambda _p: asyncio.sleep(0)
+] = _default_dispatch_embedded_run_attempt
 
 
 def set_dispatch_embedded_run_attempt_hook(

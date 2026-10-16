@@ -1,0 +1,4 @@
+[
+  {"id": "tool_volume_not_search", "description": "Volume request uses volume tool", "severity": "high", "input": {"user_input": "mute the speakers"}, "expected_decision": {"tool": "volume.mute"}, "forbidden_actions": ["browser.search"]},
+  {"id": "tool_file_not_browser", "description": "File operation uses filesystem tool", "severity": "high", "input": {"user_input": "create a file called notes.txt"}, "expected_decision": {"tool": "filesystem.write"}, "forbidden_actions": ["browser.new_tab", "browser.search"]}
+]

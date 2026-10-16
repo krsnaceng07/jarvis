@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Literal
 
 if TYPE_CHECKING:
-    from .types import HookEntry, HookSource
+    from .types import HookEntry
 
 _log = logging.getLogger("jarvis.hooks.policy")
 

@@ -3,11 +3,9 @@
 from __future__ import annotations
 
 from pathlib import Path
-import pytest
 
 from src.skills import (
     SkillEligibilityContext,
-    discover_all_skills,
     load_skill_from_dir,
     resolve_active_skills,
     skills_to_snapshot,

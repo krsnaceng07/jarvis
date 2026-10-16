@@ -8,6 +8,7 @@ Covers:
   treated as canonical at user_version < 2
 - identity-key table is created on rebuild
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -73,10 +74,7 @@ def _create_legacy_table(conn: sqlite3.Connection) -> None:
 
 
 def _legacy_columns(conn: sqlite3.Connection) -> list[str]:
-    return [
-        dict(row)["name"]
-        for row in conn.execute("PRAGMA table_info(audit_events)").fetchall()
-    ]
+    return [dict(row)["name"] for row in conn.execute("PRAGMA table_info(audit_events)").fetchall()]
 
 
 # ── Schema probes ─────────────────────────────────────────
@@ -295,8 +293,19 @@ def test_repair_preserves_sequence_high_water():
                 "INSERT INTO audit_events (event_id, source_id, source_sequence, "
                 "occurred_at, kind, action, status, actor_type, actor_id, agent_id, "
                 "run_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                (f"e{i}", f"s{i}", i, 1000 + i, "tool.invoke", "start", "ok",
-                 "agent", "main", "main", "r1"),
+                (
+                    f"e{i}",
+                    f"s{i}",
+                    i,
+                    1000 + i,
+                    "tool.invoke",
+                    "start",
+                    "ok",
+                    "agent",
+                    "main",
+                    "main",
+                    "r1",
+                ),
             )
         conn.commit()
         applied = repair_audit_events_schema(conn)
@@ -323,8 +332,7 @@ def test_repair_creates_indexes():
         _create_legacy_table(conn)
         repair_audit_events_schema(conn)
         rows = conn.execute(
-            "SELECT name FROM sqlite_master "
-            "WHERE type = 'index' AND tbl_name = 'audit_events'"
+            "SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'audit_events'"
         ).fetchall()
         names = {dict(r)["name"] for r in rows}
         for expected in (

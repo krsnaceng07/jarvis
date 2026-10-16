@@ -112,8 +112,7 @@ class TestAgentEvents:
         required_names = [
             f.name
             for f in fields
-            if f.default is dataclasses.MISSING
-            and f.default_factory is dataclasses.MISSING
+            if f.default is dataclasses.MISSING and f.default_factory is dataclasses.MISSING
         ]
         assert required_names == required
         # type literal has a default equal to the discriminant value.

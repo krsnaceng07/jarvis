@@ -2,6 +2,7 @@
 
 Mirrors OpenClaw's ``extensions/bonjour/src/errors.test.ts``.
 """
+
 from __future__ import annotations
 
 import pytest

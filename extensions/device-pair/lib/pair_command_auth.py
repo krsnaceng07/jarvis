@@ -24,9 +24,10 @@ Python adaptations (documented in code):
 - TS string-literal unions → Python ``Literal[...]`` +
   ``frozenset`` membership sets
 """
+
 from __future__ import annotations
 
-from typing import Literal, Optional, TypedDict
+from typing import TypedDict
 
 
 # Scope constants (mirrors the TS source).

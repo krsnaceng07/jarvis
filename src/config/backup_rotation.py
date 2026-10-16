@@ -5,7 +5,7 @@ OpenClaw parity: mirrors ``openclaw-main/src/config/backup-rotation.ts``.
 from __future__ import annotations
 
 import os
-from typing import Awaitable, Callable, Optional, Protocol
+from typing import Protocol
 
 
 CONFIG_BACKUP_COUNT = 5

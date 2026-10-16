@@ -4,7 +4,9 @@
   "description": "OpenClaw LanceDB-backed long-term memory plugin with auto-recall, auto-capture, and vector search.",
   "catalog": { "featured": true, "order": 70 },
   "commandAliases": [{ "name": "ltm" }],
-  "activation": "on_startup",
+  "activation": {
+    "onStartup": false
+  },
   "kind": "memory",
   "contracts": {
     "tools": ["memory_recall", "memory_store", "memory_forget"],

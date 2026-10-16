@@ -51,7 +51,6 @@ from __future__ import annotations
 
 import asyncio
 import os
-import shlex
 import sys
 from typing import Any, Optional
 
@@ -280,7 +279,7 @@ def create_local_bash_operations() -> BashOperations:
 # ============================================================================
 
 
-async def create_bash_tool_definition(
+def create_bash_tool_definition(
     cwd: str = "",
     operations: Optional[BashOperations] = None,
 ) -> ToolDefinition:

@@ -1,0 +1,13 @@
+[project]
+name = "jarvis-extension-a2a"
+version = "0.1.0"
+description = "Agent-to-Agent (A2A) decentralized protocol channel plugin for JARVIS"
+requires-python = ">=3.12"
+dependencies = [
+    "jarvis-sdk",
+    "pydantic>=2.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

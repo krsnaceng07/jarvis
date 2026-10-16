@@ -5,7 +5,6 @@ Covers:
 """
 from __future__ import annotations
 
-import pytest
 
 from src.config.schema_base import (
     LEGACY_HIDDEN_PUBLIC_PATHS,

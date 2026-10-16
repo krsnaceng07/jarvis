@@ -701,7 +701,9 @@ def is_allowed_chat_id(
             return False
         if conversation_id not in (config.get("allowedChatIds") or ()):
             return False
-    return not (has_deny and conversation_id and conversation_id in (config.get("deniedChatIds") or ()))
+    return not (
+        has_deny and conversation_id and conversation_id in (config.get("deniedChatIds") or ())
+    )
 
 
 # ── Misc helpers ───────────────────────────────────────────────────

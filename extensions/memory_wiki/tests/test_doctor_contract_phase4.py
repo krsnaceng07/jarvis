@@ -227,9 +227,9 @@ class TestCompiledCacheCleanup:
         preview = asyncio.run(contract["detect"](params))
         assert preview is not None
         for file_path in legacy_files:
-            assert _path_in_lines(
-                file_path, preview.preview
-            ), f"Expected preview to mention {file_path}, got {preview.preview}"
+            assert _path_in_lines(file_path, preview.preview), (
+                f"Expected preview to mention {file_path}, got {preview.preview}"
+            )
 
         result = asyncio.run(contract["apply"](params))
         for file_path in legacy_files:

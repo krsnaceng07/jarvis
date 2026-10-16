@@ -4,7 +4,7 @@ OpenClaw parity: mirrors ``openclaw-main/src/shared/safe-record.ts``.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+from typing import Any, List, Tuple
 
 
 def is_record_without_throwing(value: Any) -> bool:

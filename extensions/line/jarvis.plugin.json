@@ -1,0 +1,24 @@
+{
+  "id": "line",
+  "name": "LINE",
+  "description": "JARVIS LINE Messaging API channel plugin for chats and bots.",
+  "channels": [
+    "line"
+  ],
+  "activation": {
+    "onStartup": false
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "channelAccessToken": {
+        "type": "string"
+      },
+      "channelSecret": {
+        "type": "string"
+      }
+    }
+  },
+  "kind": "channel"
+}

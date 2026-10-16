@@ -11,7 +11,7 @@ agent workspace path computation to the host runtime.
 from __future__ import annotations
 
 import os
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from jarvis_normalization_core.string_coerce import normalize_optional_string
 from jarvis_sdk.agent_runtime import resolve_agent_workspace_dir

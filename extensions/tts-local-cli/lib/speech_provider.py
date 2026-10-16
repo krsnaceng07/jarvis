@@ -44,16 +44,16 @@ Python adaptations (documented in code):
   avoid the namespace collision with the JARVIS root
   ``src/`` package
 """
+
 from __future__ import annotations
 
 import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Optional, TypedDict, Union
 
-from packages.plugin_sdk.src.jarvis_sdk.speech_provider import (
+from jarvis_sdk.speech_provider import (
     SpeechOutputFormat,
-    SpeechProviderConfig,
     SpeechProviderPlugin,
     SpeechSynthesisRequest,
     SpeechSynthesisResult,
@@ -66,9 +66,7 @@ from packages.plugin_sdk.src.jarvis_sdk.speech_provider import (
 
 
 VALID_OUTPUT_FORMATS: frozenset[str] = VALID_SPEECH_OUTPUT_FORMATS
-AUDIO_EXTENSIONS: frozenset[str] = frozenset(
-    {".wav", ".mp3", ".opus", ".ogg", ".m4a"}
-)
+AUDIO_EXTENSIONS: frozenset[str] = frozenset({".wav", ".mp3", ".opus", ".ogg", ".m4a"})
 DEFAULT_TIMEOUT_MS = 120_000
 MAX_AUDIO_OUTPUT_BYTES = 50 * 1024 * 1024
 MAX_CLI_STDERR_BYTES = 1024 * 1024
@@ -162,9 +160,7 @@ def resolve_cli_provider_config(
 ) -> dict[str, Any]:
     """Extract the ``tts-local-cli`` (or ``cli``) block from the host config."""
     providers = as_object(raw_config.get("providers")) or {}
-    cli = as_object(providers.get("tts-local-cli")) or as_object(
-        providers.get("cli")
-    )
+    cli = as_object(providers.get("tts-local-cli")) or as_object(providers.get("cli"))
     return cli or {}
 
 
@@ -336,9 +332,7 @@ def read_audio_file(file_path: str) -> bytes:
     with open(file_path, "rb") as handle:
         data = handle.read(MAX_AUDIO_OUTPUT_BYTES + 1)
     if len(data) > MAX_AUDIO_OUTPUT_BYTES:
-        raise ValueError(
-            f"audio file {file_path} exceeds {MAX_AUDIO_OUTPUT_BYTES} bytes"
-        )
+        raise ValueError(f"audio file {file_path} exceeds {MAX_AUDIO_OUTPUT_BYTES} bytes")
     return data
 
 
@@ -358,9 +352,7 @@ class CliProviderDeps:
     run_command: Optional[RunCommandFn] = None
     run_ffmpeg: Optional[RunFfmpegFn] = None
     temp_workspace: Optional[TempWorkspaceFn] = None
-    now_ms_fn: Callable[[], int] = lambda: int(
-        __import__("time").time() * 1000
-    )
+    now_ms_fn: Callable[[], int] = lambda: int(__import__("time").time() * 1000)
 
 
 async def _run_cli_synthesize(
@@ -377,15 +369,11 @@ async def _run_cli_synthesize(
     a missing callable raises a clear error.
     """
     if deps.run_command is None:
-        raise RuntimeError(
-            "tts-local-cli: run_command dependency is not wired"
-        )
+        raise RuntimeError("tts-local-cli: run_command dependency is not wired")
     clean_text = strip_emojis(text)
     if not clean_text:
         raise ValueError("CLI TTS: text is empty after removing emojis")
-    output_format = request.get("outputFormat") or config.get(
-        "outputFormat"
-    )
+    output_format = request.get("outputFormat") or config.get("outputFormat")
     output_ext = get_file_ext(output_format or "wav")
     file_prefix = "speech"
     output_dir = "."
@@ -404,8 +392,7 @@ async def _run_cli_synthesize(
     # takes the text via arg; otherwise it's piped via
     # stdin.
     has_text_placeholder = any(
-        bool(_TEMPLATE_PATTERN.search(a)) and "text" in a.lower()
-        for a in base_args
+        bool(_TEMPLATE_PATTERN.search(a)) and "text" in a.lower() for a in base_args
     )
     input_data = "" if has_text_placeholder else clean_text
     result = await deps.run_command(
@@ -427,26 +414,18 @@ async def _run_cli_synthesize(
         )
     if result.get("termination") == "output-limit":
         stream = result.get("outputLimitStream") or "stdout"
-        max_bytes = (
-            MAX_CLI_STDERR_BYTES if stream == "stderr" else MAX_AUDIO_OUTPUT_BYTES
-        )
+        max_bytes = MAX_CLI_STDERR_BYTES if stream == "stderr" else MAX_AUDIO_OUTPUT_BYTES
         raise ValueError(f"CLI TTS {stream} exceeded {max_bytes} bytes")
     code = result.get("code")
     if code is not None and code != 0:
-        stderr_text = (result.get("stderr") or b"").decode(
-            "utf8", errors="replace"
-        )
+        stderr_text = (result.get("stderr") or b"").decode("utf8", errors="replace")
         raise RuntimeError(f"CLI TTS exit {code}: {stderr_text}")
     if result.get("termination") not in ("exit", "error"):
         err = result.get("error") or {}
-        raise RuntimeError(
-            f"CLI TTS failed: {err.get('message') or result.get('termination')}"
-        )
+        raise RuntimeError(f"CLI TTS failed: {err.get('message') or result.get('termination')}")
     if result.get("termination") == "error" and code not in (0, None):
         err = result.get("error") or {}
-        raise RuntimeError(
-            f"CLI TTS failed: {err.get('message') or result.get('termination')}"
-        )
+        raise RuntimeError(f"CLI TTS failed: {err.get('message') or result.get('termination')}")
 
     # Try to find the audio file in the workspace.
     audio_file = find_audio_file(output_dir, file_prefix)
@@ -465,9 +444,7 @@ async def _run_cli_synthesize(
         # convert if they need MP3.
         return {"audio": stdout, "format": "wav"}
     err = result.get("error") or {}
-    raise RuntimeError(
-        f"CLI TTS failed: {err.get('message') or result.get('termination')}"
-    )
+    raise RuntimeError(f"CLI TTS failed: {err.get('message') or result.get('termination')}")
 
 
 def build_cli_speech_provider(
@@ -498,13 +475,9 @@ def build_cli_speech_provider(
         request: SpeechSynthesisRequest,
     ) -> SpeechSynthesisResult:
         if effective_deps.temp_workspace is None:
-            raise RuntimeError(
-                "tts-local-cli: temp_workspace dependency is not wired"
-            )
+            raise RuntimeError("tts-local-cli: temp_workspace dependency is not wired")
         if effective_deps.run_command is None:
-            raise RuntimeError(
-                "tts-local-cli: run_command dependency is not wired"
-            )
+            raise RuntimeError("tts-local-cli: run_command dependency is not wired")
         # The TS source pulls the per-provider config
         # from the request's providerConfig. The Python
         # port accepts it directly via ``request["providerConfig"]``
@@ -521,15 +494,11 @@ def build_cli_speech_provider(
             raise ValueError("CLI TTS: text is required")
         # Use a host-supplied temp workspace (the TS
         # version uses ``tempWorkspace({rootDir: ...})``).
-        workspace = await effective_deps.temp_workspace(
-            {"prefix": "openclaw-cli-tts-"}
-        )
+        workspace = await effective_deps.temp_workspace({"prefix": "openclaw-cli-tts-"})
         output_dir = workspace.get("dir") or "."
         # Update ctx with the actual output dir.
         file_prefix = "speech"
-        output_format = request.get("outputFormat") or config.get(
-            "outputFormat"
-        )
+        output_format = request.get("outputFormat") or config.get("outputFormat")
         output_ext = get_file_ext(output_format or "wav")
         # The actual synthesis is delegated to the lower
         # level helper. We pass output_dir via the deps
@@ -539,27 +508,20 @@ def build_cli_speech_provider(
         # small loop here.
         clean_text = strip_emojis(text)
         if not clean_text:
-            raise ValueError(
-                "CLI TTS: text is empty after removing emojis"
-            )
+            raise ValueError("CLI TTS: text is empty after removing emojis")
         ctx: dict[str, Optional[str]] = {
             "Text": clean_text,
-            "OutputPath": os.path.join(
-                output_dir, f"{file_prefix}{output_ext}"
-            ),
+            "OutputPath": os.path.join(output_dir, f"{file_prefix}{output_ext}"),
             "OutputDir": output_dir,
             "OutputBase": file_prefix,
         }
         parsed = parse_command(config["command"])
         if not parsed["cmd"]:
             raise ValueError("CLI TTS: invalid command")
-        base_args = list(parsed["initialArgs"]) + list(
-            config.get("args") or []
-        )
+        base_args = list(parsed["initialArgs"]) + list(config.get("args") or [])
         args = [apply_template(a, ctx) for a in base_args]
         has_text_placeholder = any(
-            bool(_TEMPLATE_PATTERN.search(a)) and "text" in a.lower()
-            for a in base_args
+            bool(_TEMPLATE_PATTERN.search(a)) and "text" in a.lower() for a in base_args
         )
         input_data = "" if has_text_placeholder else clean_text
         result = await effective_deps.run_command(
@@ -572,8 +534,7 @@ def build_cli_speech_provider(
                     "stdout": MAX_AUDIO_OUTPUT_BYTES,
                     "stderr": MAX_CLI_STDERR_BYTES,
                 },
-                "timeoutMs": config.get("timeoutMs")
-                or DEFAULT_TIMEOUT_MS,
+                "timeoutMs": config.get("timeoutMs") or DEFAULT_TIMEOUT_MS,
             },
         )
         if result.get("termination") == "timeout":
@@ -582,33 +543,21 @@ def build_cli_speech_provider(
             )
         if result.get("termination") == "output-limit":
             stream = result.get("outputLimitStream") or "stdout"
-            max_bytes = (
-                MAX_CLI_STDERR_BYTES
-                if stream == "stderr"
-                else MAX_AUDIO_OUTPUT_BYTES
-            )
+            max_bytes = MAX_CLI_STDERR_BYTES if stream == "stderr" else MAX_AUDIO_OUTPUT_BYTES
             raise ValueError(f"CLI TTS {stream} exceeded {max_bytes} bytes")
         code = result.get("code")
         if code is not None and code != 0:
-            stderr_text = (result.get("stderr") or b"").decode(
-                "utf8", errors="replace"
-            )
+            stderr_text = (result.get("stderr") or b"").decode("utf8", errors="replace")
             raise RuntimeError(f"CLI TTS exit {code}: {stderr_text}")
         if result.get("termination") not in ("exit", "error"):
             err = result.get("error") or {}
-            raise RuntimeError(
-                f"CLI TTS failed: "
-                f"{err.get('message') or result.get('termination')}"
-            )
+            raise RuntimeError(f"CLI TTS failed: {err.get('message') or result.get('termination')}")
         if result.get("termination") == "error" and code not in (
             0,
             None,
         ):
             err = result.get("error") or {}
-            raise RuntimeError(
-                f"CLI TTS failed: "
-                f"{err.get('message') or result.get('termination')}"
-            )
+            raise RuntimeError(f"CLI TTS failed: {err.get('message') or result.get('termination')}")
         # Look for the synthesized file in the workspace
         # (the workspace-write callback is what would
         # create it via the host's ``run_command``).
@@ -616,9 +565,7 @@ def build_cli_speech_provider(
         if audio_file is not None:
             fmt = detect_format(audio_file)
             if fmt is None:
-                raise ValueError(
-                    f"CLI TTS: unknown format for {audio_file}"
-                )
+                raise ValueError(f"CLI TTS: unknown format for {audio_file}")
             return {
                 "audio": read_audio_file(audio_file),
                 "format": fmt,
@@ -628,10 +575,7 @@ def build_cli_speech_provider(
         if stdout:
             return {"audio": stdout, "format": "wav"}
         err = result.get("error") or {}
-        raise RuntimeError(
-            f"CLI TTS failed: "
-            f"{err.get('message') or result.get('termination')}"
-        )
+        raise RuntimeError(f"CLI TTS failed: {err.get('message') or result.get('termination')}")
 
     return {
         "id": "tts-local-cli",

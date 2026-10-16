@@ -1,4 +1,5 @@
 """Tests for memory_host_read_file_shared — mirrors host/read-file-shared.ts."""
+
 from __future__ import annotations
 
 import sys
@@ -39,10 +40,10 @@ def test_from_slice_empty_lines() -> None:
     result = build_memory_read_result_from_slice(
         [], "memory/note.md", start_line=1, more_source_lines_remain=False
     )
-    assert result["text"] == ""
-    assert result["lines"] == 0
-    assert "truncated" not in result
-    assert "nextFrom" not in result
+    assert result.get("text") == ""
+    assert result.get("lines") == 0
+    assert result.get("truncated") is None
+    assert result.get("nextFrom") is None
 
 
 def test_from_slice_no_truncation() -> None:
@@ -50,10 +51,10 @@ def test_from_slice_no_truncation() -> None:
     result = build_memory_read_result_from_slice(
         ["a", "b", "c"], "memory/note.md", start_line=1, more_source_lines_remain=False
     )
-    assert result["text"] == "a\nb\nc"
-    assert result["lines"] == 3
-    assert "truncated" not in result
-    assert "nextFrom" not in result
+    assert result.get("text") == "a\nb\nc"
+    assert result.get("lines") == 3
+    assert result.get("truncated") is None
+    assert result.get("nextFrom") is None
 
 
 def test_from_slice_with_next_cursor() -> None:
@@ -61,10 +62,10 @@ def test_from_slice_with_next_cursor() -> None:
     result = build_memory_read_result_from_slice(
         ["a", "b"], "memory/note.md", start_line=1, more_source_lines_remain=True
     )
-    assert result["truncated"] is True
-    assert result["nextFrom"] == 3  # 1 + 2
+    assert result.get("truncated") is True
+    assert result.get("nextFrom") == 3  # 1 + 2
     # Continuation notice includes the cursor.
-    assert "from=3" in result["text"]
+    assert "from=3" in (result.get("text") or "")
 
 
 def test_from_slice_char_budget_truncation() -> None:
@@ -76,9 +77,9 @@ def test_from_slice_char_budget_truncation() -> None:
     # The first line (100 chars) fits in 150 by itself, so we drop
     # the other two. Since lines were dropped, ``truncated`` is set
     # and a ``nextFrom`` cursor is emitted (no hard-truncation).
-    assert result["lines"] == 1
-    assert result["truncated"] is True
-    assert result["nextFrom"] == 2  # start=1, included=1, more=dropped lines
+    assert result.get("lines") == 1
+    assert result.get("truncated") is True
+    assert result.get("nextFrom") == 2  # start=1, included=1, more=dropped lines
 
 
 def test_from_slice_hard_truncates_single_line() -> None:
@@ -86,10 +87,10 @@ def test_from_slice_hard_truncates_single_line() -> None:
     result = build_memory_read_result_from_slice(
         ["a" * 1000], "memory/note.md", start_line=1, more_source_lines_remain=False, max_chars=10
     )
-    assert result["lines"] == 1
-    assert result["truncated"] is True
+    assert result.get("lines") == 1
+    assert result.get("truncated") is True
     # The text should be <= max_chars (plus continuation notice).
-    assert len(result["text"].split("\n\n")[0]) <= 10
+    assert len((result.get("text") or "").split("\n\n")[0]) <= 10
 
 
 def test_from_slice_suggest_read_fallback_appended() -> None:
@@ -98,7 +99,7 @@ def test_from_slice_suggest_read_fallback_appended() -> None:
     result = build_memory_read_result_from_slice(
         ["a" * 1000], "memory/note.md", start_line=1, max_chars=10, suggest_read_fallback=True
     )
-    assert "read on the source file" in result["text"]
+    assert "read on the source file" in (result.get("text") or "")
 
 
 def test_from_slice_no_suggest_fallback_when_not_hard_truncated() -> None:
@@ -114,7 +115,7 @@ def test_from_slice_no_suggest_fallback_when_not_hard_truncated() -> None:
     )
     # No "read on the source file" since the truncation is from the
     # line-drop path, not the hard-truncate path.
-    assert "read on the source file" not in result["text"]
+    assert "read on the source file" not in (result.get("text") or "")
 
 
 def test_from_slice_more_remain_without_truncation_yields_truncated_flag() -> None:
@@ -123,8 +124,8 @@ def test_from_slice_more_remain_without_truncation_yields_truncated_flag() -> No
     result = build_memory_read_result_from_slice(
         ["a", "b"], "memory/note.md", start_line=1, more_source_lines_remain=True, max_chars=100
     )
-    assert result["truncated"] is True
-    assert result["nextFrom"] == 3
+    assert result.get("truncated") is True
+    assert result.get("nextFrom") == 3
 
 
 def test_from_slice_path_propagates() -> None:
@@ -132,7 +133,7 @@ def test_from_slice_path_propagates() -> None:
     result = build_memory_read_result_from_slice(
         ["a"], "memory/sub/note.md", start_line=1, more_source_lines_remain=False
     )
-    assert result["path"] == "memory/sub/note.md"
+    assert result.get("path") == "memory/sub/note.md"
 
 
 def test_from_slice_start_line_normalized() -> None:
@@ -140,8 +141,8 @@ def test_from_slice_start_line_normalized() -> None:
     result = build_memory_read_result_from_slice(
         ["a", "b", "c"], "memory/note.md", start_line=0, more_source_lines_remain=True
     )
-    assert result["from"] == 1
-    assert result["nextFrom"] == 4  # 1 + 3
+    assert result.get("from") == 1
+    assert result.get("nextFrom") == 4  # 1 + 3
 
 
 def test_from_slice_start_line_negative_normalized() -> None:
@@ -149,15 +150,17 @@ def test_from_slice_start_line_negative_normalized() -> None:
     result = build_memory_read_result_from_slice(
         ["a"], "memory/note.md", start_line=-5, more_source_lines_remain=False
     )
-    assert result["from"] == 1
+    assert result.get("from") == 1
 
 
 def test_from_slice_start_line_nan_falls_back() -> None:
     """A non-numeric start_line falls back to 1."""
     result = build_memory_read_result_from_slice(
-        ["a"], "memory/note.md", start_line="not a number"  # type: ignore[arg-type]
+        ["a"],
+        "memory/note.md",
+        start_line="not a number",  # type: ignore[arg-type]
     )
-    assert result["from"] == 1
+    assert result.get("from") == 1
 
 
 # ── build_memory_read_result ────────────────────────────────────────
@@ -167,11 +170,11 @@ def test_build_basic() -> None:
     """Default range reads the first 120 lines from line 1."""
     content = "\n".join(str(i) for i in range(200))
     result = build_memory_read_result(content, "memory/note.md")
-    assert result["from"] == 1
-    assert result["lines"] == 120
-    assert result["path"] == "memory/note.md"
+    assert result.get("from") == 1
+    assert result.get("lines") == 120
+    assert result.get("path") == "memory/note.md"
     assert "truncated" in result
-    assert result["nextFrom"] == 121
+    assert result.get("nextFrom") == 121
 
 
 def test_build_with_from_and_lines() -> None:
@@ -180,20 +183,20 @@ def test_build_with_from_and_lines() -> None:
     marked ``truncated`` and carries a ``nextFrom`` cursor."""
     content = "\n".join(str(i) for i in range(100))
     result = build_memory_read_result(content, "memory/note.md", from_=10, lines=5)
-    assert result["from"] == 10
-    assert result["lines"] == 5
+    assert result.get("from") == 10
+    assert result.get("lines") == 5
     # The 5 lines from 10-14 don't cover the full 100-line file,
     # so more lines remain — the result is ``truncated``.
-    assert result["truncated"] is True
-    assert result["nextFrom"] == 15
+    assert result.get("truncated") is True
+    assert result.get("nextFrom") == 15
 
 
 def test_build_with_default_lines() -> None:
     """When ``lines`` is missing, ``default_lines`` is used."""
     content = "\n".join(str(i) for i in range(200))
     result = build_memory_read_result(content, "memory/note.md", default_lines=50)
-    assert result["from"] == 1
-    assert result["lines"] == 50
+    assert result.get("from") == 1
+    assert result.get("lines") == 50
 
 
 def test_build_max_chars_caps_text() -> None:
@@ -201,11 +204,11 @@ def test_build_max_chars_caps_text() -> None:
     content = "x" * 100_000
     result = build_memory_read_result(content, "memory/note.md", max_chars=100)
     # The fitted text portion (before the notice) should be <= 100 chars.
-    notice_idx = result["text"].find("\n\n")
+    notice_idx = (result.get("text") or "").find("\n\n")
     if notice_idx >= 0:
-        fitted = result["text"][:notice_idx]
+        fitted = (result.get("text") or "")[:notice_idx]
     else:
-        fitted = result["text"]
+        fitted = result.get("text") or ""
     assert len(fitted) <= 100
 
 
@@ -215,7 +218,7 @@ def test_build_suggest_read_fallback_propagates() -> None:
     result = build_memory_read_result(
         content, "memory/note.md", max_chars=5, suggest_read_fallback=True
     )
-    assert "read on the source file" in result["text"]
+    assert "read on the source file" in (result.get("text") or "")
 
 
 def test_build_content_shorter_than_requested() -> None:
@@ -223,9 +226,9 @@ def test_build_content_shorter_than_requested() -> None:
     contains only the available lines."""
     content = "a\nb"
     result = build_memory_read_result(content, "memory/note.md", from_=1, lines=100)
-    assert result["lines"] == 2
-    assert "truncated" not in result
-    assert "nextFrom" not in result
+    assert result.get("lines") == 2
+    assert result.get("truncated") is None
+    assert result.get("nextFrom") is None
 
 
 def test_build_default_lines_normalized() -> None:
@@ -235,34 +238,34 @@ def test_build_default_lines_normalized() -> None:
     content = "\n".join(str(i) for i in range(300))
     result_zero = build_memory_read_result(content, "memory/note.md", default_lines=0)
     # 0 normalizes to 1.
-    assert result_zero["lines"] == 1
+    assert result_zero.get("lines") == 1
 
     result_none = build_memory_read_result(content, "memory/note.md", default_lines=None)
     # None falls back to DEFAULT_MEMORY_READ_LINES (120).
-    assert result_none["lines"] == 120
+    assert result_none.get("lines") == 120
 
 
 def test_build_from_normalized() -> None:
     """A from_ <= 0 is normalized to 1."""
     content = "\n".join(str(i) for i in range(10))
     result = build_memory_read_result(content, "memory/note.md", from_=-3, lines=2)
-    assert result["from"] == 1
-    assert result["lines"] == 2
+    assert result.get("from") == 1
+    assert result.get("lines") == 2
 
 
 def test_build_more_source_lines_remain_flag() -> None:
     """``more_source_lines_remain`` is computed from the slice vs total."""
     content = "\n".join(str(i) for i in range(20))
     result = build_memory_read_result(content, "memory/note.md", from_=1, lines=5)
-    assert result["truncated"] is True
-    assert result["nextFrom"] == 6
+    assert result.get("truncated") is True
+    assert result.get("nextFrom") == 6
 
 
 def test_build_continuation_notice_for_more() -> None:
     """When ``nextFrom`` is set, the notice carries the cursor."""
     content = "\n".join(str(i) for i in range(20))
     result = build_memory_read_result(content, "memory/note.md", from_=1, lines=3)
-    assert f"from={result['nextFrom']}" in result["text"]
+    assert f"from={result.get('nextFrom')}" in (result.get("text") or "")
 
 
 def test_build_continuation_notice_for_budget_only() -> None:
@@ -272,9 +275,9 @@ def test_build_continuation_notice_for_budget_only() -> None:
     result = build_memory_read_result(content, "memory/note.md", max_chars=10)
     # Either no nextFrom (hard-truncated single line) or
     # nextFrom + cursor wording.
-    if "nextFrom" in result:
+    if result.get("nextFrom") is not None:
         # nextFrom is set; cursor wording is used.
-        assert f"from={result['nextFrom']}" in result["text"]
+        assert f"from={result.get('nextFrom')}" in (result.get("text") or "")
     else:
         # hard-truncated; budget wording is used.
-        assert "default maxChars budget" in result["text"]
+        assert "default maxChars budget" in (result.get("text") or "")

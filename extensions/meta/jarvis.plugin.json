@@ -1,0 +1,58 @@
+{
+  "id": "meta",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "meta"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "meta",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "META_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "meta": {
+        "baseUrl": "https://api.meta.ai/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "llama-3.1-70b",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "llama-3.1-8b",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

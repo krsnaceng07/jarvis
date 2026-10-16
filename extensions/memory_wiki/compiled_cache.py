@@ -276,8 +276,7 @@ def _publication_key(owner_id: str, publication_id: str) -> str:
     Mirrors OpenClaw's ``publicationKey``.
     """
     return (
-        f"{_owner_key_prefix(owner_id)}"
-        f"{hashlib.sha256(publication_id.encode('utf-8')).hexdigest()}"
+        f"{_owner_key_prefix(owner_id)}{hashlib.sha256(publication_id.encode('utf-8')).hexdigest()}"
     )
 
 

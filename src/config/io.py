@@ -15,6 +15,28 @@ import hashlib
 import os
 from typing import Any
 
+
+# Runtime-installable hook map. Host runtime can call
+# ``install_runtime_hooks({'get_runtime_config': fn, 'load_config': fn, ...})``
+# to provide full runtime behavior without patching callers.
+_RUNTIME_HOOKS: dict[str, Any] = {}
+
+
+def install_runtime_hooks(hooks: dict[str, Any]) -> None:
+    """Install runtime hook implementations into the config IO facade.
+
+    The host runtime should call this during startup to provide
+    authoritative implementations for functions such as
+    ``get_runtime_config`` and ``load_config``.
+    """
+    if not isinstance(hooks, dict):
+        return
+    _RUNTIME_HOOKS.update(hooks)
+
+
+def get_installed_runtime_hook(name: str):
+    return _RUNTIME_HOOKS.get(name)
+
 # Re-export selected surface items from the underlying config modules.
 from src.config.env_substitution import MissingEnvVarError  # noqa: F401
 
@@ -277,13 +299,37 @@ def register_config_write_listener(*args: Any, **kwargs: Any) -> Any:  # pragma:
 
 
 def get_runtime_config(*args: Any, **kwargs: Any) -> dict[str, Any]:
-    # Intentionally unimplemented in the minimal facade; runtime installs this.
-    raise NotImplementedError("getRuntimeConfig facade — install via runtime hooks")
+    # Prefer an installed runtime hook if present.
+    hook = get_installed_runtime_hook("get_runtime_config")
+    if callable(hook):
+        return hook(*args, **kwargs)
+
+    # Preserve the original contract: when called with no explicit
+    # arguments, indicate the runtime hook is required. If callers pass
+    # explicit args/kwargs (e.g. a config_path), provide a conservative
+    # fallback to read the runtime snapshot.
+    if not args and not kwargs:
+        raise NotImplementedError("getRuntimeConfig facade — install via runtime hooks")
+    try:
+        return get_runtime_config_snapshot(*args, **kwargs)
+    except Exception:
+        raise NotImplementedError("getRuntimeConfig facade — install via runtime hooks")
 
 
 def load_config(*args, **kwargs) -> dict[str, Any]:
-    # Intentionally unimplemented in the minimal facade; runtime installs this.
-    raise NotImplementedError("loadConfig facade — install via runtime hooks")
+    # Prefer an installed runtime hook if present.
+    hook = get_installed_runtime_hook("load_config")
+    if callable(hook):
+        return hook(*args, **kwargs)
+
+    # Preserve original behavior for no-arg calls (runtime hook required).
+    if not args and not kwargs:
+        raise NotImplementedError("loadConfig facade — install via runtime hooks")
+    try:
+        io = _create_config_io_for_args(args, kwargs)
+        return io.loadConfig()
+    except Exception:
+        raise NotImplementedError("loadConfig facade — install via runtime hooks")
 
 
 
@@ -327,30 +373,51 @@ def get_runtime_config_source_snapshot(*args, **kwargs):  # pragma: no cover
 
 
 def register_managed_runtime_config_write_owner(*args, **kwargs):  # pragma: no cover
+    hook = get_installed_runtime_hook("register_managed_runtime_config_write_owner") or get_installed_runtime_hook("registerManagedRuntimeConfigWriteOwner")
+    if callable(hook):
+        return hook(*args, **kwargs)
     raise NotImplementedError("registerManagedRuntimeConfigWriteOwner facade")
 
 
 def reset_config_runtime_state(*args, **kwargs):  # pragma: no cover
+    hook = get_installed_runtime_hook("reset_config_runtime_state") or get_installed_runtime_hook("resetConfigRuntimeState")
+    if callable(hook):
+        return hook(*args, **kwargs)
     raise NotImplementedError("resetConfigRuntimeState facade")
 
 
 def resolve_runtime_config_cache_key(*args, **kwargs):  # pragma: no cover
+    hook = get_installed_runtime_hook("resolve_runtime_config_cache_key") or get_installed_runtime_hook("resolveRuntimeConfigCacheKey")
+    if callable(hook):
+        return hook(*args, **kwargs)
     raise NotImplementedError("resolveRuntimeConfigCacheKey facade")
 
 
 def select_applicable_runtime_config(*args, **kwargs):  # pragma: no cover
+    hook = get_installed_runtime_hook("select_applicable_runtime_config") or get_installed_runtime_hook("selectApplicableRuntimeConfig")
+    if callable(hook):
+        return hook(*args, **kwargs)
     raise NotImplementedError("selectApplicableRuntimeConfig facade")
 
 
 def set_applied_runtime_config_snapshot(*args, **kwargs):  # pragma: no cover
+    hook = get_installed_runtime_hook("set_applied_runtime_config_snapshot") or get_installed_runtime_hook("setAppliedRuntimeConfigSnapshot")
+    if callable(hook):
+        return hook(*args, **kwargs)
     raise NotImplementedError("setAppliedRuntimeConfigSnapshot facade")
 
 
 def set_runtime_config_snapshot(*args, **kwargs):  # pragma: no cover
+    hook = get_installed_runtime_hook("set_runtime_config_snapshot") or get_installed_runtime_hook("setRuntimeConfigSnapshot")
+    if callable(hook):
+        return hook(*args, **kwargs)
     raise NotImplementedError("setRuntimeConfigSnapshot facade")
 
 
 def set_runtime_config_snapshot_refresh_handler(*args, **kwargs):  # pragma: no cover
+    hook = get_installed_runtime_hook("set_runtime_config_snapshot_refresh_handler") or get_installed_runtime_hook("setRuntimeConfigSnapshotRefreshHandler")
+    if callable(hook):
+        return hook(*args, **kwargs)
     raise NotImplementedError("setRuntimeConfigSnapshotRefreshHandler facade")
 
 

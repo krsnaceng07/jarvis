@@ -5,7 +5,7 @@ import subprocess
 
 from src.gateway.sessions_handlers import make_sessions_handlers
 from src.gateway.worktrees import get_worktree_service, reset_worktree_service
-from src.sessions.session_store import get_default_session_store, reset_default_session_store
+from src.sessions.session_store import reset_default_session_store
 
 
 def _make_repo(tmp_path: Path) -> Path:

@@ -59,9 +59,9 @@ import json
 import logging
 import os
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Optional
 
 from .auth_storage import AuthStorage
 from .auth_storage_oauth_registry import (

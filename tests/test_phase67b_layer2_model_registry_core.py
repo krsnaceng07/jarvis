@@ -52,7 +52,6 @@ if _PROJECT_ROOT not in sys.path:
 from src.agents.sessions import (  # noqa: E402
     AuthStorage,
     ModelRegistry,
-    ProviderRequestConfig,
 )
 
 

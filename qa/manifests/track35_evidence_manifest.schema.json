@@ -1,0 +1,139 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Track35QualificationManifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifestVersion",
+    "generatedAt",
+    "canonicalizationAlgorithm",
+    "manifestIntegrityHash",
+    "hostEnvironment",
+    "summary",
+    "scenarios"
+  ],
+  "properties": {
+    "manifestVersion": {
+      "type": "string",
+      "enum": ["1.0.0"]
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "canonicalizationAlgorithm": {
+      "type": "string",
+      "enum": ["DETERMINISTIC_SORTED_JSON_V1"]
+    },
+    "manifestIntegrityHash": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "hostEnvironment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "os",
+        "osBuild",
+        "pythonVersion",
+        "uvVersion",
+        "processorArchitecture"
+      ],
+      "properties": {
+        "os": { "type": "string" },
+        "osBuild": { "type": "string" },
+        "pythonVersion": { "type": "string" },
+        "uvVersion": { "type": "string" },
+        "processorArchitecture": { "type": "string" }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "totalScenarios",
+        "passed",
+        "failed",
+        "blocked",
+        "notRun"
+      ],
+      "properties": {
+        "totalScenarios": { "type": "integer", "minimum": 0 },
+        "passed": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "blocked": { "type": "integer", "minimum": 0 },
+        "notRun": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "scenarios": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ScenarioEntry"
+      }
+    }
+  },
+  "definitions": {
+    "ScenarioEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenarioId",
+        "requirement",
+        "result",
+        "qualificationLevel",
+        "limitations"
+      ],
+      "properties": {
+        "scenarioId": {
+          "type": "string",
+          "pattern": "^(RH(0[1-9]|1[0-5])|RH-EXT|RH-PWR|CH(0[1-9]|1[0-9]|20)|CH-LIVE-(TG|DC|SL)|T35-E0[1-7])$"
+        },
+        "requirement": {
+          "type": "string",
+          "minLength": 10
+        },
+        "result": {
+          "type": "string",
+          "enum": ["PASS", "FAIL", "BLOCKED", "NOT_RUN"]
+        },
+        "qualificationLevel": {
+          "type": "string",
+          "enum": ["LOCAL", "SIMULATED", "REAL_HOST", "LIVE_PROVIDER", "MANUAL_OPERATOR"]
+        },
+        "testIdentifier": {
+          "type": "string"
+        },
+        "executionTimestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "assertionsExecuted": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "evidenceArtifacts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["relativePath", "sha256"],
+            "properties": {
+              "relativePath": { "type": "string" },
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              }
+            }
+          }
+        },
+        "blockers": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "limitations": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

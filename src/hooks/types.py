@@ -93,6 +93,7 @@ class HookMetadata:
 @dataclass(frozen=True, slots=True)
 class HookInvocationPolicy:
     enabled: bool
+    reason: str | None = None
 
 
 @dataclass

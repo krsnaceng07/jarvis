@@ -53,6 +53,7 @@ Python adaptations (documented in code):
 - TS literal-union ``QrChannelSender`` dict → Python
   ``dict[str, dict]`` keyed by channel name.
 """
+
 from __future__ import annotations
 
 import base64
@@ -101,9 +102,7 @@ def decode_setup_code(setup_code: str) -> Optional[dict]:
 # ── Duration formatting ────────────────────────────────────
 
 
-def format_duration_minutes(
-    expires_at_ms: int, now_ms: Optional[int] = None
-) -> str:
+def format_duration_minutes(expires_at_ms: int, now_ms: Optional[int] = None) -> str:
     """Return the minutes-until-expiry string for a setup code.
 
     Mirrors ``formatDurationMinutes``. Returns
@@ -170,8 +169,7 @@ def format_gateway_lines(payload: dict) -> list[str]:
     """
     urls = payload.get("urls") or [payload.get("url", "")]
     return [
-        (f"Gateway: {url}" if index == 0 else f"Fallback: {url}")
-        for index, url in enumerate(urls)
+        (f"Gateway: {url}" if index == 0 else f"Fallback: {url}") for index, url in enumerate(urls)
     ]
 
 
@@ -206,13 +204,9 @@ def format_setup_instructions(expires_at_ms: int) -> str:
         [
             "Pairing setup code generated.",
             "",
-            *build_pairing_flow_lines(
-                "Paste the setup code from my next message and tap Connect"
-            ),
+            *build_pairing_flow_lines("Paste the setup code from my next message and tap Connect"),
             "",
-            *build_security_notice_lines(
-                kind="setup code", expires_at_ms=expires_at_ms
-            ),
+            *build_security_notice_lines(kind="setup code", expires_at_ms=expires_at_ms),
         ]
     )
 
@@ -299,16 +293,12 @@ def format_qr_info_markdown(
     lines.append(f"- Auth: {auth_label}")
     lines.extend(build_access_lines(payload, markdown=True))
     lines.extend(
-        build_security_notice_lines(
-            kind="QR code", expires_at_ms=expires_at_ms, markdown=True
-        )
+        build_security_notice_lines(kind="QR code", expires_at_ms=expires_at_ms, markdown=True)
     )
     lines.append("")
     lines.extend(build_qr_follow_up_lines(auto_notify_armed))
     lines.append("")
-    lines.append(
-        "If your camera still won't lock on, run `/pair` for a pasteable setup code."
-    )
+    lines.append("If your camera still won't lock on, run `/pair` for a pasteable setup code.")
     return "\n".join(lines)
 
 

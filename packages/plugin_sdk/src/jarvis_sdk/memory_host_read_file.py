@@ -25,6 +25,7 @@ Key port decisions:
   ``MemoryReadResult`` envelope (line slicing + char budget
   + continuation notice).
 """
+
 from __future__ import annotations
 
 import os

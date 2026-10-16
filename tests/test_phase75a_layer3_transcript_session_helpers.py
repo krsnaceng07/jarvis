@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-import pytest
 
 from src.agents.embedded_agent_runner.history import (
     get_history_limit_from_session_key,

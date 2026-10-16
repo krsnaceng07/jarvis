@@ -18,9 +18,9 @@ Covers the full register(api) flow:
 - the auth helpers (re-exported from pair_command_auth)
   return the same auth state shape
 """
+
 from __future__ import annotations
 
-import json
 import os
 import sys
 
@@ -35,10 +35,8 @@ _EXT_ROOT = os.path.dirname(_THIS_DIR)
 if _EXT_ROOT not in sys.path:
     sys.path.insert(0, _EXT_ROOT)
 
-import pytest  # noqa: E402
 
 from lib import (  # noqa: E402
-    DevicePairingPlugin,
     build_device_pair_pairing_qr_channel_data,
     build_missing_pairing_scope_reply,
     build_missing_setup_handoff_scope_reply,
@@ -262,9 +260,7 @@ class TestFormatHelpers:
         assert "/pair cleanup" in lines[3]
 
     def test_build_security_notice_lines(self) -> None:
-        lines = build_security_notice_lines(
-            kind="setup code", expires_at_ms=1_700_000_000_000
-        )
+        lines = build_security_notice_lines(kind="setup code", expires_at_ms=1_700_000_000_000)
         assert any("single-use" in line for line in lines)
         assert any("Expires" in line for line in lines)
         assert any("/pair cleanup" in line for line in lines)
@@ -283,16 +279,15 @@ class TestFormatHelpers:
         # primary (matches OpenClaw's
         # ``(payload.urls ?? [payload.url]).map(...)``
         # behavior).
-        assert format_gateway_lines(
-            {"url": "wss://a", "urls": ["wss://b", "wss://c"]}
-        ) == ["Gateway: wss://b", "Fallback: wss://c"]
+        assert format_gateway_lines({"url": "wss://a", "urls": ["wss://b", "wss://c"]}) == [
+            "Gateway: wss://b",
+            "Fallback: wss://c",
+        ]
 
     def test_build_access_lines(self) -> None:
         lines = build_access_lines({"access": "full"})
         assert lines == ["Access: full"]
-        lines = build_access_lines(
-            {"access": "limited", "accessDowngraded": True}
-        )
+        lines = build_access_lines({"access": "limited", "accessDowngraded": True})
         assert len(lines) == 2
         assert "downgraded" in lines[1].lower() or "Plaintext" in lines[1]
 
@@ -358,22 +353,15 @@ class TestFormatHelpers:
 
     def test_resolve_qr_reply_target(self) -> None:
         # Discord normalizes senderId with user: prefix.
-        assert resolve_qr_reply_target(
-            {"channel": "discord", "senderId": "u123"}
-        ) == "user:u123"
-        assert resolve_qr_reply_target(
-            {"channel": "discord", "senderId": "channel:c1"}
-        ) == "channel:c1"
+        assert resolve_qr_reply_target({"channel": "discord", "senderId": "u123"}) == "user:u123"
+        assert (
+            resolve_qr_reply_target({"channel": "discord", "senderId": "channel:c1"})
+            == "channel:c1"
+        )
         # Other channels use senderId / from / to.
-        assert resolve_qr_reply_target(
-            {"channel": "telegram", "senderId": "u1"}
-        ) == "u1"
-        assert resolve_qr_reply_target(
-            {"channel": "telegram", "from": "u2"}
-        ) == "u2"
-        assert resolve_qr_reply_target(
-            {"channel": "telegram", "to": "u3"}
-        ) == "u3"
+        assert resolve_qr_reply_target({"channel": "telegram", "senderId": "u1"}) == "u1"
+        assert resolve_qr_reply_target({"channel": "telegram", "from": "u2"}) == "u2"
+        assert resolve_qr_reply_target({"channel": "telegram", "to": "u3"}) == "u3"
         # Empty context returns empty string.
         assert resolve_qr_reply_target({"channel": "telegram"}) == ""
 
@@ -391,16 +379,12 @@ class TestChannelDataAndAuth:
         assert env["openclawPairingQr"]["expiresAtMs"] == 1_700_000_000_000
 
     def test_resolve_pairing_command_auth_state_missing_pairing(self) -> None:
-        state = resolve_pairing_command_auth_state(
-            {"channel": "telegram", "senderIsOwner": False}
-        )
+        state = resolve_pairing_command_auth_state({"channel": "telegram", "senderIsOwner": False})
         assert state["isMissingPairingPrivilege"] is True
         assert state["isInternalGatewayCaller"] is False
 
     def test_resolve_pairing_command_auth_state_owner(self) -> None:
-        state = resolve_pairing_command_auth_state(
-            {"channel": "telegram", "senderIsOwner": True}
-        )
+        state = resolve_pairing_command_auth_state({"channel": "telegram", "senderIsOwner": True})
         assert state["isMissingPairingPrivilege"] is False
         assert state["canIssueFullAccessSetup"] is True
 
@@ -520,9 +504,7 @@ class TestRunPairCommand:
             action="status",
             auth_state=self._auth_state(),
             config={},
-            list_pairing=lambda: {
-                "pending": [{"requestId": "r1", "device": "iPhone"}]
-            },
+            list_pairing=lambda: {"pending": [{"requestId": "r1", "device": "iPhone"}]},
         )
         assert "r1" in reply["text"]
         assert "iPhone" in reply["text"]
@@ -596,9 +578,7 @@ class TestRunPairCommand:
             auth_state=self._auth_state(),
             config={},
             notify_action="arm",
-            handle_notify_command=lambda _ctx, action: {
-                "text": f"armed={action}"
-            },
+            handle_notify_command=lambda _ctx, action: {"text": f"armed={action}"},
         )
         assert reply == {"text": "armed=arm"}
 

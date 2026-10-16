@@ -21,7 +21,7 @@ host can plug in the real provider-runtime layer as it lands.
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List
 
 
 #: Normalize provider tool schemas hook. The host installs the

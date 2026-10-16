@@ -28,6 +28,7 @@ from src.sessions.session_upstream_monitor import (
     SessionUpstreamMonitorOptions,
     _upstream_source_key,
     run_session_upstream_monitor_tick,
+    start_session_upstream_monitor,
 )
 
 
@@ -423,6 +424,41 @@ class TestSessionUpstreamMonitor:
 
         assert len(recorder.human_direct) == 1
         assert recorder.human_direct[0]["payload"] == {"turns": 3}
+
+    def test_start_session_upstream_monitor_reschedules_interval(self, monkeypatch):
+        created: list[object] = []
+
+        class FakeTimer:
+            def __init__(self, delay, func):
+                self.delay = delay
+                self.func = func
+                self.cancelled = False
+                created.append(self)
+
+            def start(self):
+                return None
+
+            def cancel(self):
+                self.cancelled = True
+
+        monkeypatch.setattr(
+            "src.sessions.session_upstream_monitor.threading.Timer",
+            FakeTimer,
+        )
+
+        async def fake_tick(*args, **kwargs):
+            return None
+
+        monkeypatch.setattr(
+            "src.sessions.session_upstream_monitor.run_session_upstream_monitor_tick",
+            fake_tick,
+        )
+
+        handle = start_session_upstream_monitor()
+        assert len(created) == 1
+        created[0].func()
+        assert len(created) == 2
+        handle.stop()
 
 
 if __name__ == "__main__":

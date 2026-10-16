@@ -114,7 +114,7 @@ def move_module(
             action = "rewrote" if apply else "[DRY-RUN] would rewrite"
             print(f"  {action}: {p.relative_to(REPO_ROOT)}")
     else:
-        print(f"  no import sites to rewrite")
+        print("  no import sites to rewrite")
 
     if delete_old:
         if apply:

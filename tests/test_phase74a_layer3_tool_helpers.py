@@ -1,9 +1,8 @@
 """Phase 7.4a tests — small tool helpers."""
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-import pytest
 
 from src.agents.embedded_agent_runner.tool_call_argument_decoding import (
     create_html_entity_tool_call_argument_decoding_wrapper,
@@ -11,13 +10,6 @@ from src.agents.embedded_agent_runner.tool_call_argument_decoding import (
     set_visit_object_content_blocks_hook,
 )
 from src.agents.embedded_agent_runner.tool_result_char_estimator import (
-    BRANCH_SUMMARY_PREFIX,
-    BRANCH_SUMMARY_SUFFIX,
-    CHARS_PER_TOKEN_ESTIMATE,
-    COMPACTION_SUMMARY_PREFIX,
-    COMPACTION_SUMMARY_SUFFIX,
-    IMAGE_CHAR_ESTIMATE,
-    TOOL_RESULT_CHARS_PER_TOKEN_ESTIMATE,
     create_message_char_estimate_cache,
     estimate_context_chars,
     estimate_message_chars_cached,
@@ -427,7 +419,6 @@ class TestCreateHtmlEntityToolCallArgumentDecodingWrapper:
             return _Stream()
 
         wrapper = create_html_entity_tool_call_argument_decoding_wrapper(base_stream_fn)
-        import asyncio
         result = wrapper(None, None, None)
         # The result should be a coroutine that yields the wrapped stream
         assert result is not None

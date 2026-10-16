@@ -1,14 +1,21 @@
 {
   "id": "talk-voice",
-  "name": "Talk Voice",
-  "description": "OpenClaw Talk Voice infra extension port (Phase 5.15 stub).",
   "activation": {
-    "onStartup": false
+    "onStartup": true
   },
   "enabledByDefault": true,
+  "name": "Talk Voice",
+  "description": "Manage Talk voice selection (list/set).",
+  "commandAliases": [
+    {
+      "name": "voice",
+      "kind": "runtime-slash"
+    }
+  ],
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
     "properties": {}
-  }
+  },
+  "kind": "tool"
 }

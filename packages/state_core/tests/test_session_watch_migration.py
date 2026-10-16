@@ -12,6 +12,7 @@ Covers:
   - drops legacy marker rows
   - no-op when the table is missing
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -126,9 +127,7 @@ def test_has_legacy_sentinels_true_when_marker_present():
 def test_needs_migration_false_when_table_missing():
     conn = _fresh_db()
     try:
-        assert (
-            needs_session_watch_cursor_provenance_migration(conn, 0) is False
-        )
+        assert needs_session_watch_cursor_provenance_migration(conn, 0) is False
     finally:
         conn.close()
 
@@ -212,9 +211,7 @@ def test_migrate_adds_column_and_drops_markers_with_no_canonical_pair():
         # without promoting anything.
         assert result.migrated_ambient_watches == 0
         assert result.removed_legacy_sentinels == 1
-        rows = conn.execute(
-            "SELECT watcher_session_key FROM session_watch_cursors"
-        ).fetchall()
+        rows = conn.execute("SELECT watcher_session_key FROM session_watch_cursors").fetchall()
         assert rows == []
     finally:
         conn.close()
@@ -247,8 +244,7 @@ def test_migrate_promotes_canonical_row_when_pair_exists():
         # After migration: only the canonical row remains,
         # tagged as ambient-group, with the newer timestamp.
         rows = conn.execute(
-            "SELECT watcher_session_key, provenance, updated_at "
-            "FROM session_watch_cursors"
+            "SELECT watcher_session_key, provenance, updated_at FROM session_watch_cursors"
         ).fetchall()
         assert len(rows) == 1
         row = rows[0]
@@ -279,8 +275,7 @@ def test_migrate_promoted_updated_at_is_max_of_both():
         conn.commit()
         migrate_session_watch_cursor_provenance(conn)
         row = conn.execute(
-            "SELECT updated_at FROM session_watch_cursors "
-            "WHERE watcher_session_key = 'agent:main'"
+            "SELECT updated_at FROM session_watch_cursors WHERE watcher_session_key = 'agent:main'"
         ).fetchone()
         # Max of (9000, 1500) == 9000.
         assert row["updated_at"] == 9000

@@ -1,0 +1,52 @@
+{
+  "id": "gmi",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "gmi"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "gmi",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "GMI_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "gmi": {
+        "baseUrl": "https://api.gmi.cloud/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "gmi-llama-3.1-70b",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

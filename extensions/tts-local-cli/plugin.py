@@ -36,6 +36,7 @@ Python adaptations (documented in code):
   (the in-port stub returns chunks synchronously;
   the real streaming synthesis lands in a follow-up)
 """
+
 from __future__ import annotations
 
 import shutil
@@ -112,10 +113,7 @@ def build_cli_speech_provider() -> dict:
     return {
         "id": "tts-local-cli",
         "name": "Local CLI TTS",
-        "description": (
-            "Bundled CLI speech provider for local TTS "
-            "(espeak, say, spd-say, etc.)"
-        ),
+        "description": ("Bundled CLI speech provider for local TTS (espeak, say, spd-say, etc.)"),
         "binary": binary,
         "default_voice": voice,
         "synthesize": _cli_synthesize,
@@ -144,9 +142,7 @@ def _build_cli_command(
     if not binary:
         raise RuntimeError("local TTS CLI binary is not available")
     if fmt != "wav":
-        raise ValueError(
-            f"local TTS CLI supports only wav output (got {fmt!r})"
-        )
+        raise ValueError(f"local TTS CLI supports only wav output (got {fmt!r})")
     if not output_path:
         raise ValueError("local TTS CLI requires an output path")
     name = binary.rsplit("/", 1)[-1].lower()
@@ -213,8 +209,13 @@ def _cli_synthesize(
         }
     try:
         command = _build_cli_command(
-            binary, text, effective_voice,
-            rate=rate, pitch=pitch, fmt=fmt, output_path=output_path,
+            binary,
+            text,
+            effective_voice,
+            rate=rate,
+            pitch=pitch,
+            fmt=fmt,
+            output_path=output_path,
         )
     except (RuntimeError, ValueError) as error:
         return {"ok": False, "reason": str(error), "text": text}

@@ -1,0 +1,11 @@
+[project]
+name = "jarvis-imap"
+version = "0.1.0"
+description = "JARVIS IMAP email trigger extension for dispatching emails to agent sessions."
+requires-python = ">=3.13"
+dependencies = [
+    "jarvis-plugin-sdk>=0.1.0-rc1",
+]
+
+[tool.uv]
+package = false

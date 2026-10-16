@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import threading
 
-import pytest
 
 from jarvis_channels import BindingRegistry, InboundMessage
 from src.channels.binding_router import BindingRouter

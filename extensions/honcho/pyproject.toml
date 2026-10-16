@@ -1,0 +1,12 @@
+[project]
+name = "honcho"
+version = "0.1.0"
+description = "Honcho AI-native memory integration"
+authors = [{ name = "Jarvis Contributors" }]
+requires-python = ">=3.12"
+dependencies = [
+    "jarvis-plugin-sdk",
+]
+
+[tool.uv]
+package = false

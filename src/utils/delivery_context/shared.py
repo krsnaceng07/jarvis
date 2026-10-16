@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from .types import DeliveryContext, DeliveryContextSessionSource
+from .types import DeliveryContext
 
 #: Internal webchat channel id (mirrors OpenClaw's INTERNAL_MESSAGE_CHANNEL).
 INTERNAL_MESSAGE_CHANNEL = "webchat"

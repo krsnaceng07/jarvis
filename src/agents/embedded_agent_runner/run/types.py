@@ -32,7 +32,7 @@ params dict the same way.
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, Optional, Union
 
 
 #: Fast-mode param shape. Mirrors

@@ -19,6 +19,7 @@ Key port decisions:
   ``OPENCLAW_HOME`` / ``OPENCLAW_STATE_DIR`` env-var
   semantics via ``os.environ`` + ``os.path.expanduser``.
 """
+
 from __future__ import annotations
 
 import os
@@ -107,7 +108,9 @@ def _resolve_agent_config(
 ) -> AgentConfig | None:
     aid = _normalize_agent_id(agent_id)
     for entry in _list_agent_entries(cfg):
-        entry_id = _normalize_agent_id(entry.get("id")) if isinstance(entry.get("id"), str) else None
+        entry_id = (
+            _normalize_agent_id(entry.get("id")) if isinstance(entry.get("id"), str) else None
+        )
         if entry_id == aid:
             return entry
     return None
@@ -152,12 +155,18 @@ def resolve_memory_host_agent_workspace_dir(
     aid = _normalize_agent_id(agent_id)
     env = env if env is not None else dict(os.environ)
     entry: AgentConfig | None = _resolve_agent_config(cfg, aid)
-    configured = _normalize_optional_string(cast(str | None, entry.get("workspace"))) if entry else None
+    configured = (
+        _normalize_optional_string(cast(str | None, entry.get("workspace"))) if entry else None
+    )
     if configured:
         return _strip_null_bytes(os.path.abspath(configured))
     agents_block = cfg.get("agents") if isinstance(cfg, dict) else None
     defaults = agents_block.get("defaults") if isinstance(agents_block, dict) else None
-    fallback = _normalize_optional_string(cast(str | None, defaults.get("workspace"))) if isinstance(defaults, dict) else None
+    fallback = (
+        _normalize_optional_string(cast(str | None, defaults.get("workspace")))
+        if isinstance(defaults, dict)
+        else None
+    )
     if aid == _resolve_default_agent_id(cfg):
         if fallback:
             return _strip_null_bytes(os.path.abspath(fallback))
@@ -260,8 +269,16 @@ def resolve_memory_host_search_path_config(
     return {
         "enabled": True,
         "rememberAcrossConversations": bool(
-            (override_search.get("rememberAcrossConversations") if isinstance(override_search, dict) else None)
-            or (default_search.get("rememberAcrossConversations") if isinstance(default_search, dict) else None)
+            (
+                override_search.get("rememberAcrossConversations")
+                if isinstance(override_search, dict)
+                else None
+            )
+            or (
+                default_search.get("rememberAcrossConversations")
+                if isinstance(default_search, dict)
+                else None
+            )
             or False
         ),
         "extraPaths": extra,

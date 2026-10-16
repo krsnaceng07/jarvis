@@ -28,6 +28,7 @@ Key port decisions:
   for a future registry, but that's a minor issue since
   the lifecycle flags are advisory, not authoritative.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING

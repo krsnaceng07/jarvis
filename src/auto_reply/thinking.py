@@ -38,7 +38,7 @@ VerboseLevel = Literal["off", "on", "full"]
 TraceLevel = Literal["off", "on", "raw"]
 ElevatedLevel = Literal["off", "on", "ask", "full"]
 ReasoningLevel = Literal["off", "on", "stream"]
-FastMode = Literal["off", "on"]
+FastMode = Literal["off", "on", "auto"]
 UsageDisplayLevel = Literal["off", "tokens", "full"]
 
 ALL_THINKING_LEVELS: tuple[ThinkLevel, ...] = (
@@ -140,6 +140,8 @@ def normalize_fast_mode(raw: str | None) -> FastMode | None:
         return "off"
     if key in ("on", "true", "yes", "1"):
         return "on"
+    if key in ("auto",):
+        return "auto"
     return None
 
 

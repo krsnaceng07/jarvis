@@ -91,6 +91,7 @@ class TestSkills:
 class TestHooks:
     def test_register_and_count(self) -> None:
         from jarvis_sdk import HookRegistration
+
         from src.hooks import HookBus
 
         bus = HookBus()
@@ -102,6 +103,7 @@ class TestHooks:
     @pytest.mark.asyncio
     async def test_fire_calls_handlers(self) -> None:
         from jarvis_sdk import HookRegistration
+
         from src.hooks import HookBus
 
         seen: list[str] = []
@@ -122,6 +124,7 @@ class TestHooks:
     @pytest.mark.asyncio
     async def test_fire_continues_after_handler_error(self) -> None:
         from jarvis_sdk import HookRegistration
+
         from src.hooks import HookBus
 
         seen: list[str] = []
@@ -174,6 +177,7 @@ class TestCronEvaluator:
 class TestCronRunner:
     def test_add_list(self) -> None:
         from jarvis_sdk import CronDecl
+
         from src.cron import CronRunner
 
         runner = CronRunner()
@@ -349,9 +353,10 @@ class TestMemoryCorePlugin:
 
     @pytest.mark.asyncio
     async def test_call_memory_get_missing_arg(self, tmp_path: Path) -> None:
+        from jarvis_sdk import Err
+
         from extensions.memory_core.plugin import MemoryCorePlugin
         from extensions.memory_core.runtime import MemoryRuntime
-        from jarvis_sdk import Err
 
         rt = MemoryRuntime(tmp_path / "memory.sqlite")
         # Force default() to return our test instance.
@@ -376,16 +381,40 @@ class TestMemoryCorePlugin:
         manifest = json.loads(path.read_text(encoding="utf-8"))
         assert manifest["id"] == "memory_core"
         assert manifest["kind"] == "memory"
-        assert {t["name"] for t in manifest["tools"]} == {"memory_search", "memory_get"}
+        assert {t["name"] for t in manifest["tools"]} == {
+            "memory_search",
+            "memory_get",
+            "intent",
+        }
 
 
 # ── Cron extension ────────────────────────────────────────────────
 
 
 class TestCronTable:
-    def test_add_list_remove(self, tmp_path: Path) -> None:
-        from extensions.cron.runtime import CronTable
+    def test_default_table_uses_shared_sqlite_state(self, tmp_path: Path, monkeypatch) -> None:
+        monkeypatch.setenv("JARVIS_STATE_DIR", str(tmp_path))
         from jarvis_sdk import CronDecl
+
+        from extensions.cron.runtime import CronTable
+
+        previous_default = CronTable._default
+        CronTable._default = None
+        try:
+            first = CronTable.default()
+            first.add(CronDecl(id="sqlite.job", schedule="*/5 * * * *", handler=lambda: None))
+            second = CronTable.default()
+            assert first._store_path == Path(tmp_path) / "jarvis.sqlite"
+            assert any(job["id"] == "sqlite.job" for job in second.list())
+            assert first.remove("sqlite.job")
+            assert CronTable.default().list() == []
+        finally:
+            CronTable._default = previous_default
+
+    def test_add_list_remove(self, tmp_path: Path) -> None:
+        from jarvis_sdk import CronDecl
+
+        from extensions.cron.runtime import CronTable
 
         table = CronTable(tmp_path / "cron.json")
         table.add(
@@ -403,8 +432,9 @@ class TestCronTable:
         assert table.list() == []
 
     def test_persistence(self, tmp_path: Path) -> None:
-        from extensions.cron.runtime import CronTable
         from jarvis_sdk import CronDecl
+
+        from extensions.cron.runtime import CronTable
 
         path = tmp_path / "cron.json"
         t1 = CronTable(path)
@@ -423,12 +453,13 @@ class TestCronTable:
 class TestCronExtensionPlugin:
     @pytest.mark.asyncio
     async def test_call_unknown_tool(self, tmp_path: Path) -> None:
+        from jarvis_sdk import Err
+
         from extensions.cron import runtime as rt_mod
         from extensions.cron.plugin import CronExtensionPlugin
 
         # Force default to a test instance.
         from extensions.cron.runtime import CronTable
-        from jarvis_sdk import Err
 
         rt_mod.CronTable._default = CronTable(tmp_path / "cron.json")
         p = CronExtensionPlugin()
@@ -438,10 +469,11 @@ class TestCronExtensionPlugin:
 
     @pytest.mark.asyncio
     async def test_call_cron_schedule_and_list(self, tmp_path: Path) -> None:
+        from jarvis_sdk import Ok
+
         from extensions.cron import runtime as rt_mod
         from extensions.cron.plugin import CronExtensionPlugin
         from extensions.cron.runtime import CronTable
-        from jarvis_sdk import Ok
 
         rt_mod.CronTable._default = CronTable(tmp_path / "cron.json")
         p = CronExtensionPlugin()

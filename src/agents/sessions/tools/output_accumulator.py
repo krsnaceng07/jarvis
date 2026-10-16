@@ -41,7 +41,7 @@ Adaptations
 from __future__ import annotations
 
 import codecs
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import IO, Callable, Optional
 
 from jarvis_agent.truncate import TruncationResult, truncate_tail, utf8_byte_length

@@ -37,7 +37,7 @@ host can plug in the real layers as they land.
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Dict, Optional
 
 
 #: Auth-refresh margin: 5 minutes. Mirrors

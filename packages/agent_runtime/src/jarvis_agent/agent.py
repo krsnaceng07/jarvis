@@ -84,11 +84,7 @@ async def _settle(value: object) -> Any:
 
 def default_convert_to_llm(messages: list[AgentMessage]) -> list[Message]:
     """Parity: ``defaultConvertToLlm`` — keep only provider-facing roles."""
-    return [
-        message
-        for message in messages
-        if message.role in ("user", "assistant", "toolResult")
-    ]
+    return [message for message in messages if message.role in ("user", "assistant", "toolResult")]
 
 
 #: Parity: ``DEFAULT_MODEL`` — placeholder until the host assigns a model.
@@ -240,9 +236,7 @@ class _ActiveRun:
     """Parity: ``ActiveRun`` — settlement future plus abort controller."""
 
     def __init__(self) -> None:
-        self.future: asyncio.Future[None] = (
-            asyncio.get_running_loop().create_future()
-        )
+        self.future: asyncio.Future[None] = asyncio.get_running_loop().create_future()
         self.abort_controller = AbortController()
 
     def resolve(self) -> None:
@@ -261,15 +255,11 @@ class Agent:
     def __init__(self, options: AgentOptions | None = None) -> None:
         options = options or AgentOptions()
         self._mutable_state = _MutableAgentState(options.initial_state)
-        self._listeners: list[
-            Callable[[AgentEvent, AbortSignal], Any]
-        ] = []
+        self._listeners: list[Callable[[AgentEvent, AbortSignal], Any]] = []
         self.convert_to_llm = options.convert_to_llm or default_convert_to_llm
         self.transform_context = options.transform_context
         self.runtime = options.runtime
-        self.stream_fn: StreamFn = resolve_agent_core_stream_fn(
-            options.runtime, options.stream_fn
-        )
+        self.stream_fn: StreamFn = resolve_agent_core_stream_fn(options.runtime, options.stream_fn)
         self.get_api_key = options.get_api_key
         self.on_payload = options.on_payload
         self.on_response = options.on_response
@@ -278,12 +268,8 @@ class Agent:
         self.after_tool_call = options.after_tool_call
         self.prepare_next_turn = options.prepare_next_turn
         self.prepare_next_turn_with_context = options.prepare_next_turn_with_context
-        self._steering_queue = _PendingMessageQueue(
-            options.steering_mode or "one-at-a-time"
-        )
-        self._follow_up_queue = _PendingMessageQueue(
-            options.follow_up_mode or "one-at-a-time"
-        )
+        self._steering_queue = _PendingMessageQueue(options.steering_mode or "one-at-a-time")
+        self._follow_up_queue = _PendingMessageQueue(options.follow_up_mode or "one-at-a-time")
         self._active_run: _ActiveRun | None = None
         #: Session identifier forwarded to providers for cache-aware backends.
         self.session_id = options.session_id
@@ -296,9 +282,7 @@ class Agent:
         #: Tool execution strategy for multi-tool-call assistant messages.
         self.tool_execution: ToolExecutionMode = options.tool_execution or "parallel"
 
-    def subscribe(
-        self, listener: Callable[[AgentEvent, AbortSignal], Any]
-    ) -> Callable[[], None]:
+    def subscribe(self, listener: Callable[[AgentEvent, AbortSignal], Any]) -> Callable[[], None]:
         """Subscribe to agent lifecycle events.
 
         Listener return values are awaited in subscription order and are
@@ -436,9 +420,7 @@ class Agent:
         if last_message.role in ("assistant", "toolResult"):
             queued_steering = self._steering_queue.drain()
             if queued_steering:
-                await self._run_prompt_messages(
-                    queued_steering, skip_initial_steering_poll=True
-                )
+                await self._run_prompt_messages(queued_steering, skip_initial_steering_poll=True)
                 return
 
             queued_follow_ups = self._follow_up_queue.drain()
@@ -480,9 +462,7 @@ class Agent:
             await run_agent_loop(
                 messages,
                 self._create_context_snapshot(),
-                self._create_loop_config(
-                    skip_initial_steering_poll=skip_initial_steering_poll
-                ),
+                self._create_loop_config(skip_initial_steering_poll=skip_initial_steering_poll),
                 self._process_events,
                 signal,
                 self.stream_fn,
@@ -512,9 +492,7 @@ class Agent:
             tools=self._mutable_state.tools[:],
         )
 
-    def _create_loop_config(
-        self, *, skip_initial_steering_poll: bool = False
-    ) -> AgentLoopConfig:
+    def _create_loop_config(self, *, skip_initial_steering_poll: bool = False) -> AgentLoopConfig:
         """Parity: ``createLoopConfig``.
 
         The TS spreads ``sessionId``/``onPayload``/``onResponse``/
@@ -525,18 +503,14 @@ class Agent:
         """
         skip_poll = {"value": skip_initial_steering_poll}
 
-        prepare_next_turn: Optional[
-            Callable[[PrepareNextTurnContext], Any]
-        ] = None
+        prepare_next_turn: Optional[Callable[[PrepareNextTurnContext], Any]] = None
         if self.prepare_next_turn_with_context or self.prepare_next_turn:
 
             async def prepare_next_turn(
                 context: PrepareNextTurnContext,
             ) -> AgentLoopTurnUpdate | None:
                 if self.prepare_next_turn_with_context is not None:
-                    return await _settle(
-                        self.prepare_next_turn_with_context(context, self.signal)
-                    )
+                    return await _settle(self.prepare_next_turn_with_context(context, self.signal))
                 if self.prepare_next_turn is not None:
                     return await _settle(self.prepare_next_turn(self.signal))
                 return None
@@ -577,9 +551,7 @@ class Agent:
             get_follow_up_messages=get_follow_up_messages,
         )
 
-    async def _run_with_lifecycle(
-        self, executor: Callable[[AbortSignal], Any]
-    ) -> None:
+    async def _run_with_lifecycle(self, executor: Callable[[AbortSignal], Any]) -> None:
         """Parity: ``runWithLifecycle``."""
         if self._active_run is not None:
             raise RuntimeError("Agent is already processing.")
@@ -594,24 +566,16 @@ class Agent:
         try:
             await executor(active_run.abort_controller.signal)
         except Exception as error:  # noqa: BLE001 - parity: catch (error)
-            await self._handle_run_failure(
-                error, active_run.abort_controller.signal.aborted
-            )
+            await self._handle_run_failure(error, active_run.abort_controller.signal.aborted)
         finally:
             self._finish_run()
 
     async def _handle_run_failure(self, error: object, aborted: bool) -> None:
         """Parity: ``handleRunFailure``."""
-        failure_message = create_failure_message(
-            self._mutable_state.model, error, aborted
-        )
-        await self._process_events(
-            AgentEventMessageStart(message=failure_message)
-        )
+        failure_message = create_failure_message(self._mutable_state.model, error, aborted)
+        await self._process_events(AgentEventMessageStart(message=failure_message))
         await self._process_events(AgentEventMessageEnd(message=failure_message))
-        await self._process_events(
-            AgentEventTurnEnd(message=failure_message, tool_results=[])
-        )
+        await self._process_events(AgentEventTurnEnd(message=failure_message, tool_results=[]))
         messages: list[AgentMessage] = [failure_message]
         if aborted and not is_turn_handoff_abort(self.signal):
             await append_interrupted_turn_message(messages, self._process_events)
@@ -654,10 +618,7 @@ class Agent:
             pending_tool_calls.discard(event.tool_call_id)
             self._mutable_state.pending_tool_calls = pending_tool_calls
         elif event_type == "turn_end":
-            if (
-                event.message.role == "assistant"
-                and event.message.error_message
-            ):
+            if event.message.role == "assistant" and event.message.error_message:
                 self._mutable_state.error_message = event.message.error_message
         elif event_type == "agent_end":
             self._mutable_state.streaming_message = None

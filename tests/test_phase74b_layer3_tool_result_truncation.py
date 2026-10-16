@@ -1,17 +1,11 @@
 """Phase 7.4b tests — tool-result-truncation."""
 from __future__ import annotations
 
-import math
-from typing import Any, Dict, List, Optional
 
-import pytest
 
 from src.agents.embedded_agent_runner.tool_result_truncation import (
-    AGGREGATE_ELISION_MARKER,
     DEFAULT_MAX_LIVE_TOOL_RESULT_CHARS,
-    DEFAULT_SUFFIX_FACTORY,
     LARGE_CONTEXT_MAX_LIVE_TOOL_RESULT_CHARS,
-    MIN_KEEP_CHARS,
     PROMPT_TOOL_RESULT_AGGREGATE_CAP_MULTIPLIER,
     XL_CONTEXT_MAX_LIVE_TOOL_RESULT_CHARS,
     calculate_max_tool_result_chars_with_cap,

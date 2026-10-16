@@ -1,0 +1,13 @@
+[project]
+name = "jarvis-extension-clickclack"
+version = "0.1.0"
+description = "ClickClack interactive terminal channel plugin for JARVIS"
+requires-python = ">=3.12"
+dependencies = [
+    "jarvis-sdk",
+    "pydantic>=2.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

@@ -37,13 +37,14 @@ Key port decisions:
 - ``write_dreaming_shadow_trial_report`` uses atomic write
   (tempfile + os.replace) for crash safety.
 """
+
 from __future__ import annotations
 
 import hashlib
 import json
 import os
 import tempfile
-from typing import Any, Literal, TypedDict
+from typing import Literal, TypedDict
 
 from .dreaming_markdown import _format_memory_dreaming_day
 
@@ -367,9 +368,7 @@ def write_dreaming_shadow_trial_report(
     report_path = report["reportPath"]
     parent = os.path.dirname(report_path) or "."
     os.makedirs(parent, exist_ok=True)
-    fd, tmp = tempfile.mkstemp(
-        prefix=f".{os.path.basename(report_path)}.tmp.", dir=parent
-    )
+    fd, tmp = tempfile.mkstemp(prefix=f".{os.path.basename(report_path)}.tmp.", dir=parent)
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(report["markdown"])

@@ -1,14 +1,16 @@
 {
   "id": "diffs-language-pack",
-  "name": "Diffs Language Pack",
-  "description": "OpenClaw Diffs Language Pack infra extension port (Phase 5.15 stub).",
   "activation": {
     "onStartup": false
   },
-  "enabledByDefault": true,
+  "enabledByDefault": false,
+  "name": "Diffs Language Pack",
+  "description": "Additional syntax highlighting languages for the OpenClaw diff viewer.",
+  "contracts": {},
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
     "properties": {}
-  }
+  },
+  "kind": "tool"
 }

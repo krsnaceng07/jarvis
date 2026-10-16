@@ -283,11 +283,12 @@ class TestSearchDelegation:
         cs.search_memory_wiki = fake_search  # type: ignore[assignment]
         try:
             supplement = cs.create_wiki_corpus_supplement(
-                resolve_config=lambda agent_id,
-                current_app_config: resolve_memory_wiki_agent_config(
-                    config=base_config,  # type: ignore[arg-type]
-                    app_config=current_app_config,
-                    agent_id=agent_id,
+                resolve_config=lambda agent_id, current_app_config: (
+                    resolve_memory_wiki_agent_config(
+                        config=base_config,  # type: ignore[arg-type]
+                        app_config=current_app_config,
+                        agent_id=agent_id,
+                    )
                 ),
                 get_app_config=lambda: app_config,
             )
@@ -333,11 +334,12 @@ class TestGetDelegation:
         cs.get_memory_wiki_page = fake_get  # type: ignore[assignment]
         try:
             supplement = cs.create_wiki_corpus_supplement(
-                resolve_config=lambda agent_id,
-                current_app_config: resolve_memory_wiki_agent_config(
-                    config=base_config,  # type: ignore[arg-type]
-                    app_config=current_app_config,
-                    agent_id=agent_id,
+                resolve_config=lambda agent_id, current_app_config: (
+                    resolve_memory_wiki_agent_config(
+                        config=base_config,  # type: ignore[arg-type]
+                        app_config=current_app_config,
+                        agent_id=agent_id,
+                    )
                 ),
                 get_app_config=lambda: app_config,
             )
@@ -378,11 +380,12 @@ class TestGetDelegation:
         cs.get_memory_wiki_page = lambda **_k: None  # type: ignore[assignment]
         try:
             supplement = cs.create_wiki_corpus_supplement(
-                resolve_config=lambda agent_id,
-                current_app_config: resolve_memory_wiki_agent_config(
-                    config=base_config,  # type: ignore[arg-type]
-                    app_config=current_app_config,
-                    agent_id=agent_id,
+                resolve_config=lambda agent_id, current_app_config: (
+                    resolve_memory_wiki_agent_config(
+                        config=base_config,  # type: ignore[arg-type]
+                        app_config=current_app_config,
+                        agent_id=agent_id,
+                    )
                 ),
                 get_app_config=lambda: app_config,
             )

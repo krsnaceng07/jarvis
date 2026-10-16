@@ -9,7 +9,7 @@ their own pre-classified code regions.
 from __future__ import annotations
 
 import re
-from typing import List, Optional, TypedDict
+from typing import List, Optional
 
 from .code_regions import CodeRegion, find_code_regions, is_inside_code
 from .final_tags import find_final_tag_matches

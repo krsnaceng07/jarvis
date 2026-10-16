@@ -1,0 +1,21 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jarvis-cron-core"
+version = "0.1.0"
+description = "JARVIS cron core — scheduled jobs and cron expression evaluator (OpenClaw parity)"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "JARVIS architect" }]
+dependencies = [
+    "jarvis-plugin-sdk",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jarvis_cron_core"]
+
+[tool.uv.sources]
+jarvis-plugin-sdk = { workspace = true }

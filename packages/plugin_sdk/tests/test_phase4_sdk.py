@@ -23,6 +23,8 @@ Tests every SDK submodule added in Phase 4.0:
 
 from __future__ import annotations
 
+from typing import Any
+
 import asyncio
 import os
 from typing import TYPE_CHECKING
@@ -72,7 +74,7 @@ class TestLazyRuntime:
     def test_loads_module(self) -> None:
         load = create_lazy_runtime_module(lambda: {"value": 42})
 
-        async def runner() -> dict:
+        async def runner() -> dict[str, Any]:
             return await load()
 
         result = asyncio.run(runner())
@@ -81,13 +83,13 @@ class TestLazyRuntime:
     def test_caches_result(self) -> None:
         calls = {"n": 0}
 
-        def loader() -> dict:
+        def loader() -> dict[str, Any]:
             calls["n"] += 1
             return {"count": calls["n"]}
 
         load = create_lazy_runtime_module(loader)
 
-        async def runner() -> dict:
+        async def runner() -> dict[str, Any]:
             return await load()
 
         asyncio.run(runner())
@@ -329,11 +331,11 @@ class TestAgentRuntime:
         assert resolve_default_agent_id({}) == "default"
 
     def test_resolve_default_agent_id_with_defaults(self) -> None:
-        cfg = {"agents": {"defaults": {"id": "MyBot"}}}
+        cfg: dict[str, Any] = {"agents": {"defaults": {"id": "MyBot"}}}
         assert resolve_default_agent_id(cfg) == "mybot"
 
     def test_resolve_default_agent_id_with_listing(self) -> None:
-        cfg = {"agents": {"list": [{"id": "FirstAgent"}]}}
+        cfg: dict[str, Any] = {"agents": {"list": [{"id": "FirstAgent"}]}}
         assert resolve_default_agent_id(cfg) == "firstagent"
 
     def test_resolve_agent_dir(self, tmp_path: Path) -> None:
@@ -372,26 +374,26 @@ class TestPluginConfig:
         assert resolve_live_plugin_config_object(None, "x", {"a": 1}) is None
 
     def test_resolve_returns_none_when_supplier_raises(self) -> None:
-        def broken() -> dict:
+        def broken() -> dict[str, Any]:
             raise RuntimeError("config load failed")
 
         assert resolve_live_plugin_config_object(broken, "x", {"a": 1}) is None
 
     def test_resolve_returns_none_when_plugin_id_missing(self) -> None:
-        def cfg() -> dict:
+        def cfg() -> dict[str, Any]:
             return {"plugins": {"entries": {"other": {"foo": 1}}}}
 
         assert resolve_live_plugin_config_object(cfg, "x", {"a": 1}) is None
 
     def test_resolve_returns_merged(self) -> None:
-        def cfg() -> dict:
+        def cfg() -> dict[str, Any]:
             return {"plugins": {"entries": {"x": {"b": 2}}}}
 
         merged = resolve_live_plugin_config_object(cfg, "x", {"a": 1, "b": 99})
         assert merged == {"a": 1, "b": 2}  # live overrides static
 
     def test_resolve_empty_static(self) -> None:
-        def cfg() -> dict:
+        def cfg() -> dict[str, Any]:
             return {"plugins": {"entries": {"x": {"a": 1}}}}
 
         merged = resolve_live_plugin_config_object(cfg, "x", None)
@@ -545,7 +547,7 @@ class TestMemoryEmbeddings:
         class StubAdapter(MemoryEmbeddingProviderAdapter):
             id = "test_stub_provider"
 
-            async def create(self, config=None, **kwargs):
+            async def create(self, config: dict[str, Any] | None = None, **kwargs: Any) -> Any:
                 return None
 
         register_memory_embedding_provider("test_stub_provider", StubAdapter())
@@ -590,11 +592,11 @@ class TestMemoryRuntime:
     def test_capability_bundle_construction(self) -> None:
         # Construct a minimal capability to verify the bundle shape.
         class StubBuilder(MemoryPromptSectionBuilder):
-            def build(self, build_options):
+            def build(self, build_options: dict[str, Any]) -> str:
                 return "[stub]"
 
         class StubRuntime(MemoryPluginRuntime):
-            async def get_memory_search_manager(self, params=None):
+            async def get_memory_search_manager(self, params: dict[str, Any] | None = None) -> Any:
                 raise NotImplementedError
 
             async def close_all_memory_search_managers(self):
@@ -603,7 +605,7 @@ class TestMemoryRuntime:
         from jarvis_sdk import MemoryFlushPlanResolver
 
         class StubFlush(MemoryFlushPlanResolver):
-            def resolve(self, build_options):
+            def resolve(self, build_options: dict[str, Any]) -> MemoryFlushPlan:
                 return MemoryFlushPlan(should_flush=False)
 
         cap = MemoryPluginCapability(

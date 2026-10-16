@@ -1,4 +1,3 @@
-import pytest
 import json
 
 from jarvis_channels.types import NormalizedLocation

@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import pytest
 
 from src.channels import (
-    ChannelTarget,
     SessionEnvelope,
     ThreadContext,
-    TypingIndicator,
     resolve_channel_model,
     resolve_send_target,
     resolve_thread_id,

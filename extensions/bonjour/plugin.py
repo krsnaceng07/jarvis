@@ -12,9 +12,9 @@ as the TS source's ``import("./src/advertiser.js")`` dynamic
 import. This keeps cold-start fast for hosts that don't
 enable Bonjour (containers, headless servers, etc.).
 """
+
 from __future__ import annotations
 
-import asyncio
 import logging
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable
@@ -69,9 +69,7 @@ class BonjourDiscoveryPlugin(Plugin):
 
             # Translate the TS context into our opts dataclass.
             opts = GatewayBonjourAdvertiseOpts(
-                instance_name=format_bonjour_instance_name(
-                    ctx.get("machineDisplayName", "")
-                ),
+                instance_name=format_bonjour_instance_name(ctx.get("machineDisplayName", "")),
                 gateway_port=ctx.get("gatewayPort", 0),
                 ssh_port=ctx.get("sshPort"),
                 gateway_tls_enabled=bool(ctx.get("gatewayTlsEnabled", False)),
@@ -95,7 +93,11 @@ class BonjourDiscoveryPlugin(Plugin):
                 # Best-effort: forward to the SDK's runtime facade
                 # when wired; otherwise return a no-op unregister.
                 runtime = getattr(api, "runtime", None)
-                register = getattr(runtime, "register_uncaught_exception_handler", None) if runtime else None
+                register = (
+                    getattr(runtime, "register_uncaught_exception_handler", None)
+                    if runtime
+                    else None
+                )
                 if callable(register):
                     try:
                         result = register(handler)
@@ -107,7 +109,11 @@ class BonjourDiscoveryPlugin(Plugin):
 
             def _register_rejection(handler: Callable[[Any], bool]) -> Callable[[], None]:
                 runtime = getattr(api, "runtime", None)
-                register = getattr(runtime, "register_unhandled_rejection_handler", None) if runtime else None
+                register = (
+                    getattr(runtime, "register_unhandled_rejection_handler", None)
+                    if runtime
+                    else None
+                )
                 if callable(register):
                     try:
                         result = register(handler)

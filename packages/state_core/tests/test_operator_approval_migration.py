@@ -11,6 +11,7 @@ Covers:
 - build_approval_resolution_ref + ensure_operator_approval_resolution_refs
   are reachable through the public surface
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -35,9 +36,7 @@ def _build_legacy_two_kind_sql() -> str:
     with the kind-CHECK replaced by the legacy 2-kind shape.
     The probe only matches this exact shape (fail-closed).
     """
-    columns_sql = ",\n  ".join(
-        f"{col} TEXT" for col in OPERATOR_APPROVAL_COLUMNS if col != "kind"
-    )
+    columns_sql = ",\n  ".join(f"{col} TEXT" for col in OPERATOR_APPROVAL_COLUMNS if col != "kind")
     return (
         "CREATE TABLE operator_approvals (\n  "
         f"{columns_sql},\n  "
@@ -48,9 +47,7 @@ def _build_legacy_two_kind_sql() -> str:
 
 def _build_canonical_sql() -> str:
     """Return the full 27-column canonical operator_approvals DDL."""
-    columns_sql = ",\n  ".join(
-        f"{col} TEXT" for col in OPERATOR_APPROVAL_COLUMNS if col != "kind"
-    )
+    columns_sql = ",\n  ".join(f"{col} TEXT" for col in OPERATOR_APPROVAL_COLUMNS if col != "kind")
     return (
         "CREATE TABLE operator_approvals (\n  "
         f"{columns_sql},\n  "
@@ -225,9 +222,7 @@ def test_repair_rebuilds_legacy_table_and_accepts_system_agent():
         # ``resolution_ref`` (43 chars, base64url); rows
         # without one are dropped (the additive backfill
         # re-adds them after the rebuild).
-        valid_ref = build_approval_resolution_ref(
-            approval_id="a1", approval_kind="exec"
-        )
+        valid_ref = build_approval_resolution_ref(approval_id="a1", approval_kind="exec")
         conn.execute(
             "INSERT INTO operator_approvals (approval_id, kind, resolution_ref) "
             "VALUES ('a1', 'exec', ?)",
@@ -240,13 +235,10 @@ def test_repair_rebuilds_legacy_table_and_accepts_system_agent():
         # After repair: system-agent should be accepted.
         assert has_canonical_operator_approval_kinds(conn) is True
         conn.execute(
-            "INSERT INTO operator_approvals (approval_id, kind) "
-            "VALUES ('a2', 'system-agent')"
+            "INSERT INTO operator_approvals (approval_id, kind) VALUES ('a2', 'system-agent')"
         )
         conn.commit()
-        rows = conn.execute(
-            "SELECT kind FROM operator_approvals ORDER BY approval_id"
-        ).fetchall()
+        rows = conn.execute("SELECT kind FROM operator_approvals ORDER BY approval_id").fetchall()
         assert [r["kind"] for r in rows] == ["exec", "system-agent"]
     finally:
         conn.close()

@@ -1,0 +1,15 @@
+{
+  "id": "voyage",
+  "name": "Voyage",
+  "description": "OpenClaw Voyage infra extension port (Phase 5.15 stub).",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {}
+  },
+  "kind": "provider"
+}

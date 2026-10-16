@@ -733,7 +733,7 @@ def _normalize_okf_rendered_page_for_comparison(content: str) -> str:
     volatile = re.sub(r"^(?:importedAt|updatedAt): .*\n", "", frontmatter_body, flags=re.MULTILINE)
     if not volatile.endswith("\n"):
         volatile = volatile + "\n"
-    return (f"---\n{volatile}---\n{without_related[frontmatter_match.end():]}").rstrip()
+    return (f"---\n{volatile}---\n{without_related[frontmatter_match.end() :]}").rstrip()
 
 
 def _remove_stale_okf_concept_pages(

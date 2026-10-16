@@ -6,6 +6,7 @@ in-memory keyed store is the same one used in
 ``tests/test_query_phase4.py`` (a dict-backed stand-in for the SDK's
 real SQLite-backed store).
 """
+
 from __future__ import annotations
 
 from typing import Any
@@ -49,12 +50,8 @@ def _wire_store() -> InMemoryKeyedStore:
 def test_seven_namespaces_match_opencrypt() -> None:
     """All 7 namespace constants match OpenClaw's source exactly."""
     assert ds.DREAMING_DAILY_INGESTION_NAMESPACE == "dreaming-daily-ingestion"
-    assert ds.DREAMING_SESSION_INGESTION_FILES_NAMESPACE == (
-        "dreaming-session-ingestion-files"
-    )
-    assert ds.DREAMING_SESSION_INGESTION_SEEN_NAMESPACE == (
-        "dreaming-session-ingestion-seen"
-    )
+    assert ds.DREAMING_SESSION_INGESTION_FILES_NAMESPACE == ("dreaming-session-ingestion-files")
+    assert ds.DREAMING_SESSION_INGESTION_SEEN_NAMESPACE == ("dreaming-session-ingestion-seen")
     assert ds.SHORT_TERM_RECALL_NAMESPACE == "short-term-recall"
     assert ds.SHORT_TERM_PHASE_SIGNAL_NAMESPACE == "short-term-phase-signals"
     assert ds.SHORT_TERM_META_NAMESPACE == "short-term-meta"
@@ -107,9 +104,7 @@ def test_workspace_entry_key_format() -> None:
 
 
 def test_state_reference_format() -> None:
-    ref = ds.memory_core_state_reference(
-        ds.SHORT_TERM_RECALL_NAMESPACE, "/workspace/a"
-    )
+    ref = ds.memory_core_state_reference(ds.SHORT_TERM_RECALL_NAMESPACE, "/workspace/a")
     expected_workspace = ds.memory_core_workspace_state_key("/workspace/a")
     assert ref == f"plugin-state:memory-core/{ds.SHORT_TERM_RECALL_NAMESPACE}/{expected_workspace}"
 
@@ -137,9 +132,7 @@ def test_write_then_read_entries() -> None:
             ("k2", {"v": 2}),
         ],
     )
-    entries = ds.read_memory_core_workspace_entries(
-        ds.SHORT_TERM_RECALL_NAMESPACE, "/workspace/a"
-    )
+    entries = ds.read_memory_core_workspace_entries(ds.SHORT_TERM_RECALL_NAMESPACE, "/workspace/a")
     assert sorted(k for k, _ in entries) == ["k1", "k2"]
     assert dict(entries) == {"k1": {"v": 1}, "k2": {"v": 2}}
 
@@ -158,9 +151,7 @@ def test_write_entries_prunes_stale() -> None:
         "/workspace/a",
         [("k1", {"v": 10}), ("k3", {"v": 30})],
     )
-    entries = ds.read_memory_core_workspace_entries(
-        ds.SHORT_TERM_RECALL_NAMESPACE, "/workspace/a"
-    )
+    entries = ds.read_memory_core_workspace_entries(ds.SHORT_TERM_RECALL_NAMESPACE, "/workspace/a")
     assert sorted(k for k, _ in entries) == ["k1", "k3"]
     assert dict(entries) == {"k1": {"v": 10}, "k3": {"v": 30}}
 
@@ -174,9 +165,7 @@ def test_write_single_entry_does_not_prune() -> None:
     ds.write_memory_core_workspace_entry(
         ds.SHORT_TERM_RECALL_NAMESPACE, "/workspace/a", "k2", {"v": 2}
     )
-    entries = ds.read_memory_core_workspace_entries(
-        ds.SHORT_TERM_RECALL_NAMESPACE, "/workspace/a"
-    )
+    entries = ds.read_memory_core_workspace_entries(ds.SHORT_TERM_RECALL_NAMESPACE, "/workspace/a")
     assert sorted(k for k, _ in entries) == ["k1", "k2"]
 
 
@@ -187,12 +176,8 @@ def test_clear_workspace_namespace() -> None:
         "/workspace/a",
         [("k1", {"v": 1}), ("k2", {"v": 2})],
     )
-    ds.clear_memory_core_workspace_namespace(
-        ds.SHORT_TERM_RECALL_NAMESPACE, "/workspace/a"
-    )
-    entries = ds.read_memory_core_workspace_entries(
-        ds.SHORT_TERM_RECALL_NAMESPACE, "/workspace/a"
-    )
+    ds.clear_memory_core_workspace_namespace(ds.SHORT_TERM_RECALL_NAMESPACE, "/workspace/a")
+    entries = ds.read_memory_core_workspace_entries(ds.SHORT_TERM_RECALL_NAMESPACE, "/workspace/a")
     assert entries == []
 
 
@@ -205,12 +190,8 @@ def test_workspaces_isolated_by_state_key() -> None:
     ds.write_memory_core_workspace_entries(
         ds.SHORT_TERM_RECALL_NAMESPACE, "/workspace/b", [("shared", {"v": "B"})]
     )
-    a = ds.read_memory_core_workspace_entries(
-        ds.SHORT_TERM_RECALL_NAMESPACE, "/workspace/a"
-    )
-    b = ds.read_memory_core_workspace_entries(
-        ds.SHORT_TERM_RECALL_NAMESPACE, "/workspace/b"
-    )
+    a = ds.read_memory_core_workspace_entries(ds.SHORT_TERM_RECALL_NAMESPACE, "/workspace/a")
+    b = ds.read_memory_core_workspace_entries(ds.SHORT_TERM_RECALL_NAMESPACE, "/workspace/b")
     assert dict(a) == {"shared": {"v": "A"}}
     assert dict(b) == {"shared": {"v": "B"}}
 
@@ -223,15 +204,9 @@ def test_clear_only_affects_target_workspace() -> None:
     ds.write_memory_core_workspace_entries(
         ds.SHORT_TERM_RECALL_NAMESPACE, "/workspace/b", [("k", {"v": "B"})]
     )
-    ds.clear_memory_core_workspace_namespace(
-        ds.SHORT_TERM_RECALL_NAMESPACE, "/workspace/a"
-    )
-    a = ds.read_memory_core_workspace_entries(
-        ds.SHORT_TERM_RECALL_NAMESPACE, "/workspace/a"
-    )
-    b = ds.read_memory_core_workspace_entries(
-        ds.SHORT_TERM_RECALL_NAMESPACE, "/workspace/b"
-    )
+    ds.clear_memory_core_workspace_namespace(ds.SHORT_TERM_RECALL_NAMESPACE, "/workspace/a")
+    a = ds.read_memory_core_workspace_entries(ds.SHORT_TERM_RECALL_NAMESPACE, "/workspace/a")
+    b = ds.read_memory_core_workspace_entries(ds.SHORT_TERM_RECALL_NAMESPACE, "/workspace/b")
     assert a == []
     assert dict(b) == {"k": {"v": "B"}}
 
@@ -245,7 +220,6 @@ def test_envelope_carries_workspace_key_for_defensive_filter() -> None:
     # in its envelope — it should be filtered out by the defensive check.
     store = InMemoryKeyedStore()
     ds._configured_open_keyed_store = lambda opts: store  # noqa: SLF001
-    ws_key_a = ds.memory_core_workspace_state_key("/workspace/a")
     ws_key_b = ds.memory_core_workspace_state_key("/workspace/b")
     state_key = ds.memory_core_workspace_entry_key("/workspace/a", "k")
     store.register(
@@ -258,9 +232,7 @@ def test_envelope_carries_workspace_key_for_defensive_filter() -> None:
             "value": {"should": "be_filtered"},
         },
     )
-    entries = ds.read_memory_core_workspace_entries(
-        ds.SHORT_TERM_RECALL_NAMESPACE, "/workspace/a"
-    )
+    entries = ds.read_memory_core_workspace_entries(ds.SHORT_TERM_RECALL_NAMESPACE, "/workspace/a")
     assert entries == []  # defensively filtered
     # The store still has the entry (no auto-cleanup in read).
     assert len(store.entries()) == 1

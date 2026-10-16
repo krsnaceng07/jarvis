@@ -3,7 +3,7 @@
   "activation": "on_startup",
   "kind": "memory",
   "contracts": {
-    "tools": ["memory_search", "memory_get"],
+    "tools": ["memory_search", "memory_get", "intent"],
     "memory_capability": true
   },
   "toolMetadata": {
@@ -32,6 +32,21 @@
         { "name": "from", "type": "integer", "required": false, "description": "1-based start line (default 1)." },
         { "name": "lines", "type": "integer", "required": false, "description": "Number of lines to read (default 20)." },
         { "name": "corpus", "type": "string", "required": false, "description": "One of 'memory' | 'wiki' | 'all'." }
+      ]
+    },
+    {
+      "name": "intent",
+      "description": "Creates, lists, or explicitly cancels event-conditioned standing intents. Time-based reminders continue to use scheduled tasks.",
+      "parameters": [
+        { "name": "action", "type": "string", "required": true, "description": "One of 'create', 'list', or 'cancel'." },
+        { "name": "description", "type": "string", "required": false, "description": "The event description (required for 'create')." },
+        { "name": "triggerKeywords", "type": "string", "required": false, "description": "Comma-separated trigger keywords (required for 'create')." },
+        { "name": "channelId", "type": "string", "required": false, "description": "Scope the intent to a specific channel (optional)." },
+        { "name": "senderId", "type": "string", "required": false, "description": "Scope the intent to a specific sender (optional)." },
+        { "name": "expiryDays", "type": "integer", "required": false, "description": "Days until intent expires. Default 90." },
+        { "name": "cooldownHours", "type": "integer", "required": false, "description": "Hours before intent arms again after firing. Default 24." },
+        { "name": "maxFires", "type": "integer", "required": false, "description": "Max number of times this intent can fire. Default 3." },
+        { "name": "intentId", "type": "string", "required": false, "description": "The ID of the intent (required for 'cancel')." }
       ]
     }
   ]

@@ -44,7 +44,6 @@ from src.agents.sessions import (  # noqa: E402
     CONFIG_DIR_NAME,
     FileSettingsStorage,
     InMemorySettingsStorage,
-    Settings,
     SettingsManager,
 )
 

@@ -1,0 +1,85 @@
+{
+  "id": "mistral",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "mistral"
+  ],
+  "providerEndpoints": [
+    {
+      "endpointClass": "mistral-native",
+      "hosts": [
+        "api.mistral.ai"
+      ]
+    }
+  ],
+  "providerRequest": {
+    "providers": {
+      "mistral": {
+        "family": "mistral"
+      }
+    }
+  },
+  "setup": {
+    "providers": [
+      {
+        "id": "mistral",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "MISTRAL_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "mistral": {
+        "baseUrl": "https://api.mistral.ai/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "mistral-large-latest",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "mistral-small-latest",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "codestral-latest",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "pixtral-large-latest",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

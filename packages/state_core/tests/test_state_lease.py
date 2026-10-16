@@ -12,6 +12,7 @@ Covers:
 - release is best-effort on lock contention
 - agent-scope lease uses the agent DB
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -244,8 +245,7 @@ def test_assert_owned_in_transaction(tmp_path):
                 # itself rejects (no rollback) so the outer
                 # ``with_state_lease`` re-raises LOST.
                 with_state_db.execute(
-                    "UPDATE state_leases SET owner = 'successor' "
-                    "WHERE scope = ? AND lease_key = ?",
+                    "UPDATE state_leases SET owner = 'successor' WHERE scope = ? AND lease_key = ?",
                     ("core:test", "k5"),
                 )
                 try:

@@ -6,6 +6,7 @@ The Python port ships a focused ``Plugin`` stub so the
 extension is loadable + discoverable; the full surface
 lands in Phase 5.16+.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

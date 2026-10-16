@@ -7,11 +7,8 @@ policy helpers in ``src/shared/silent_reply_policy.py``.
 """
 from __future__ import annotations
 
-from typing import Optional
 
 from src.shared.silent_reply_policy import (
-    DEFAULT_SILENT_REPLY_POLICY,
-    SilentReplyConversationType,
     SilentReplyPolicy,
     classify_silent_reply_conversation_type,
     resolve_silent_reply_policy_from_policies,

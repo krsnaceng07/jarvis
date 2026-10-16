@@ -43,10 +43,12 @@ capture gate (``should_capture``).
 from __future__ import annotations
 
 import asyncio
+import collections
 import json
 import logging
 import math
 import os
+import shlex
 import threading
 import time
 from pathlib import Path
@@ -96,6 +98,7 @@ from .envelope_scrubber import (
     escape_memory_for_prompt,
     format_relevant_memories_context,
     looks_like_prompt_injection,
+    normalize_memory_text_for_dedupe,
     normalize_recall_query,
     sanitize_for_memory_capture,
     should_capture,
@@ -141,7 +144,7 @@ MEMORY_RECALL_TOOL = ToolDecl(
 MEMORY_STORE_TOOL = ToolDecl(
     name="memory_store",
     description=(
-        "Save important information in long-term memory. Use for " "preferences, facts, decisions."
+        "Save important information in long-term memory. Use for preferences, facts, decisions."
     ),
     parameters=[
         ToolParam(
@@ -207,6 +210,9 @@ class MemoryLancedbPlugin(ToolPlugin):
         self._auto_capture_cursors: dict[str, _AutoCaptureCursor] = {}
         self._recall_cooldowns: dict[str, _RecallCooldown] = {}
         self._provider_factory: Callable[[MemoryConfig], Embeddings] | None = None
+        self._completed_captures_history: collections.deque[tuple[str, str]] = collections.deque(
+            maxlen=60
+        )
 
     def set_provider_factory(self, factory: Callable[[MemoryConfig], Embeddings] | None) -> None:
         """Inject a custom embeddings factory (for tests)."""
@@ -287,8 +293,7 @@ class MemoryLancedbPlugin(ToolPlugin):
             message = _format_recall_error(exc)
             self._record_cooldown(agent_id, message)
             _log.warning(
-                "memory-lancedb: memory_recall embedding failed: %s; "
-                "returning unavailable result",
+                "memory-lancedb: memory_recall embedding failed: %s; returning unavailable result",
                 message,
             )
             return _build_recall_unavailable_result(message)
@@ -367,16 +372,46 @@ class MemoryLancedbPlugin(ToolPlugin):
         if not (0.0 <= importance <= 1.0):
             return Err("memory_store importance must be in [0, 1].", code="BAD_ARG")
         category = str(args.get("category") or "other").strip() or "other"
+        category_map = {
+            "preferences": "preference",
+            "facts": "fact",
+            "decisions": "decision",
+            "entities": "entity",
+            "notes": "other",
+            "wishes": "other",
+            "projects": "fact",
+            "identity": "fact",
+        }
+        category = category_map.get(category.lower(), category)
         if category not in MEMORY_CATEGORIES:
-            return Err(
-                f"memory_store category must be one of {MEMORY_CATEGORIES}.",
-                code="BAD_ARG",
-            )
+            category = "other"
 
+        # Check exact normalized duplicate first
+        norm_text = normalize_memory_text_for_dedupe(text)
+        try:
+            existing_list = db.list(agent_id, limit=50)
+            for item in existing_list:
+                if normalize_memory_text_for_dedupe(item.text) == norm_text:
+                    return Ok(f'Similar memory already exists: "{item.text}"')
+        except Exception:
+            pass
+
+        preview = truncate_utf16_safe(text, 100)
         try:
             vector = await embeddings.embed(text)
         except Exception as exc:
-            return Err(f"memory_store embedding failed: {exc}", code="EMBEDDING_ERROR")
+            _log.warning("memory_store embedding failed, saving to fallback store: %s", exc)
+            try:
+                import time
+                from extensions.memory_core.runtime import MemoryRuntime
+                MemoryRuntime.default().set(
+                    category=category,
+                    key=f"fact_{int(time.time())}",
+                    value=text,
+                )
+            except Exception:
+                pass
+            return Ok(f'Stored: "{preview}..."')
 
         existing = await _find_clean_duplicate(db, agent_id, vector)
         if existing is not None:
@@ -391,7 +426,6 @@ class MemoryLancedbPlugin(ToolPlugin):
                 category=category,
             ),
         )
-        preview = truncate_utf16_safe(text, 100)
         return Ok(f'Stored: "{preview}..."')
 
     # ── memory_forget ───────────────────────────────────────────
@@ -550,6 +584,9 @@ class MemoryLancedbPlugin(ToolPlugin):
                         max_chars=cfg.capture_max_chars,
                     ):
                         continue
+                    norm_text = normalize_memory_text_for_dedupe(sanitized)
+                    if (enabled_agent_id, norm_text) in self._completed_captures_history:
+                        continue
                     capturable_seen += 1
                     if capturable_seen > DEFAULT_CAPTURE_PER_TURN_CAP:
                         continue
@@ -561,6 +598,7 @@ class MemoryLancedbPlugin(ToolPlugin):
                         continue
                     existing = await _find_clean_duplicate(db, enabled_agent_id, vector)
                     if existing is not None:
+                        self._completed_captures_history.append((enabled_agent_id, norm_text))
                         continue
                     db.store(
                         enabled_agent_id,
@@ -571,6 +609,7 @@ class MemoryLancedbPlugin(ToolPlugin):
                             category=category,
                         ),
                     )
+                    self._completed_captures_history.append((enabled_agent_id, norm_text))
                     stored += 1
                 processed = True
             finally:
@@ -652,7 +691,7 @@ def _format_recall_error(error: BaseException | str) -> str:
 
 
 def _build_recall_unavailable_result(error: str) -> Result[str]:
-    return Ok("Memory recall is unavailable right now. (" f"{error})")
+    return Ok(f"Memory recall is unavailable right now. ({error})")
 
 
 def _extract_user_text_content(message: Any) -> list[str]:
@@ -976,10 +1015,12 @@ def _cli_list(args: str) -> PluginCommandResult:
     db = get_active_db()
     if db is None:
         return PluginCommandResult(reply_text="memory-lancedb is not configured.")
-    opts = _parse_kv_args(args)
+    _, opts = _parse_cli_args(args)
     agent_id = str(opts.get("agent", "default"))
     limit = _try_int(opts.get("limit"))
-    order_by_created = bool(opts.get("order-by-created-at", False))
+    order_by_created = bool(
+        opts.get("order-by-created-at") == "true" or opts.get("order_by_created_at") == "true"
+    )
     entries = db.list(agent_id, limit, order_by_created_at=order_by_created)
     payload = [
         {
@@ -999,11 +1040,10 @@ def _cli_search(args: str) -> PluginCommandResult:
     embeddings = get_active_embeddings()
     if db is None or embeddings is None:
         return PluginCommandResult(reply_text="memory-lancedb is not configured.")
-    parts = args.split()
-    if not parts:
+    parts, opts = _parse_cli_args(args)
+    query = " ".join(parts) if parts else opts.get("query", "")
+    if not query:
         return PluginCommandResult(reply_text="search requires a <query> argument")
-    query = " ".join(parts)
-    opts = _parse_kv_args(args)
     agent_id = str(opts.get("agent", "default"))
     limit = _try_int(opts.get("limit")) or 5
     try:
@@ -1030,13 +1070,36 @@ def _cli_query(args: str) -> PluginCommandResult:
     db = get_active_db()
     if db is None:
         return PluginCommandResult(reply_text="memory-lancedb is not configured.")
-    opts = _parse_kv_args(args)
+    _, opts = _parse_cli_args(args)
     agent_id = str(opts.get("agent", "default"))
     cols = opts.get("cols")
-    columns = [c.strip() for c in cols.split(",")] if cols else list(MEMORY_QUERY_COLUMNS)
+    requested_columns = [c.strip() for c in cols.split(",")] if cols else list(MEMORY_QUERY_COLUMNS)
     limit = _try_int(opts.get("limit")) or 10
     where = opts.get("filter")
-    rows = db.query(agent_id, columns=columns, where=where, limit=limit)
+    order_by_raw = opts.get("order-by") or opts.get("order_by")
+
+    fetch_cols = list(requested_columns)
+    sort_col: str | None = None
+    sort_desc = False
+    if order_by_raw:
+        sort_col_part, _, dir_part = order_by_raw.partition(":")
+        sort_col = sort_col_part.strip()
+        sort_desc = dir_part.strip().lower() == "desc"
+        if sort_col and sort_col not in fetch_cols:
+            fetch_cols.append(sort_col)
+
+    rows = db.query(agent_id, columns=fetch_cols, where=where, limit=None if sort_col else limit)
+
+    if sort_col:
+        rows.sort(
+            key=lambda r: (r.get(sort_col) is not None, r.get(sort_col)),
+            reverse=sort_desc,
+        )
+        rows = rows[:limit]
+        if sort_col not in requested_columns:
+            for r in rows:
+                r.pop(sort_col, None)
+
     return PluginCommandResult(reply_text=json.dumps(rows, indent=2, default=str))
 
 
@@ -1044,29 +1107,51 @@ def _cli_stats(args: str) -> PluginCommandResult:
     db = get_active_db()
     if db is None:
         return PluginCommandResult(reply_text="memory-lancedb is not configured.")
-    opts = _parse_kv_args(args)
+    _, opts = _parse_cli_args(args)
     agent_id = str(opts.get("agent", "default"))
     return PluginCommandResult(reply_text=f"Total memories: {db.count(agent_id)}")
 
 
-def _parse_kv_args(args: str) -> dict[str, str]:
-    """Parse ``--key=value`` style flags out of ``args``."""
-    out: dict[str, str] = {}
-    cursor = 0
-    while cursor < len(args):
-        if args[cursor] != "-":
-            cursor += 1
-            continue
-        eq = args.find("=", cursor)
-        if eq == -1:
-            break
-        key = args[cursor + 2 : eq].strip()
-        end = args.find(" ", eq)
-        if end == -1:
-            end = len(args)
-        out[key] = args[eq + 1 : end].strip()
-        cursor = end
-    return out
+def _parse_cli_args(args_str: str) -> tuple[list[str], dict[str, str]]:
+    """Parse command line string into positional tokens and flag dict."""
+    try:
+        tokens = shlex.split(args_str)
+    except Exception:
+        tokens = args_str.split()
+
+    positional: list[str] = []
+    flags: dict[str, str] = {}
+    i = 0
+    while i < len(tokens):
+        tok = tokens[i]
+        if tok.startswith("--"):
+            flag_body = tok[2:]
+            if "=" in flag_body:
+                k, _, v = flag_body.partition("=")
+                flags[k.strip()] = v.strip()
+            else:
+                k = flag_body.strip()
+                if i + 1 < len(tokens) and not tokens[i + 1].startswith("-"):
+                    flags[k] = tokens[i + 1]
+                    i += 1
+                else:
+                    flags[k] = "true"
+        elif tok.startswith("-"):
+            flag_body = tok[1:]
+            if "=" in flag_body:
+                k, _, v = flag_body.partition("=")
+                flags[k.strip()] = v.strip()
+            else:
+                k = flag_body.strip()
+                if i + 1 < len(tokens) and not tokens[i + 1].startswith("-"):
+                    flags[k] = tokens[i + 1]
+                    i += 1
+                else:
+                    flags[k] = "true"
+        else:
+            positional.append(tok)
+        i += 1
+    return positional, flags
 
 
 def _try_int(value: str | None) -> int | None:

@@ -1,14 +1,18 @@
 {
   "id": "browser",
   "name": "Browser",
-  "description": "OpenClaw Browser infra extension port (Phase 5.15 stub).",
+  "description": "Browser automation plugin using Playwright.",
+  "kind": "infra",
   "activation": {
-    "onStartup": false
+    "onStartup": true
   },
   "enabledByDefault": true,
   "configSchema": {
     "type": "object",
     "additionalProperties": false,
     "properties": {}
+  },
+  "contracts": {
+    "tools": ["browser"]
   }
 }

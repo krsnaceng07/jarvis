@@ -1,8 +1,5 @@
-"""Diffs Language Pack infra plugin definition.
+"""Diffs Language Pack extension plugin."""
 
-OpenClaw parity: mirrors the OpenClaw ``diffs-language-pack`` infra
-extension (8 files in the OpenClaw source).
-"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -13,17 +10,23 @@ from jarvis_sdk import Plugin
 
 @dataclass(frozen=True, slots=True)
 class DiffsLanguagePackPlugin(Plugin):
-    """Diffs Language Pack infra descriptor."""
+    """Diffs Language Pack companion plugin."""
 
     id: str = "diffs-language-pack"
     kind: str = "infra"
     version: str = "0.1.0"
-    description: str = "Syntax-highlight language pack for diffs."
+    description: str = "Additional syntax highlighting languages for the diff viewer."
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def init(self, ctx: Any) -> None:
-        """Infra init hook. Stub in Phase 5.15."""
-        return None
+        """Register routes or language definitions."""
+        if hasattr(ctx, "register_http_route"):
+            ctx.register_http_route(
+                path="/plugins/diffs-language-pack",
+                auth="plugin",
+                match="prefix",
+                handler=lambda req, res: True,
+            )
 
 
 diffs_language_pack_plugin = DiffsLanguagePackPlugin()

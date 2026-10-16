@@ -304,12 +304,8 @@ def _terminate_with_failure(
     diagnostic_type: str,
 ) -> None:
     """Push the single ``error`` terminal event and close the stream."""
-    failure = create_failure_message(
-        model, error, aborted=aborted, diagnostic_type=diagnostic_type
-    )
-    stream.push(
-        StreamEventError(reason="aborted" if aborted else "error", error=failure)
-    )
+    failure = create_failure_message(model, error, aborted=aborted, diagnostic_type=diagnostic_type)
+    stream.push(StreamEventError(reason="aborted" if aborted else "error", error=failure))
     stream.end()
 
 

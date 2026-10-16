@@ -1,0 +1,33 @@
+{
+  "id": "nextcloud-talk",
+  "doctorContract": {
+    "configRepair": true
+  },
+  "name": "Nextcloud Talk",
+  "description": "OpenClaw Nextcloud Talk channel plugin for conversation rooms.",
+  "activation": {
+    "onStartup": false
+  },
+  "channels": [
+    "nextcloud-talk"
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "serverUrl": {
+        "type": "string"
+      },
+      "username": {
+        "type": "string"
+      },
+      "password": {
+        "type": "string"
+      },
+      "webhookSecret": {
+        "type": "string"
+      }
+    }
+  },
+  "kind": "channel"
+}

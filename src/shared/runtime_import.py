@@ -4,7 +4,8 @@ OpenClaw parity: mirrors ``openclaw-main/src/shared/runtime-import.ts``.
 """
 from __future__ import annotations
 
-from typing import Awaitable, Callable, Sequence, TypeVar
+import inspect
+from typing import Any, Awaitable, Callable, Optional, Sequence, TypeVar
 
 from .import_specifier import to_safe_import_path
 
@@ -26,7 +27,7 @@ def _resolve_runtime_import_specifier(base_url: str, parts: Sequence[str]) -> st
 async def import_runtime_module(
     base_url: str,
     parts: Sequence[str],
-    import_module: Optional[Callable[[str], Awaitable[Any]]] = None,
+    import_module: Optional[Callable[[str], Any]] = None,
 ) -> Any:
     """Import a runtime module through the normalized specifier.
 
@@ -41,8 +42,11 @@ async def import_runtime_module(
             from urllib.request import url2pathname
             path = url2pathname(urlparse(specifier).path.lstrip("/"))
             return await _import_path(path)
-        return await importlib.import_module(specifier)
-    return await import_module(specifier)
+        return importlib.import_module(specifier)
+    res = import_module(specifier)
+    if inspect.isawaitable(res):
+        return await res
+    return res
 
 
 async def _import_path(path: str) -> Any:

@@ -24,9 +24,10 @@ MessageKind = Literal["text", "image", "audio", "video", "file", "action", "loca
 @dataclass(frozen=True, slots=True)
 class NormalizedLocation:
     """A normalized geographical location.
-    
+
     Mirrors OpenClaw's NormalizedLocation structure for portable location payload.
     """
+
     latitude: float
     longitude: float
     accuracy_m: Optional[int] = None

@@ -1,10 +1,8 @@
 """Phase 7.6h-6 tests — extra-params.py (the largest top-level file)."""
 from __future__ import annotations
 
-import copy
 import os
 import sys
-from typing import Any, Dict, List, Optional
 
 import pytest
 

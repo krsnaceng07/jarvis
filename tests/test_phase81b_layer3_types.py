@@ -4,7 +4,6 @@ from __future__ import annotations
 import os
 import sys
 
-import pytest
 
 _ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 _SRC = os.path.join(_ROOT, "src")
@@ -37,8 +36,6 @@ from src.types.qrcode import (  # noqa: E402
     QrErrorCorrectionLevel,
     QrToBufferResult,
     QrToCanvasOptions,
-    QrToDataUrlOptions,
-    QrToStringOptions,
 )
 
 

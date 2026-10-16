@@ -11,14 +11,12 @@ from src.agents.embedded_agent_runner.compaction_runtime_context import (
     resolve_embedded_compaction_target,
     resolve_embedded_compaction_thinking_level,
     set_active_process_sessions,
-    set_default_provider,
     set_inferred_provider,
     set_model_alias_index,
 )
 from src.agents.embedded_agent_runner.compaction_successor_transcript import (
     CURRENT_SESSION_VERSION,
     rotate_transcript_after_compaction,
-    set_read_transcript_file_state,
     set_write_transcript_atomic,
     should_rotate_compaction_transcript,
 )

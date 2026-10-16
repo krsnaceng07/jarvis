@@ -64,9 +64,7 @@ def _block_get(block: Any, name: str) -> Any:
     return getattr(block, name, None)
 
 
-def extract_file_ops_from_message(
-    message: "AgentMessage", file_ops: FileOperations
-) -> None:
+def extract_file_ops_from_message(message: "AgentMessage", file_ops: FileOperations) -> None:
     """Add file operations from assistant tool calls to an accumulator.
 
     Parity: ``extractFileOpsFromMessage``.
@@ -112,9 +110,7 @@ def format_file_operations(read_files: list[str], modified_files: list[str]) -> 
     if read_files:
         sections.append("<read-files>\n" + "\n".join(read_files) + "\n</read-files>")
     if modified_files:
-        sections.append(
-            "<modified-files>\n" + "\n".join(modified_files) + "\n</modified-files>"
-        )
+        sections.append("<modified-files>\n" + "\n".join(modified_files) + "\n</modified-files>")
     if not sections:
         return ""
     return "\n\n" + "\n\n".join(sections)
@@ -199,9 +195,7 @@ def serialize_conversation(messages: "list[Message]") -> str:
                     thinking_parts.append(_block_get(block, "thinking") or "")
                 elif block_type == "toolCall":
                     args = _block_get(block, "arguments") or {}
-                    args_str = ", ".join(
-                        f"{k}={safe_json_stringify(v)}" for k, v in args.items()
-                    )
+                    args_str = ", ".join(f"{k}={safe_json_stringify(v)}" for k, v in args.items())
                     tool_calls.append(f"{_block_get(block, 'name')}({args_str})")
 
             if thinking_parts:
@@ -211,13 +205,10 @@ def serialize_conversation(messages: "list[Message]") -> str:
             if tool_calls:
                 parts.append("[Assistant tool calls]: " + "; ".join(tool_calls))
         elif role == "toolResult":
-            content = "".join(
-                get_compaction_content_block_text(block) for block in msg.content
-            )
+            content = "".join(get_compaction_content_block_text(block) for block in msg.content)
             if content:
                 parts.append(
-                    "[Tool result]: "
-                    + _truncate_for_summary(content, TOOL_RESULT_MAX_CHARS)
+                    "[Tool result]: " + _truncate_for_summary(content, TOOL_RESULT_MAX_CHARS)
                 )
 
     return "\n\n".join(parts)

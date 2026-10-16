@@ -1,0 +1,48 @@
+{
+  "id": "honcho",
+  "activation": "on_startup",
+  "kind": "memory",
+  "contracts": {
+    "tools": ["honcho_context", "honcho_search_conclusions", "honcho_search_messages", "honcho_session", "honcho_ask"]
+  },
+  "commandAliases": [
+    { "name": "honcho", "kind": "runtime-slash", "cliCommand": "honcho" }
+  ],
+  "permissions": ["net:honcho"],
+  "tools": [
+    {
+      "name": "honcho_context",
+      "description": "Full user representation across sessions.",
+      "parameters": []
+    },
+    {
+      "name": "honcho_search_conclusions",
+      "description": "Semantic search over stored conclusions.",
+      "parameters": [
+        { "name": "query", "type": "string", "required": true, "description": "Search query." }
+      ]
+    },
+    {
+      "name": "honcho_search_messages",
+      "description": "Find messages across sessions (filter by sender, date).",
+      "parameters": [
+        { "name": "query", "type": "string", "required": true, "description": "Search query." },
+        { "name": "sender", "type": "string", "required": false, "description": "Filter by sender." },
+        { "name": "date", "type": "string", "required": false, "description": "Filter by date." }
+      ]
+    },
+    {
+      "name": "honcho_session",
+      "description": "Current session history and summary.",
+      "parameters": []
+    },
+    {
+      "name": "honcho_ask",
+      "description": "Ask about the user. depth='quick' for facts, 'thorough' for synthesis.",
+      "parameters": [
+        { "name": "question", "type": "string", "required": true, "description": "The question to ask." },
+        { "name": "depth", "type": "string", "required": false, "description": "quick or thorough" }
+      ]
+    }
+  ]
+}

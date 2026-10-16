@@ -25,6 +25,7 @@ Key port decisions:
   the OpenClaw source (the list is the entire security
   perimeter; even small tweaks matter for parity).
 """
+
 from __future__ import annotations
 
 import re
@@ -156,7 +157,7 @@ def _redact_match(match: Match[str]) -> str:
     token_offset = full.rfind(token)
     if token_offset < 0:
         return "***"
-    return f"{full[:token_offset]}{masked}{full[token_offset + len(token):]}"
+    return f"{full[:token_offset]}{masked}{full[token_offset + len(token) :]}"
 
 
 def redact_sensitive_text(text: str) -> str:

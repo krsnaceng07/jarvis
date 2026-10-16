@@ -17,7 +17,7 @@ and delegates the heavy work to installable hooks.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict
 
 
 #: Embedded-attempt prompt-phase shape.

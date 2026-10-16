@@ -1,0 +1,195 @@
+{
+  "id": "zoom-meetings",
+  "name": "Zoom Meetings",
+  "description": "Join Zoom meetings (zoom.us/j/... and account subdomains) as a guest through the Zoom Web App in the browser.",
+  "cliCommands": [
+    {
+      "name": "zoommeetings",
+      "description": "Join and manage Zoom meetings",
+      "hasSubcommands": true
+    }
+  ],
+  "enabledByDefault": true,
+  "commandAliases": [
+    {
+      "name": "zoommeetings"
+    }
+  ],
+  "activation": {
+    "onStartup": true
+  },
+  "contracts": {
+    "tools": [
+      "zoom_meetings"
+    ],
+    "rpcMethods": [
+      "zoommeetings.join",
+      "zoommeetings.leave",
+      "zoommeetings.status",
+      "zoommeetings.transcript",
+      "zoommeetings.speak",
+      "zoommeetings.setup",
+      "zoommeetings.doctor"
+    ],
+    "nodeCommands": [
+      "zoommeetings.chrome"
+    ],
+    "transcriptSourceProviders": [
+      "zoom-meetings"
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true,
+        "description": "Enable or disable Zoom Meetings plugin."
+      },
+      "defaultTransport": {
+        "type": "string",
+        "enum": [
+          "chrome",
+          "chrome-node"
+        ],
+        "default": "chrome",
+        "description": "Default participation transport: local chrome or paired chrome-node."
+      },
+      "defaultMode": {
+        "type": "string",
+        "enum": [
+          "agent",
+          "bidi",
+          "listen",
+          "transcribe"
+        ],
+        "default": "agent",
+        "description": "Default talk-back or observe-only mode."
+      },
+      "chrome": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "launch": {
+            "type": "boolean",
+            "default": true,
+            "description": "Launch Chrome automatically if not running."
+          },
+          "autoJoin": {
+            "type": "boolean",
+            "default": true,
+            "description": "Automatically click Join button."
+          },
+          "guestName": {
+            "type": "string",
+            "default": "JARVIS",
+            "description": "Guest name to enter in pre-join screen."
+          },
+          "reuseExistingTab": {
+            "type": "boolean",
+            "default": true,
+            "description": "Reuse existing matching Zoom tab before opening a new one."
+          },
+          "audioBackend": {
+            "type": "string",
+            "default": "auto",
+            "description": "Host virtual audio backend."
+          },
+          "audioFormat": {
+            "type": "string",
+            "default": "pcm_s16le",
+            "description": "Audio format for capture and playback."
+          },
+          "audioInputCommand": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Command line to stream microphone audio from host."
+          },
+          "audioOutputCommand": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Command line to play audio into host speaker."
+          },
+          "bargeInInputCommand": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Optional command line for barge-in audio capture."
+          },
+          "audioBridgeCommand": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Command line for bidi realtime audio bridge."
+          },
+          "joinTimeoutMs": {
+            "type": "integer",
+            "default": 30000,
+            "description": "Maximum time in ms to wait for joining."
+          },
+          "waitForInCallMs": {
+            "type": "integer",
+            "default": 5000,
+            "description": "Time in ms to delay intro speech until in-call state settles."
+          },
+          "browserProfile": {
+            "type": "string",
+            "description": "Chrome browser profile name or path override."
+          },
+          "grantMediaPermissions": {
+            "type": "boolean",
+            "default": true,
+            "description": "Grant microphone and speaker permissions automatically."
+          },
+          "passcode": {
+            "type": "string",
+            "description": "Default meeting passcode."
+          }
+        }
+      },
+      "chromeNode": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "node": {
+            "type": "string",
+            "description": "Pinned node ID or display name for remote chrome-node execution."
+          }
+        }
+      },
+      "realtime": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "agentId": {
+            "type": "string",
+            "description": "Target agent ID for realtime audio routing."
+          },
+          "introMessage": {
+            "type": "string",
+            "default": "Hello, I am JARVIS, joining this Zoom meeting.",
+            "description": "Initial speech greeting spoken after joining."
+          }
+        }
+      },
+      "defaults": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "meeting": {
+            "type": "string",
+            "description": "Default Zoom meeting URL when not specified in commands."
+          }
+        }
+      }
+    }
+  },
+  "kind": "tool"
+}

@@ -27,7 +27,7 @@ from __future__ import annotations
 import os
 import secrets
 import tempfile
-from typing import IO, Optional
+from typing import IO
 
 
 def _create_private_temp_file_path(prefix: str) -> str:

@@ -3,17 +3,19 @@
 Mirrors the TypeScript test patterns from
 ``src/memory-host-sdk/events.test.ts``.
 """
+
 from __future__ import annotations
 
 import asyncio
 import os
 from pathlib import Path
+from typing import Any, Generator
 
 import pytest
 
 from jarvis_sdk.memory_host_events import (
     MEMORY_HOST_EVENT_LOG_RELATIVE_PATH,
-    append_memory_host_event,
+    append_memory_host_event as _append_memory_host_event,
     read_memory_host_events,
     read_memory_host_event_records,
     resolve_memory_host_event_log_path,
@@ -22,6 +24,10 @@ from jarvis_sdk.memory_host_event_store import (
     list_stored_memory_host_events,
     set_max_memory_host_events_for_tests,
 )
+
+
+def append_memory_host_event(workspace: str, event: Any) -> Any:
+    return _append_memory_host_event(workspace, event)
 
 
 # ── Constants / paths ──────────────────────────────────────────────
@@ -44,7 +50,7 @@ def test_resolve_event_log_path(tmp_path: Path) -> None:
 
 
 @pytest.fixture(autouse=True)
-def _reset_journal() -> None:
+def _reset_journal() -> Generator[None, None, None]:
     """Reset the in-process journal between tests."""
     set_max_memory_host_events_for_tests(None)
     # Clear the in-process state (the store module re-creates it on
@@ -195,7 +201,7 @@ def test_read_applies_tail_limit(tmp_path: Path) -> None:
     events = asyncio.run(read_memory_host_events(workspace, limit=3))
     assert len(events) == 3
     # Limit is tail-based: last 3 appended
-    line_counts = [e["lineCount"] for e in events]
+    line_counts = [e.get("lineCount") for e in events]
     assert line_counts == [2, 3, 4]
 
 
@@ -395,7 +401,7 @@ def test_recall_recorded_result_count_mismatch_rejected(tmp_path: Path) -> None:
     )
     stored = list_stored_memory_host_events(workspace_dir=workspace)
     assert len(stored) == 1
-    assert stored[0]["value"]["event"]["resultCount"] == 5
+    assert stored[0]["value"]["event"].get("resultCount") == 5
 
 
 def test_recall_event_too_many_results_gets_bounded(tmp_path: Path) -> None:
@@ -427,7 +433,7 @@ def test_recall_event_too_many_results_gets_bounded(tmp_path: Path) -> None:
     assert len(stored) == 1
     event = stored[0]["value"]["event"]
     # Bounded: at most MAX_MEMORY_HOST_EVENT_ITEMS results
-    assert len(event["results"]) <= 10
+    assert len(event.get("results", [])) <= 10
 
 
 def test_dream_completed_invalid_phase_rejected(tmp_path: Path) -> None:

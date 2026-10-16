@@ -11,6 +11,7 @@ base URL + default model) lives in the individual extension
 plugin modules; the SDK just provides the generic
 ``transcribe_openai_compatible_audio`` function.
 """
+
 from __future__ import annotations
 
 import base64

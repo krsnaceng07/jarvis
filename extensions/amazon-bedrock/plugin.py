@@ -6,6 +6,7 @@ The Python port ships a focused ``ProviderPlugin`` stub so
 the extension is loadable + discoverable; the full streaming
 + tool-use surface lands in Phase 5.16+.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -26,8 +27,27 @@ class AmazonBedrockProvider(ProviderPlugin):
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def init(self, ctx: Any) -> None:
-        """Provider init hook (auth + config). Stub in Phase 5.15."""
-        return None
+        """Provider init hook (auth + config).
+
+        Attempt to resolve credentials via the model registry and attach
+        them to `self.metadata['credentials']` for provider clients.
+        """
+        try:
+            from src.sessions.client_factory import create_aws_client
+            from src.sessions.credentials import resolve_credentials
+
+            cred = resolve_credentials(provider="amazon-bedrock", model=self.default_model)
+            self.metadata["credentials"] = cred
+
+            def _aws_client_factory(service: str, region: str | None = None, **kwargs: Any) -> Any:
+                return create_aws_client(
+                    service, region=region, provider="amazon-bedrock", **kwargs
+                )
+
+            self.metadata["aws_client"] = _aws_client_factory
+        except Exception as e:
+            self.metadata["credentials_error"] = str(e)
+            raise
 
     async def complete(self, messages, **kwargs):  # type: ignore[override]
         """Streaming completion hook. Stub in Phase 5.15."""
@@ -38,8 +58,8 @@ class AmazonBedrockProvider(ProviderPlugin):
     def list_models(self) -> list[str]:  # type: ignore[override]
         """Catalog of available models. Stub in Phase 5.15."""
         return [
-            'anthropic.claude-3-5-sonnet',
-            'meta.llama3-70b',
+            "anthropic.claude-3-5-sonnet",
+            "meta.llama3-70b",
         ]
 
 

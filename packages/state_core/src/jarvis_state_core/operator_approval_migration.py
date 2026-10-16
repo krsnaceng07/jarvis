@@ -28,6 +28,7 @@ Public surface:
 - ``repair_operator_approval_schema(db)`` -> ``list[str]``
   (returns the list of migration log lines)
 """
+
 from __future__ import annotations
 
 import re
@@ -120,9 +121,7 @@ def has_canonical_operator_approval_kinds(conn: sqlite3.Connection) -> bool:
     )
 
 
-def assert_canonical_operator_approval_kinds(
-    conn: sqlite3.Connection, pathname: str
-) -> None:
+def assert_canonical_operator_approval_kinds(conn: sqlite3.Connection, pathname: str) -> None:
     """Raise when ``operator_approvals.kind`` is not canonical.
 
     Mirrors ``assertCanonicalOperatorApprovalKinds``. The
@@ -154,9 +153,7 @@ def _build_canonical_create_sql(table_name: str) -> str:
     Mirrors the OpenClaw generated statement:
     ``CREATE TABLE [IF NOT EXISTS] <table_name> ( ... ) STRICT;``
     """
-    columns_sql = ",\n  ".join(
-        f"{col} TEXT" for col in OPERATOR_APPROVAL_COLUMNS if col != "kind"
-    )
+    columns_sql = ",\n  ".join(f"{col} TEXT" for col in OPERATOR_APPROVAL_COLUMNS if col != "kind")
     return (
         f"CREATE TABLE {table_name} (\n  "
         f"{columns_sql},\n  "
@@ -221,9 +218,7 @@ def _canonical_create_sql_with_table_name(table_name: str) -> str:
     # The probe compares against the canonical SQL stored
     # in ``sqlite_master`` which does NOT include
     # ``IF NOT EXISTS``.
-    return sql.replace(
-        f"CREATE TABLE {table_name} (", f"CREATE TABLE {table_name} ("
-    )
+    return sql.replace(f"CREATE TABLE {table_name} (", f"CREATE TABLE {table_name} (")
 
 
 def has_exact_legacy_operator_approval_schema(conn: sqlite3.Connection) -> bool:
@@ -243,14 +238,10 @@ def has_exact_legacy_operator_approval_schema(conn: sqlite3.Connection) -> bool:
     exact_strict_legacy = _build_canonical_create_sql("operator_approvals")
     exact_strict_legacy = exact_strict_legacy.replace(
         "CREATE TABLE operator_approvals (", "CREATE TABLE operator_approvals ("
-    ).replace(
-        "'exec', 'plugin', 'system-agent'", "'exec', 'plugin'"
-    )
+    ).replace("'exec', 'plugin', 'system-agent'", "'exec', 'plugin'")
     # 2. ALTER-appended variant (the shipped
     #    ``ensure_column``-added ``resolution_ref`` shape).
-    alter_appended = _ALTER_APPENDED_RESOLUTION_REF_SQL.format(
-        table_name="operator_approvals"
-    )
+    alter_appended = _ALTER_APPENDED_RESOLUTION_REF_SQL.format(table_name="operator_approvals")
     candidates = [
         exact_strict_legacy,
         alter_appended,
@@ -258,9 +249,7 @@ def has_exact_legacy_operator_approval_schema(conn: sqlite3.Connection) -> bool:
         alter_appended.replace(") STRICT;", ");"),
     ]
     normalized_live = _normalize_ddl(live)
-    return any(
-        _normalize_ddl(candidate) == normalized_live for candidate in candidates
-    )
+    return any(_normalize_ddl(candidate) == normalized_live for candidate in candidates)
 
 
 def detect_operator_approval_schema_migration(
@@ -318,9 +307,7 @@ def _repair_operator_approval_kinds(conn: sqlite3.Connection) -> bool:
     conn.execute("BEGIN IMMEDIATE")
     try:
         # Build the canonical migration_new table.
-        conn.execute(
-            _build_canonical_create_sql("operator_approvals_migration_new")
-        )
+        conn.execute(_build_canonical_create_sql("operator_approvals_migration_new"))
         # The legacy ALTER-appended variant is nullable, so
         # pre-ref rows can hold NULL or junk that violates
         # the canonical ``resolution_ref`` shape (43 chars
@@ -337,10 +324,7 @@ def _repair_operator_approval_kinds(conn: sqlite3.Connection) -> bool:
             f"AND resolution_ref NOT GLOB '*[^A-Za-z0-9_-]*';"
         )
         conn.execute("DROP TABLE operator_approvals;")
-        conn.execute(
-            "ALTER TABLE operator_approvals_migration_new "
-            "RENAME TO operator_approvals;"
-        )
+        conn.execute("ALTER TABLE operator_approvals_migration_new RENAME TO operator_approvals;")
         # Rebuilding the table drops its indexes; replay
         # them.
         for statement in _operator_approval_index_sql().split(";"):
@@ -363,9 +347,7 @@ def repair_operator_approval_schema(conn: sqlite3.Connection) -> list[str]:
     """
     if not _repair_operator_approval_kinds(conn):
         return []
-    return [
-        "Migrated shared state operator approvals → JARVIS system changes"
-    ]
+    return ["Migrated shared state operator approvals → JARVIS system changes"]
 
 
 __all__ = [

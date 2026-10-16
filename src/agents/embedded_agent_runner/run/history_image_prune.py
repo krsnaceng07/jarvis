@@ -12,7 +12,7 @@ Phase 7.6h-2 — focused minimal port.
 from __future__ import annotations
 
 import copy
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 #: Agent message shape.

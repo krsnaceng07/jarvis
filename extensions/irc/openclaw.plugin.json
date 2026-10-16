@@ -1,0 +1,39 @@
+{
+  "id": "irc",
+  "doctorContract": {
+    "configRepair": true
+  },
+  "name": "IRC",
+  "description": "OpenClaw IRC channel plugin for traditional chat networks.",
+  "activation": {
+    "onStartup": false
+  },
+  "channels": [
+    "irc"
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "host": {
+        "type": "string"
+      },
+      "port": {
+        "type": "integer"
+      },
+      "nick": {
+        "type": "string"
+      },
+      "password": {
+        "type": "string"
+      },
+      "channels": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "kind": "channel"
+}

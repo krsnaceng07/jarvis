@@ -7,7 +7,7 @@ test-support surface and override individual mocks as needed.
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Dict
+from typing import Any, Dict
 
 
 def _noop(*_args, **_kwargs):

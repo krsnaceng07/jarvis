@@ -5,7 +5,7 @@ OpenClaw parity: mirrors
 """
 from __future__ import annotations
 
-from typing import Callable, Optional
+from typing import Optional
 
 
 def _has_json5_comments(raw: str) -> bool:

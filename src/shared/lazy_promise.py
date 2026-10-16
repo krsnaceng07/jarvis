@@ -13,7 +13,6 @@ Public surface:
 from __future__ import annotations
 
 import asyncio
-import warnings
 from typing import (
     Any,
     Awaitable,

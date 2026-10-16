@@ -14,7 +14,6 @@ Phase 7.6h-3 — focused minimal port.
 from __future__ import annotations
 
 import os
-import posixpath
 from typing import Any, Dict, List, Optional
 
 

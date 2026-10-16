@@ -10,6 +10,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Literal
 
+# Re-export bundle format types from bundle_manifest so callers can import
+# everything manifest-related from one place (mirrors OpenClaw's manifest-types.ts).
+from .bundle_manifest import PluginBundleFormat, PluginFormat
+
 # ── Plugin kinds ─────────────────────────────────────────────────────
 PluginKind = Literal[
     "channel",  # messaging surface (Telegram, Discord, ...)
@@ -83,10 +87,17 @@ class PluginManifestSummary:
     requires: list[str] = field(default_factory=list)
     permissions: list[str] = field(default_factory=list)
     icon: str | None = None
+    # Generic OpenClaw manifest passthrough (read-only; the manifest file
+    # stays the source of truth, the host reads these without per-id branches).
+    channels: list[str] = field(default_factory=list)
+    providers: list[str] = field(default_factory=list)
+    cli_commands: list[str] = field(default_factory=list)
 
 
 __all__ = [
     "PluginActivation",
+    "PluginBundleFormat",
+    "PluginFormat",
     "PluginKind",
     "PluginManifestSummary",
     "ToolDecl",

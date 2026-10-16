@@ -150,44 +150,25 @@ def load_memory_wiki_vault_identity(
         ):
             vault_generation = candidate_vault_generation.strip()
 
-        candidate_reservation_id = details_dict.get(
-            COMPILED_CACHE_RESERVATION_ID_FIELD
-        )
+        candidate_reservation_id = details_dict.get(COMPILED_CACHE_RESERVATION_ID_FIELD)
         normalized_reservation_id: str | None = None
-        if (
-            isinstance(candidate_reservation_id, str)
-            and candidate_reservation_id.strip()
-        ):
+        if isinstance(candidate_reservation_id, str) and candidate_reservation_id.strip():
             normalized_reservation_id = candidate_reservation_id.strip()
 
-        candidate_publication_id = details_dict.get(
-            COMPILED_CACHE_PUBLICATION_ID_FIELD
-        )
-        if (
-            isinstance(candidate_publication_id, str)
-            and candidate_publication_id.strip()
-        ):
-            candidate_parent = details_dict.get(
-                COMPILED_CACHE_PARENT_PUBLICATION_ID_FIELD
-            )
+        candidate_publication_id = details_dict.get(COMPILED_CACHE_PUBLICATION_ID_FIELD)
+        if isinstance(candidate_publication_id, str) and candidate_publication_id.strip():
+            candidate_parent = details_dict.get(COMPILED_CACHE_PARENT_PUBLICATION_ID_FIELD)
             normalized_parent: str | None | object = None
             if candidate_parent is None:
                 normalized_parent = None
-            elif (
-                isinstance(candidate_parent, str) and candidate_parent.strip()
-            ):
+            elif isinstance(candidate_parent, str) and candidate_parent.strip():
                 normalized_parent = candidate_parent.strip()
             else:
                 normalized_parent = None
 
-            candidate_source_generation = details_dict.get(
-                COMPILED_CACHE_SOURCE_GENERATION_FIELD
-            )
+            candidate_source_generation = details_dict.get(COMPILED_CACHE_SOURCE_GENERATION_FIELD)
             normalized_source_generation: str | None = None
-            if (
-                isinstance(candidate_source_generation, str)
-                and candidate_source_generation.strip()
-            ):
+            if isinstance(candidate_source_generation, str) and candidate_source_generation.strip():
                 normalized_source_generation = candidate_source_generation.strip()
 
             # A commit must reference both the prior
@@ -247,9 +228,7 @@ def resolve_memory_wiki_vault_source_generation(vault_root: str) -> str:
     files.sort(key=lambda pair: pair[0])
     digest = hashlib.sha256()
     for relative_path, absolute_path in files:
-        normalized_path = (
-            relative_path.lower() if sys.platform == "win32" else relative_path
-        )
+        normalized_path = relative_path.lower() if sys.platform == "win32" else relative_path
         path_bytes = normalized_path.encode("utf-8")
         path_length = len(path_bytes).to_bytes(4, byteorder="big", signed=False)
         try:

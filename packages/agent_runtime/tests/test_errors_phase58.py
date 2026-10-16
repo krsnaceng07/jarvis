@@ -46,9 +46,7 @@ class TestTranscriptNotContinuableError:
         assert TranscriptNotContinuableError("user").name == "TranscriptNotContinuableError"
 
     def test_instance_code_matches(self) -> None:
-        assert TranscriptNotContinuableError("user").code == (
-            "openclaw_transcript_not_continuable"
-        )
+        assert TranscriptNotContinuableError("user").code == ("openclaw_transcript_not_continuable")
 
     def test_is_an_exception_and_raisable(self) -> None:
         with pytest.raises(TranscriptNotContinuableError) as exc_info:

@@ -26,9 +26,11 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
-# No runtime deps. The SDK is stdlib-only (dataclasses, abc, typing).
-# Optional deps (pydantic for schema validation, etc.) land in Phase 1C
-# when the contract hardens.
+dependencies = [
+    "jarvis-normalization-core>=0.1.0-rc1",
+    "jarvis-media-core>=0.1.0-rc1",
+    "jarvis-retry>=0.1.0-rc1",
+]
 
 [project.urls]
 Homepage = "https://github.com/jarvis-ai/jarvis"

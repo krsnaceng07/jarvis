@@ -1,0 +1,27 @@
+{
+  "id": "line",
+  "doctorContract": {
+    "configRepair": true
+  },
+  "name": "LINE",
+  "description": "OpenClaw LINE Messaging API channel plugin for chats and bots.",
+  "activation": {
+    "onStartup": false
+  },
+  "channels": [
+    "line"
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "channelAccessToken": {
+        "type": "string"
+      },
+      "channelSecret": {
+        "type": "string"
+      }
+    }
+  },
+  "kind": "channel"
+}

@@ -10,7 +10,7 @@ Public surface:
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Awaitable, Callable, List, Optional
+from typing import Any, Awaitable, Callable, List
 
 
 ConcurrencyErrorMode = str  # "continue" | "stop"

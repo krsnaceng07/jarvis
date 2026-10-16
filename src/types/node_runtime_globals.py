@@ -7,7 +7,7 @@ Phase 8.1b — focused minimal port.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 #: Placeholder type alias for ``process.env`` lookup keys.

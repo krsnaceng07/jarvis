@@ -37,16 +37,11 @@ from src.agents.sessions.extensions import (
     ExtensionError,
     ExtensionRuntime,
     ExtensionUIContext,
-    SourceInfo,
     ToolDefinition,
-    RegisteredTool,
-    ExtensionFlag,
-    ExtensionShortcut,
 )
 from src.agents.sessions.extensions.runner import (
     ExtensionRunner,
     RESERVED_KEYBINDINGS_FOR_EXTENSION_CONFLICTS,
-    ShutdownHandler,
     emit_session_shutdown_event,
     _build_builtin_keybindings,
 )

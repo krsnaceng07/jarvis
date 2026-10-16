@@ -529,7 +529,7 @@ def _stub_handler(name: str) -> Callable[[WikiGatewayRequest], Any]:
 
     def _handler(req: WikiGatewayRequest) -> WikiGatewayResponse:
         return _respond_error(
-            NotImplementedError(f"{name} is not yet implemented in 4.3f-mr4; " "lands in 4.3g.")
+            NotImplementedError(f"{name} is not yet implemented in 4.3f-mr4; lands in 4.3g.")
         )
 
     return _handler
@@ -555,8 +555,7 @@ def register_wiki_gateway_methods(
             handler=_wiki_status,
             scope=READ_SCOPE,
             description=(
-                "Inspect the current memory wiki vault mode, health, "
-                "and Obsidian CLI availability."
+                "Inspect the current memory wiki vault mode, health, and Obsidian CLI availability."
             ),
         ),
         "wiki.importRuns": WikiGatewayMethod(
@@ -637,7 +636,7 @@ def register_wiki_gateway_methods(
             name="wiki.apply",
             handler=_wiki_apply,
             scope=WRITE_SCOPE,
-            description=("Apply narrow wiki mutations for syntheses and page " "metadata."),
+            description=("Apply narrow wiki mutations for syntheses and page metadata."),
         ),
         "wiki.get": WikiGatewayMethod(
             name="wiki.get",

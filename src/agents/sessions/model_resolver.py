@@ -59,7 +59,7 @@ from __future__ import annotations
 import fnmatch
 import logging
 import re
-from typing import Any, Optional
+from typing import Optional
 
 from .defaults import (
     DEFAULT_MODEL,

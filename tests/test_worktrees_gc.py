@@ -28,7 +28,7 @@ def test_gc_removes_old_removed_worktrees(tmp_path: Path) -> None:
     # remove it
     handlers["worktrees.remove"]({"id": wid})
     # make removed_at stale by updating DB directly
-    import sqlite3, json
+    import sqlite3
     conn = sqlite3.connect(str(tmp_path / "state-gc.sqlite"))
     cursor = conn.cursor()
     # set removed_at to a timestamp far in the past

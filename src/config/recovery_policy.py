@@ -6,7 +6,7 @@ OpenClaw parity: mirrors
 from __future__ import annotations
 
 import re
-from typing import Any, Iterable, List, Optional, TypedDict
+from typing import Optional, TypedDict
 
 
 _PLUGIN_ENTRY_PATH_PREFIX = "plugins.entries."

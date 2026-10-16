@@ -9,7 +9,7 @@ delegated to caller-provided callables.
 """
 from __future__ import annotations
 
-from typing import Any, Callable, List, Literal, Optional, TypedDict
+from typing import Any, Callable, List, Optional, TypedDict
 
 
 MarkdownTableMode = str

@@ -10,6 +10,7 @@ The dreaming pipeline uses these stores for:
 - meta state (last-run timestamps, etc.)
 - per-workspace lock entries (for cron concurrency control)
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -186,9 +187,7 @@ def _open_workspace_store(namespace: str) -> _KeyedStoreLike:
 # ── Read / write / clear ──────────────────────────────────────────────────
 
 
-def read_memory_core_workspace_entries(
-    namespace: str, workspace_dir: str
-) -> list[tuple[str, Any]]:
+def read_memory_core_workspace_entries(namespace: str, workspace_dir: str) -> list[tuple[str, Any]]:
     """Read all entries for the given workspace from the named namespace.
 
     Mirrors OpenClaw's ``readMemoryCoreWorkspaceEntries``. Returns a list

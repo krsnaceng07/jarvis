@@ -1,0 +1,13 @@
+[project]
+name = "jarvis-extension-reef"
+version = "0.1.0"
+description = "Reef decentralized storage and pubsub channel plugin for JARVIS"
+requires-python = ">=3.12"
+dependencies = [
+    "jarvis-sdk",
+    "pydantic>=2.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

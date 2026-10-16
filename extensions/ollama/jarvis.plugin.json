@@ -1,0 +1,58 @@
+{
+  "id": "ollama",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "ollama"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "ollama",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "OLLAMA_HOST"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "ollama": {
+        "baseUrl": "http://localhost:11434/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "llama3.1",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "qwen2.5",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

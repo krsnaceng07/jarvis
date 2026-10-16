@@ -17,6 +17,7 @@ Two known error categories:
    runtime surfaces this as a SystemError mentioning the
    libuv syscall ``UV_INTERFACE_ADDRESSES``.
 """
+
 from __future__ import annotations
 
 import re

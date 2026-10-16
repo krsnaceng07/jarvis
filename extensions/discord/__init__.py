@@ -14,6 +14,7 @@ This file is the entrypoint. ``plugin.py`` defines the
 loop; ``doctor.py`` is the diagnostic contract the host
 calls to verify the channel is wired.
 """
+
 from __future__ import annotations
 
 from .doctor import discord_doctor_contract

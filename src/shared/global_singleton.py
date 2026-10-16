@@ -7,7 +7,7 @@ modules cannot collide on ``globalThis`` attribute names.
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, TypeVar
+from typing import Any, Callable, TypeVar
 
 T = TypeVar("T")
 TKey = TypeVar("TKey")

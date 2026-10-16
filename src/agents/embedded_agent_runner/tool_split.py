@@ -19,7 +19,7 @@ tool-definition adapter when the runtime layer lands.
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List
 
 
 #: Tool-definition adapter. The host installs the real

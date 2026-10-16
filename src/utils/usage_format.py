@@ -12,7 +12,7 @@ Phase 8.1 — focused minimal port of OpenClaw ``usage-format.ts``.
 from __future__ import annotations
 
 import math
-from typing import Any, Optional
+from typing import Any
 
 
 # Installable hooks ---------------------------------------------------------

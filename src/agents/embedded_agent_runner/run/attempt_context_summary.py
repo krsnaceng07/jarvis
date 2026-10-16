@@ -21,7 +21,7 @@ the public surface and ports the small pure helpers inline.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 
 #: Maximum number of messages retained in a recent snapshot.

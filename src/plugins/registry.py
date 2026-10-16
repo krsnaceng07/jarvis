@@ -147,7 +147,204 @@ def create_plugin_registry(
         ``registrars.rollbackHooks``. A follow-up phase
         will port the full chain.
         """
+        # Accept either a plugin id (str) or a plugin record (dict) as first arg.
+        plugin_id: str | None = None
+        if _args:
+            first = _args[0]
+            if isinstance(first, str):
+                plugin_id = first
+            elif isinstance(first, dict):
+                plugin_id = first.get("id")
+        if plugin_id is None:
+            # nothing to do
+            return None
+
+        # First call targeted clear helpers for complex subsystems.
+        try:
+            # Clear plugin commands
+            clear_plugin_commands_for_plugin(plugin_id)
+        except Exception:
+            pass
+        try:
+            # Clear interactive handlers
+            clear_plugin_interactive_handlers_for_plugin(plugin_id)
+        except Exception:
+            pass
+        try:
+            # Clear code-mode namespaces (best-effort)
+            clear_code_mode_namespaces_for_plugin(plugin_id)
+        except Exception:
+            pass
+        try:
+            # Explicitly clear common runtime registries that may not follow
+            # the simple ownerPluginId shape handled below.
+            reg = state.get("registry", {})
+            # tools
+            try:
+                tools = reg.get("tools", [])
+                reg["tools"] = [t for t in tools if not (isinstance(t, dict) and (t.get("ownerPluginId") == plugin_id or t.get("pluginId") == plugin_id))]
+            except Exception:
+                pass
+            # hooks
+            try:
+                hooks = reg.get("hooks", [])
+                reg["hooks"] = [h for h in hooks if not (isinstance(h, dict) and (h.get("ownerPluginId") == plugin_id or h.get("pluginId") == plugin_id))]
+            except Exception:
+                pass
+            # typedHooks
+            try:
+                th = reg.get("typedHooks", [])
+                reg["typedHooks"] = [t for t in th if not (isinstance(t, dict) and (t.get("ownerPluginId") == plugin_id or t.get("pluginId") == plugin_id))]
+            except Exception:
+                pass
+            # httpRoutes
+            try:
+                routes = reg.get("httpRoutes", [])
+                reg["httpRoutes"] = [r for r in routes if not (isinstance(r, dict) and (r.get("_owner_id") == plugin_id or r.get("ownerPluginId") == plugin_id or r.get("pluginId") == plugin_id))]
+            except Exception:
+                pass
+            # channels
+            try:
+                ch = reg.get("channels", [])
+                reg["channels"] = [c for c in ch if not (isinstance(c, dict) and (c.get("pluginId") == plugin_id or c.get("ownerPluginId") == plugin_id))]
+            except Exception:
+                pass
+            # providers (lists)
+            try:
+                for pk in ("providers", "embeddingProviders", "speechProviders", "workerProviders"):
+                    val = reg.get(pk)
+                    if isinstance(val, list):
+                        reg[pk] = [p for p in val if not (isinstance(p, dict) and (p.get("ownerPluginId") == plugin_id or p.get("pluginId") == plugin_id))]
+                    elif isinstance(val, dict):
+                        # map-like: remove keys owned by plugin
+                        to_del = [k for k, v in list(val.items()) if isinstance(v, dict) and (v.get("ownerPluginId") == plugin_id or v.get("pluginId") == plugin_id)]
+                        for k in to_del:
+                            val.pop(k, None)
+            except Exception:
+                pass
+        except Exception:
+            pass
+        try:
+            # Clear context engines owned by this plugin via context_engine registry
+            from src.context_engine.registry import clear_context_engines_for_owner
+
+            clear_context_engines_for_owner(plugin_id)
+        except Exception:
+            pass
+
+        # Remove registered items that reference this plugin as owner.
+        reg = state.get("registry", {})
+        for key, val in list(reg.items()):
+            # Only operate on list-like registries
+            if isinstance(val, list):
+                new_list = []
+                for item in val:
+                    try:
+                        owner = None
+                        if isinstance(item, dict):
+                            owner = item.get("ownerPluginId") or item.get("pluginId") or item.get("plugin", {}).get("id") if isinstance(item.get("plugin"), dict) else None
+                        if owner == plugin_id:
+                            # drop this entry
+                            continue
+                    except Exception:
+                        # on any odd item shape, keep it rather than risk data loss
+                        new_list.append(item)
+                        continue
+                    new_list.append(item)
+                reg[key] = new_list
+            elif isinstance(val, dict):
+                # workerProviders and similar maps: remove entries owned by plugin
+                to_delete = []
+                for k2, v2 in list(val.items()):
+                    try:
+                        owner = None
+                        if isinstance(v2, dict):
+                            owner = v2.get("ownerPluginId") or v2.get("pluginId")
+                        if owner == plugin_id:
+                            to_delete.append(k2)
+                    except Exception:
+                        continue
+                for k2 in to_delete:
+                    val.pop(k2, None)
+
+        # Clear side-effect guards for plugin
+        try:
+            if isinstance(state.get("pluginSideEffectGuards"), dict):
+                state["pluginSideEffectGuards"].pop(plugin_id, None)
+        except Exception:
+            pass
+
+        # Invoke any registrar-level rollback hooks if present
+        try:
+            rb = registrars.get("rollbackHooks")
+            if callable(rb):
+                try:
+                    rb(plugin_id)
+                except TypeError:
+                    rb()
+        except Exception:
+            pass
+
+        # Invoke any plugin-hook-specific rollback callbacks recorded in state
+        try:
+            hooks = state.get("pluginHookRollback") or {}
+            if isinstance(hooks, dict):
+                for k, fn in list(hooks.items()):
+                    try:
+                        if callable(fn):
+                            fn(plugin_id)
+                    except TypeError:
+                        try:
+                            fn()
+                        except Exception:
+                            pass
+        except Exception:
+            pass
+
         return None
+
+    # Helper: clear commands registered by a plugin
+    def clear_plugin_commands_for_plugin(pid: str | None) -> None:
+        if pid is None:
+            return None
+        try:
+            cmds = state.get("registry", {}).get("commands", [])
+            state["registry"]["commands"] = [c for c in cmds if not (isinstance(c, dict) and (c.get("ownerPluginId") == pid or c.get("pluginId") == pid))]
+        except Exception:
+            pass
+
+    # Helper: clear interactive handlers registered by a plugin
+    def clear_plugin_interactive_handlers_for_plugin(pid: str | None) -> None:
+        if pid is None:
+            return None
+        try:
+            handlers = state.get("registry", {}).get("interactiveHandlers", [])
+            state["registry"]["interactiveHandlers"] = [h for h in handlers if not (isinstance(h, dict) and (h.get("ownerPluginId") == pid or h.get("pluginId") == pid))]
+        except Exception:
+            pass
+
+    # Helper: best-effort removal of code-mode namespaces (if stored in toolMetadata)
+    def clear_code_mode_namespaces_for_plugin(pid: str | None) -> None:
+        if pid is None:
+            return None
+        try:
+            meta = state.get("registry", {}).get("toolMetadata", [])
+            new_meta = []
+            for item in meta:
+                try:
+                    owner = item.get("ownerPluginId") or item.get("pluginId")
+                    if owner == pid:
+                        # drop item
+                        continue
+                    # drop if item appears to contain codeMode namespace owned by pid
+                    if isinstance(item, dict) and item.get("codeMode") and owner == pid:
+                        continue
+                except Exception:
+                    pass
+                new_meta.append(item)
+            state["registry"]["toolMetadata"] = new_meta
+        except Exception:
+            pass
 
     return {
         # Public surface.

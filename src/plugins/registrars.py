@@ -149,22 +149,71 @@ def _create_tool_hook_registrars(_state: dict[str, Any]) -> dict[str, Any]:
             except Exception:
                 pass
         normalized = _normalize_names(names)
+        if not normalized:
+            try:
+                _state["registry"]["diagnostics"].append({"level": "error", "message": "tool registration missing names", "pluginId": plugin.get("id")})
+            except Exception:
+                pass
+            return None
+
+        # Warn on duplicate names but allow registration (host may dedupe later)
+        try:
+            existing_names = [n for item in _state["registry"].get("tools", []) for n in (item.get("names") if isinstance(item, dict) else [])]
+            dup = [n for n in normalized if n in existing_names]
+            if dup:
+                _state["registry"]["diagnostics"].append({"level": "warn", "message": f"tool name(s) already registered: {dup}", "pluginId": plugin.get("id")})
+        except Exception:
+            pass
+
         entry: dict[str, Any] = {
             "ownerPluginId": plugin.get("id", ""),
             "tool": tool,
             "names": normalized,
         }
+        # attach plugin metadata for host introspection
+        entry.setdefault("pluginId", plugin.get("id", ""))
+        entry.setdefault("pluginName", plugin.get("name", ""))
         _state["registry"]["tools"].append(entry)
 
     def register_hook(plugin: dict[str, Any], hook: Any) -> None:
         if plugin is None:
             return None
-        _state["registry"]["hooks"].append({"ownerPluginId": plugin.get("id", ""), "hook": hook})
+        # Normalize hook entry: ensure priority exists and is an int
+        entry: dict[str, Any] = {"ownerPluginId": plugin.get("id", ""), "hook": hook}
+        try:
+            # extract priority if present on hook or entry
+            priority = None
+            if isinstance(hook, dict):
+                priority = hook.get("priority")
+            if priority is None and isinstance(entry.get("hook"), dict):
+                priority = entry["hook"].get("priority")
+            if isinstance(priority, (int, float)):
+                entry["priority"] = int(priority)
+            else:
+                entry["priority"] = 50
+        except Exception:
+            entry["priority"] = 50
+        # attach plugin metadata for host introspection
+        entry.setdefault("pluginId", plugin.get("id", ""))
+        entry.setdefault("pluginName", plugin.get("name", ""))
+        _state["registry"].setdefault("hooks", []).append(entry)
+
+    from .state import resolve_typed_hook_timeout_ms
 
     def register_typed_hook(plugin: dict[str, Any], hook_name: str, handler: Any, policy: dict[str, Any] | None = None) -> None:
         if plugin is None:
             return None
-        _state["registry"]["typedHooks"].append({"ownerPluginId": plugin.get("id", ""), "hookName": hook_name, "handler": handler, "policy": policy})
+        # Normalize policy: resolve numeric timeouts via shared state helper
+        normalized_policy = dict(policy) if isinstance(policy, dict) else {}
+        timeout_ms = resolve_typed_hook_timeout_ms(hook_name=hook_name, policy=normalized_policy)
+        if timeout_ms is not None:
+            normalized_policy["timeoutMs"] = timeout_ms
+        _state["registry"]["typedHooks"].append({
+            "ownerPluginId": plugin.get("id", ""),
+            "hookName": hook_name,
+            "handler": handler,
+            "policy": normalized_policy,
+        })
 
     def register_http_route(plugin: dict[str, Any], route: dict[str, Any]) -> None:
         if plugin is None:
@@ -281,7 +330,18 @@ def _create_provider_registrars(_state: dict[str, Any]) -> dict[str, Any]:
                 {"level": "error", "message": f"provider already registered: {pid}"}
             )
             return
-        _state["registry"].setdefault(list_key, []).append(provider)
+        # Normalize stored entry to include owner metadata for host-side introspection.
+        try:
+            entry = dict(provider) if isinstance(provider, dict) else {"provider": provider}
+        except Exception:
+            entry = {"provider": provider}
+        # Attach owner metadata
+        entry.setdefault("ownerPluginId", plugin.get("id", ""))
+        entry.setdefault("pluginId", plugin.get("id", ""))
+        entry.setdefault("pluginName", plugin.get("name", ""))
+        if isinstance(plugin.get("source"), str):
+            entry.setdefault("source", plugin.get("source"))
+        _state["registry"].setdefault(list_key, []).append(entry)
 
     def register_provider(plugin: dict[str, Any], provider: dict[str, Any] | None = None) -> None:
         return _register_generic("providers", plugin, provider)
@@ -505,6 +565,10 @@ def _create_memory_registrars(_state: dict[str, Any]) -> dict[str, Any]:
         get_registered_memory_embedding_provider,
         register_memory_embedding_provider,
     )
+    from .memory_state import (
+        get_memory_capability_registration,
+        clear_memory_plugin_state,
+    )
 
     def _append_tool_metadata(item: Any, plugin: dict[str, Any]) -> None:
         if plugin is None or item is None:
@@ -687,8 +751,25 @@ def _create_memory_registrars(_state: dict[str, Any]) -> dict[str, Any]:
             {"pluginId": plugin["id"], "provider": adapter}
         )
 
+    def _rollback_hooks(plugin_id: str | None = None) -> None:
+        # If the plugin currently owns the memory capability, clear the
+        # in-module memory plugin state so runtime artifacts don't leak.
+        try:
+            cap = get_memory_capability_registration()
+            if cap is None:
+                return None
+            owner, _ = cap
+            if plugin_id is None:
+                # caller may invoke without args — clear only if plugin matches
+                return None
+            if owner == plugin_id:
+                clear_memory_plugin_state()
+        except Exception:
+            # be conservative on errors
+            pass
+
     return {
-        "rollbackHooks": _noop,
+        "rollbackHooks": _rollback_hooks,
         "registerMemoryCapability": register_memory_capability_registrar,
         "registerMemoryPromptSection": register_memory_prompt_section_registrar,
         "registerMemoryPromptSupplement": register_memory_prompt_supplement_registrar,

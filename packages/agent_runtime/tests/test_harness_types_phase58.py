@@ -133,9 +133,7 @@ class TestEntryTypeLiterals:
 
     def test_union_matches_declaration_order(self) -> None:
         # TS SessionTreeEntry union order == SESSION_TREE_ENTRY_TYPES order.
-        union_types = [
-            member().type for member in typing.get_args(SessionTreeEntry)
-        ]
+        union_types = [member().type for member in typing.get_args(SessionTreeEntry)]
         assert tuple(union_types) == SESSION_TREE_ENTRY_TYPES
 
     def test_ten_variants(self) -> None:

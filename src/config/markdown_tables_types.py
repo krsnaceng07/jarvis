@@ -5,7 +5,7 @@ OpenClaw parity: mirrors
 """
 from __future__ import annotations
 
-from typing import Any, Callable, Optional, TypedDict
+from typing import Callable, TypedDict
 
 #: Markdown table rendering mode.
 MarkdownTableMode = str  # "off" | "bullets" | "code" | "block"

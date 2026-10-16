@@ -216,6 +216,22 @@ def normalize_recall_query(text: str, max_chars: int | None = None) -> str:
     return normalized
 
 
+# ── Deduplication normalization ────────────────────────────────
+
+
+def normalize_memory_text_for_dedupe(text: str) -> str:
+    """Normalize text for exact duplicate detection.
+
+    Applies Unicode NFC normalization, normalizes line endings
+    (CRLF/CR to LF), and strips surrounding whitespace.
+    """
+    import unicodedata
+
+    nfc = unicodedata.normalize("NFC", text)
+    unified = nfc.replace("\r\n", "\n").replace("\r", "\n")
+    return unified.strip()
+
+
 __all__ = [
     "CJK_TEXT",
     "MEMORY_TRIGGERS",
@@ -225,6 +241,7 @@ __all__ = [
     "format_relevant_memories_context",
     "looks_like_envelope_sludge",
     "looks_like_prompt_injection",
+    "normalize_memory_text_for_dedupe",
     "normalize_recall_query",
     "sanitize_for_memory_capture",
     "sanitize_recall_memory_text",

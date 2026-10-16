@@ -21,10 +21,11 @@ Key port decisions:
 - Order is preserved (results are returned in the same
   indices as the input tasks).
 """
+
 from __future__ import annotations
 
 import asyncio
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, TypeVar, cast
 
 if TYPE_CHECKING:
     from collections.abc import Awaitable, Callable
@@ -77,7 +78,7 @@ async def run_with_concurrency(
     if first_error is not None:
         raise first_error
 
-    return [result for result in results if result is not None]
+    return cast(list[T], results)
 
 
 __all__ = ["run_with_concurrency"]

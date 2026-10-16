@@ -9,6 +9,7 @@ Covers:
 - close_all + is_agent_database_open helpers
 - inspect_agent_database_owner
 """
+
 from __future__ import annotations
 
 import os
@@ -82,14 +83,10 @@ def test_open_reuses_cached_handle(state_root):
 def test_open_rejects_conflicting_agent_id(state_root, tmp_path):
     """When the same path is opened for two different agent ids, refuse."""
     shared_path = tmp_path / "shared.sqlite"
-    handle_a = open_agent_database(
-        {"agent_id": "shared", "path": str(shared_path)}
-    )
+    handle_a = open_agent_database({"agent_id": "shared", "path": str(shared_path)})
     try:
         with pytest.raises(RuntimeError):
-            open_agent_database(
-                {"agent_id": "different", "path": str(shared_path)}
-            )
+            open_agent_database({"agent_id": "different", "path": str(shared_path)})
     finally:
         close_agent_database(handle_a.path)
 
@@ -126,9 +123,7 @@ def test_is_agent_database_open_detects_active(state_root):
 
 def test_open_with_explicit_path(state_root, tmp_path):
     custom = tmp_path / "custom.sqlite"
-    handle = open_agent_database(
-        {"agent_id": "any", "path": str(custom)}
-    )
+    handle = open_agent_database({"agent_id": "any", "path": str(custom)})
     try:
         assert handle.path == os.path.abspath(str(custom))
         assert os.path.isfile(handle.path)
@@ -145,15 +140,11 @@ def test_open_with_explicit_factory(state_root):
         conn.row_factory = sqlite3.Row
         return conn
 
-    handle = open_agent_database(
-        {"agent_id": "factory", "connection_factory": factory}
-    )
+    handle = open_agent_database({"agent_id": "factory", "connection_factory": factory})
     try:
         assert seen == ["called"]
         # Path falls back to default even with custom factory.
-        assert handle.path.endswith(
-            os.path.join("factory", "agent.sqlite")
-        )
+        assert handle.path.endswith(os.path.join("factory", "agent.sqlite"))
     finally:
         close_agent_database(handle.path)
 

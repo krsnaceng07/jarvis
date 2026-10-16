@@ -89,7 +89,6 @@ from src.config.types_plugins import (
 from src.config.types_hooks import (
     HookAction,
     HookConfig,
-    HookInstallRecord,
     HookMappingConfig,
     HookMappingMatch,
     HookMappingTransform,
@@ -1017,6 +1016,13 @@ class TestPluginAutoEnableApply:
         assert "config" in out
         assert "changes" in out
         assert "autoEnabledReasons" in out
+
+    def test_public_facade_delegates_without_raising(self) -> None:
+        from src.config.plugin_auto_enable import apply_plugin_auto_enable as facade_apply
+
+        out = facade_apply({"config": {"plugins": {"entries": {}}}})
+        assert out["config"] == {"plugins": {"entries": {}}}
+        assert out["changes"] == []
 
 
 # ============================================================================

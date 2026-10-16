@@ -47,7 +47,7 @@ class ApiRegistry:
         if isinstance(provider, dict) and "id" in provider:
             self._providers[provider["id"]] = provider
         else:
-            self._providers[id(provider)] = provider
+            self._providers[str(id(provider))] = provider
 
     def clear_api_providers(self) -> None:
         self._providers.clear()
@@ -65,14 +65,45 @@ class ApiRegistry:
 
 
 class LlmRuntime:
-    """Placeholder for the LLM-side
-    ``LlmRuntime``. Phase 6.7a ships the
-    structural shape; the full stream + model
-    resolution land in Phase 6.7+."""
+    """LLM runtime resolving model providers and executing stream_simple."""
 
     def __init__(self, api_registry: ApiRegistry) -> None:
         self.api_registry = api_registry
-        self.stream_simple = None  # bound later
+        self.stream_simple = self._stream_simple
+
+    async def _stream_simple(
+        self,
+        model: Any,
+        context: Any,
+        options: Optional[dict[str, Any]] = None,
+    ) -> Any:
+        import os
+
+        opts = options or {}
+        provider_name = (
+            getattr(model, "provider", None)
+            or (model.get("provider") if isinstance(model, dict) else None)
+            or "google"
+        )
+        provider = self.api_registry.get(provider_name)
+
+        if provider is not None and hasattr(provider, "stream_simple"):
+            return await provider.stream_simple(model, context, opts)
+
+        # Built-in fallback: google Gemini provider
+        try:
+            from extensions.google.plugin import google_provider
+
+            api_key = (
+                opts.get("apiKey")
+                or os.environ.get("GEMINI_API_KEY")
+                or os.environ.get("GOOGLE_API_KEY")
+            )
+            if api_key:
+                google_provider.metadata["credentials"] = api_key
+            return google_provider.stream_simple(model, context, opts)
+        except Exception as err:
+            raise RuntimeError(f"Failed to stream from provider {provider_name!r}: {err}") from err
 
 
 # ============================================================================

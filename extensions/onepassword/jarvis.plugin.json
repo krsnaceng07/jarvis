@@ -1,0 +1,90 @@
+{
+  "id": "onepassword",
+  "name": "1Password",
+  "kind": "infra",
+  "version": "0.1.0",
+  "description": "1Password secret store integration, SecretRef exec provider, and agent tool.",
+  "activation": {
+    "onStartup": true,
+    "onDemand": true
+  },
+  "tools": [
+    {
+      "name": "onepassword",
+      "description": "Access curated, policy-controlled credentials from 1Password."
+    }
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "vault": {
+        "type": "string",
+        "default": "Automation",
+        "description": "Default 1Password vault name or ID."
+      },
+      "defaultPolicy": {
+        "type": "string",
+        "enum": ["auto", "approve", "deny"],
+        "default": "approve",
+        "description": "Default policy tier for secret items without an explicit policy."
+      },
+      "cacheTtlSeconds": {
+        "type": "integer",
+        "minimum": 0,
+        "default": 300,
+        "description": "In-memory secret cache TTL in seconds (0 disables caching)."
+      },
+      "grantTtlHours": {
+        "type": "integer",
+        "minimum": 1,
+        "default": 720,
+        "description": "Expiration period in hours for standing approval grants."
+      },
+      "opTimeoutMs": {
+        "type": "integer",
+        "minimum": 1000,
+        "default": 15000,
+        "description": "Timeout in milliseconds for 1Password CLI invocations."
+      },
+      "opBin": {
+        "type": "string",
+        "description": "Optional absolute path to the op executable."
+      },
+      "items": {
+        "type": "object",
+        "description": "Curated dictionary of accessible secret slugs (max 32).",
+        "additionalProperties": {
+          "type": "object",
+          "required": ["item"],
+          "additionalProperties": false,
+          "properties": {
+            "item": {
+              "type": "string",
+              "description": "1Password item title or UUID."
+            },
+            "field": {
+              "type": "string",
+              "default": "credential",
+              "description": "Target field label or UUID (default 'credential')."
+            },
+            "policy": {
+              "type": "string",
+              "enum": ["auto", "approve", "deny"],
+              "description": "Per-item policy override."
+            },
+            "vault": {
+              "type": "string",
+              "description": "Per-item vault override."
+            },
+            "description": {
+              "type": "string",
+              "maxLength": 200,
+              "description": "Human-readable description for agent discovery."
+            }
+          }
+        }
+      }
+    }
+  }
+}

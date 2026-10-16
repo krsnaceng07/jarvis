@@ -22,6 +22,7 @@ the same public surface as the TS port and uses
 ``ensure_agent_database_permissions`` to apply the
 canonical mode bits.
 """
+
 from __future__ import annotations
 
 import os
@@ -123,9 +124,7 @@ def append_agent_session_entry(
         )
 
 
-def load_agent_session_entries(
-    handle: AgentDatabaseHandle, session_id: str
-) -> list[dict]:
+def load_agent_session_entries(handle: AgentDatabaseHandle, session_id: str) -> list[dict]:
     ensure_agent_session_schema(handle.db)
     rows = handle.db.execute(
         "SELECT entry_json FROM agent_session_entries WHERE session_id = ? ORDER BY sequence",
@@ -178,9 +177,7 @@ def open_agent_database(options: dict) -> AgentDatabaseHandle:
     env = options.get("env")
     custom_path = options.get("path")
     custom_factory = options.get("connection_factory")
-    pathname = os.path.abspath(
-        custom_path or resolve_agent_sqlite_path(agent_id, env)
-    )
+    pathname = os.path.abspath(custom_path or resolve_agent_sqlite_path(agent_id, env))
     with _cache_lock:
         cached = _cached_databases.get(pathname)
         if cached is not None:

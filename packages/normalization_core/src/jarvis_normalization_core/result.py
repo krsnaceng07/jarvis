@@ -59,6 +59,14 @@ class Ok[T]:
     def is_err(self) -> bool:
         return False
 
+    def unwrap(self) -> T:
+        """Return the contained value."""
+        return self.value
+
+    def unwrap_or(self, default: T) -> T:
+        """Return the contained value."""
+        return self.value
+
     def match(self, *, ok: Callable[[T], R], err: Callable[[str, str], R]) -> R:
         """Dispatch on the variant. Mirrors Rust's ``Result::match``.
 
@@ -89,6 +97,14 @@ class Err[T]:
     @property
     def is_err(self) -> bool:
         return True
+
+    def unwrap(self) -> T:
+        """Raise a ValueError with the contained error message."""
+        raise ValueError(f"Called unwrap on an Err result: {self.error} (code={self.code})")
+
+    def unwrap_or(self, default: T) -> T:
+        """Return the default fallback value."""
+        return default
 
     def match(self, *, ok: Callable[[T], R], err: Callable[[str, str], R]) -> R:
         """Dispatch on the variant. Mirrors Rust's ``Result::match``.

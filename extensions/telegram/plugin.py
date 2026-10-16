@@ -5,16 +5,14 @@ This file is intentionally small and mirror-like: the phase-3 tests import
 that talks to ``TelegramState`` as the runtime contract, and also expect the
 ``plugin`` / ``entry`` / ``_register`` names to exist at the plugin package root.
 """
+
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from typing import Any
 
 import httpx
 
 from jarvis_sdk import define_plugin_entry
-from src.doctor import DoctorFinding, Severity
 
 from .doctor import detect_telegram_credentials
 from .runtime import TelegramState
@@ -133,4 +131,11 @@ entry = define_plugin_entry(
 )
 
 
-__all__ = ["TelegramChannel", "TelegramChannelPlugin", "plugin", "entry", "_register", "TelegramState"]
+__all__ = [
+    "TelegramChannel",
+    "TelegramChannelPlugin",
+    "plugin",
+    "entry",
+    "_register",
+    "TelegramState",
+]

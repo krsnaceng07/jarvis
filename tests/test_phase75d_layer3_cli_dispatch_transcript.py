@@ -6,7 +6,6 @@ from typing import Any, Dict, List
 import pytest
 
 from src.agents.embedded_agent_runner.cli_backend_dispatch_transcript import (
-    CliDispatchTranscriptRecorder,
     create_cli_dispatch_transcript_recorder,
     set_append_transcript_message_hook,
     set_build_assistant_message_hook,

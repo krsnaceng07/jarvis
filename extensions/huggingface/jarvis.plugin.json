@@ -1,0 +1,79 @@
+{
+  "id": "huggingface",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "huggingface"
+  ],
+  "providerEndpoints": [
+    {
+      "endpointClass": "huggingface-native",
+      "hosts": [
+        "api-inference.huggingface.co"
+      ]
+    }
+  ],
+  "providerRequest": {
+    "providers": {
+      "huggingface": {
+        "family": "huggingface"
+      }
+    }
+  },
+  "setup": {
+    "providers": [
+      {
+        "id": "huggingface",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "HUGGINGFACE_HUB_TOKEN"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "huggingface": {
+        "baseUrl": "https://api-inference.huggingface.co/models",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "meta-llama/Meta-Llama-3-8B-Instruct",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "meta-llama/Meta-Llama-3-70B-Instruct",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "mistralai/Mistral-7B-Instruct-v0.3",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

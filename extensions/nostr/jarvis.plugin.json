@@ -1,0 +1,27 @@
+{
+  "id": "nostr",
+  "name": "Nostr",
+  "description": "JARVIS Nostr decentralized protocol channel plugin.",
+  "channels": [
+    "nostr"
+  ],
+  "activation": {
+    "onStartup": false
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "privateKey": {
+        "type": "string"
+      },
+      "relays": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "kind": "channel"
+}

@@ -1,0 +1,30 @@
+{
+  "id": "nextcloud-talk",
+  "name": "Nextcloud Talk",
+  "description": "JARVIS Nextcloud Talk channel plugin for conversation rooms.",
+  "channels": [
+    "nextcloud-talk"
+  ],
+  "activation": {
+    "onStartup": false
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "serverUrl": {
+        "type": "string"
+      },
+      "username": {
+        "type": "string"
+      },
+      "password": {
+        "type": "string"
+      },
+      "webhookSecret": {
+        "type": "string"
+      }
+    }
+  },
+  "kind": "channel"
+}

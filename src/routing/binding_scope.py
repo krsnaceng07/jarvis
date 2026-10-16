@@ -8,7 +8,7 @@ guild, team, group space, and optionally channel/platform role ids.
 
 from __future__ import annotations
 
-from typing import Any, Iterable
+from typing import Any
 
 from jarvis_normalization_core.string_coerce import normalize_lowercase_string_or_empty
 

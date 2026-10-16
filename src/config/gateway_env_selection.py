@@ -5,7 +5,6 @@ OpenClaw parity: mirrors
 """
 from __future__ import annotations
 
-from typing import Iterable
 
 
 #: Env keys the running gateway considers process-stable selectors.

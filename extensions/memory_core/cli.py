@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import os
 from datetime import UTC
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -84,11 +85,41 @@ def register_memory_cli(program: Any, host: Any | None = None) -> None:
     p_index = sub.add_parser("index", help="Reindex memory files")
     p_index.set_defaults(_handler=_cmd_memory_index)
 
+    # ── memory reset ──────────────────────────────────────────
+    p_reset = sub.add_parser(
+        "reset",
+        help="Clear the derived memory index without deleting markdown files",
+    )
+    p_reset.add_argument("--yes", "-y", action="store_true", help="Skip confirmation")
+    p_reset.set_defaults(_handler=_cmd_memory_reset)
+
     # ── memory search ─────────────────────────────────────────
     p_search = sub.add_parser("search", help="Search memory files")
-    p_search.add_argument("query", help="Search query")
-    p_search.add_argument("--limit", type=int, default=20, help="Max results (default 20)")
+    p_search.add_argument("query", nargs="?", default="", help="Search query")
+    p_search.add_argument("--query", "-q", dest="opt_query", help="Search query option")
+    p_search.add_argument(
+        "--max-results", "--limit", dest="limit", type=int, default=20, help="Max results (default 20)"
+    )
+    p_search.add_argument(
+        "--min-score", type=float, default=0.0, help="Minimum relevance score in [0, 1]"
+    )
+    p_search.add_argument(
+        "--corpus", default="memory", help="Corpus: memory, wiki, sessions, all"
+    )
+    p_search.add_argument("--citations", action="store_true", help="Include source citations")
+    p_search.add_argument("--json", action="store_true", help="Output result as JSON")
     p_search.set_defaults(_handler=_cmd_memory_search)
+
+    # ── memory forget ─────────────────────────────────────────
+    p_forget = sub.add_parser(
+        "forget",
+        help="Purge memory entries by key or query across SQLite and markdown files",
+    )
+    p_forget.add_argument("--key", help="Exact key to forget")
+    p_forget.add_argument("--query", "-q", help="Substring query to match for forgetting")
+    p_forget.add_argument("--dry-run", action="store_true", help="Preview matches without deleting")
+    p_forget.add_argument("--json", action="store_true", help="Output result as JSON")
+    p_forget.set_defaults(_handler=_cmd_memory_forget)
 
     # ── memory promote ────────────────────────────────────────
     p_promote = sub.add_parser("promote", help="Rank short-term recalls and append to MEMORY.md")
@@ -152,7 +183,7 @@ def _cmd_memory_status(args: argparse.Namespace) -> int:
         from .runtime import MemoryRuntime
 
         db_path = os.path.join(workspace, "core", "memory.sqlite")
-        rt = MemoryRuntime(db_path)  # type: ignore[arg-type]
+        rt = MemoryRuntime(Path(db_path))
     except Exception as exc:
         print(f"memory status: could not open runtime ({exc})")
         return 1
@@ -169,33 +200,168 @@ def _cmd_memory_status(args: argparse.Namespace) -> int:
 def _cmd_memory_index(args: argparse.Namespace) -> int:
     """Reindex memory files (OpenClaw parity)."""
     workspace = _resolve_workspace(args)
-    # Full reindex is a no-op for the SQLite substring backend; for
-    # the LanceDB backend it would call ``reindex``. Best-effort:
-    # log a status line and return 0.
-    print(f"memory index: reindex workspace={workspace} (substring backend: no-op)")
+    try:
+        from .memory_indexer import index_memory_files
+        from .runtime import MemoryRuntime
+
+        db_path = os.path.join(workspace, "core", "memory.sqlite")
+        rt = MemoryRuntime(Path(db_path))
+    except Exception as exc:
+        print(f"memory index: could not open runtime ({exc})")
+        return 1
+
+    try:
+        total_chunks = index_memory_files(workspace, rt)
+        print(f"memory index: reindexed workspace={workspace} ({total_chunks} chunks)")
+    except Exception as exc:
+        print(f"memory index: failed to index files ({exc})")
+        return 1
+    finally:
+        rt.close()
+
+    return 0
+
+
+def _cmd_memory_reset(args: argparse.Namespace) -> int:
+    """Clear the derived memory index and FTS tables without deleting markdown files."""
+    workspace = _resolve_workspace(args)
+    if not getattr(args, "yes", False):
+        print("memory reset: requires --yes confirmation to clear the index.")
+        return 1
+
+    try:
+        from .runtime import MemoryRuntime, resolve_memory_db_path
+
+        ws_p = Path(workspace)
+        if (ws_p / "core" / "memory.sqlite").is_file():
+            db_path = ws_p / "core" / "memory.sqlite"
+        elif (ws_p / "memory.sqlite").is_file():
+            db_path = ws_p / "memory.sqlite"
+        else:
+            db_path = resolve_memory_db_path()
+
+        rt = MemoryRuntime(db_path)
+    except Exception as exc:
+        print(f"memory reset: could not open runtime ({exc})")
+        return 1
+
+    try:
+        count = rt.reset_index()
+        print(f"memory reset: cleared {count} indexed entries from {db_path}.")
+    finally:
+        rt.close()
     return 0
 
 
 def _cmd_memory_search(args: argparse.Namespace) -> int:
     """Search memory files (OpenClaw parity)."""
     workspace = _resolve_workspace(args)
-    try:
-        from .runtime import MemoryRuntime
+    query = (getattr(args, "opt_query", None) or getattr(args, "query", "") or "").strip()
+    if not query:
+        print("memory search: query is required.")
+        return 1
 
-        db_path = os.path.join(workspace, "core", "memory.sqlite")
-        rt = MemoryRuntime(db_path)  # type: ignore[arg-type]
+    try:
+        from .runtime import MemoryRuntime, resolve_memory_db_path
+
+        ws_p = Path(workspace)
+        if (ws_p / "core" / "memory.sqlite").is_file():
+            db_path = ws_p / "core" / "memory.sqlite"
+        elif (ws_p / "memory.sqlite").is_file():
+            db_path = ws_p / "memory.sqlite"
+        else:
+            db_path = resolve_memory_db_path()
+
+        rt = MemoryRuntime(db_path)
     except Exception as exc:
         print(f"memory search: could not open runtime ({exc})")
         return 1
+
     try:
-        rows = rt.search_text(args.query, limit=getattr(args, "limit", 20))
+        limit = int(getattr(args, "limit", 20))
+        min_score = float(getattr(args, "min_score", 0.0))
+        corpus = str(getattr(args, "corpus", "memory"))
+        citations = bool(getattr(args, "citations", False))
+
+        rows = rt.search_ranked(
+            query=query,
+            limit=limit,
+            min_score=min_score,
+            corpus=corpus,
+            citations=citations,
+        )
+
+        if getattr(args, "json", False):
+            import json
+
+            print(json.dumps({"results": rows, "count": len(rows)}, indent=2))
+            return 0
+
         if not rows:
-            rows = rt.search_substring(args.query, limit=getattr(args, "limit", 20))
-        if not rows:
-            print(f"No memory entries match {args.query!r}.")
-            return 1
+            print(f"No memory entries match {query!r}.")
+            return 0
+
         for r in rows:
-            print(f"  - {r['key']}: {r['value']}")
+            score = r.get("score", 0.0)
+            val = r.get("value", "")
+            print(f"  - [{score:.2f}] {r['key']}: {val}")
+    finally:
+        rt.close()
+    return 0
+
+
+def _cmd_memory_forget(args: argparse.Namespace) -> int:
+    """Purge memory entries across SQLite and markdown files in lockstep."""
+    workspace = _resolve_workspace(args)
+    key = getattr(args, "key", None)
+    query = getattr(args, "query", None)
+    dry_run = getattr(args, "dry_run", False)
+
+    if not key and not query:
+        print("memory forget: either --key or --query is required.")
+        return 1
+
+    try:
+        from .runtime import MemoryRuntime, resolve_memory_db_path
+
+        ws_p = Path(workspace)
+        if (ws_p / "core" / "memory.sqlite").is_file():
+            db_path = ws_p / "core" / "memory.sqlite"
+        elif (ws_p / "memory.sqlite").is_file():
+            db_path = ws_p / "memory.sqlite"
+        else:
+            db_path = resolve_memory_db_path()
+
+        rt = MemoryRuntime(db_path)
+    except Exception as exc:
+        print(f"memory forget: could not open runtime ({exc})")
+        return 1
+
+    try:
+        if dry_run:
+            q = query or key or ""
+            candidates = rt.search_substring(q)
+            if getattr(args, "json", False):
+                import json
+
+                print(json.dumps({"dryRun": True, "matches": candidates}, indent=2))
+            else:
+                print(f"memory forget: dry run - found {len(candidates)} matching entries:")
+                for c in candidates:
+                    print(f"  - {c['key']}: {c['value'][:60]}")
+            return 0
+
+        res = rt.forget(key=key, query=query, workspace_dir=ws_p)
+        if getattr(args, "json", False):
+            import json
+
+            print(json.dumps(res, indent=2))
+        else:
+            count = res.get("forgotten_count", 0)
+            md_lines = res.get("removed_markdown_lines", 0)
+            print(
+                f"memory forget: purged {count} entries from SQLite and removed {md_lines} markdown lines."
+            )
     finally:
         rt.close()
     return 0

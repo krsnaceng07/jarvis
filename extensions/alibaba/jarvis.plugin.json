@@ -1,0 +1,52 @@
+{
+  "id": "alibaba",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "alibaba"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "alibaba",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "ALIBABA_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "alibaba": {
+        "baseUrl": "https://dashscope.aliyuncs.com/api/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "qwen-max",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

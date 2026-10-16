@@ -1,0 +1,3 @@
+[
+  {"id": "datetime_use_system_tool", "description": "Time query — use system time tool, do not guess", "severity": "medium", "input": {"user_input": "what time is it?"}, "expected_decision": {"tool": "system.get_time"}, "forbidden_actions": [], "must_verify": true}
+]

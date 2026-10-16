@@ -271,9 +271,7 @@ async def run_agent_loop(
     """Run a prompt-started loop and emit events through a caller-owned
     sink. Parity: ``runAgentLoop``."""
     new_messages: list[AgentMessage] = [*prompts]
-    current_context = dataclasses.replace(
-        context, messages=[*context.messages, *prompts]
-    )
+    current_context = dataclasses.replace(context, messages=[*context.messages, *prompts])
 
     await _emit(emit, AgentEventAgentStart())
     await _emit(emit, AgentEventTurnStart())
@@ -387,9 +385,7 @@ async def _run_loop(
             turn_open = True
         await _emit(emit, AgentEventMessageStart(message=aborted_message))
         await _emit(emit, AgentEventMessageEnd(message=aborted_message))
-        await _emit(
-            emit, AgentEventTurnEnd(message=aborted_message, tool_results=[])
-        )
+        await _emit(emit, AgentEventTurnEnd(message=aborted_message, tool_results=[]))
         turn_open = False
         if not is_turn_handoff_abort(signal):
             await append_interrupted_turn_message(new_messages, emit)
@@ -457,9 +453,7 @@ async def _run_loop(
                     current_context.messages.append(result)
                     new_messages.append(result)
 
-            await _emit(
-                emit, AgentEventTurnEnd(message=message, tool_results=tool_results)
-            )
+            await _emit(emit, AgentEventTurnEnd(message=message, tool_results=tool_results))
             turn_open = False
             if await stop_if_aborted():
                 return
@@ -489,8 +483,7 @@ async def _run_loop(
                     else config.thinking_level
                 )
                 should_resolve_reasoning = next_turn_snapshot.thinking_level is not None or (
-                    next_turn_snapshot.model is not None
-                    and next_thinking_level is not None
+                    next_turn_snapshot.model is not None and next_thinking_level is not None
                 )
                 current_options = config.stream_options or SimpleStreamOptions()
                 next_reasoning = (
@@ -502,9 +495,7 @@ async def _run_loop(
                     config,
                     model=next_model,
                     thinking_level=next_thinking_level,
-                    stream_options=dataclasses.replace(
-                        current_options, reasoning=next_reasoning
-                    ),
+                    stream_options=dataclasses.replace(current_options, reasoning=next_reasoning),
                 )
             if await stop_if_aborted():
                 return
@@ -604,9 +595,7 @@ async def _stream_assistant_response(
             partial_message = message
             context.messages.append(message)
             added_partial = True
-            await _emit(
-                emit, AgentEventMessageStart(message=dataclasses.replace(message))
-            )
+            await _emit(emit, AgentEventMessageStart(message=dataclasses.replace(message)))
         elif event.type in _UPDATE_EVENT_TYPES:
             if partial_message is not None:
                 message = _resolve_assistant_message_update(event, partial_message)
@@ -628,9 +617,7 @@ async def _stream_assistant_response(
             if not added_partial:
                 await _emit(
                     emit,
-                    AgentEventMessageStart(
-                        message=dataclasses.replace(final_message)
-                    ),
+                    AgentEventMessageStart(message=dataclasses.replace(final_message)),
                 )
             await _emit(emit, AgentEventMessageEnd(message=final_message))
             return final_message
@@ -778,11 +765,7 @@ def _hides_tool_call_from_channel_progress(
         tool = resolution.tool
     else:
         tool = next(
-            (
-                candidate
-                for candidate in (context.tools or [])
-                if candidate.name == tool_call.name
-            ),
+            (candidate for candidate in (context.tools or []) if candidate.name == tool_call.name),
             None,
         )
     return tool is not None and getattr(tool, "hide_from_channel_progress", None) is True
@@ -943,10 +926,7 @@ async def _execute_tool_calls_parallel(
 
     ordered_finalized_calls: list[_FinalizedToolCallOutcome] = list(
         await asyncio.gather(
-            *(
-                entry() if callable(entry) else _ready(entry)
-                for entry in finalized_calls
-            )
+            *(entry() if callable(entry) else _ready(entry) for entry in finalized_calls)
         )
     )
     messages: list[ToolResultMessage] = []
@@ -970,9 +950,7 @@ def _should_terminate_tool_batch(
     )
 
 
-def _prepare_tool_call_arguments(
-    tool: AgentTool, tool_call: AgentToolCall
-) -> AgentToolCall:
+def _prepare_tool_call_arguments(tool: AgentTool, tool_call: AgentToolCall) -> AgentToolCall:
     """Parity: ``prepareToolCallArguments``."""
     prepare = getattr(tool, "prepare_arguments", None)
     if not prepare:
@@ -1031,9 +1009,7 @@ async def _resolve_tool_call_tool(
                 # continuations in this run. AgentContext is frozen; this is
                 # the TS `currentContext.tools = [...]` property write, done
                 # on the same object so every holder observes it.
-                object.__setattr__(
-                    current_context, "tools", [*(current_context.tools or []), tool]
-                )
+                object.__setattr__(current_context, "tools", [*(current_context.tools or []), tool])
         resolution = _ResolvedToolCallOutcome(kind="resolved", tool=tool)
     except Exception as error:  # noqa: BLE001 - parity: catch → error outcome
         resolution = _ResolvedToolCallOutcome(kind="error", error=error)
@@ -1192,9 +1168,7 @@ async def _execute_prepared_tool_call(
         )
         accepting_updates = False
         await asyncio.gather(*update_events)
-        return _ExecutedToolCallOutcome(
-            result=result, is_error=False, execution_started=True
-        )
+        return _ExecutedToolCallOutcome(result=result, is_error=False, execution_started=True)
     except Exception as error:  # noqa: BLE001 - parity: tool errors → result
         accepting_updates = False
         await asyncio.gather(*update_events)
@@ -1254,9 +1228,7 @@ async def _finalize_executed_tool_call(
         is_error=is_error,
         execution_started=executed.execution_started,
         hide_from_channel_progress=(
-            True
-            if getattr(prepared.tool, "hide_from_channel_progress", None) is True
-            else None
+            True if getattr(prepared.tool, "hide_from_channel_progress", None) is True else None
         ),
     )
 

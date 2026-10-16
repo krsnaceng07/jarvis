@@ -1,0 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jarvis-session-core"
+version = "0.1.0"
+description = "JARVIS session core — SessionStore, session keys, lifecycle and routing (OpenClaw parity)"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "JARVIS architect" }]
+dependencies = [
+    "pydantic>=2.8.0",
+    "sqlalchemy>=2.0.0",
+    "jarvis-state-core",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jarvis_session_core"]
+
+[tool.uv.sources]
+jarvis-state-core = { workspace = true }

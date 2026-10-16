@@ -4,7 +4,7 @@ OpenClaw parity: mirrors ``openclaw-main/src/shared/progress-labels.ts``.
 """
 from __future__ import annotations
 
-from typing import Callable, List, Optional
+from typing import List, Optional
 
 #: Default progress draft labels.
 DEFAULT_PROGRESS_DRAFT_LABELS: List[str] = ["Working"]

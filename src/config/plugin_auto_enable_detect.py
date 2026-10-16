@@ -11,7 +11,6 @@ from __future__ import annotations
 import os
 from typing import Any, Optional
 
-from src.config.plugin_auto_enable_types import PluginAutoEnableCandidate
 
 
 def detect_plugin_auto_enable_candidates(

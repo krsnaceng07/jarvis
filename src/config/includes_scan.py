@@ -9,7 +9,6 @@ permission-repair tooling can decide which files to retain.
 """
 from __future__ import annotations
 
-import os
 from typing import Any, Callable, List, Optional, Set
 
 

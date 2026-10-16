@@ -90,7 +90,12 @@ class TestMemoryCoreEntry:
         # plugin tool registrations. Mirrors the production loader
         # in ``apps/desktop/src/jarvis_desktop/app.py``.
         import json as _json
-        manifest = _json.loads((REPO_ROOT / "extensions" / "memory_core" / "openclaw.plugin.json").read_text(encoding="utf-8"))
+
+        manifest = _json.loads(
+            (REPO_ROOT / "extensions" / "memory_core" / "openclaw.plugin.json").read_text(
+                encoding="utf-8"
+            )
+        )
         api.set_manifest(manifest)
         _register(api)
         # 2 tools: memory_search + memory_get

@@ -29,6 +29,8 @@ def main() -> int:
             continue
         if "openclaw-main" in py_file.parts:
             continue
+        if "node_modules" in py_file.parts:
+            continue
         if "legacy_" in py_file.name:
             continue
         try:

@@ -37,27 +37,26 @@ Adaptations
   with ``F_OK`` only checks existence, not
   type).
 """
+
 from __future__ import annotations
 
 import os
 import re
+import sys
 import unicodedata
 import urllib.parse
 import urllib.request
-from typing import Union
 
 
 #: Unicode whitespace variants that should be
- #: normalised to ASCII space. Mirrors
- #: ``UNICODE_SPACES``
- #: (``path-utils.ts:11``).
-_UNICODE_SPACES = re.compile(
-    "[\u00A0\u2000-\u200A\u202F\u205F\u3000]"
-)
+#: normalised to ASCII space. Mirrors
+#: ``UNICODE_SPACES``
+#: (``path-utils.ts:11``).
+_UNICODE_SPACES = re.compile("[\u00a0\u2000-\u200a\u202f\u205f\u3000]")
 
 #: Narrow no-break space (used by macOS in
- #: screenshot filenames). Mirrors
- #: ``NARROW_NO_BREAK_SPACE`` (``path-utils.ts:12``).
+#: screenshot filenames). Mirrors
+#: ``NARROW_NO_BREAK_SPACE`` (``path-utils.ts:12``).
 _NARROW_NO_BREAK_SPACE = "\u202f"
 
 
@@ -80,9 +79,7 @@ def _try_macos_screenshot_path(file_path: str) -> str:
     # when the captured group is followed by
     # other content). Use raw concatenation
     # to keep the regex semantics exact.
-    return re.sub(
-        r" (AM|PM)\.", _NARROW_NO_BREAK_SPACE + r"\1.", file_path
-    )
+    return re.sub(r" (AM|PM)\.", _NARROW_NO_BREAK_SPACE + r"\1.", file_path)
 
 
 def _try_nfd_variant(file_path: str) -> str:
@@ -118,10 +115,75 @@ def _normalize_at_prefix(file_path: str) -> str:
     return file_path
 
 
+def normalize_user_home_path(file_path: str) -> str:
+    """Normalize hallucinated or foreign user profile paths to current user's home.
+
+    LLMs frequently hallucinate usernames (e.g. 'rsnac', 'user', 'username', 'admin', 'john')
+    when constructing paths like 'C:\\Users\\rsnac\\Downloads\\...'. On Windows, creating
+    directories in C:\\Users\\ requires elevated administrator privileges and fails with
+    [WinError 5] Access is denied. Furthermore, Python's os.path.expanduser('~foo') unconditionally
+    constructs 'C:\\Users\\foo' on Windows even when 'foo' does not exist.
+
+    If a path references a user profile directory (e.g. 'C:\\Users\\<user>\\...' or
+    '/Users/<user>/...' or '/home/<user>/...') that does NOT exist on the host, but the current
+    user's home directory is valid, redirect the path to the current user's profile.
+    """
+    if not file_path:
+        return file_path
+
+    clean_path = str(file_path).strip().strip("'\"`")
+    current_home = os.path.expanduser("~")
+
+    # 1. Tilde with specific username: ~rsnac or ~rsnac/Downloads
+    tilde_user_match = re.match(r"^~([a-zA-Z0-9_\-\.]+)(?:[/\\](.*))?$", clean_path)
+    if tilde_user_match:
+        target_user = tilde_user_match.group(1)
+        subpath = tilde_user_match.group(2) or ""
+        expanded = os.path.expanduser(f"~{target_user}")
+        if not os.path.isdir(expanded):
+            return os.path.normpath(os.path.join(current_home, subpath)) if subpath else current_home
+
+    # 2. Windows drive or UNC: [C:][/\]Users[/\<user>[/\][<subpath>]
+    win_match = re.match(
+        r"^([a-zA-Z]:)?[/\\]Users[/\\]([^/\\]+)(?:[/\\](.*))?$",
+        clean_path,
+        re.IGNORECASE,
+    )
+    if win_match:
+        drive_prefix = win_match.group(1) or ("C:" if sys.platform == "win32" else "")
+        target_user = win_match.group(2)
+        subpath = win_match.group(3) or ""
+
+        # Profile directory candidate
+        profile_candidate = (
+            f"{drive_prefix}\\Users\\{target_user}"
+            if drive_prefix
+            else f"\\Users\\{target_user}"
+        )
+        if not os.path.isdir(profile_candidate):
+            # Target user profile doesn't exist on disk -> redirect to current user's profile
+            return os.path.normpath(os.path.join(current_home, subpath)) if subpath else current_home
+        return clean_path
+
+    # 3. POSIX: /(Users|home)/<user>[/<subpath>]
+    posix_match = re.match(r"^/(Users|home)/([^/]+)(?:/(.*))?$", clean_path)
+    if posix_match:
+        base_kind = posix_match.group(1)
+        target_user = posix_match.group(2)
+        subpath = posix_match.group(3) or ""
+        profile_candidate = f"/{base_kind}/{target_user}"
+        if not os.path.isdir(profile_candidate):
+            return os.path.normpath(os.path.join(current_home, subpath)) if subpath else current_home
+        return clean_path
+
+    return clean_path
+
+
 def _expand_path(file_path: str) -> str:
-    """Expand ``~`` / ``file://`` / ``@`` prefix.
+    """Expand ``~`` / ``file://`` / ``@`` prefix and normalize user home directories.
     Mirrors ``expandPath`` (``path-utils.ts:45-61``)."""
     normalized = _normalize_unicode_spaces(_normalize_at_prefix(file_path))
+    normalized = normalize_user_home_path(normalized)
     if normalized.startswith("file://"):
         try:
             parsed = urllib.parse.urlparse(normalized)
@@ -139,14 +201,60 @@ def _expand_path(file_path: str) -> str:
     return normalized
 
 
+def discover_system_drives() -> list[str]:
+    """Discover active logical drives on the host PC.
+
+    On Windows, uses GetLogicalDrives to return active drive roots (e.g. ['C:\\', 'E:\\']).
+    On POSIX systems, returns ['/'].
+    """
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            import string
+
+            bitmask = ctypes.windll.kernel32.GetLogicalDrives()
+            return [
+                f"{d}:\\" for d in string.ascii_uppercase if (bitmask & (1 << (ord(d) - ord("A"))))
+            ]
+        except Exception:
+            # Fallback: scan common drive letters
+            import string
+
+            return [f"{d}:\\" for d in string.ascii_uppercase if os.path.exists(f"{d}:\\")]
+    return ["/"]
+
+
+def is_drive_available(drive_or_path: str) -> bool:
+    """Check if the drive referenced by the path exists on this PC."""
+    if sys.platform != "win32":
+        return True
+    path_str = str(drive_or_path).strip()
+    match = re.match(r"^([a-zA-Z]):", path_str)
+    if not match:
+        return True
+    drive_letter = match.group(1).upper() + ":\\"
+    return drive_letter in discover_system_drives()
+
+
 def resolve_to_cwd(file_path: str, cwd: str) -> str:
     """Resolve a path relative to ``cwd``,
-    expanding ``~`` and accepting absolute
-    paths as-is. Mirrors ``resolveToCwd``
+    expanding ``~``, normalizing Windows drive letters,
+    normalizing user home paths, and accepting absolute paths as-is. Mirrors ``resolveToCwd``
     (``path-utils.ts:67-73``)."""
     expanded = _expand_path(file_path)
+    expanded = normalize_user_home_path(expanded)
+
+    if sys.platform == "win32":
+        # Handle bare drive letters like "D:" or "c:" -> "D:\" or "C:\"
+        if re.match(r"^[a-zA-Z]:$", expanded):
+            return expanded.upper() + "\\"
+        # Handle forward slashes in drive roots like "D:/path" -> "D:\path"
+        if re.match(r"^[a-zA-Z]:[/\\]", expanded) and not file_path.startswith("~"):
+            return os.path.normpath(expanded)
+
     if os.path.isabs(expanded):
         return expanded
+
     return os.path.realpath(os.path.join(cwd, expanded))
 
 
@@ -180,7 +288,71 @@ def resolve_read_path(file_path: str, cwd: str) -> str:
     return resolved
 
 
+def resolve_unicode_path(file_path: str, cwd: str = "") -> str:
+    """Resolve a filesystem path with Unicode normalization (NFC/NFD) and slash hygiene.
+
+    Ensures non-ASCII/Nepali filenames (e.g. 'परिचय.txt'), user home paths, and mixed-slash Windows paths
+    resolve accurately against the local filesystem, matching OpenClaw's getReadPathVariants.
+    """
+    if not file_path:
+        return file_path
+
+    # 1. Normalize hallucinated/foreign user home paths (e.g. C:\Users\rsnac -> C:\Users\kcs23)
+    file_path = normalize_user_home_path(file_path)
+
+    # 2. Unicode NFC normalization and slash clean
+    norm_text = unicodedata.normalize("NFC", str(file_path).strip().strip("'\"`"))
+    norm_text = re.sub(r"[/\\]+", "/", norm_text)
+    norm_text = re.sub(r"^([a-zA-Z]):/+", r"\1:/", norm_text)
+
+    # 3. Resolve against cwd
+    resolved = resolve_to_cwd(norm_text, cwd or os.getcwd())
+
+    # 4. Direct existence check
+    if os.path.exists(resolved) or os.path.islink(resolved):
+        return resolved
+
+    # 5. Try NFD variant
+    nfd = unicodedata.normalize("NFD", resolved)
+    if os.path.exists(nfd) or os.path.islink(nfd):
+        return nfd
+
+    # 6. Try macOS / screenshot variants
+    read_variant = resolve_read_path(norm_text, cwd or os.getcwd())
+    if os.path.exists(read_variant) or os.path.islink(read_variant):
+        return read_variant
+
+    # 7. NTFS Parent Directory Scan fallback
+    # If the file was written with a slight encoding/combining mark divergence,
+    # match against actual entries in the parent directory.
+    parent_dir = os.path.dirname(resolved)
+    target_name = os.path.basename(resolved)
+    if parent_dir and os.path.isdir(parent_dir):
+        try:
+            target_nfc = unicodedata.normalize("NFC", target_name)
+            target_nfd = unicodedata.normalize("NFD", target_name)
+            for entry in os.listdir(parent_dir):
+                entry_nfc = unicodedata.normalize("NFC", entry)
+                entry_nfd = unicodedata.normalize("NFD", entry)
+                if (
+                    entry_nfc == target_nfc
+                    or entry_nfd == target_nfd
+                    or entry.casefold() == target_name.casefold()
+                ):
+                    candidate = os.path.join(parent_dir, entry)
+                    if os.path.exists(candidate):
+                        return candidate
+        except Exception:
+            pass
+
+    return resolved
+
+
 __all__ = [
+    "discover_system_drives",
+    "is_drive_available",
+    "normalize_user_home_path",
     "resolve_read_path",
     "resolve_to_cwd",
+    "resolve_unicode_path",
 ]

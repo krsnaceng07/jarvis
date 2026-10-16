@@ -16,19 +16,30 @@ from src.config.plugin_auto_enable_types import (  # noqa: F401
 )
 
 
-# Placeholder facades for the apply + materialize + reason-resolution
-# helpers until the corresponding ``plugin-auto-enable.apply`` and
-# ``plugin-auto-enable.shared`` modules land.
+# Thin delegations keep the stable facade API working while the full
+# runtime-backed implementation is installed by the runtime layer.
 def apply_plugin_auto_enable(*args, **kwargs):  # pragma: no cover
-    raise NotImplementedError("applyPluginAutoEnable facade — install via runtime hooks")
+    from src.config.plugin_auto_enable_apply import apply_plugin_auto_enable as _impl
+
+    params = args[0] if args and isinstance(args[0], dict) else kwargs
+    if not isinstance(params, dict) or "config" not in params:
+        raise NotImplementedError("applyPluginAutoEnable facade — install via runtime hooks")
+    return _impl(params)
 
 
 def materialize_plugin_auto_enable_candidates(*args, **kwargs):  # pragma: no cover
-    raise NotImplementedError("materializePluginAutoEnableCandidates facade")
+    from src.config.plugin_auto_enable_apply import apply_plugin_auto_enable as _impl
+
+    params = args[0] if args and isinstance(args[0], dict) else kwargs
+    return _impl(params).get("config") if isinstance(params, dict) else None
 
 
 def resolve_plugin_auto_enable_candidate_reason(*args, **kwargs):  # pragma: no cover
-    raise NotImplementedError("resolvePluginAutoEnableCandidateReason facade")
+    if args and isinstance(args[0], dict):
+        candidate = args[0]
+    else:
+        candidate = kwargs.get("candidate") or {}
+    return candidate.get("kind") or "auto-enabled"
 
 
 __all__ = [

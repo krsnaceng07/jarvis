@@ -12,7 +12,7 @@ Phase 7.6h-3 — focused minimal port.
 """
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 
 CACHE_TTL_CUSTOM_TYPE = "openclaw.cache-ttl"

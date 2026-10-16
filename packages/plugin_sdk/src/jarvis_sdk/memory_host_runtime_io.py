@@ -17,6 +17,7 @@ Key port decisions:
   external MIME database required for the memory host's
   use case (image / audio / markdown).
 """
+
 from __future__ import annotations
 
 from pathlib import Path

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>JARVIS Architecture Overview</title>
+    <style>
+      body {
+        font-family: Arial, Helvetica, sans-serif;
+        margin: 0;
+        padding: 32px;
+        background: #f7f9fc;
+        color: #132238;
+      }
+      .page {
+        max-width: 820px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+        padding: 40px 48px;
+      }
+      h1 {
+        font-size: 32px;
+        margin-bottom: 12px;
+        color: #0b1f33;
+      }
+      h2 {
+        font-size: 20px;
+        margin-top: 28px;
+        margin-bottom: 10px;
+        color: #17355c;
+      }
+      p, li {
+        font-size: 14px;
+        line-height: 1.7;
+      }
+      ul {
+        padding-left: 20px;
+      }
+      .box {
+        background: #eef5ff;
+        border-left: 5px solid #3b82f6;
+        padding: 12px 16px;
+        border-radius: 8px;
+        margin: 18px 0;
+      }
+      .small {
+        font-size: 12px;
+        color: #4b5d75;
+      }
+      .flow {
+        background: #f3f6fb;
+        border: 1px solid #dfe8f3;
+        border-radius: 10px;
+        padding: 14px 16px;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <h1>JARVIS Architecture Overview</h1>
+      <p class="small">OpenClaw-inspired multi-package AI assistant architecture</p>
+
+      <div class="box">
+        JARVIS is a local AI assistant built as a modular Python workspace. It combines apps, runtime logic,
+        model providers, plugins, memory, and skills into one system.
+      </div>
+
+      <h2>1. Main Layers</h2>
+      <ul>
+        <li><strong>Apps:</strong> desktop HUD, CLI, TUI</li>
+        <li><strong>Core packages:</strong> plugin_sdk, agent_runtime, llm_client, gateway_protocol, config_core, memory_host_sdk, channels_core, etc.</li>
+        <li><strong>Extensions:</strong> channels, providers, media, memory, tools, voice, productivity, infrastructure</li>
+        <li><strong>Skills:</strong> declarative markdown skill files under skills/</li>
+        <li><strong>Support systems:</strong> docs, tools, security, qa, deploy, examples</li>
+      </ul>
+
+      <h2>2. Architecture Rule</h2>
+      <p>
+        Core is intentionally plugin-agnostic. Extensions interact with core via <strong>jarvis_sdk.*</strong>, not via ad-hoc imports.
+        This keeps the platform modular, safe, and easier to scale.
+      </p>
+
+      <h2>3. Runtime Workflow</h2>
+      <div class="flow">
+        User request → app/channel → gateway/runtime → model/provider → tools/plugins → memory/state → response
+      </div>
+
+      <p>
+        In practical terms: a user input enters an app, the runtime chooses the correct skill or tool,
+        invokes the model or provider, persists needed state, and returns a final response.
+      </p>
+
+      <h2>4. Storage and Config</h2>
+      <p>
+        JARVIS prefers canonical, schema-based storage, with SQLite as the default for runtime state and memory-related data.
+        Migration and repair logic is handled through doctor/repair flows rather than runtime compatibility hacks.
+      </p>
+
+      <h2>5. Why This Design Matters</h2>
+      <ul>
+        <li>Better separation of concerns</li>
+        <li>Safer extension boundaries</li>
+        <li>Cleaner memory and state management</li>
+        <li>Scalable addition of providers and channels</li>
+        <li>Strong foundation for a personal AI assistant ecosystem</li>
+      </ul>
+
+      <h2>6. Summary</h2>
+      <p>
+        JARVIS is not a single monolithic script. It is a structured AI assistant platform with apps,
+        a plugin runtime, provider integrations, task execution, memory, and skills layered together.
+      </p>
+
+      <p class="small">Source basis: AGENTS.md, VISION.md, README.md</p>
+    </div>
+  </body>
+</html>

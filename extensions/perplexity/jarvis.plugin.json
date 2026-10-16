@@ -1,0 +1,52 @@
+{
+  "id": "perplexity",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "perplexity"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "perplexity",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "PERPLEXITY_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "perplexity": {
+        "baseUrl": "https://api.perplexity.ai",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "sonar-pro",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

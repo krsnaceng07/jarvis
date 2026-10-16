@@ -1,7 +1,8 @@
-"""JARVIS Diffs Language Pack infra extension (Phase 5.15 minimum scaffold)."""
+"""Diffs Language Pack extension root entrypoint."""
+
 from __future__ import annotations
 
-from .plugin import DiffsLanguagePackPlugin, diffs_language_pack_plugin, entry
+from .plugin import DiffsLanguagePackPlugin, entry, diffs_language_pack_plugin
 
 __all__ = [
     "DiffsLanguagePackPlugin",

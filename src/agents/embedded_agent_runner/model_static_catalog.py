@@ -35,14 +35,18 @@ Python port keeps the public surface but delegates the heavy
 plugin iteration to installable hooks so the host can plug in
 the real bundled-manifest layer as it lands.
 """
+
 from __future__ import annotations
 
 from typing import Any, Callable, Dict, List, Optional
 
-from .model_inline_provider import build_inline_provider_models
 from .model_manifest_alias import (
     canonicalize_manifest_model_catalog_provider_alias as _canonicalize_alias,
+)
+from .model_manifest_alias import (
     resolve_manifest_model_catalog_provider_alias_metadata as _resolve_alias_metadata,
+)
+from .model_manifest_alias import (
     resolve_manifest_model_catalog_provider_transport as _resolve_alias_transport,
 )
 from .model_static_id import static_model_id_matches
@@ -73,8 +77,12 @@ def resolve_manifest_model_catalog_provider_transport(
 DEFAULT_CONTEXT_TOKENS: int = 200_000
 
 
+def _default_provider_id_normalizer(value: str) -> str:
+    return (value or "").strip().lower()
+
+
 #: Provider id normalizer hook.
-_PROVIDER_ID_NORMALIZER: Callable[[str], str] = lambda value: (value or "").strip().lower()
+_PROVIDER_ID_NORMALIZER: Callable[[str], str] = _default_provider_id_normalizer
 
 
 def set_provider_id_normalizer(
@@ -92,8 +100,12 @@ def _normalize_provider_id(value: str) -> str:
 #: Bundled static catalog plugins lister. The host installs the
 #: real ``listBundledStaticCatalogPlugins`` when the bundled
 #: manifest layer lands. The default returns an empty list.
+def _default_bundled_static_catalog_plugins(**_kwargs: Any) -> List[Dict[str, Any]]:
+    return []
+
+
 _LIST_BUNDLED_STATIC_CATALOG_PLUGINS: Callable[..., List[Dict[str, Any]]] = (
-    lambda **_kwargs: []
+    _default_bundled_static_catalog_plugins
 )
 
 
@@ -109,8 +121,12 @@ def set_list_bundled_static_catalog_plugins_hook(
 #: real ``planManifestModelCatalogRows`` when the
 #: model-catalog-planner layer lands. The default returns
 #: ``{"rows": []}``.
+def _default_manifest_model_catalog_rows(**_kwargs: Any) -> Dict[str, Any]:
+    return {"rows": []}
+
+
 _PLAN_MANIFEST_MODEL_CATALOG_ROWS: Callable[..., Dict[str, Any]] = (
-    lambda **_kwargs: {"rows": []}
+    _default_manifest_model_catalog_rows
 )
 
 
@@ -126,9 +142,11 @@ def set_plan_manifest_model_catalog_rows_hook(
 #: ``buildBundledManifestModelCatalogPluginRow`` when the
 #: model-catalog-planner layer lands. The default returns the
 #: input row unchanged.
-_BUILD_PLUGIN_ROW: Callable[[Dict[str, Any]], Dict[str, Any]] = (
-    lambda row: row
-)
+def _default_plugin_row(row: Dict[str, Any]) -> Dict[str, Any]:
+    return row
+
+
+_BUILD_PLUGIN_ROW: Callable[[Dict[str, Any]], Dict[str, Any]] = _default_plugin_row
 
 
 def set_build_plugin_row_hook(
@@ -147,11 +165,7 @@ def _normalize_static_catalog_input(input_value: Any) -> List[str]:
     """
     if not isinstance(input_value, list):
         return ["text"]
-    normalized = [
-        item
-        for item in input_value
-        if item == "text" or item == "image"
-    ]
+    normalized = [item for item in input_value if item == "text" or item == "image"]
     return normalized if normalized else ["text"]
 
 
@@ -164,10 +178,10 @@ def _normalize_static_catalog_cost(cost: Any) -> Dict[str, Any]:
     if not isinstance(cost, dict):
         cost = {}
     return {
-        "input": cost.get("input") or 0,
-        "output": cost.get("output") or 0,
-        "cacheRead": cost.get("cacheRead") or 0,
-        "cacheWrite": cost.get("cacheWrite") or 0,
+        "input": cost.get("input") if cost.get("input") is not None else 0,
+        "output": cost.get("output") if cost.get("output") is not None else 0,
+        "cacheRead": cost.get("cacheRead") if cost.get("cacheRead") is not None else 0,
+        "cacheWrite": cost.get("cacheWrite") if cost.get("cacheWrite") is not None else 0,
     }
 
 
@@ -188,13 +202,19 @@ def _model_from_static_catalog_row(
         "reasoning": row.get("reasoning"),
         "input": _normalize_static_catalog_input(row.get("input")),
         "cost": _normalize_static_catalog_cost(row.get("cost")),
-        "contextWindow": row.get("contextWindow") or DEFAULT_CONTEXT_TOKENS,
+        "contextWindow": (
+            row.get("contextWindow")
+            if row.get("contextWindow") is not None
+            else DEFAULT_CONTEXT_TOKENS
+        ),
         "contextTokens": row.get("contextTokens"),
-        "maxTokens": row.get("maxTokens") or DEFAULT_CONTEXT_TOKENS,
+        "maxTokens": (
+            row.get("maxTokens") if row.get("maxTokens") is not None else DEFAULT_CONTEXT_TOKENS
+        ),
+        "contextWindows": row.get("contextWindows"),
+        "contextWindowDefault": row.get("contextWindowDefault"),
         "thinkingLevelMap": (
-            dict(row["thinkingLevelMap"])
-            if isinstance(row.get("thinkingLevelMap"), dict)
-            else None
+            dict(row["thinkingLevelMap"]) if isinstance(row.get("thinkingLevelMap"), dict) else None
         ),
         "headers": row.get("headers"),
         "compat": row.get("compat"),
@@ -301,9 +321,7 @@ def _resolve_with_plans(
     for row in rows:
         if not isinstance(row, dict):
             continue
-        if not _row_matches_model(
-            row=row, provider=provider, model_id=lookup["modelId"]
-        ):
+        if not _row_matches_model(row=row, provider=provider, model_id=lookup["modelId"]):
             continue
         return _model_from_static_catalog_row(_BUILD_PLUGIN_ROW(row))
     return None
@@ -321,9 +339,7 @@ def resolve_bundled_static_catalog_model(
     Mirrors :func:`resolveBundledStaticCatalogModel``
     (``model.static-catalog.ts:267-...``).
     """
-    resolver = create_bundled_static_catalog_model_resolver(
-        {"cfg": cfg, "env": env}
-    )
+    resolver = create_bundled_static_catalog_model_resolver({"cfg": cfg, "env": env})
     return resolver({"provider": provider, "modelId": model_id})
 
 

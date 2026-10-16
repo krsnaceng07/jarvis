@@ -19,10 +19,9 @@ Phase 7.6h-6 — focused minimal port.
 """
 from __future__ import annotations
 
-import copy
 import json
 import logging
-from typing import Any, Callable, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 
 _log = logging.getLogger("jarvis.agents.embedded_agent_runner.extra_params")

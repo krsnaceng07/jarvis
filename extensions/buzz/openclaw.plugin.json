@@ -1,0 +1,27 @@
+{
+  "id": "buzz",
+  "name": "Buzz",
+  "description": "OpenClaw Buzz decentralized gossip mesh channel plugin for peer rooms.",
+  "activation": {
+    "onStartup": false
+  },
+  "channels": [
+    "buzz"
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "nodeId": {
+        "type": "string"
+      },
+      "relays": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    }
+  },
+  "kind": "channel"
+}

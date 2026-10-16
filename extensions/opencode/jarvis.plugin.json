@@ -1,0 +1,52 @@
+{
+  "id": "opencode",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "opencode"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "opencode",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "OPENCODE_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "opencode": {
+        "baseUrl": "https://api.opencode.ai/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "opencode-llama-3.1-70b",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

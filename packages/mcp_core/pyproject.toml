@@ -1,0 +1,36 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jarvis-mcp-core"
+version = "0.1.0-rc1"
+description = "JARVIS MCP Core — Manages connections and tool adapters for Model Context Protocol servers."
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+authors = [{ name = "JARVIS architect" }]
+keywords = ["jarvis", "mcp", "openclaw", "extension", "contract"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = [
+    "jarvis-config-core",
+    "mcp",
+]
+
+[project.urls]
+Homepage = "https://github.com/jarvis-ai/jarvis"
+Repository = "https://github.com/jarvis-ai/jarvis.git"
+Issues = "https://github.com/jarvis-ai/jarvis/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jarvis_mcp"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/jarvis_mcp", "README.md"]

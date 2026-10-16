@@ -18,13 +18,14 @@ Key differences from the TS port:
 - ciao's ``serviceState`` → ``zeroconf`` has no equivalent;
   the service summary just logs the registration state
 """
+
 from __future__ import annotations
 
 import asyncio
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable, Optional
+from typing import Any, Callable, Optional, Protocol
 
 from .ciao import classify_ciao_process_error
 from .env_helpers import (
@@ -35,6 +36,13 @@ from .env_helpers import (
     truncate_to_dns_label,
 )
 from .errors import format_bonjour_error
+
+
+class _BonjourResponder(Protocol):
+    def unregister_service(self, info: Any) -> None: ...
+
+    def close(self) -> None: ...
+
 
 LOGGER = logging.getLogger(__name__)
 
@@ -86,8 +94,8 @@ class GatewayBonjourAdvertiser:
     ``stop()`` call to keep teardown idempotent.
     """
 
-    _responder: Zeroconf
-    _services: list[ServiceInfo]
+    _responder: _BonjourResponder
+    _services: list[Any]
     _stop_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
     _stopped: bool = False
 
@@ -121,7 +129,19 @@ class BonjourAdvertiserDeps:
     on_unhandled_rejection: Optional[Callable[[Any], bool]] = None
 
 
-def _build_txt_base(opts: GatewayBonjourAdvertiseOpts, hostname: str, display_name: str) -> dict[str, str]:
+class _DisabledBonjourResponder:
+    """No-op responder used when Bonjour is disabled or unavailable."""
+
+    def unregister_service(self, info: Any) -> None:
+        return None
+
+    def close(self) -> None:
+        return None
+
+
+def _build_txt_base(
+    opts: GatewayBonjourAdvertiseOpts, hostname: str, display_name: str
+) -> dict[str, str]:
     """Build the base TXT record dict for the gateway service.
 
     Mirrors the TS source's ``txtBase`` construction.
@@ -178,16 +198,13 @@ def start_gateway_bonjour_advertiser(
     Mirrors ``startGatewayBonjourAdvertiser`` in OpenClaw's
     ``extensions/bonjour/src/advertiser.ts``.
     """
-    from zeroconf import ServiceInfo, Zeroconf
-
     if is_disabled_by_env():
-        # Disabled path — return a no-op advertiser.
-        # Build an unopened Zeroconf stub; .close() on a
-        # never-opened instance is safe.
         return GatewayBonjourAdvertiser(
-            _responder=Zeroconf(),
+            _responder=_DisabledBonjourResponder(),
             _services=[],
         )
+
+    from zeroconf import ServiceInfo, Zeroconf
 
     deps = deps or BonjourAdvertiserDeps()
     log = deps.logger or LOGGER
@@ -215,7 +232,9 @@ def start_gateway_bonjour_advertiser(
         hostname,
         repr(safe_service_name(instance_name_raw)),
         opts.gateway_port,
-        ", minimal=true" if opts.minimal else f", sshPort={opts.ssh_port if opts.ssh_port is not None else 22}",
+        ", minimal=true"
+        if opts.minimal
+        else f", sshPort={opts.ssh_port if opts.ssh_port is not None else 22}",
     )
 
     # Build the service registration. The ServiceInfo constructor

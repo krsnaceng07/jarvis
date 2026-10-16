@@ -1,0 +1,13 @@
+id: personal-reminder-roundtrip
+goal: Fake personal reminders through local cron delivery
+preconditions:
+  - QA workspace is isolated
+  - cron extension is loaded in mock mode
+steps:
+  - user: "Remind me to call John in 5 minutes."
+  - agent: "I've set a reminder to call John in 5 minutes. (or similar acknowledgment)"
+  - system: "trigger cron event 5 minutes elapsed"
+expected_outcomes:
+  - Agent should emit a reminder message "It's time to call John." to the original channel.
+cleanup:
+  - Clear mock cron jobs

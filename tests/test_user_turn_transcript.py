@@ -15,19 +15,16 @@ from typing import Any, Optional
 
 import pytest
 
-from src.sessions.input_provenance import InputProvenance
 from src.sessions.user_turn_transcript import (
     build_persisted_user_turn_media_inputs_from_fields,
     build_persisted_user_turn_message,
     build_run_user_turn_idempotency_key,
     create_user_turn_transcript_recorder,
     merge_prepared_user_turn_message_for_runtime,
-    prepare_persisted_user_turn_message_for_transcript_write,
     resolve_persisted_user_turn_text,
     restore_prepared_user_turn_operational_meta_for_runtime,
 )
 from src.sessions.user_turn_transcript_types import (
-    UserTurnInput,
     UserTurnTranscriptPersistResult,
     UserTurnTranscriptTarget,
 )

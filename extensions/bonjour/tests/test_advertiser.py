@@ -4,10 +4,12 @@ Mirrors the key cases from OpenClaw's
 ``extensions/bonjour/src/advertiser.test.ts`` but adapted
 to the Python ``zeroconf`` API (no ciao mocks).
 """
+
 from __future__ import annotations
 
 import asyncio
 import os
+from typing import Any
 from unittest import mock
 
 import pytest
@@ -18,12 +20,6 @@ from extensions.bonjour.src.advertiser import (
     GatewayBonjourAdvertiseOpts,
     format_bonjour_instance_name,
     start_gateway_bonjour_advertiser,
-)
-from extensions.bonjour.src.env_helpers import (
-    is_disabled_by_env,
-    prettify_instance_name,
-    safe_service_name,
-    truncate_to_dns_label,
 )
 
 
@@ -79,9 +75,7 @@ class TestStartGatewayBonjourAdvertiserDisabled:
         asyncio.run(handle.stop())
 
     def test_disabled_via_env_override(self) -> None:
-        with mock.patch.dict(
-            os.environ, {"OPENCLAW_DISABLE_BONJOUR": "true"}, clear=True
-        ):
+        with mock.patch.dict(os.environ, {"OPENCLAW_DISABLE_BONJOUR": "true"}, clear=True):
             handle = start_gateway_bonjour_advertiser(
                 GatewayBonjourAdvertiseOpts(gateway_port=7433),
             )

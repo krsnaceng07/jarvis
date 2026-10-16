@@ -36,16 +36,18 @@ Adaptations
   ``asyncio.to_thread`` for the async
   path).
 """
+
 from __future__ import annotations
 
 import asyncio
 import os
 import stat
+import sys
 from typing import Any, Optional, Protocol, Union, runtime_checkable
 
 from ..extensions.types import AgentToolResult, ToolDefinition
 from .limits import normalize_positive_limit
-from .path_utils import resolve_to_cwd
+from .path_utils import discover_system_drives, is_drive_available, resolve_to_cwd
 from .truncate import DEFAULT_MAX_BYTES, format_size, truncate_head
 
 
@@ -71,18 +73,11 @@ class LsOperations(Protocol):
     (e.g. SSH). Mirrors ``LsOperations``
     (``ls.ts:36-45``)."""
 
-    def exists(self, absolute_path: str) -> Union[bool, "asyncio.Future[bool]"]:
-        ...
+    def exists(self, absolute_path: str) -> Union[bool, "asyncio.Future[bool]"]: ...
 
-    def stat(
-        self, absolute_path: str
-    ) -> Union[dict, "asyncio.Future[dict]"]:
-        ...
+    def stat(self, absolute_path: str) -> Union[dict, "asyncio.Future[dict]"]: ...
 
-    def readdir(
-        self, absolute_path: str
-    ) -> Union[list[str], "asyncio.Future[list[str] ]"]:
-        ...
+    def readdir(self, absolute_path: str) -> Union[list[str], "asyncio.Future[list[str] ]"]: ...
 
 
 def _default_ls_operations() -> LsOperations:
@@ -130,13 +125,27 @@ async def list_directory(
         directories.
     """
     ops = operations or _default_ls_operations()
-    effective_limit = normalize_positive_limit(
-        limit, DEFAULT_LIMIT
-    )
+    effective_limit = normalize_positive_limit(limit, DEFAULT_LIMIT)
+    clean_path = (path or "").strip().lower()
+    if clean_path in ("drives", "drives:", "drives://"):
+        drives = discover_system_drives()
+        entries = [f"{d}" for d in drives]
+        return {
+            "entries": entries,
+            "output": "\n".join(entries),
+            "truncation": None,
+            "entryLimitReached": None,
+        }
+
     # Resolve path
     dir_path = resolve_to_cwd(path or ".", cwd or os.getcwd())
     # Check existence
     if not await _maybe_await(ops.exists(dir_path)):
+        if sys.platform == "win32" and not is_drive_available(dir_path):
+            available = discover_system_drives()
+            raise FileNotFoundError(
+                f"Drive not found: '{dir_path}'. This PC only has drives: {available}."
+            )
         raise FileNotFoundError(f"Path not found: {dir_path}")
     # Check it's a directory
     stat_result = await _maybe_await(ops.stat(dir_path))
@@ -149,9 +158,7 @@ async def list_directory(
     try:
         entries = await _maybe_await(ops.readdir(dir_path))
     except Exception as exc:
-        raise OSError(
-            f"Cannot read directory: {exc}"
-        ) from exc
+        raise OSError(f"Cannot read directory: {exc}") from exc
     # Sort alphabetically (case-insensitive)
     entries = sorted(entries, key=lambda e: e.lower())
     # Format entries with directory indicators
@@ -176,9 +183,7 @@ async def list_directory(
         results.append(entry + suffix)
     # Apply byte truncation
     raw_output = "\n".join(results)
-    truncation = truncate_head(
-        raw_output, max_lines=2**53 - 1, max_bytes=DEFAULT_MAX_BYTES
-    )
+    truncation = truncate_head(raw_output, max_lines=2**53 - 1, max_bytes=DEFAULT_MAX_BYTES)
     return {
         "entries": results,
         "output": truncation.content,
@@ -203,9 +208,10 @@ async def _maybe_await(value: Any) -> Any:
 # ============================================================================
 
 
-async def create_ls_tool_definition(
+def create_ls_tool_definition(
     cwd: str = "",
     operations: Optional[LsOperations] = None,
+    options: Optional[dict] = None,
 ) -> ToolDefinition:
     """Build the :class:`ToolDefinition` for
     the ls tool. Mirrors
@@ -220,14 +226,32 @@ async def create_ls_tool_definition(
         on_update: object = None,
         ctx: object = None,
     ) -> AgentToolResult:
-        if signal is not None and getattr(
-            signal, "is_set", lambda: False
-        )():
+        if signal is not None and getattr(signal, "is_set", lambda: False)():
             raise RuntimeError("Operation aborted")
         path = params.get("path", ".")
         limit = params.get("limit")
+
+        if (path or "").strip().lower() in ("drives", "drives:", "drives://"):
+            result = await list_directory(path="drives", cwd=cwd, limit=limit, operations=ops)
+            return {
+                "content": [{"type": "text", "text": result["output"]}],
+                "details": None,
+            }
+
+        # Resolve path
+        resolved = resolve_to_cwd(path or ".", cwd)
+
+        # Apply sandbox tool policy and path containment
+        from ...sandbox import guard_sandbox_tool_access
+
+        _, validated = guard_sandbox_tool_access(
+            "ls", resolved, cwd, options, ctx, is_mutation=False
+        )
+        if validated is not None:
+            resolved = str(validated)
+
         result = await list_directory(
-            path=path or ".",
+            path=resolved,
             cwd=cwd,
             limit=limit,
             operations=ops,
@@ -238,8 +262,7 @@ async def create_ls_tool_definition(
         if result.get("entryLimitReached") is not None:
             entry_limit = result["entryLimitReached"]
             notices.append(
-                f"{entry_limit} entries limit reached. "
-                f"Use limit={entry_limit * 2} for more"
+                f"{entry_limit} entries limit reached. Use limit={entry_limit * 2} for more"
             )
             details["entryLimitReached"] = entry_limit
         if result.get("truncation") and result["truncation"].truncated:

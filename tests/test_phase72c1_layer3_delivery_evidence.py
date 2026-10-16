@@ -1,13 +1,11 @@
 """Phase 7.2c-1 tests — delivery_evidence."""
 from __future__ import annotations
 
-from typing import Any, Dict, List
 
 from src.agents.embedded_agent_runner.delivery_evidence import (
     collect_ambiguous_automatic_media_urls,
     collect_automatic_delivered_media_urls,
     collect_delivered_media_urls,
-    collect_messaging_tool_delivered_media_urls,
     get_gateway_agent_result,
     has_committed_messaging_tool_delivery_evidence,
     has_committed_source_reply_delivery_evidence,

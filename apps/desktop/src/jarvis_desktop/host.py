@@ -6,7 +6,6 @@ The desktop host entrypoint imports from this wrapper instead of pulling
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -21,14 +20,14 @@ from jarvis_sdk.host import (
 )
 
 
-def create_doctor_runner(doctor_contracts: list[dict[str, Any]]) -> "DoctorRunner":
+def create_doctor_runner(doctor_contracts: list[dict[str, Any]]) -> Any:
     return _create_doctor_runner(doctor_contracts)
 
 
 def create_gateway(
     http_handlers: list[dict[str, Any]],
     gateway_methods: list[dict[str, Any]] | None = None,
-) -> "Gateway":
+) -> Any:
     gateway = _create_gateway()
     for raw in http_handlers:
         try:
@@ -43,7 +42,7 @@ def create_gateway(
     return gateway
 
 
-def start_gateway(gateway: "Gateway") -> None:
+def start_gateway(gateway: Any) -> None:
     try:
         _start_gateway(gateway)
     except _gateway_lock_error() as e:

@@ -5,6 +5,7 @@ Single helper: ``hash_text(value)`` returns the SHA-256 hex digest of
 a UTF-8 string. Used for stable cache + content keys in the
 memory host pipeline.
 """
+
 from __future__ import annotations
 
 import hashlib

@@ -32,9 +32,15 @@ classifiers = [
 # Runtime dependencies (extracted from legacy requirements.txt).
 # Windows-specific deps live in optional extras.
 dependencies = [
+    "jarvis-agent-runtime>=0.1.0-rc1",
+    "jarvis-channels-core>=0.1.0",
+    "jarvis-gateway-protocol>=0.1.0",
+    "jarvis-hooks-core>=0.1.0",
+    "jarvis-state-core>=0.1.0",
+    "zeroconf>=0.132.0",
     # Audio / voice
     "sounddevice>=0.4.7",
-    "google-genai>=0.5.0",         # current Gemini Live + chat SDK
+    "google-genai>=0.5.0", # current Gemini Live + chat SDK
     # TRANSITIONAL (Phase 0.4): legacy file_processor.py imports the
     # deprecated `google-generativeai` package. Keep it until Phase 2
     # refactors file_processor into extensions/media_understanding/.
@@ -76,9 +82,7 @@ macos = []
 # Linux-specific
 linux = []
 # All-platform extras
-all = [
-    "jarvis-desktop[windows,macos,linux]",
-]
+all = ["jarvis-desktop[windows,macos,linux]"]
 
 [project.urls]
 Homepage = "https://github.com/jarvis-ai/jarvis"

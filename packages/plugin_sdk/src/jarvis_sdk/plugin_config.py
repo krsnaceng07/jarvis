@@ -138,7 +138,9 @@ def resolve_plugin_config_object(
         return None
     entry_map = cast(PluginConfigMap, entry)
     inner = entry_map.get("config")
-    return cast(dict[str, Any], inner) if isinstance(inner, dict) else cast(dict[str, Any], entry_map)
+    return (
+        cast(dict[str, Any], inner) if isinstance(inner, dict) else cast(dict[str, Any], entry_map)
+    )
 
 
 @dataclass(frozen=True, slots=True)

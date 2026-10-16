@@ -12,16 +12,13 @@ Mirrors a subset of OpenClaw's
 """
 from __future__ import annotations
 
-import asyncio
 import pytest
 
 from extensions.logbook.src.logbook_config import (
-    LogbookConfig,
     parse_model_ref,
     resolve_logbook_config,
 )
 from extensions.logbook.src.logbook_types import (
-    LogbookBatchStatus,
     LogbookCard,
     LogbookFrame,
     VALID_LOGBOOK_BATCH_STATUSES,

@@ -28,10 +28,37 @@ from typing import Any
 
 # An allowlist entry is a string id, "@handle", or "*".
 AllowlistEntry = str
-AllowlistPolicy = list[AllowlistEntry]
 
 # Sentinel value meaning "allow all".
 ALLOW_ALL = "*"
+
+
+class AllowlistPolicy(list[AllowlistEntry]):
+    """Channel allowlist policy containing allowed sender ids or usernames.
+
+    Inherits from list[str] for 100% backward compatibility with list operations,
+    while supporting OpenClaw-parity keyword initialization and .is_allowed() method.
+    """
+
+    def __init__(
+        self,
+        entries: object | None = None,
+        *,
+        allowed_senders: set[str] | list[str] | None = None,
+    ) -> None:
+        items: list[str] = []
+        if allowed_senders is not None:
+            items = [str(x) for x in allowed_senders]
+        elif entries is not None:
+            if isinstance(entries, str):
+                items = [e.strip() for e in entries.split(",") if e.strip()]
+            elif isinstance(entries, (list, tuple, set)):
+                items = [str(x) for x in entries]
+        super().__init__(items)
+
+    def is_allowed(self, sender_id: str, sender_username: str | None = None) -> bool:
+        """Evaluate if a sender passes this allowlist policy."""
+        return is_allowed(sender_id, sender_username, self)
 
 
 # ── Core matcher ───────────────────────────────────────────────────────
@@ -110,12 +137,12 @@ def normalize_allowlist(raw: object) -> AllowlistPolicy | None:
         if not stripped or stripped == ALLOW_ALL:
             return None
         # Comma-separated ids.
-        return [e.strip() for e in re.split(r"[,\s]+", stripped) if e.strip()]
+        return AllowlistPolicy([e.strip() for e in re.split(r"[,\s]+", stripped) if e.strip()])
     if isinstance(raw, list):
         entries = [str(e).strip() for e in raw if str(e).strip()]
         if not entries or ALLOW_ALL in entries:
             return None
-        return entries
+        return AllowlistPolicy(entries)
     return None
 
 
@@ -129,7 +156,7 @@ def enforce_dm_policy(
     pairing_store: Any | None = None,
 ) -> tuple[bool, str | None]:
     """Enforce the DM policy, including pairing flow.
-    
+
     Returns:
         (is_allowed: bool, pairing_message: str | None)
     """
@@ -145,7 +172,7 @@ def enforce_dm_policy(
         # Check explicit pairing allowlist via database
         if pairing_store and pairing_store.is_approved(channel_id, account_id, sender_id):
             return True, None
-            
+
         # If not approved, generate a request
         if pairing_store:
             code = pairing_store.request_pairing(channel_id, account_id, sender_id)
@@ -155,7 +182,7 @@ def enforce_dm_policy(
                     f"Please provide this code to the operator to approve your device/account."
                 )
                 return False, msg
-        
+
         return False, None
 
     return False, None

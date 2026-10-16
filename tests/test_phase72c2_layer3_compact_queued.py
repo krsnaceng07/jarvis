@@ -1,7 +1,7 @@
 """Phase 7.2c-2 tests — compact_queued + compact (direct)."""
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 import pytest
 

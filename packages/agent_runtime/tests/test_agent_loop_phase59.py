@@ -116,9 +116,7 @@ def make_assistant_message(content, *, active_model: Model = MODEL) -> Assistant
         model=active_model.id,
         content=list(content),
         usage=make_usage(),
-        stop_reason=(
-            "toolUse" if any(item.type == "toolCall" for item in content) else "stop"
-        ),
+        stop_reason=("toolUse" if any(item.type == "toolCall" for item in content) else "stop"),
         timestamp=1,
     )
 
@@ -257,9 +255,7 @@ class TestContinuationGuards:
             return None
 
         try:
-            await run_agent_loop_continue(
-                make_assistant_tail_context(), make_config(), emit
-            )
+            await run_agent_loop_continue(make_assistant_tail_context(), make_config(), emit)
         except TranscriptNotContinuableError as error:
             assert error.code == TRANSCRIPT_NOT_CONTINUABLE_ERROR_CODE
             assert error.role == "assistant"
@@ -270,9 +266,7 @@ class TestContinuationGuards:
         # Source-derived guard (TS: `throw new Error("Cannot continue: no
         # messages in context")`); no dedicated upstream vector.
         with pytest.raises(RuntimeError, match="Cannot continue: no messages"):
-            agent_loop_continue(
-                AgentContext(system_prompt="", messages=[]), make_config()
-            )
+            agent_loop_continue(AgentContext(system_prompt="", messages=[]), make_config())
 
 
 # ─────────────────────────────────────────────────────────────────────
@@ -310,9 +304,7 @@ class TestStreamingUpdates:
             stream.push(StreamEventTextDelta(content_index=0, delta="Hello"))
             stream.push(StreamEventTextDelta(content_index=0, delta=" world"))
             stream.push(
-                StreamEventTextEnd(
-                    content_index=0, content="Hello world", partial=final_message
-                )
+                StreamEventTextEnd(content_index=0, content="Hello world", partial=final_message)
             )
             stream.push(StreamEventDone(reason="stop", message=final_message))
             return stream
@@ -329,13 +321,11 @@ class TestStreamingUpdates:
         delta_updates = [
             event
             for event in events
-            if event.type == "message_update"
-            and event.assistant_message_event.type == "text_delta"
+            if event.type == "message_update" and event.assistant_message_event.type == "text_delta"
         ]
         assert len(delta_updates) == 2
         snapshots = [
-            [(item.type, item.text) for item in event.message.content]
-            for event in delta_updates
+            [(item.type, item.text) for item in event.message.content] for event in delta_updates
         ]
         assert snapshots == [[("text", "Hello")], [("text", "Hello world")]]
         for update in delta_updates:
@@ -348,9 +338,7 @@ class TestStreamingUpdates:
 
         async def execute(tool_call_id, params, signal=None, on_update=None):
             execute_calls.append(tool_call_id)
-            return AgentToolResult(
-                content=[TextContent(text="should not run")], details={}
-            )
+            return AgentToolResult(content=[TextContent(text="should not run")], details={})
 
         contexts: list = []
         stream_calls = 0
@@ -372,9 +360,7 @@ class TestStreamingUpdates:
                 )
                 stream.push(StreamEventDone(reason="stop", message=message))
                 return stream
-            tool_call = ToolCall(
-                id="call-truncated-spawn", name="sessions_spawn", arguments={}
-            )
+            tool_call = ToolCall(id="call-truncated-spawn", name="sessions_spawn", arguments={})
             message = AssistantMessage(
                 api=MODEL.api,
                 provider=MODEL.provider,
@@ -386,14 +372,10 @@ class TestStreamingUpdates:
             )
             import dataclasses as _dc
 
-            stream.push(
-                StreamEventStart(partial=_dc.replace(message, content=[]))
-            )
+            stream.push(StreamEventStart(partial=_dc.replace(message, content=[])))
             stream.push(StreamEventToolCallStart(content_index=1, partial=message))
             stream.push(
-                StreamEventToolCallEnd(
-                    content_index=1, tool_call=tool_call, partial=message
-                )
+                StreamEventToolCallEnd(content_index=1, tool_call=tool_call, partial=message)
             )
             stream.push(StreamEventDone(reason="length", message=message))
             return stream
@@ -442,9 +424,7 @@ class TestStreamingUpdates:
         assert messages[1].role == "assistant"
         assert messages[1].stop_reason == "length"
         assert not any(item.type == "toolCall" for item in messages[1].content)
-        assert not any(
-            item.type == "toolCall" for item in truncated_message_end.message.content
-        )
+        assert not any(item.type == "toolCall" for item in truncated_message_end.message.content)
         assert replayed_truncated.role == "assistant"
         assert replayed_truncated.stop_reason == "length"
         assert not any(item.type == "toolCall" for item in replayed_truncated.content)
@@ -501,9 +481,7 @@ class TestDeferredToolHydration:
 
         async def execute(tool_call_id, params, signal=None, on_update=None):
             execute_calls.append((tool_call_id, params, signal, on_update))
-            return AgentToolResult(
-                content=[TextContent(text="hidden ok")], details={"ok": True}
-            )
+            return AgentToolResult(content=[TextContent(text="hidden ok")], details={"ok": True})
 
         hidden_tool = FakeTool(
             "hidden_search",
@@ -651,8 +629,7 @@ class TestDeferredToolHydration:
         matching = [
             message
             for message in messages
-            if message.role == "toolResult"
-            and message.tool_name == "requested_deferred"
+            if message.role == "toolResult" and message.tool_name == "requested_deferred"
         ]
         assert len(matching) == 1
         assert matching[0].is_error
@@ -675,9 +652,7 @@ class TestDeferredToolHydration:
             active["max"] = max(active["max"], active["count"])
             await asyncio.sleep(0.005)
             active["count"] -= 1
-            return AgentToolResult(
-                content=[TextContent(text="hidden ok")], details={"ok": True}
-            )
+            return AgentToolResult(content=[TextContent(text="hidden ok")], details={"ok": True})
 
         hidden_tool = FakeTool(
             "hidden_serial",
@@ -784,12 +759,8 @@ class TestToolTermination:
                 details={"status": "completed"},
             )
 
-        hidden_tool = FakeTool(
-            "wait", hide_from_channel_progress=True, execute=execute
-        )
-        stream_fn = turn_stream_fn_factory(
-            [[ToolCall(id="call-wait", name="wait", arguments={})]]
-        )
+        hidden_tool = FakeTool("wait", hide_from_channel_progress=True, execute=execute)
+        stream_fn = turn_stream_fn_factory([[ToolCall(id="call-wait", name="wait", arguments={})]])
 
         events = await collect_events(
             agent_loop(
@@ -800,9 +771,7 @@ class TestToolTermination:
                 stream_fn,
             )
         )
-        lifecycle = [
-            event for event in events if event.type.startswith("tool_execution_")
-        ]
+        lifecycle = [event for event in events if event.type.startswith("tool_execution_")]
 
         assert [event.type for event in lifecycle] == [
             "tool_execution_start",
@@ -847,17 +816,12 @@ class TestToolTermination:
         )
         count_after_run = len(events)
         captured["on_update"](
-            AgentToolResult(
-                content=[TextContent(text="late")], details={"status": "late"}
-            )
+            AgentToolResult(content=[TextContent(text="late")], details={"status": "late"})
         )
         await asyncio.sleep(0)
 
         assert len(events) == count_after_run
-        assert (
-            len([event for event in events if event.type == "tool_execution_update"])
-            == 1
-        )
+        assert len([event for event in events if event.type == "tool_execution_update"]) == 1
 
     async def test_continues_after_side_effect_result_without_terminate(self) -> None:
         executed: list = []
@@ -946,9 +910,7 @@ class TestToolTermination:
         original_content = [TextContent(text="sent")]
 
         async def execute(_tool_call_id, _args, _signal=None, _on_update=None):
-            return AgentToolResult(
-                content=list(original_content), details={"phase": "original"}
-            )
+            return AgentToolResult(content=list(original_content), details={"phase": "original"})
 
         tool = FakeTool("patched", execute=execute)
         stream_fn = turn_stream_fn_factory(
@@ -967,9 +929,7 @@ class TestToolTermination:
                 stream_fn,
             )
         )
-        end_event = next(
-            event for event in events if event.type == "tool_execution_end"
-        )
+        end_event = next(event for event in events if event.type == "tool_execution_end")
 
         assert end_event.result.content == original_content
         assert end_event.result.details == {"phase": "patched"}
@@ -977,9 +937,7 @@ class TestToolTermination:
 
     async def test_marks_policy_blocked_tool_calls_as_not_executed(self) -> None:
         executed: list = []
-        stream_fn = turn_stream_fn_factory(
-            [[ToolCall(id="call-cron", name="cron", arguments={})]]
-        )
+        stream_fn = turn_stream_fn_factory([[ToolCall(id="call-cron", name="cron", arguments={})]])
 
         async def before_tool_call(_ctx, _signal):
             return BeforeToolCallResult(block=True, reason="blocked")
@@ -987,17 +945,13 @@ class TestToolTermination:
         events = await collect_events(
             agent_loop(
                 [UserMessage(content="hello", timestamp=1)],
-                AgentContext(
-                    system_prompt="", messages=[], tools=[FakeTool("cron", executed)]
-                ),
+                AgentContext(system_prompt="", messages=[], tools=[FakeTool("cron", executed)]),
                 make_config(before_tool_call=before_tool_call),
                 None,
                 stream_fn,
             )
         )
-        end_event = next(
-            event for event in events if event.type == "tool_execution_end"
-        )
+        end_event = next(event for event in events if event.type == "tool_execution_end")
 
         assert executed == []
         assert end_event.execution_started is False
@@ -1016,9 +970,7 @@ class TestToolTermination:
                 "additionalProperties": False,
             },
         )
-        stream_fn = turn_stream_fn_factory(
-            [[ToolCall(id="call-edit", name="edit", arguments={})]]
-        )
+        stream_fn = turn_stream_fn_factory([[ToolCall(id="call-edit", name="edit", arguments={})]])
 
         events = await collect_events(
             agent_loop(
@@ -1029,9 +981,7 @@ class TestToolTermination:
                 stream_fn,
             )
         )
-        end_event = next(
-            event for event in events if event.type == "tool_execution_end"
-        )
+        end_event = next(event for event in events if event.type == "tool_execution_end")
 
         assert executed == []
         assert end_event.execution_started is False
@@ -1069,10 +1019,7 @@ class TestToolTermination:
 
         assert stream_fn.state["turn"] == 1
         assert executed == ["message"]
-        assert (
-            len([event for event in events if event.type == "tool_execution_start"])
-            == 1
-        )
+        assert len([event for event in events if event.type == "tool_execution_start"]) == 1
         assert events[-1].type == "agent_end"
 
     async def test_does_not_request_another_model_turn_after_a_tool_aborts(
@@ -1096,9 +1043,7 @@ class TestToolTermination:
 
         async def execute(_tool_call_id, _args, _signal=None, _on_update=None):
             controller.abort(RuntimeError("user aborted"))
-            return AgentToolResult(
-                content=[TextContent(text="aborted")], details={"aborted": True}
-            )
+            return AgentToolResult(content=[TextContent(text="aborted")], details={"aborted": True})
 
         abort_tool = FakeTool("abort_tool", execute=execute)
         events: list = []
@@ -1162,9 +1107,7 @@ class TestToolTermination:
 
         async def execute(_tool_call_id, _args, _signal=None, _on_update=None):
             controller.abort(_YieldReason())
-            return AgentToolResult(
-                content=[TextContent(text="yielded")], details={"yielded": True}
-            )
+            return AgentToolResult(content=[TextContent(text="yielded")], details={"yielded": True})
 
         yield_tool = FakeTool("yield_tool", execute=execute)
 
@@ -1276,9 +1219,7 @@ class TestToolTermination:
 
         messages = await run_agent_loop(
             [UserMessage(content="abort from hook", timestamp=1)],
-            AgentContext(
-                system_prompt="", messages=[], tools=[FakeTool("hook_abort", [])]
-            ),
+            AgentContext(system_prompt="", messages=[], tools=[FakeTool("hook_abort", [])]),
             make_config(prepare_next_turn=prepare_next_turn),
             emit,
             controller.signal,
@@ -1331,9 +1272,7 @@ class TestThinkingState:
             (MODEL, FABLE_MODEL, [None, "low"]),
         ],
     )
-    async def test_thinking_transitions(
-        self, initial_model, next_model, expected
-    ) -> None:
+    async def test_thinking_transitions(self, initial_model, next_model, expected) -> None:
         observed_reasoning: list = []
         state = {"calls": 0, "prepared": False}
 
@@ -1345,9 +1284,7 @@ class TestThinkingState:
                 content = [ToolCall(id="tool-1", name="missing_tool", arguments={})]
             else:
                 content = [TextContent(text="done")]
-            push_done(
-                stream, make_assistant_message(content, active_model=active_model)
-            )
+            push_done(stream, make_assistant_message(content, active_model=active_model))
             return stream
 
         def prepare_next_turn(_ctx, _signal=None):
@@ -1359,9 +1296,7 @@ class TestThinkingState:
             return AgentLoopTurnUpdate(model=next_model)
 
         initial_reasoning = (
-            "low"
-            if (initial_model.thinking_level_map or {}).get("off") == "low"
-            else None
+            "low" if (initial_model.thinking_level_map or {}).get("off") == "low" else None
         )
         stream = agent_loop(
             [UserMessage(content="hello", timestamp=1)],

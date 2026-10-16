@@ -17,9 +17,6 @@ Verifies the extension loading pipeline:
 from __future__ import annotations
 
 import asyncio
-import os
-import sys
-import tempfile
 from pathlib import Path
 
 import pytest
@@ -42,9 +39,7 @@ from src.agents.sessions.extensions.wrapper import (
 from src.agents.sessions.extensions.runner import ExtensionRunner
 from src.agents.sessions.extensions.types import (
     Extension,
-    ExtensionContext,
     ToolDefinition,
-    ExtensionUIContext,
 )
 from src.agents.sessions import extension_sdk
 
@@ -512,8 +507,6 @@ class TestExtensionSdkBarrel:
     def test_auth_storage_exports(self) -> None:
         from src.agents.sessions.auth_storage import (
             AuthStorage,
-            FileAuthStorageBackend,
-            InMemoryAuthStorageBackend,
         )
         assert extension_sdk.AuthStorage is AuthStorage
 
@@ -538,7 +531,6 @@ class TestExtensionSdkBarrel:
             ExtensionContext,
             ExtensionFactory,
             ExtensionRuntime,
-            ExtensionUIContext,
             ExtensionRunner,
             ToolDefinition,
             define_tool,

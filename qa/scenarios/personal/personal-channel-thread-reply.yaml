@@ -1,0 +1,13 @@
+id: personal-channel-thread-reply
+goal: Fake DM and thread reply routing through qa-channel
+preconditions:
+  - qa-channel is active
+  - Thread ID 'thread-123' exists in memory
+steps:
+  - user: "What did we talk about earlier in this thread? (context: thread-123)"
+  - agent: "responds with contextual awareness of the thread"
+expected_outcomes:
+  - Agent response must be routed back specifically to 'thread-123'.
+  - Agent must demonstrate access to previous messages in the thread.
+cleanup:
+  - Drop mock threads

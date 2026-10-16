@@ -97,20 +97,13 @@ from typing import Any, Callable, Literal, Optional, TypedDict
 
 import jarvis_state_core
 
-from src.sessions.classify_session_kind import classify_session_kind
-from src.sessions.input_provenance import InputProvenance
 from src.sessions.session_state_event_kinds import (
-    NOTIFY_BY_SESSION_STATE_EVENT_KIND,
     SessionStateActorType,
     SessionStateEventKind,
 )
 from src.sessions.session_state_notices import (
     enqueue_session_state_notice,
     is_notifiable_watcher_key,
-)
-from src.sessions.session_upstream_links import (
-    delete_session_upstream_link,
-    SessionUpstreamLinkOptions,
 )
 
 logger = logging.getLogger("jarvis.sessions.state_events")

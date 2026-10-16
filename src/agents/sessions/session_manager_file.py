@@ -111,7 +111,6 @@ import logging
 import os
 import threading
 import uuid
-from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Optional, TypeGuard
@@ -124,7 +123,7 @@ from .session_manager_codec import (
     parse_jsonl_entries,
 )
 from .session_manager_id import create_session_id
-from .session_manager_types import FileEntry, SessionHeader
+from .session_manager_types import FileEntry
 
 
 _LOG = logging.getLogger("jarvis.agents.sessions.session_manager_file")

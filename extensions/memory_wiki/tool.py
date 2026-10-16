@@ -195,7 +195,7 @@ def create_wiki_status_tool(
         name="wiki_status",
         label="Wiki Status",
         description=(
-            "Inspect the current memory wiki vault mode, health, " "and Obsidian CLI availability."
+            "Inspect the current memory wiki vault mode, health, and Obsidian CLI availability."
         ),
         parameters={"type": "object", "additionalProperties": False},
         execute=_execute,
@@ -344,7 +344,7 @@ def create_wiki_lint_tool(
         else:
             summary = "\n".join(
                 [
-                    f"Issues: {result.issueCount} total " f"({errors} errors, {warnings} warnings)",
+                    f"Issues: {result.issueCount} total ({errors} errors, {warnings} warnings)",
                     f"Contradictions: {contradictions}",
                     f"Open questions: {open_questions}",
                     f"Provenance gaps: {provenance}",
@@ -427,9 +427,7 @@ def create_wiki_apply_tool(
         return WikiToolResult(
             content=[
                 WikiToolTextContent(
-                    text=(
-                        f"{action} {result.page_path} via " f"{result.operation}. {compile_summary}"
-                    ),
+                    text=(f"{action} {result.page_path} via {result.operation}. {compile_summary}"),
                 )
             ],
             details={

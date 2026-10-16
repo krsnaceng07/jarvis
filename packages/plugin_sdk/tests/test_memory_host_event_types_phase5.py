@@ -3,14 +3,14 @@
 Mirrors the TypeScript test patterns from
 ``src/memory-host-sdk/event-types.test.ts``.
 """
+
 from __future__ import annotations
 
-import pytest
+
+from typing import cast
 
 from jarvis_sdk.memory_host_event_types import (
     MemoryHostDreamCompletedEvent,
-    MemoryHostEvent,
-    MemoryHostEventRecord,
     MemoryHostPromotionAppliedEvent,
     MemoryHostRecallRecordedEvent,
     MemoryHostRecallSkippedEvent,
@@ -101,14 +101,17 @@ def test_promotion_applied_event_shape() -> None:
 
 def test_dream_completed_event_shape() -> None:
     """Dream completed event has phase + lineCount + storageMode."""
-    event: MemoryHostDreamCompletedEvent = {
-        "type": "memory.dream.completed",
-        "timestamp": "2025-12-15T12:00:00Z",
-        "phase": "light",
-        "outcome": "completed",
-        "lineCount": 10,
-        "storageMode": "inline",
-    }
+    event = cast(
+        MemoryHostDreamCompletedEvent,
+        {
+            "type": "memory.dream.completed",
+            "timestamp": "2025-12-15T12:00:00Z",
+            "phase": "light",
+            "outcome": "completed",
+            "lineCount": 10,
+            "storageMode": "inline",
+        },
+    )
     assert event["type"] == "memory.dream.completed"
     assert event["phase"] == "light"
     assert event["outcome"] == "completed"
@@ -180,13 +183,16 @@ def test_recall_recorded_with_storage_truncated() -> None:
 
 def test_dream_completed_with_optional_fields() -> None:
     """outcome, error, inlinePath, reportPath are all optional."""
-    event: MemoryHostDreamCompletedEvent = {
-        "type": "memory.dream.completed",
-        "timestamp": "2025-12-15T12:00:00Z",
-        "phase": "rem",
-        "lineCount": 5,
-        "storageMode": "both",
-    }
+    event = cast(
+        MemoryHostDreamCompletedEvent,
+        {
+            "type": "memory.dream.completed",
+            "timestamp": "2025-12-15T12:00:00Z",
+            "phase": "rem",
+            "lineCount": 5,
+            "storageMode": "both",
+        },
+    )
     # Optional fields absent
     assert "outcome" not in event
     assert "error" not in event

@@ -1,0 +1,58 @@
+{
+  "id": "together",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "together"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "together",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "TOGETHER_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "together": {
+        "baseUrl": "https://api.together.xyz/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
+            "input": [
+              "text"
+            ]
+          },
+          {
+            "id": "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

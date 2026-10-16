@@ -2,6 +2,7 @@
 
 Mirrors the TypeScript ``test_dreaming-repair.test.ts`` patterns.
 """
+
 from __future__ import annotations
 
 import os
@@ -116,16 +117,19 @@ def test_is_suspicious_session_corpus_line_self_ingested() -> None:
 
 def test_is_suspicious_session_corpus_line_prompt_only() -> None:
     """Prompt prefix alone is not suspicious."""
-    assert dr._is_suspicious_session_corpus_line(
-        "Write a dream diary entry from these memory fragments"
-    ) is False
+    assert (
+        dr._is_suspicious_session_corpus_line(
+            "Write a dream diary entry from these memory fragments"
+        )
+        is False
+    )
 
 
 def test_is_suspicious_session_corpus_line_session_key_only() -> None:
     """Session key alone is not suspicious."""
-    assert dr._is_suspicious_session_corpus_line(
-        "sessionKey=dreaming-narrative-light-abc123"
-    ) is False
+    assert (
+        dr._is_suspicious_session_corpus_line("sessionKey=dreaming-narrative-light-abc123") is False
+    )
 
 
 # ── Archive timestamp ──────────────────────────────────────────────────
@@ -234,9 +238,7 @@ def test_audit_dreaming_artifacts_with_clean_corpus(tmp_path: Path) -> None:
     """Corpus with normal session text → no issues."""
     corpus = tmp_path / "memory" / ".dreams" / "session-corpus"
     corpus.mkdir(parents=True)
-    (corpus / "session1.txt").write_text(
-        "user: hello\nassistant: hi there", encoding="utf-8"
-    )
+    (corpus / "session1.txt").write_text("user: hello\nassistant: hi there", encoding="utf-8")
     summary = dr.audit_dreaming_artifacts(str(tmp_path))
     assert summary["sessionCorpusFileCount"] == 1
     assert summary["suspiciousSessionCorpusFileCount"] == 0

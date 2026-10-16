@@ -12,6 +12,7 @@ The output contract is:
   ``name`` (when it isn't ``"Error"``) or ``"Error"``
 - Non-``Error`` value → ``str(value)``
 """
+
 from __future__ import annotations
 
 from typing import Any

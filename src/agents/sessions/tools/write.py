@@ -28,16 +28,16 @@ Adaptations
   ``restoreLineEndings`` are preserved via
   the ``edit_diff`` module.
 """
+
 from __future__ import annotations
 
 import os
-from pathlib import Path
 from typing import Optional
 
 from ..extensions.types import AgentToolResult, ToolDefinition
 from .edit_diff import detect_line_ending, restore_line_endings
 from .file_mutation_queue import with_file_mutation_queue
-from .path_utils import resolve_to_cwd
+from .path_utils import resolve_unicode_path
 
 
 # ============================================================================
@@ -73,11 +73,7 @@ async def write_file(
         (or defaults to ``"\\n"`` for a new
         file).
     """
-    resolved = (
-        resolve_to_cwd(file_path, cwd or os.getcwd())
-        if not os.path.isabs(file_path)
-        else file_path
-    )
+    resolved = resolve_unicode_path(file_path, cwd or os.getcwd())
 
     async def _do_write() -> None:
         parent = os.path.dirname(resolved)
@@ -102,6 +98,7 @@ async def write_file(
         # :func:`tempfile.NamedTemporaryFile`
         # in the same dir for atomicity.
         import tempfile
+
         with tempfile.NamedTemporaryFile(
             mode="w",
             encoding="utf-8",
@@ -120,8 +117,10 @@ async def write_file(
             os.replace(tmp_path, resolved)
         except OSError:
             # Fallback: copy + remove
-            with open(tmp_path, "w", encoding="utf-8", newline="") as src, \
-                 open(resolved, "w", encoding="utf-8", newline="") as dst:
+            with (
+                open(tmp_path, "w", encoding="utf-8", newline="") as src,
+                open(resolved, "w", encoding="utf-8", newline="") as dst,
+            ):
                 dst.write(src.read())
             os.unlink(tmp_path)
 
@@ -133,13 +132,15 @@ async def write_file(
 # ============================================================================
 
 
-async def create_write_tool_definition(
+def create_write_tool_definition(
     cwd: str = "",
+    options: Optional[dict] = None,
 ) -> ToolDefinition:
     """Build the :class:`ToolDefinition` for
     the write tool. Mirrors
     ``createWriteToolDefinition`` (``write.ts:382``).
     """
+
     async def _execute(
         tool_call_id: str,
         params: dict,
@@ -151,20 +152,52 @@ async def create_write_tool_definition(
         content = params.get("content", "")
         if not path:
             raise ValueError("path is required")
-        await write_file(path, content, cwd=cwd)
+
+        # Resolve path against cwd with Unicode & slash hygiene
+        resolved = resolve_unicode_path(path, cwd or os.getcwd())
+
+        # Apply sandbox and tool policy security floor
+        from ...sandbox import guard_sandbox_tool_access
+
+        _, validated = guard_sandbox_tool_access(
+            "write", resolved, cwd, options, ctx, is_mutation=True
+        )
+        if validated is not None:
+            resolved = str(validated)
+
+        try:
+            await write_file(resolved, content, cwd=cwd)
+        except PermissionError as exc:
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Permission denied writing to '{resolved}': {exc}. File or directory is protected.",
+                    }
+                ],
+                "details": {"path": resolved, "error": str(exc)},
+            }
+        except OSError as exc:
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Failed to write to '{resolved}': {exc}",
+                    }
+                ],
+                "details": {"path": resolved, "error": str(exc)},
+            }
+
         return {
-            "content": [
-                {"type": "text", "text": f"Wrote {len(content)} bytes to {path}"}
-            ],
-            "details": {},
+            "content": [{"type": "text", "text": f"Wrote {len(content)} bytes to {resolved}"}],
+            "details": {"path": resolved, "bytes": len(content)},
         }
 
     return {
         "name": "write",
         "label": "write",
         "description": (
-            "Write content to a file. Creates parent directories. "
-            "Overwrites existing content."
+            "Write content to a file. Creates parent directories. Overwrites existing content."
         ),
         "promptSnippet": "Write file content",
         "promptGuidelines": [

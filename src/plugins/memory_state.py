@@ -13,7 +13,7 @@ from __future__ import annotations
 import contextvars
 import weakref
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, Iterable, Sequence
+from typing import Any, Awaitable, Callable, Sequence
 
 __all__ = [
     "MemoryPromptSectionParams",

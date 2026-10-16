@@ -27,6 +27,7 @@ Sub-phases:
 - 6.10d — search + bash
   (find, grep, ls, bash, bash_operations)
 """
+
 from __future__ import annotations
 
 from typing import Optional
@@ -182,6 +183,29 @@ from .edit import (
     remove_exact_occurrences,
     validate_edit_input,
 )
+from .apply_patch import (
+    create_apply_patch_tool,
+    create_apply_patch_tool_definition,
+)
+from .ls import (
+    create_ls_tool,
+    create_ls_tool_definition,
+)
+from .ask_user import (
+    create_ask_user_tool,
+    create_ask_user_tool_definition,
+)
+from .message_tool import (
+    create_message_tool,
+    create_message_tool_definition,
+)
+from .screen_tool import (
+    create_screen_tool,
+    create_screen_tool_definition,
+)
+from src.canvas.widget_tool import (
+    create_show_widget_tool,
+)
 
 # Phase 6.10d — search + bash
 from .bash_operations import (
@@ -197,6 +221,87 @@ from .bash import (
     execute_bash,
     resolve_bash_timeout_ms,
 )
+
+from .exec_tool import create_exec_tool
+from .process_tool import create_process_tool
+from .mkdir_tool import create_mkdir_tool, create_mkdir_tool_definition
+from .remove_path_tool import create_remove_path_tool, create_remove_path_tool_definition
+from .rename_path_tool import create_rename_path_tool, create_rename_path_tool_definition
+from .open_path_tool import create_open_path_tool, create_open_path_tool_definition
+from .skill_workshop_tool import create_skill_workshop_tool, create_skill_workshop_tool_definition
+from .audio_tool import create_audio_tool, create_audio_tool_definition
+from .system_info_tool import create_system_info_tool, create_system_info_tool_definition
+from .web_search_tool import create_web_search_tool, create_web_search_tool_definition
+from .web_fetch_tool import create_web_fetch_tool, create_web_fetch_tool_definition
+from .automations_tool import create_automations_tool, create_automations_tool_definition
+from .pdf_tool import create_pdf_tool, create_pdf_tool_definition
+from .secrets_tool import create_secrets_tool, create_secrets_tool_definition
+from .channel_tools import (
+    CHANNEL_TOOL_DECLARATIONS,
+    create_channel_status_definition,
+    create_channel_status_tool,
+    create_configure_channel_definition,
+    create_configure_channel_tool,
+)
+from .find import (
+    DEFAULT_IGNORE_PATTERNS,
+    DEFAULT_LIMIT as FIND_DEFAULT_LIMIT,
+    FindOperations,
+    create_find_tool,
+    create_find_tool_definition,
+    find_files,
+)
+from .grep import (
+    DEFAULT_CONTEXT,
+    DEFAULT_LIMIT as GREP_DEFAULT_LIMIT,
+    GrepOperations,
+    create_grep_tool,
+    create_grep_tool_definition,
+    grep_files,
+)
+from .ls import (
+    DEFAULT_LIMIT as LS_DEFAULT_LIMIT,
+    LsOperations,
+    list_directory,
+)
+from .session_tools import (
+    create_session_status_tool_definition,
+    create_sessions_list_tool_definition,
+    create_sessions_send_tool_definition,
+    create_session_status_tool,
+    create_sessions_list_tool,
+    create_sessions_send_tool,
+)
+from .session_management_tools import (
+    create_sessions_tool_definition,
+    create_sessions_search_tool_definition,
+    create_sessions_history_tool_definition,
+    create_sessions_tool,
+    create_sessions_search_tool,
+    create_sessions_history_tool,
+)
+from .conversation_tools import (
+    create_conversations_list_tool_definition,
+    create_conversations_send_tool_definition,
+    create_conversations_turn_tool_definition,
+    create_conversations_list_tool,
+    create_conversations_send_tool,
+    create_conversations_turn_tool,
+)
+from .subagent_tools import (
+    create_sessions_spawn_tool_definition,
+    create_sessions_yield_tool_definition,
+    create_subagents_tool_definition,
+    create_sessions_spawn_tool,
+    create_sessions_yield_tool,
+    create_subagents_tool,
+)
+from .view_image_tool import define_view_image_tool
+from .image_generate_tool import define_image_generate_tool
+from .video_generate_tool import define_video_generate_tool
+from .music_generate_tool import define_music_generate_tool
+from .tts_tool import define_tts_tool
+from .stt_tool import define_stt_tool
 
 
 def create_coding_tools(
@@ -219,35 +324,56 @@ def create_coding_tools(
     agent loop).
     """
     _ = options
+    opts = options or {}
     return [
-        create_read_tool(cwd),
-        create_bash_tool(cwd),
-        create_edit_tool(cwd),
-        create_write_tool(cwd),
+        create_read_tool(cwd, opts),
+        create_exec_tool(cwd, opts),
+        create_process_tool(cwd, opts),
+        create_edit_tool(cwd, opts),
+        create_apply_patch_tool(
+            cwd, workspace_only=opts.get("workspace_only", False), options=opts
+        ),
+        create_write_tool(cwd, opts),
+        create_mkdir_tool(cwd, opts),
+        create_remove_path_tool(cwd, opts),
+        create_rename_path_tool(cwd, opts),
+        create_open_path_tool(cwd, opts),
+        create_audio_tool(opts),
+        create_system_info_tool(opts),
+        create_web_search_tool(opts),
+        create_ls_tool(cwd, options=opts),
+        create_message_tool(opts),
+        create_ask_user_tool(opts),
+        create_screen_tool(opts),
+        create_show_widget_tool(
+            session_id=opts.get("session_id"),
+            agent_id=opts.get("agent_id"),
+            state_dir=opts.get("state_dir"),
+        ),
+        create_sessions_list_tool(),
+        create_session_status_tool(),
+        create_sessions_send_tool(),
+        create_sessions_tool(),
+        create_sessions_search_tool(),
+        create_sessions_history_tool(),
+        create_conversations_list_tool(),
+        create_conversations_send_tool(),
+        create_conversations_turn_tool(),
+        create_sessions_spawn_tool(),
+        create_sessions_yield_tool(),
+        create_subagents_tool(),
+        create_skill_workshop_tool(cwd, opts),
+        create_web_fetch_tool(cwd, opts),
+        create_automations_tool(cwd, opts),
+        create_pdf_tool(cwd, opts),
+        create_secrets_tool(cwd, opts),
+        define_view_image_tool(),
+        define_image_generate_tool(),
+        define_video_generate_tool(),
+        define_music_generate_tool(),
+        define_tts_tool(),
+        define_stt_tool(),
     ]
-from .find import (
-    DEFAULT_IGNORE_PATTERNS,
-    DEFAULT_LIMIT as FIND_DEFAULT_LIMIT,
-    FindOperations,
-    create_find_tool,
-    create_find_tool_definition,
-    find_files,
-)
-from .grep import (
-    DEFAULT_CONTEXT,
-    DEFAULT_LIMIT as GREP_DEFAULT_LIMIT,
-    GrepOperations,
-    create_grep_tool,
-    create_grep_tool_definition,
-    grep_files,
-)
-from .ls import (
-    DEFAULT_LIMIT as LS_DEFAULT_LIMIT,
-    LsOperations,
-    create_ls_tool,
-    create_ls_tool_definition,
-    list_directory,
-)
 
 
 __all__ = [
@@ -345,15 +471,28 @@ __all__ = [
     "EDIT_MISMATCH_HINT_LIMIT",
     "EDIT_MISMATCH_MESSAGE",
     "EditOperations",
+    "EditResult",
     "EditToolOptions",
     "append_mismatch_hint",
     "create_edit_tool",
     "create_edit_tool_definition",
     "default_edit_operations",
     "did_edit_likely_apply",
+    "edit_file",
     "prepare_edit_arguments",
     "remove_exact_occurrences",
     "validate_edit_input",
+    # Phase 6.10c — apply_patch
+    "create_apply_patch_tool",
+    "create_apply_patch_tool_definition",
+    # Phase 6.10c — ask_user
+    "create_ask_user_tool",
+    "create_ask_user_tool_definition",
+    "create_message_tool",
+    "create_message_tool_definition",
+    # Phase 6.10c — screen
+    "create_screen_tool",
+    "create_screen_tool_definition",
     # Phase 6.10d — bash operations
     "BashExecOptions",
     "BashOperations",
@@ -365,6 +504,38 @@ __all__ = [
     "create_local_bash_operations",
     "execute_bash",
     "resolve_bash_timeout_ms",
+    # Phase 6.10e — session state tools
+    "create_session_status_tool_definition",
+    "create_sessions_list_tool_definition",
+    "create_sessions_send_tool_definition",
+    "create_session_status_tool",
+    "create_sessions_list_tool",
+    "create_sessions_send_tool",
+    # Phase 6.10e — Session Orchestration Tools (Python Parity)
+    "create_sessions_tool_definition",
+    "create_sessions_search_tool_definition",
+    "create_sessions_history_tool_definition",
+    "create_sessions_tool",
+    "create_sessions_search_tool",
+    "create_sessions_history_tool",
+    "create_conversations_list_tool_definition",
+    "create_conversations_send_tool_definition",
+    "create_conversations_turn_tool_definition",
+    "create_conversations_list_tool",
+    "create_conversations_send_tool",
+    "create_conversations_turn_tool",
+    "create_sessions_spawn_tool_definition",
+    "create_sessions_yield_tool_definition",
+    "create_subagents_tool_definition",
+    "create_sessions_spawn_tool",
+    "create_sessions_yield_tool",
+    "create_subagents_tool",
+    "define_view_image_tool",
+    "define_image_generate_tool",
+    "define_video_generate_tool",
+    "define_music_generate_tool",
+    "define_tts_tool",
+    "define_stt_tool",
     # Phase 6.10d — find
     "DEFAULT_IGNORE_PATTERNS",
     "FIND_DEFAULT_LIMIT",
@@ -385,4 +556,35 @@ __all__ = [
     "create_ls_tool",
     "create_ls_tool_definition",
     "list_directory",
+    # Host control & folder operations
+    "create_mkdir_tool",
+    "create_mkdir_tool_definition",
+    "create_remove_path_tool",
+    "create_remove_path_tool_definition",
+    "create_rename_path_tool",
+    "create_rename_path_tool_definition",
+    "create_open_path_tool",
+    "create_open_path_tool_definition",
+    # Audio, system info, and web search tools
+    "create_audio_tool",
+    "create_audio_tool_definition",
+    "create_system_info_tool",
+    "create_system_info_tool_definition",
+    "create_web_search_tool",
+    "create_web_search_tool_definition",
+    # Channel tools
+    "CHANNEL_TOOL_DECLARATIONS",
+    "create_configure_channel_definition",
+    "create_configure_channel_tool",
+    "create_channel_status_definition",
+    "create_channel_status_tool",
+    # Web fetch, automations, pdf, and secrets tools
+    "create_web_fetch_tool",
+    "create_web_fetch_tool_definition",
+    "create_automations_tool",
+    "create_automations_tool_definition",
+    "create_pdf_tool",
+    "create_pdf_tool_definition",
+    "create_secrets_tool",
+    "create_secrets_tool_definition",
 ]

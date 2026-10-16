@@ -31,8 +31,7 @@ side effects.
 """
 from __future__ import annotations
 
-import logging
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Union
+from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from .logger import log
 

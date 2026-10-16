@@ -23,8 +23,7 @@ Phase 7.6f-2 — focused minimal port.
 """
 from __future__ import annotations
 
-import asyncio
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, Optional
 
 
 #: Prompt mode type alias.
@@ -45,11 +44,31 @@ def set_forget_prompt_build_drain_cache_for_run_hook(
     _FORGET_PROMPT_BUILD_DRAIN_CACHE_FOR_RUN = hook
 
 
+async def _default_resolve_prompt_build_hook_result(params: Dict[str, Any]) -> Any:
+    runner = params.get("hookRunner")
+    bus = getattr(runner, "bus", None) if runner else None
+    if bus is None:
+        from src.hooks import HookBus
+        bus = HookBus()
+        config = params.get("config", {})
+        api = getattr(config, "api", None) if not isinstance(config, dict) else config.get("api")
+        if api and hasattr(api, "_hooks"):
+            for hook in api._hooks:
+                bus.register(hook)
+    
+    payload = {
+        "event": "before_prompt_build",
+        "prompt": params.get("prompt"),
+        "messages": params.get("messages"),
+        "hookCtx": params.get("hookCtx", {})
+    }
+    await bus.fire("before_prompt_build", payload)
+    return payload
+
 #: Installable hook for the resolve-prompt-build-hook-result step.
 _RESOLVE_PROMPT_BUILD_HOOK_RESULT: Callable[
     [Dict[str, Any]], Awaitable[Any]
-] = lambda _p: asyncio.sleep(0)
-
+] = _default_resolve_prompt_build_hook_result
 
 def set_resolve_prompt_build_hook_result_hook(
     hook: Callable[[Dict[str, Any]], Awaitable[Any]],

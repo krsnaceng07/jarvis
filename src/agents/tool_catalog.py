@@ -53,4 +53,69 @@ class ToolCatalog:
 
 GLOBAL_TOOL_CATALOG = ToolCatalog()
 
+# Register core session tools
+try:
+    from .sessions.tools import (
+        create_sessions_list_tool_definition,
+        create_session_status_tool_definition,
+        create_sessions_send_tool_definition,
+    )
+    list_def = create_sessions_list_tool_definition()
+    GLOBAL_TOOL_CATALOG.register(ToolDescriptor(
+        name=list_def["name"],
+        description=list_def["description"],
+        source="core",
+        parameters_schema=list_def.get("inputSchema", {})
+    ))
+
+    status_def = create_session_status_tool_definition()
+    GLOBAL_TOOL_CATALOG.register(ToolDescriptor(
+        name=status_def["name"],
+        description=status_def["description"],
+        source="core",
+        parameters_schema=status_def.get("inputSchema", {})
+    ))
+
+    send_def = create_sessions_send_tool_definition()
+    GLOBAL_TOOL_CATALOG.register(ToolDescriptor(
+        name=send_def["name"],
+        description=send_def["description"],
+        source="core",
+        parameters_schema=send_def.get("inputSchema", {})
+    ))
+
+    # Import and register the new session tools
+    from .sessions.tools import (
+        create_sessions_tool_definition,
+        create_sessions_search_tool_definition,
+        create_sessions_history_tool_definition,
+        create_conversations_list_tool_definition,
+        create_conversations_send_tool_definition,
+        create_conversations_turn_tool_definition,
+        create_sessions_spawn_tool_definition,
+        create_sessions_yield_tool_definition,
+        create_subagents_tool_definition,
+    )
+    
+    for factory in [
+        create_sessions_tool_definition,
+        create_sessions_search_tool_definition,
+        create_sessions_history_tool_definition,
+        create_conversations_list_tool_definition,
+        create_conversations_send_tool_definition,
+        create_conversations_turn_tool_definition,
+        create_sessions_spawn_tool_definition,
+        create_sessions_yield_tool_definition,
+        create_subagents_tool_definition,
+    ]:
+        td_def = factory()
+        GLOBAL_TOOL_CATALOG.register(ToolDescriptor(
+            name=td_def["name"],
+            description=td_def["description"],
+            source="core",
+            parameters_schema=td_def.get("inputSchema", {})
+        ))
+except ImportError:
+    pass
+
 __all__ = ["GLOBAL_TOOL_CATALOG", "ToolCatalog", "ToolDescriptor"]

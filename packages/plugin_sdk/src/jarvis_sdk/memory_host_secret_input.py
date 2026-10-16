@@ -16,6 +16,7 @@ Key port decisions:
   precedence as the TS source: literal string first, then env-var
   ref resolution, then gateway-resolved ref.
 """
+
 from __future__ import annotations
 
 import os
@@ -49,9 +50,7 @@ def has_configured_memory_secret_input(value: Any) -> bool:
     return has_configured_memory_secret_input_value(value)
 
 
-def resolve_memory_secret_input_string(
-    *, value: Any, path: str
-) -> str | None:
+def resolve_memory_secret_input_string(*, value: Any, path: str) -> str | None:
     """Resolve memory secret input, reading env refs directly when available.
 
     Mirrors OpenClaw's ``resolveMemorySecretInputString``. Precedence:

@@ -1,9 +1,9 @@
 # P0 Implementation Status (2026-08-01)
 
 ## Summary
-**Completed**: ✅ device-pair bug fix + CLI `ask` command  
-**Status**: Layer 1 (agent loop) ✅ READY; Layer 2 (host funnel) ❌ NOT STARTED  
-**Next**: Layer 2 model registry + session management  
+**Completed**: ✅ device-pair bug fix + CLI `ask` command
+**Status**: Layer 1 (agent loop) ✅ READY; Layer 2 (host funnel) ❌ NOT STARTED
+**Next**: Layer 2 model registry + session management
 **Tests**: 98/98 passing
 
 ---
@@ -17,7 +17,7 @@
 - **Impact**: Extension registry now accepts camelCase→snake_case conversion
 
 ### 2. CLI `ask` Command ✅
-- **Files**: 
+- **Files**:
   - `apps/cli/src/jarvis_cli/main.py` (parser + handler + dispatch)
 - **Usage**: `jarvis ask "your question"`
 - **Options**: `--model override`, `--stream flag`
@@ -63,7 +63,7 @@ The **entire** Layer 2 is missing. OpenClaw has:
 | **Footer data provider** | `footer-data-provider.ts` | 5K | ❌ MISSING |
 | **50+ other files** | Various | ~160K | ❌ MISSING |
 
-**Why needed**: 
+**Why needed**:
 - Model selection and API key lookup
 - Session persistence and recovery
 - Agent-specific settings resolution
@@ -92,7 +92,7 @@ The **entire** Layer 3 runner is missing:
 | **terminal resolution** | `terminal-resolution.ts` | 24K | ❌ MISSING |
 | **145+ other files** | Various | ~73K | ❌ MISSING |
 
-**Why needed**: 
+**Why needed**:
 - Handle tool call failures
 - Repair malformed LLM responses
 - Cross-process session locking
@@ -109,9 +109,9 @@ The **entire** Layer 3 runner is missing:
 
 ## Desktop App Status
 
-**Current**: Uses `client.aio.live.connect()` directly (bypasses agent loop)  
-**Wiring Required**: Layer 2 + Layer 3 complete  
-**Timeline**: Can be revisited after Layer 2  
+**Current**: Uses `client.aio.live.connect()` directly (bypasses agent loop)
+**Wiring Required**: Layer 2 + Layer 3 complete
+**Timeline**: Can be revisited after Layer 2
 **Dependencies**:
 1. createAgentSession (model registry, auth, settings)
 2. Gemini Live adapter for Agent streaming
@@ -129,9 +129,9 @@ Output: JARVIS can resolve model names → configs, switch between models
 Validation: Unit tests + CLI `ask` with multiple models
 ```
 
-### Phase 2: Auth + Sessions Foundation  
+### Phase 2: Auth + Sessions Foundation
 ```
-Duration: 3-4 days  
+Duration: 3-4 days
 Files: ~40K LOC (auth-storage, session-manager base)
 Output: JARVIS can persist sessions, retrieve auth profiles
 Validation: E2E session persist→reload test
@@ -191,7 +191,7 @@ Validation: Tool execution E2E tests
 └─────────────────────────────────────────────────────────┘
 ```
 
-**Current State**: Layer 1 works; Layers 2-4 blocking everything else.  
+**Current State**: Layer 1 works; Layers 2-4 blocking everything else.
 **MVP Unblock**: Implement Layer 2 model registry + basic sessions.
 
 ---

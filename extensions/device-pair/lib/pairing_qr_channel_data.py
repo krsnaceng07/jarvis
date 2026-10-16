@@ -12,6 +12,7 @@ Public surface (mirrors the TS source):
 Python adaptations (documented in code):
 - TS ``Record<string, unknown>`` → Python ``dict[str, object]``
 """
+
 from __future__ import annotations
 
 from typing import TypedDict

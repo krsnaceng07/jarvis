@@ -46,7 +46,6 @@ focus on:
 from __future__ import annotations
 
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -76,8 +75,7 @@ def _write_log(vault_root: Path, lines: list[dict]) -> Path:
     log_path = vault_root / ".openclaw-wiki" / "log.jsonl"
     log_path.parent.mkdir(parents=True, exist_ok=True)
     log_path.write_text(
-        "\n".join(json.dumps(line, ensure_ascii=False) for line in lines)
-        + "\n",
+        "\n".join(json.dumps(line, ensure_ascii=False) for line in lines) + "\n",
         encoding="utf-8",
     )
     return log_path
@@ -192,9 +190,7 @@ class TestEnsureMemoryWikiVaultGeneration:
 
 
 class TestResolveMemoryWikiVaultSourceGeneration:
-    def test_empty_vault_returns_deterministic_hash(
-        self, tmp_path: Path
-    ) -> None:
+    def test_empty_vault_returns_deterministic_hash(self, tmp_path: Path) -> None:
         for sub in ("sources", "entities", "concepts", "syntheses", "reports"):
             (tmp_path / sub).mkdir(parents=True, exist_ok=True)
         h1 = resolve_memory_wiki_vault_source_generation(str(tmp_path))
@@ -202,41 +198,29 @@ class TestResolveMemoryWikiVaultSourceGeneration:
         assert h1 == h2
         assert len(h1) == 64  # SHA-256 hex
 
-    def test_hash_changes_when_source_added(
-        self, tmp_path: Path
-    ) -> None:
+    def test_hash_changes_when_source_added(self, tmp_path: Path) -> None:
         for sub in ("sources", "entities", "concepts", "syntheses", "reports"):
             (tmp_path / sub).mkdir(parents=True, exist_ok=True)
         before = resolve_memory_wiki_vault_source_generation(str(tmp_path))
-        (tmp_path / "sources" / "alpha.md").write_text(
-            "# alpha", encoding="utf-8"
-        )
+        (tmp_path / "sources" / "alpha.md").write_text("# alpha", encoding="utf-8")
         after = resolve_memory_wiki_vault_source_generation(str(tmp_path))
         assert before != after
 
     def test_index_md_files_are_excluded(self, tmp_path: Path) -> None:
         (tmp_path / "sources").mkdir(parents=True, exist_ok=True)
         before = resolve_memory_wiki_vault_source_generation(str(tmp_path))
-        (tmp_path / "sources" / "index.md").write_text(
-            "# index", encoding="utf-8"
-        )
+        (tmp_path / "sources" / "index.md").write_text("# index", encoding="utf-8")
         after = resolve_memory_wiki_vault_source_generation(str(tmp_path))
         assert before == after
 
 
 class TestLoadMemoryWikiValidatedVaultIdentity:
-    def test_drops_publication_when_source_diverges(
-        self, tmp_path: Path
-    ) -> None:
+    def test_drops_publication_when_source_diverges(self, tmp_path: Path) -> None:
         # Seed an in-sync source tree.
         for sub in ("sources", "entities", "concepts", "syntheses", "reports"):
             (tmp_path / sub).mkdir(parents=True, exist_ok=True)
-        (tmp_path / "sources" / "alpha.md").write_text(
-            "# alpha", encoding="utf-8"
-        )
-        recorded_source_gen = resolve_memory_wiki_vault_source_generation(
-            str(tmp_path)
-        )
+        (tmp_path / "sources" / "alpha.md").write_text("# alpha", encoding="utf-8")
+        recorded_source_gen = resolve_memory_wiki_vault_source_generation(str(tmp_path))
         _write_log(
             tmp_path,
             [
@@ -260,9 +244,7 @@ class TestLoadMemoryWikiValidatedVaultIdentity:
         pre = load_memory_wiki_validated_vault_identity(str(tmp_path))
         assert pre.compiled_cache_publication_id == "pub-1"
         # Mutate the source tree.
-        (tmp_path / "sources" / "beta.md").write_text(
-            "# beta", encoding="utf-8"
-        )
+        (tmp_path / "sources" / "beta.md").write_text("# beta", encoding="utf-8")
         post = load_memory_wiki_validated_vault_identity(str(tmp_path))
         # Publication dropped, vault generation preserved.
         assert post.compiled_cache_publication_id is None

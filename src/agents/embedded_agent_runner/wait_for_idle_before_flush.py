@@ -12,7 +12,7 @@ Phase 7.6h-3 — focused minimal port.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Awaitable, Callable, Optional
+from typing import Any
 
 
 DEFAULT_WAIT_FOR_IDLE_TIMEOUT_MS = 30_000

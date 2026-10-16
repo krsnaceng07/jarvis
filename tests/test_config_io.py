@@ -1,6 +1,3 @@
-import json
-import os
-from pathlib import Path
 
 from src.config.io import create_config_io, parse_config_json5
 
@@ -22,3 +19,9 @@ def test_create_config_io_read_write(tmp_path, monkeypatch):
     read = io.readConfigFileSnapshot()
     assert read["config"]["x"] == 1
     assert isinstance(read["raw"], str)
+
+
+def test_create_config_io_defaults_without_runtime_hooks():
+    io = create_config_io()
+    assert hasattr(io, "loadConfig")
+    assert hasattr(io, "readBestEffortConfig")

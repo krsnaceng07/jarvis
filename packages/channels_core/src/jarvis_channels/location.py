@@ -15,7 +15,7 @@ from .types import NormalizedLocation
 
 def format_inbound_location(text: str, loc: NormalizedLocation) -> str:
     """Format a location for the inbound message text block.
-    
+
     Appends the terse coordinate string and the untrusted JSON metadata
     block to the message body.
     """
@@ -23,17 +23,17 @@ def format_inbound_location(text: str, loc: NormalizedLocation) -> str:
     if text.strip():
         lines.append(text.strip())
         lines.append("")
-        
+
     # 1. Terse string
     if loc.is_live:
         prefix = "🛰 Live location"
     else:
         prefix = "📍"
-        
+
     coords = f"{loc.latitude:.6f}, {loc.longitude:.6f}"
     acc = f" ±{loc.accuracy_m}m" if loc.accuracy_m is not None else ""
     lines.append(f"{prefix} {coords}{acc}")
-    
+
     # 2. Structured JSON block
     metadata: dict[str, Any] = {
         "LocationLat": loc.latitude,
@@ -41,7 +41,7 @@ def format_inbound_location(text: str, loc: NormalizedLocation) -> str:
         "LocationSource": loc.source,
         "LocationIsLive": loc.is_live,
     }
-    
+
     if loc.accuracy_m is not None:
         metadata["LocationAccuracy"] = loc.accuracy_m
     if loc.name is not None:
@@ -50,11 +50,11 @@ def format_inbound_location(text: str, loc: NormalizedLocation) -> str:
         metadata["LocationAddress"] = loc.address
     if loc.caption is not None:
         metadata["LocationCaption"] = loc.caption
-        
+
     lines.append("")
     lines.append("Location (untrusted metadata):")
     lines.append("```json")
     lines.append(json.dumps(metadata, indent=2))
     lines.append("```")
-    
+
     return "\n".join(lines)

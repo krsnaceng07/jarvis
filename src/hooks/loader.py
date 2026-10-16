@@ -18,7 +18,6 @@ from __future__ import annotations
 
 import importlib.util
 import logging
-import os
 from pathlib import Path
 from typing import Any
 
@@ -170,7 +169,8 @@ def _scan_dir(
 def load_hooks(
     plugin_hook_dirs: list[dict] | None = None,
     config: dict | None = None,
-    eligibility: HookEligibilityContext | None = None,
+    eligibility: "HookEligibilityContext | None" = None,
+    include_disabled: bool = False,
 ) -> list[HookEntry]:
     """Discover and merge all hooks from bundled + plugin + workspace sources.
 
@@ -179,6 +179,7 @@ def load_hooks(
             from ``resolve_plugin_hook_dirs``.
         config: JARVIS config dict — used by enable-state resolution.
         eligibility: runtime eligibility context (bin availability, platform).
+        include_disabled: if True, returns disabled hooks as well.
 
     Returns:
         Merged, policy-resolved list of enabled ``HookEntry`` objects.
@@ -204,18 +205,21 @@ def load_hooks(
     _log.debug("loaded %d workspace hooks", len(workspace))
 
     # Apply enable-state filtering
-    enabled: list[HookEntry] = []
+    filtered: list[HookEntry] = []
     for e in all_entries:
         state = resolve_hook_enable_state(e, config)
         if state.enabled:
             # Attach invocation policy
             e.invocation = HookInvocationPolicy(enabled=True)
-            enabled.append(e)
+            filtered.append(e)
         else:
             _log.debug("hook %s disabled: %s", e.hook.name, state.reason)
+            if include_disabled:
+                e.invocation = HookInvocationPolicy(enabled=False, reason=state.reason)
+                filtered.append(e)
 
     # Merge by name using precedence + override policy
-    merged = resolve_hook_entries(enabled)
+    merged = resolve_hook_entries(filtered)
     _log.info("hooks ready: %d active", len(merged))
     return merged
 

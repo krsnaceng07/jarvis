@@ -19,7 +19,7 @@ host can plug in the real layers as they land.
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict
 
 
 #: Attempt execution-phase input. Mirrors
@@ -47,10 +47,16 @@ EmbeddedRunAttemptResult = Dict[str, Any]
 # ---------------------------------------------------------------------------
 
 
+async def _default_run_embedded_attempt_prompt_phase(params: Dict[str, Any]) -> Any:
+    from .attempt_prompt_phase import run_embedded_attempt_prompt_phase
+
+    return await run_embedded_attempt_prompt_phase(params)
+
+
 #: Hook for :func:`runEmbeddedAttemptPromptPhase` from
 #: ``attempt-prompt-phase.ts``.
 _RUN_EMBEDDED_ATTEMPT_PROMPT_PHASE: Callable[[Dict[str, Any]], Awaitable[Any]] = (
-    lambda _params: asyncio.sleep(0)
+    _default_run_embedded_attempt_prompt_phase
 )
 
 
@@ -62,11 +68,17 @@ def set_run_embedded_attempt_prompt_phase_hook(
     _RUN_EMBEDDED_ATTEMPT_PROMPT_PHASE = hook
 
 
+async def _default_finalize_embedded_attempt_stream_phase(params: Dict[str, Any]) -> Any:
+    from .attempt_stream_finalize import finalize_embedded_attempt_stream_phase
+
+    return await finalize_embedded_attempt_stream_phase(params)
+
+
 #: Hook for :func:`finalizeEmbeddedAttemptStreamPhase` from
 #: ``attempt-stream-finalize.ts``.
 _FINALIZE_EMBEDDED_ATTEMPT_STREAM_PHASE: Callable[
     [Dict[str, Any]], Awaitable[Any]
-] = lambda _params: asyncio.sleep(0)
+] = _default_finalize_embedded_attempt_stream_phase
 
 
 def set_finalize_embedded_attempt_stream_phase_hook(

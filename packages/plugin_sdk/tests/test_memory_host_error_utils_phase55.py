@@ -3,6 +3,7 @@
 Covers secret-pattern redaction, PEM block handling, and
 the canonical error formatter.
 """
+
 from __future__ import annotations
 
 import sys

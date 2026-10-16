@@ -4,12 +4,12 @@ Mirrors the TypeScript ``test_dreaming.test.ts`` patterns. Tests the
 deterministic surface (cron job builders, config resolver, helper
 classifiers) and the stubbed lifecycle functions.
 """
+
 from __future__ import annotations
 
 import asyncio
 from types import SimpleNamespace
 
-import pytest
 
 from extensions.memory_core import dreaming as drm
 
@@ -126,7 +126,9 @@ def test_resolve_managed_dreaming_payload_token_unknown_kind() -> None:
 def test_resolve_managed_dreaming_payload_token_empty() -> None:
     """Empty text / message returns ``None``."""
     assert drm.resolve_managed_dreaming_payload_token({"kind": "systemEvent", "text": ""}) is None
-    assert drm.resolve_managed_dreaming_payload_token({"kind": "agentTurn", "message": "  "}) is None
+    assert (
+        drm.resolve_managed_dreaming_payload_token({"kind": "agentTurn", "message": "  "}) is None
+    )
 
 
 def test_resolve_managed_dreaming_payload_token_case_insensitive_kind() -> None:
@@ -321,8 +323,10 @@ def test_register_short_term_promotion_dreaming_stub() -> None:
     class _L:
         def info(self, m: str) -> None:
             pass
+
         def warn(self, m: str) -> None:
             calls.append(m)
+
         def error(self, m: str) -> None:
             pass
 

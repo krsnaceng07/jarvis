@@ -1,0 +1,31 @@
+{
+  "id": "qa-channel",
+  "name": "QA Channel",
+  "description": "OpenClaw QA Channel channel plugin port (Phase 5.15 stub).",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "channels": [
+    "qa-channel"
+  ],
+  "channelEnvVars": {
+    "qa-channel": [
+      "QA_CHANNEL_TOKEN"
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "bot_token": {
+        "type": "string"
+      },
+      "polling_interval_sec": {
+        "type": "integer",
+        "default": 5
+      }
+    }
+  },
+  "kind": "channel"
+}

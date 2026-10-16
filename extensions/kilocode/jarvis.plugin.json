@@ -1,0 +1,52 @@
+{
+  "id": "kilocode",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "kilocode"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "kilocode",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "KILOCODE_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "kilocode": {
+        "baseUrl": "https://api.kilocode.ai/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "kilocode-llama-3.1-70b",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

@@ -12,6 +12,7 @@ Key port decisions:
   class pattern: ``*.jpg`` → ``*.[jJ][pP][gG]``.
 - All function bodies preserved verbatim.
 """
+
 from __future__ import annotations
 
 from typing import Any, Literal, TypedDict, cast
@@ -24,6 +25,7 @@ try:
         normalize_lowercase_string_or_empty,  # type: ignore[attr-defined]
     )
 except ImportError:  # pyright: ignore[reportMissingImports]
+
     def normalize_lowercase_string_or_empty(value: Any) -> str:  # type: ignore[no-redef]
         if not isinstance(value, str):
             return ""
@@ -39,13 +41,26 @@ MEMORY_MULTIMODAL_SPECS: dict[str, dict[str, Any]] = {
     "image": {
         "labelPrefix": "Image file",
         "extensions": [
-            ".jpg", ".jpeg", ".png", ".webp", ".gif", ".heic", ".heif",
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".webp",
+            ".gif",
+            ".heic",
+            ".heif",
         ],
     },
     "audio": {
         "labelPrefix": "Audio file",
         "extensions": [
-            ".mp3", ".wav", ".ogg", ".opus", ".m4a", ".m2a", ".aac", ".flac",
+            ".mp3",
+            ".wav",
+            ".ogg",
+            ".opus",
+            ".m4a",
+            ".m2a",
+            ".aac",
+            ".flac",
         ],
     },
 }
@@ -123,23 +138,24 @@ def normalize_memory_multimodal_settings(
     safe_raw = cast(dict[str, object], raw if isinstance(raw, dict) else {})
     enabled = safe_raw.get("enabled") is True
     max_file_bytes_raw = safe_raw.get("maxFileBytes")
-    if isinstance(max_file_bytes_raw, (int, float)) and max_file_bytes_raw == max_file_bytes_raw:  # NaN check
+    if (
+        isinstance(max_file_bytes_raw, (int, float)) and max_file_bytes_raw == max_file_bytes_raw
+    ):  # NaN check
         max_file_bytes = max(1, int(max_file_bytes_raw))
     else:
         max_file_bytes = DEFAULT_MEMORY_MULTIMODAL_MAX_FILE_BYTES
     modalities_raw = safe_raw.get("modalities")
     modalities = (
-        cast(list[MemoryMultimodalSelection] | None, modalities_raw if isinstance(modalities_raw, list) else None)
+        cast(
+            list[MemoryMultimodalSelection] | None,
+            modalities_raw if isinstance(modalities_raw, list) else None,
+        )
         if enabled
         else None
     )
     return {
         "enabled": enabled,
-        "modalities": (
-            _normalize_memory_multimodal_modalities(modalities)
-            if enabled
-            else []
-        ),
+        "modalities": (_normalize_memory_multimodal_modalities(modalities) if enabled else []),
         "maxFileBytes": max_file_bytes,
     }
 

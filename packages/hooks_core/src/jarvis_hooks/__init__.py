@@ -31,7 +31,6 @@ from enum import Enum
 # when hooks_core absorbs it fully and src/hooks becomes a thin shim).
 from src.hooks import HookBus, fire_sync
 
-
 # ── Typed hook name enum (W8.2) ────────────────────────────────────────
 # Mirrors OpenClaw's ``PluginHookName`` from
 # ``packages/hooks-core/src/hook-types.ts``.

@@ -1,10 +1,45 @@
-"""JARVIS File Transfer infra extension (Phase 5.15 minimum scaffold)."""
+"""File Transfer extension root entrypoint."""
+
 from __future__ import annotations
 
-from .plugin import FileTransferPlugin, file_transfer_plugin, entry
+from .src.cli import handle_file_transfer_cli, repair_file_transfer_config
+from .src.operations import fetch_dir, fetch_file, list_dir, write_file
+from .src.plugin import FileTransferPlugin, entry, file_transfer_plugin
+from .src.policy import (
+    MAX_FILE_BYTES,
+    LiteralGrant,
+    NodePolicyConfig,
+    check_path_policy,
+    is_path_contained_in,
+    normalize_path_for_policy,
+)
+from .src.tools import (
+    execute_dir_fetch_tool,
+    execute_dir_list_tool,
+    execute_file_fetch_tool,
+    execute_file_write_tool,
+    register_file_transfer_tools,
+)
 
 __all__ = [
     "FileTransferPlugin",
-    "file_transfer_plugin",
+    "LiteralGrant",
+    "MAX_FILE_BYTES",
+    "NodePolicyConfig",
+    "check_path_policy",
     "entry",
+    "execute_dir_fetch_tool",
+    "execute_dir_list_tool",
+    "execute_file_fetch_tool",
+    "execute_file_write_tool",
+    "fetch_dir",
+    "fetch_file",
+    "file_transfer_plugin",
+    "handle_file_transfer_cli",
+    "is_path_contained_in",
+    "list_dir",
+    "normalize_path_for_policy",
+    "register_file_transfer_tools",
+    "repair_file_transfer_config",
+    "write_file",
 ]

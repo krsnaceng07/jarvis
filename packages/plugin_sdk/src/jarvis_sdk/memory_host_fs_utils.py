@@ -46,6 +46,7 @@ Key port decisions:
   when the path escapes the workspace (the OpenClaw source
   raises via ``fs-safe/root``'s safe-resolve).
 """
+
 from __future__ import annotations
 
 import os
@@ -107,9 +108,7 @@ def read_regular_file(
             )
     data = path.read_bytes()
     if max_bytes is not None and len(data) > max_bytes:
-        raise ValueError(
-            f"file {file_path} is {len(data)} bytes; exceeds max_bytes={max_bytes}"
-        )
+        raise ValueError(f"file {file_path} is {len(data)} bytes; exceeds max_bytes={max_bytes}")
     return {"buffer": data}
 
 
@@ -161,7 +160,9 @@ def _walk_entries(
         except OSError:
             is_dir = False
         try:
-            is_file = entry.is_file() if not is_symlink else (Path(os.path.realpath(entry)).is_file())
+            is_file = (
+                entry.is_file() if not is_symlink else (Path(os.path.realpath(entry)).is_file())
+            )
         except OSError:
             is_file = False
         kind = "directory" if is_dir else ("file" if is_file else "other")

@@ -1,10 +1,8 @@
 """Test bootstrap ritual and config persistence."""
 
-import json
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 
 from jarvis_config_core import AgentIdentity, JarvisConfig, load_config, save_config
 from src.bootstrap import bootstrap_with_ritual

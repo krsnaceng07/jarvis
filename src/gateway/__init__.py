@@ -27,8 +27,12 @@ from urllib.parse import urlparse
 import websockets
 
 from .ws_server import GatewayWSConnection
-from .rpc_dispatcher import RPCDispatcher
+from .rpc_dispatcher import RPCDispatcher, RPCDispatchError
 from .agent_runs import AgentRunService, Runner
+from .chat_handlers import make_chat_handlers
+from .cron_handlers import make_cron_handlers
+from .sessions_handlers import make_sessions_handlers
+from .tasks_handlers import make_tasks_handlers
 
 if TYPE_CHECKING:
     pass
@@ -107,8 +111,12 @@ class Gateway:
             self,
             handlers={
                 "agent": self._agent_runs.agent,
+                "agent.run": self._agent_runs.agent,
+                "agents.run": self._agent_runs.agent,
                 "agent.wait": self._agent_runs.wait,
+                "agents.wait": self._agent_runs.wait,
                 "agent.abort": self._agent_runs.abort,
+                "agents.abort": self._agent_runs.abort,
             },
         )
         # Register host gateway handlers for managed worktrees
@@ -120,7 +128,7 @@ class Gateway:
         except Exception:
             # Defensive: if worktrees wiring fails, gateway still starts.
             _log.exception("gateway: failed to register worktrees handlers")
-        # Register sessions handlers (supports sessions.create with worktree option)
+        # Register sessions handlers (supports sessions.create with worktree option, list, get, resolve, search)
         try:
             from .sessions_handlers import make_sessions_handlers
 
@@ -128,6 +136,94 @@ class Gateway:
                 self._dispatcher.register(name, handler)
         except Exception:
             _log.exception("gateway: failed to register sessions handlers")
+        # Register tasks handlers (tasks.list, tasks.get, tasks.cancel)
+        try:
+            from .tasks_handlers import make_tasks_handlers
+
+            for name, handler in make_tasks_handlers().items():
+                self._dispatcher.register(name, handler)
+        except Exception:
+            _log.exception("gateway: failed to register tasks handlers")
+        # Register chat handlers (chat.send, chat.abort, chat.history)
+        try:
+            from .chat_handlers import make_chat_handlers
+
+            for name, handler in make_chat_handlers(agent_runs=self._agent_runs).items():
+                self._dispatcher.register(name, handler)
+        except Exception:
+            _log.exception("gateway: failed to register chat handlers")
+        # Register cron handlers (cron.list, cron.add, cron.remove, cron.run)
+        try:
+            from .cron_handlers import make_cron_handlers
+
+            for name, handler in make_cron_handlers().items():
+                self._dispatcher.register(name, handler)
+        except Exception:
+            _log.exception("gateway: failed to register cron handlers")
+        # Register health and status handlers (status, health, system.info)
+        try:
+            from .status_handlers import make_system_handlers
+
+            for name, handler in make_system_handlers().items():
+                self._dispatcher.register(name, handler)
+        except Exception:
+            _log.exception("gateway: failed to register status handlers")
+        # Register config handlers (config.get, config.set, config.patch, config.schema)
+        try:
+            from .config_handlers import make_config_handlers
+
+            for name, handler in make_config_handlers().items():
+                self._dispatcher.register(name, handler)
+        except Exception:
+            _log.exception("gateway: failed to register config handlers")
+        # Register tools handlers (tools.catalog, tools.effective)
+        try:
+            from .tools_handlers import make_tools_handlers
+
+            for name, handler in make_tools_handlers().items():
+                self._dispatcher.register(name, handler)
+        except Exception:
+            _log.exception("gateway: failed to register tools handlers")
+        # Register models handlers (models.list)
+        try:
+            from .models_handlers import make_models_handlers
+
+            for name, handler in make_models_handlers().items():
+                self._dispatcher.register(name, handler)
+        except Exception:
+            _log.exception("gateway: failed to register models handlers")
+        # Register skills handlers (skills.status, skills.list, skills.library.list)
+        try:
+            from .skills_handlers import make_skills_handlers
+
+            for name, handler in make_skills_handlers().items():
+                self._dispatcher.register(name, handler)
+        except Exception:
+            _log.exception("gateway: failed to register skills handlers")
+        # Register channels handlers (channels.status, channels.list)
+        try:
+            from .channels_handlers import make_channels_handlers
+
+            for name, handler in make_channels_handlers().items():
+                self._dispatcher.register(name, handler)
+        except Exception:
+            _log.exception("gateway: failed to register channels handlers")
+        # Register agents handlers (agents.list)
+        try:
+            from .agents_handlers import make_agents_handlers
+
+            for name, handler in make_agents_handlers().items():
+                self._dispatcher.register(name, handler)
+        except Exception:
+            _log.exception("gateway: failed to register agents handlers")
+        # Register commands handlers (commands.list)
+        try:
+            from .commands_handlers import make_commands_handlers
+
+            for name, handler in make_commands_handlers().items():
+                self._dispatcher.register(name, handler)
+        except Exception:
+            _log.exception("gateway: failed to register commands handlers")
 
     @property
     def token(self) -> str:
@@ -279,8 +375,45 @@ class Gateway:
 
         _log.info("gateway: listening on ws://%s:%d", self.host, self.port)
 
+        try:
+            import time
+            from src.hooks import get_global_dispatcher, InternalHookEvent
+            d = get_global_dispatcher()
+            if d:
+                await d.fire_and_wait(InternalHookEvent(
+                    type="gateway",
+                    action="startup",
+                    session_key="gateway",
+                    context={"host": self.host, "port": self.port},
+                    timestamp=time.time(),
+                ))
+        except Exception as e:
+            _log.warning("gateway: startup hooks failed: %s", e)
+
     def stop(self) -> None:
         """Stop the gateway cleanly."""
+        try:
+            import time
+            from src.hooks import get_global_dispatcher, InternalHookEvent
+            d = get_global_dispatcher()
+            if d and self._loop and self.is_running():
+                future = asyncio.run_coroutine_threadsafe(
+                    d.fire_and_wait(InternalHookEvent(
+                        type="gateway",
+                        action="shutdown",
+                        session_key="gateway",
+                        context={"reason": "stop"},
+                        timestamp=time.time(),
+                    )), 
+                    self._loop
+                )
+                try:
+                    future.result(timeout=5.0)
+                except Exception as e:
+                    _log.warning("gateway: shutdown hooks failed: %s", e)
+        except Exception:
+            pass
+
         if self._server is not None and self._loop is not None:
             self._server.close()
             # Wait for it to close
@@ -414,6 +547,12 @@ __all__ = [
     "Gateway",
     "GatewayLockError",
     "HttpRoute",
+    "RPCDispatcher",
+    "RPCDispatchError",
+    "make_chat_handlers",
+    "make_cron_handlers",
+    "make_sessions_handlers",
+    "make_tasks_handlers",
 ]
 
 

@@ -8,7 +8,6 @@ from src.config.config import (
     write_config_file as config_write_config_file,
 )
 from src.config.io import (
-    create_config_io,
     project_config_onto_runtime_source_snapshot,
     read_best_effort_config_snapshot,
     read_config_file_snapshot,
@@ -121,7 +120,6 @@ def test_project_config_onto_runtime_source_snapshot_delegates(tmp_path):
     assert result == {"a": 1}
 
 
-import asyncio
 
 
 def test_recover_config_from_json_root_suffix_delegates_to_recovery_helper():

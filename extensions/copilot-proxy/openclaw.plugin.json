@@ -47,5 +47,6 @@
         "type": "integer"
       }
     }
-  }
+  },
+  "kind": "tool"
 }

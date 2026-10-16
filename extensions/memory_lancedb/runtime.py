@@ -155,6 +155,56 @@ class MemoryEntryInput:
     category: str
 
 
+def _evaluate_simple_filter(row: dict[str, Any], condition: str) -> bool:
+    """Evaluate a simple SQL comparison condition for in-memory queries."""
+    import re
+
+    cond = condition.strip()
+    if cond.startswith("(") and cond.endswith(")"):
+        cond = cond[1:-1].strip()
+    match = re.match(r"^([a-zA-Z0-9_]+)\s*(=|!=|<=|>=|<|>)\s*(.+)$", cond)
+    if not match:
+        return True
+    col, op, raw_val = match.groups()
+    raw_val = raw_val.strip()
+    target_val: Any
+    if (raw_val.startswith("'") and raw_val.endswith("'")) or (
+        raw_val.startswith('"') and raw_val.endswith('"')
+    ):
+        target_val = raw_val[1:-1]
+    elif raw_val.lower() == "true":
+        target_val = True
+    elif raw_val.lower() == "false":
+        target_val = False
+    elif raw_val.lower() in ("null", "none"):
+        target_val = None
+    else:
+        try:
+            target_val = float(raw_val) if "." in raw_val else int(raw_val)
+        except ValueError:
+            target_val = raw_val
+
+    row_val = row.get(col)
+    if row_val is None:
+        return target_val is None if op == "=" else False
+    try:
+        if op == "=":
+            return row_val == target_val
+        if op == "!=":
+            return row_val != target_val
+        if op == "<=":
+            return row_val <= target_val
+        if op == ">=":
+            return row_val >= target_val
+        if op == "<":
+            return row_val < target_val
+        if op == ">":
+            return row_val > target_val
+    except Exception:
+        return False
+    return True
+
+
 # ── In-memory backend (test + fallback) ─────────────────────────
 
 
@@ -268,14 +318,8 @@ class InMemoryStore(MemoryStore):
         cols = list(columns)
         with self._lock:
             rows = [r for r in self._rows if r[MEMORY_AGENT_ID_COLUMN] == agent_id]
-        # The in-memory backend only supports agent-scoping here.
-        # A non-agent ``where`` clause would require parsing — we
-        # refuse it loudly so callers don't silently miss rows.
         if where is not None and where.strip() and where != memory_agent_predicate(agent_id):
-            raise NotImplementedError(
-                "InMemoryStore.query() does not support custom WHERE clauses; "
-                "use the LanceDB backend for that."
-            )
+            rows = [r for r in rows if _evaluate_simple_filter(r, where)]
         out: list[dict[str, Any]] = []
         for r in rows:
             row_view: dict[str, Any] = {"id": r["id"]}
@@ -459,12 +503,7 @@ class LanceDBStore(MemoryStore):
         # queries). Older versions still have ``vector_search``
         # as a separate method; the merged form works on
         # both via the ``.where(...).limit(...)`` builder.
-        rows = (
-            table.search(vector)
-            .where(memory_agent_predicate(agent_id))
-            .limit(limit)
-            .to_list()
-        )
+        rows = table.search(vector).where(memory_agent_predicate(agent_id)).limit(limit).to_list()
         out: list[MemorySearchResult] = []
         for row in rows:
             distance = float(row.get("_distance", 0.0) or 0.0)
@@ -538,8 +577,7 @@ class LanceDBStore(MemoryStore):
             raise ValueError(f"Invalid memory ID format: {memory_id}")
         table = self._ensure_initialized()
         predicate = (
-            f"({memory_agent_predicate(agent_id)}) AND "
-            f"(id = {quote_lance_sql_string(memory_id)})"
+            f"({memory_agent_predicate(agent_id)}) AND (id = {quote_lance_sql_string(memory_id)})"
         )
         if table.count_rows(predicate) == 0:
             return False

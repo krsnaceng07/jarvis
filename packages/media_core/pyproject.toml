@@ -1,0 +1,33 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jarvis-media-core"
+version = "0.1.0-rc1"
+description = "JARVIS Media Core — Runtime capabilities for image, audio, and video generation."
+readme = "README.md"
+requires-python = ">=3.13"
+license = { text = "MIT" }
+authors = [{ name = "JARVIS architect" }]
+keywords = ["jarvis", "media-core", "openclaw", "extension", "contract"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+
+dependencies = ["pymupdf>=1.28.2"]
+
+[project.urls]
+Homepage = "https://github.com/jarvis-ai/jarvis"
+Repository = "https://github.com/jarvis-ai/jarvis.git"
+Issues = "https://github.com/jarvis-ai/jarvis/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jarvis_media"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/jarvis_media", "README.md", "AGENTS.md"]

@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any, List
 
 import pytest
 
@@ -34,7 +34,6 @@ from src.agents.embedded_agent_runner.run_overflow_compaction_harness import (  
     warm_run_overflow_compaction_harness,
 )
 from src.agents.embedded_agent_runner.run.run_overflow_compaction_fixture import (  # noqa: E402
-    DEFAULT_OVERFLOW_ERROR_MESSAGE,
     make_attempt_result,
     make_compaction_success,
     make_overflow_error,

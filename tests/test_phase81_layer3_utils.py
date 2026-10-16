@@ -4,7 +4,7 @@ from __future__ import annotations
 import asyncio
 import os
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any, List
 
 import pytest
 
@@ -48,7 +48,6 @@ from src.utils.delivery_context.shared import (  # noqa: E402
 )
 from src.utils.directive_tags import (  # noqa: E402
     MAX_REPLY_DIRECTIVE_ID_LENGTH,
-    InlineDirectiveParseResult,
     parse_inline_directives,
     sanitize_reply_directive_id,
     strip_inline_directive_tags_for_delivery,
@@ -60,7 +59,6 @@ from src.utils.fetch_timeout import (  # noqa: E402
     LOG_URL_MAX_CHARS,
     bind_abort_relay,
     build_timeout_abort_signal,
-    fetch_with_timeout,
 )
 from src.utils.message_channel import (  # noqa: E402
     GATEWAY_CLIENT_MODES,
@@ -68,7 +66,6 @@ from src.utils.message_channel import (  # noqa: E402
     INTERNAL_MESSAGE_CHANNEL,
     is_browser_copilot_client,
     is_browser_operator_ui_client,
-    is_deliverable_message_channel,
     is_ephemeral_gateway_client,
     is_gateway_cli_client,
     is_gateway_message_channel,
@@ -79,7 +76,6 @@ from src.utils.message_channel import (  # noqa: E402
     is_webchat_client,
     list_deliverable_message_channels,
     normalize_message_channel,
-    resolve_gateway_message_channel,
     resolve_message_channel,
 )
 from src.utils.message_channel_constants import (  # noqa: E402
@@ -104,7 +100,6 @@ from src.utils.queue_helpers import (  # noqa: E402
     drain_queue_collection,
     drain_queue_items,
     merge_queue_summary,
-    preview_queue_summary_prompt,
     resolve_debounce_ms,
     should_skip_queue_item,
     summarize_dropped_queue_items,
@@ -120,12 +115,9 @@ from src.utils.queue_helpers import (  # noqa: E402
     set_summarize_dropped_queue_items_hook,
 )
 from src.utils.reaction_level import (  # noqa: E402
-    ReactionLevel,
-    ResolvedReactionLevel,
     resolve_reaction_level,
 )
 from src.utils.run_with_concurrency import (  # noqa: E402
-    ConcurrencyErrorMode,
     run_tasks_with_concurrency,
 )
 from src.utils.safe_json import safe_json_stringify  # noqa: E402
@@ -141,7 +133,6 @@ from src.utils.timer_delay import (  # noqa: E402
     MAX_SAFE_TIMEOUT_DELAY_MS,
     add_safe_timeout_delay_grace_ms,
     resolve_safe_timeout_delay_ms,
-    set_safe_timeout,
 )
 from src.utils.token_format import format_token_count  # noqa: E402
 from src.utils.transcript_tools import (  # noqa: E402

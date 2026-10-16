@@ -39,7 +39,7 @@ and ``run_post_compaction_side_effects``.
 """
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, Optional
 
 from .compaction_session_agent import prepare_compaction_session_agent
 from .compact_types import CompactEmbeddedAgentSessionParams, CompactEmbeddedAgentSessionRuntimeParams

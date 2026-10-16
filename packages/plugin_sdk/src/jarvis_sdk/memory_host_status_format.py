@@ -11,6 +11,7 @@ Key port decisions:
 - TS return type ``{ tone, state }`` / ``{ tone, text }`` → TypedDict.
 - Helper ordering + behavior preserved verbatim.
 """
+
 from __future__ import annotations
 
 from typing import Literal, TypedDict

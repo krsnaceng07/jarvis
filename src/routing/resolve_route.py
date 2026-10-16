@@ -580,6 +580,15 @@ def resolve_agent_route(input: dict[str, Any]) -> dict[str, Any]:
                 "identityLinks": identity_links,
             }
         )
+
+        from src.sessions.session_store import get_default_session_store
+        from src.routing.session_lifecycle import is_session_expired
+
+        store = get_default_session_store()
+        rec = store.get(session_key)
+        if rec and is_session_expired(rec, session_cfg or {}, channel):
+            store.rollover(session_key)
+
         main_session_key = normalize_lowercase_string_or_empty(
             build_agent_main_session_key(
                 {

@@ -10,7 +10,7 @@ Public surface:
 """
 from __future__ import annotations
 
-from typing import Any, List, Literal, Optional
+from typing import Any, Literal, Optional
 
 
 ReactionLevel = str  # "off" | "ack" | "minimal" | "extensive"

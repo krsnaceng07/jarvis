@@ -4,7 +4,7 @@ This mirrors `openclaw-main/src/agents/embedded-agent-runner/model.forward-compa
 """
 from __future__ import annotations
 
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict
 
 
 def build_forward_compat_template(params: Dict[str, Any]) -> Dict[str, Any]:

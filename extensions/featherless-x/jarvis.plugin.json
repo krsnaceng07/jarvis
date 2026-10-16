@@ -1,0 +1,52 @@
+{
+  "id": "featherless-x",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "featherless-x"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "featherless-x",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "FEATHERLESS_X_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "featherless-x": {
+        "baseUrl": "https://api.featherless-x.ai/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "featherless-x-llama-3-70b",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

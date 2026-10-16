@@ -13,6 +13,7 @@ Covers:
 - build_approval_resolution_ref
 - ensure_operator_approval_resolution_refs
 """
+
 from __future__ import annotations
 
 import json
@@ -87,12 +88,8 @@ def test_acp_replay_computes_estimated_bytes_from_lengths():
         )
         conn.commit()
         backfill_acp_replay_estimated_bytes(conn)
-        ev = conn.execute(
-            "SELECT estimated_bytes FROM acp_replay_events"
-        ).fetchone()
-        se = conn.execute(
-            "SELECT estimated_bytes FROM acp_replay_sessions"
-        ).fetchone()
+        ev = conn.execute("SELECT estimated_bytes FROM acp_replay_events").fetchone()
+        se = conn.execute("SELECT estimated_bytes FROM acp_replay_sessions").fetchone()
         # length("s") + length("k") + length("u") + length("r") + 32
         assert ev["estimated_bytes"] == 1 + 1 + 1 + 1 + 32
         # length("s") + length("k") + length("/tmp/cwd") + 32 + 36 (event total)
@@ -132,9 +129,7 @@ def test_cron_run_log_fills_entry_json_from_columns():
         )
         conn.commit()
         backfill_cron_run_log_entry_json(conn)
-        row = conn.execute(
-            "SELECT entry_json FROM cron_run_logs"
-        ).fetchone()
+        row = conn.execute("SELECT entry_json FROM cron_run_logs").fetchone()
         payload = json.loads(row["entry_json"])
         assert payload == {"ts": 1000, "jobId": "j1", "action": "finished"}
     finally:
@@ -158,14 +153,11 @@ def test_migrate_cron_delivery_thread_ids_noop_when_no_legacy():
             );
             """
         )
-        conn.execute(
-            "INSERT INTO cron_jobs VALUES ('k', 'j', '{}', 't1', 'string')"
-        )
+        conn.execute("INSERT INTO cron_jobs VALUES ('k', 'j', '{}', 't1', 'string')")
         conn.commit()
         migrate_legacy_cron_delivery_thread_ids(conn)
         row = conn.execute(
-            "SELECT delivery_thread_id, delivery_thread_id_type "
-            "FROM cron_jobs"
+            "SELECT delivery_thread_id, delivery_thread_id_type FROM cron_jobs"
         ).fetchone()
         assert row["delivery_thread_id_type"] == "string"
     finally:
@@ -194,8 +186,7 @@ def test_migrate_cron_delivery_thread_ids_recovers_numeric_from_job_json():
         conn.commit()
         migrate_legacy_cron_delivery_thread_ids(conn)
         row = conn.execute(
-            "SELECT delivery_thread_id, delivery_thread_id_type "
-            "FROM cron_jobs"
+            "SELECT delivery_thread_id, delivery_thread_id_type FROM cron_jobs"
         ).fetchone()
         assert row["delivery_thread_id"] == "42"
         assert row["delivery_thread_id_type"] == "number"
@@ -230,18 +221,14 @@ def test_task_agent_attribution_noop_when_column_missing():
 def test_task_delivery_statuses_canonicalizes_not_requested():
     conn = _fresh_db()
     try:
-        conn.execute(
-            "CREATE TABLE task_runs (id INTEGER, delivery_status TEXT)"
-        )
+        conn.execute("CREATE TABLE task_runs (id INTEGER, delivery_status TEXT)")
         conn.execute(
             "INSERT INTO task_runs (id, delivery_status) "
             "VALUES (1, 'not-requested'), (2, 'delivered'), (3, NULL)"
         )
         conn.commit()
         repair_legacy_task_delivery_statuses(conn)
-        rows = conn.execute(
-            "SELECT id, delivery_status FROM task_runs ORDER BY id"
-        ).fetchall()
+        rows = conn.execute("SELECT id, delivery_status FROM task_runs ORDER BY id").fetchall()
         statuses = {r["id"]: r["delivery_status"] for r in rows}
         assert statuses[1] == "not_applicable"
         assert statuses[2] == "delivered"
@@ -426,31 +413,19 @@ def test_delivery_queue_projects_route_from_entry_json():
 
 
 def test_build_approval_resolution_ref_is_deterministic():
-    ref1 = build_approval_resolution_ref(
-        approval_id="ap-1", approval_kind="exec"
-    )
-    ref2 = build_approval_resolution_ref(
-        approval_id="ap-1", approval_kind="exec"
-    )
+    ref1 = build_approval_resolution_ref(approval_id="ap-1", approval_kind="exec")
+    ref2 = build_approval_resolution_ref(approval_id="ap-1", approval_kind="exec")
     assert ref1 == ref2
     assert len(ref1) == 43
     # The set of allowed characters is base64url-without-padding.
-    alphabet = set(
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-"
-    )
+    alphabet = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-")
     assert all(c in alphabet for c in ref1)
 
 
 def test_build_approval_resolution_ref_different_kind_or_id_differ():
-    ref1 = build_approval_resolution_ref(
-        approval_id="ap-1", approval_kind="exec"
-    )
-    ref2 = build_approval_resolution_ref(
-        approval_id="ap-1", approval_kind="plugin"
-    )
-    ref3 = build_approval_resolution_ref(
-        approval_id="ap-2", approval_kind="exec"
-    )
+    ref1 = build_approval_resolution_ref(approval_id="ap-1", approval_kind="exec")
+    ref2 = build_approval_resolution_ref(approval_id="ap-1", approval_kind="plugin")
+    ref3 = build_approval_resolution_ref(approval_id="ap-2", approval_kind="exec")
     assert ref1 != ref2
     assert ref1 != ref3
 
@@ -492,9 +467,7 @@ def test_ensure_resolution_refs_adds_and_backfills():
         )
         conn.commit()
         ensure_operator_approval_resolution_refs(conn)
-        rows = conn.execute(
-            "SELECT approval_id, resolution_ref FROM operator_approvals"
-        ).fetchall()
+        rows = conn.execute("SELECT approval_id, resolution_ref FROM operator_approvals").fetchall()
         for row in rows:
             ref = row["resolution_ref"]
             assert ref is not None

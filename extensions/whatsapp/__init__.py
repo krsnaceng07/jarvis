@@ -1,4 +1,5 @@
 """JARVIS WhatsApp channel extension (Phase 5.15 minimum scaffold)."""
+
 from __future__ import annotations
 
 from .plugin import WhatsAppPlugin, whatsapp_plugin, entry

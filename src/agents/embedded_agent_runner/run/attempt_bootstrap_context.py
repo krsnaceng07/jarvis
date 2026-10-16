@@ -16,7 +16,7 @@ public surface and delegates the heavy work to installable hooks.
 from __future__ import annotations
 
 import os
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List
 
 
 #: Injected-context file shape.

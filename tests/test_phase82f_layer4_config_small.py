@@ -11,7 +11,6 @@ Covers:
 """
 from __future__ import annotations
 
-import pytest
 
 from src.config.types_provider_request import (
     ConfiguredModelProviderRequest,
@@ -34,7 +33,6 @@ from src.config.types_marketplaces import (
 from src.config.zod_schema_approvals import (
     ApprovalsSchema,
     ExecApprovalForwardingSchema,
-    ExecApprovalForwardTargetSchema,
     NativeExecApprovalEnableModeSchema,
     native_exec_approval_enable_mode_validator,
 )

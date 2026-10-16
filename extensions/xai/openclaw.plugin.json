@@ -51,7 +51,26 @@
       },
       "max_output_tokens": {
         "type": "integer"
+      },
+      "codeExecution": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "model": {
+            "type": "string"
+          },
+          "maxTurns": {
+            "type": "integer"
+          },
+          "timeoutSeconds": {
+            "type": "integer"
+          }
+        }
       }
     }
-  }
+  },
+  "kind": "provider"
 }

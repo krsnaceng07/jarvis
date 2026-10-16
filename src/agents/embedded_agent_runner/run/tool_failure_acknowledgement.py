@@ -12,7 +12,6 @@ Phase 7.6g — focused minimal port.
 from __future__ import annotations
 
 import re
-from typing import Any
 
 
 #: Pattern that signals an explicit mutating-tool-failure

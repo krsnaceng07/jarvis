@@ -9,7 +9,7 @@ caller-provided callables.
 from __future__ import annotations
 
 import re
-from typing import List, Tuple
+from typing import Tuple
 
 
 #: Stable config UI tag vocabulary used for filtering and grouping hints.

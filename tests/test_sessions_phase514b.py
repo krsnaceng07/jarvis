@@ -15,7 +15,6 @@ from src.sessions import (
     NOTIFY_BY_SESSION_STATE_EVENT_KIND,
     ParsedSessionLabel,
     SESSION_LABEL_MAX_LENGTH,
-    SessionStateEventKind,
     decode_session_identity,
     normalize_session_identities,
     parse_session_label,

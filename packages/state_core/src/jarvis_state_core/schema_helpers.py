@@ -28,15 +28,14 @@ Public surface:
   the same probe style)
 - ``index_exists(conn, index)`` -> ``bool``
 """
+
 from __future__ import annotations
 
 import sqlite3
 from typing import Any
 
 
-def _table_column_info(
-    conn: sqlite3.Connection, table_name: str
-) -> list[dict[str, Any]]:
+def _table_column_info(conn: sqlite3.Connection, table_name: str) -> list[dict[str, Any]]:
     """Return the ``PRAGMA table_info`` rows for a table as plain dicts.
 
     Mirrors the row shape OpenClaw reads: ``name``, ``pk``.
@@ -63,16 +62,13 @@ def table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
     ``openclaw-state-db-schema-helpers.ts``.
     """
     row = conn.execute(
-        "SELECT 1 AS ok FROM sqlite_master "
-        "WHERE type = 'table' AND name = ?",
+        "SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' AND name = ?",
         (table_name,),
     ).fetchone()
     return bool(row and row[0] == 1)
 
 
-def table_has_column(
-    conn: sqlite3.Connection, table_name: str, column_name: str
-) -> bool:
+def table_has_column(conn: sqlite3.Connection, table_name: str, column_name: str) -> bool:
     """Return True when ``table_name`` has a column named ``column_name``.
 
     Mirrors ``tableHasColumn`` from
@@ -80,15 +76,10 @@ def table_has_column(
     case-sensitive on the column name (matches the SQLite
     default and the OpenClaw probe).
     """
-    return any(
-        column.get("name") == column_name
-        for column in _table_column_info(conn, table_name)
-    )
+    return any(column.get("name") == column_name for column in _table_column_info(conn, table_name))
 
 
-def table_primary_key_columns(
-    conn: sqlite3.Connection, table_name: str
-) -> list[str]:
+def table_primary_key_columns(conn: sqlite3.Connection, table_name: str) -> list[str]:
     """Return the primary-key columns for ``table_name`` in declaration order.
 
     Mirrors ``tablePrimaryKeyColumns`` from
@@ -105,14 +96,11 @@ def table_primary_key_columns(
             _table_column_info(conn, table_name),
             key=lambda c: int(c.get("pk") or 0),
         )
-        if int(column.get("pk") or 0) > 0
-        and isinstance(column.get("name"), str)
+        if int(column.get("pk") or 0) > 0 and isinstance(column.get("name"), str)
     ]
 
 
-def ensure_column(
-    conn: sqlite3.Connection, table_name: str, column_sql: str
-) -> bool:
+def ensure_column(conn: sqlite3.Connection, table_name: str, column_sql: str) -> bool:
     """Run ``ALTER TABLE <table> ADD COLUMN <column_sql>`` if needed.
 
     Mirrors ``ensureColumn`` from
@@ -164,8 +152,7 @@ def index_exists(conn: sqlite3.Connection, index_name: str) -> bool:
     probes; this consolidates the pattern).
     """
     row = conn.execute(
-        "SELECT 1 AS ok FROM sqlite_master "
-        "WHERE type = 'index' AND name = ?",
+        "SELECT 1 AS ok FROM sqlite_master WHERE type = 'index' AND name = ?",
         (index_name,),
     ).fetchone()
     return bool(row and row[0] == 1)

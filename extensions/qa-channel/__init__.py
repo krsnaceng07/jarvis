@@ -1,4 +1,5 @@
 """JARVIS QA Channel channel extension (Phase 5.15 minimum scaffold)."""
+
 from __future__ import annotations
 
 from .plugin import QAChannelPlugin, qa_channel_plugin, entry

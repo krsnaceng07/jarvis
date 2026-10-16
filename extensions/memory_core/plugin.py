@@ -90,6 +90,12 @@ MEMORY_SEARCH_TOOL = ToolDecl(
             ),
             required=False,
         ),
+        ToolParam(
+            name="citations",
+            type="boolean",
+            description="Whether to include source line citations in results (default false).",
+            required=False,
+        ),
     ],
 )
 
@@ -128,6 +134,67 @@ MEMORY_GET_TOOL = ToolDecl(
     ],
 )
 
+INTENT_TOOL = ToolDecl(
+    name="intent",
+    description="Creates, lists, or explicitly cancels event-conditioned standing intents. Time-based reminders continue to use scheduled tasks.",
+    parameters=[
+        ToolParam(
+            name="action",
+            type="string",
+            description="One of 'create', 'list', or 'cancel'.",
+            required=True,
+        ),
+        ToolParam(
+            name="description",
+            type="string",
+            description="The event description (required for 'create').",
+            required=False,
+        ),
+        ToolParam(
+            name="triggerKeywords",
+            type="string",
+            description="Comma-separated trigger keywords (required for 'create').",
+            required=False,
+        ),
+        ToolParam(
+            name="channelId",
+            type="string",
+            description="Scope the intent to a specific channel (optional).",
+            required=False,
+        ),
+        ToolParam(
+            name="senderId",
+            type="string",
+            description="Scope the intent to a specific sender (optional).",
+            required=False,
+        ),
+        ToolParam(
+            name="expiryDays",
+            type="integer",
+            description="Days until intent expires. Default 90.",
+            required=False,
+        ),
+        ToolParam(
+            name="cooldownHours",
+            type="integer",
+            description="Hours before intent arms again after firing. Default 24.",
+            required=False,
+        ),
+        ToolParam(
+            name="maxFires",
+            type="integer",
+            description="Max number of times this intent can fire. Default 3.",
+            required=False,
+        ),
+        ToolParam(
+            name="intentId",
+            type="string",
+            description="The ID of the intent (required for 'cancel').",
+            required=False,
+        ),
+    ],
+)
+
 
 class MemoryCorePlugin(ToolPlugin):
     """Phase 4 OpenClaw-shaped memory plugin.
@@ -140,7 +207,7 @@ class MemoryCorePlugin(ToolPlugin):
     """
 
     def __init__(self) -> None:
-        self._tools = [MEMORY_SEARCH_TOOL, MEMORY_GET_TOOL]
+        self._tools = [MEMORY_SEARCH_TOOL, MEMORY_GET_TOOL, INTENT_TOOL]
 
     def init(self, ctx: Any) -> None:
         """Lifecycle hook — mirrors ``Plugin.init``.
@@ -149,7 +216,25 @@ class MemoryCorePlugin(ToolPlugin):
         underlying ``MemoryRuntime`` is a process-wide singleton).
         Reserved for Phase 4.1 (LanceDB warmup) and Phase 4.2
         (active-memory recall warmup).
+
+        Added: Trigger auto-reindexing on startup.
         """
+        import os
+        import threading
+
+        workspace = os.environ.get("JARVIS_WORKSPACE") or os.getcwd()
+
+        def _bg_index():
+            try:
+                from .memory_indexer import index_memory_files
+                from .runtime import MemoryRuntime
+
+                rt = MemoryRuntime.default()
+                index_memory_files(workspace, rt)
+            except Exception as e:
+                print(f"Memory plugin auto-index failed: {e}")
+
+        threading.Thread(target=_bg_index, daemon=True, name="MemoryIndexer").start()
         return
 
     @property
@@ -164,30 +249,80 @@ class MemoryCorePlugin(ToolPlugin):
         runtime = MemoryRuntime.default()
         try:
             if name == "memory_search":
-                return self._search(args, runtime)
+                return await self._search(args, runtime)
             if name == "memory_get":
                 return self._get(args, runtime)
+            if name == "intent":
+                return self._intent(args, runtime)
             return Err(f"Unknown tool: {name}", code="UNKNOWN_TOOL")
         except Exception as e:
             return Err(f"memory tool failed: {e}", code="RUNTIME_ERROR")
 
-    def _search(self, args: dict[str, Any], runtime: MemoryRuntime) -> Result[str]:
-        # OpenClaw parity: corpus + maxResults + minScore
+    def _intent(self, args: dict[str, Any], runtime: MemoryRuntime) -> Result[str]:
+        action = (args.get("action") or "").strip()
+        if not action:
+            return Err(
+                "intent tool requires an 'action' (create, list, cancel).", code="MISSING_ARG"
+            )
+
+        if action == "create":
+            condition = (args.get("condition") or "").strip()
+            description = (args.get("description") or condition).strip()
+            if not description:
+                return Err("intent action 'create' requires a 'description'.", code="MISSING_ARG")
+            trigger_keywords = (args.get("triggerKeywords") or condition).strip()
+
+            channel_id = args.get("channelId")
+            sender_id = args.get("senderId")
+
+            # The agent ID is extracted from context later, but we pass None here as plugin doesn't have it natively
+            agent_id = None
+
+            expiry_days = int(args.get("expiryDays", 90))
+            cooldown_hours = int(args.get("cooldownHours", 24))
+            max_fires = int(args.get("maxFires", 3))
+
+            return Ok(
+                runtime.create_intent(
+                    description,
+                    trigger_keywords,
+                    agent_id,
+                    channel_id,
+                    sender_id,
+                    expiry_days,
+                    cooldown_hours,
+                    max_fires,
+                )
+            )
+        elif action == "list":
+            return Ok(runtime.list_intents())
+        elif action == "cancel":
+            intent_id = (args.get("intentId") or "").strip()
+            if not intent_id:
+                return Err("intent action 'cancel' requires an 'intentId'.", code="MISSING_ARG")
+            return Ok(runtime.cancel_intent(intent_id))
+        else:
+            return Err(f"Unknown intent action: {action}", code="INVALID_ARG")
+
+    async def _search(self, args: dict[str, Any], runtime: MemoryRuntime) -> Result[str]:
+        # OpenClaw parity: corpus + maxResults + minScore + citations
         query = (args.get("query") or "").strip()
         if not query:
             return Err("memory_search needs a non-empty query, sir.", code="MISSING_ARG")
         max_results = int(args.get("maxResults") or 4)
         min_score = float(args.get("minScore") or 0.0)
         corpus = str(args.get("corpus") or "memory").strip() or "memory"
+        citations = bool(args.get("citations") or False)
 
-        # Phase 4.0 uses the SQLite FTS index for text recall.
-        # The score is the row's "match strength" — for now a
-        # simple per-row cap of 0.95 if the trigger matched
-        # exactly, 0.5 if it's an FTS match.
-        rows = runtime.search_text(query, limit=max_results)
-        if not rows:
-            rows = runtime.search_substring(query, limit=max_results)
-        if not rows:
+        scored = runtime.search_ranked(
+            query=query,
+            limit=max_results,
+            min_score=min_score,
+            corpus=corpus,
+            citations=citations,
+        )
+
+        if not scored:
             # If the query looks like a memory trigger, suggest
             # the LLM save it via save_memory (the host tool).
             triggered = any(p.search(query) for p in MEMORY_TRIGGERS)
@@ -199,35 +334,19 @@ class MemoryCorePlugin(ToolPlugin):
                 )
             return Ok(f"No memory entries match {query!r}.")
 
-        # Filter by min_score (substring matches get 0.5; exact-key 0.95)
-        scored: list[tuple[float, dict[str, Any]]] = []
-        for r in rows:
-            key = r.get("key", "")
-            value = r.get("value", "")
-            score = 0.95 if query.lower() == key.lower() else 0.5
-            if score >= min_score:
-                scored.append((score, r))
-        scored.sort(key=lambda x: x[0], reverse=True)
-        scored = scored[:max_results]
-        if not scored:
-            return Ok(f"No memory entries with score >= {min_score} match {query!r}.")
-
         lines = [f"Memory matches for {query!r} (corpus={corpus}):"]
-        for score, r in scored:
+        for r in scored:
             value = str(r.get("value", ""))
             # Filter prompt-injection payloads from recall results.
-            # A poisoned long-term memory that tries to "ignore the
-            # above instructions" would be re-injected into the
-            # system prompt on every recall; this is the most
-            # dangerous memory-poisoning vector.
             if looks_like_prompt_injection(value):
                 _log.warning(
                     "memory_search filtered prompt-injection payload for key %s",
                     r.get("key"),
                 )
                 continue
+            score_val = r.get("score", r.get("final_score", 0.0))
             lines.append(
-                f"  - {r.get('category', 'general')}/{r['key']}: {value} [score={score:.2f}]"
+                f"  - {r.get('category', 'general')}/{r['key']}: {value} [score={score_val:.2f}]"
             )
         if len(lines) == 1:
             return Ok(f"No memory entries with score >= {min_score} match {query!r}.")
@@ -244,6 +363,18 @@ class MemoryCorePlugin(ToolPlugin):
         # are accepted for forward-compat with the file-based
         # backend (MEMORY.md) that lands in Phase 4.1.
         value = runtime.get(path)
+        if value is None:
+            import os
+            from pathlib import Path
+
+            ws_dir = Path(os.environ.get("JARVIS_WORKSPACE") or Path.cwd())
+            candidate = ws_dir / path
+            if candidate.is_file():
+                try:
+                    value = candidate.read_text(encoding="utf-8")
+                except Exception:
+                    value = None
+
         if value is None:
             return Ok(f"No memory entry with key {path!r}.")
 
@@ -276,20 +407,33 @@ class MemoryCorePlugin(ToolPlugin):
                 "payload; not returning to the model."
             )
 
-        from_line = int(args.get("from") or 1)
-        lines_arg = int(args.get("lines") or 20)
+        # OpenClaw parity: line pagination & character budget
+        from_line = max(1, int(args.get("from") or 1))
+        lines_arg = max(1, int(args.get("lines") or 120))
+        max_chars = 12_000
+
         text_lines = clean.splitlines()
-        start_idx = max(0, from_line - 1)
-        end_idx = min(len(text_lines), start_idx + lines_arg)
-        excerpt = "\n".join(text_lines[start_idx:end_idx])
-        truncated = end_idx < len(text_lines)
-        suffix = (
-            f"\n[...truncated; {len(text_lines) - end_idx} more lines; "
-            f"read with from={end_idx + 1} to continue]"
-            if truncated
-            else ""
-        )
-        return Ok(f"{path} (lines {from_line}-{end_idx}):\n{excerpt}{suffix}")
+        total_lines = len(text_lines)
+        start_idx = from_line - 1
+        end_idx = min(total_lines, start_idx + lines_arg)
+
+        selected_lines = text_lines[start_idx:end_idx]
+        more_remain = end_idx < total_lines
+
+        included_lines = len(selected_lines)
+        excerpt = "\n".join(selected_lines)
+        while included_lines > 1 and len(excerpt) > max_chars:
+            included_lines -= 1
+            excerpt = "\n".join(selected_lines[:included_lines])
+
+        char_cap_truncated = included_lines < len(selected_lines)
+        is_truncated = char_cap_truncated or more_remain
+        next_from = from_line + included_lines if is_truncated else None
+
+        if is_truncated and next_from is not None:
+            excerpt = f"{excerpt}\n\n[More content available. Use from={next_from} to continue.]"
+
+        return Ok(excerpt)
 
 
 # Public re-exports.

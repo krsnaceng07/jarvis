@@ -1,0 +1,27 @@
+{
+  "id": "reef",
+  "doctorContract": {
+    "configRepair": true
+  },
+  "name": "Reef",
+  "description": "OpenClaw Reef decentralized storage and pubsub transport.",
+  "activation": {
+    "onStartup": false
+  },
+  "channels": [
+    "reef"
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "nodeId": {
+        "type": "string"
+      },
+      "storagePath": {
+        "type": "string"
+      }
+    }
+  },
+  "kind": "infra"
+}

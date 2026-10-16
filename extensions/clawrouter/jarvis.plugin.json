@@ -1,0 +1,52 @@
+{
+  "id": "clawrouter",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "clawrouter"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "clawrouter",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "CLAWROUTER_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "clawrouter": {
+        "baseUrl": "https://router.clawrouter.com/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "clawrouter-auto",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

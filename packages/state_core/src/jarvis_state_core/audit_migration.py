@@ -21,6 +21,7 @@ Public surface:
 - ``can_repair_legacy_audit_events_schema(conn)``
 - ``repair_audit_events_schema(conn)``
 """
+
 from __future__ import annotations
 
 import sqlite3
@@ -153,13 +154,8 @@ def _table_sql(conn: sqlite3.Connection, table_name: str) -> Optional[str]:
     return str(row[0])
 
 
-def _table_has_column(
-    conn: sqlite3.Connection, table_name: str, column_name: str
-) -> bool:
-    return any(
-        column.get("name") == column_name
-        for column in _table_column_info(conn, table_name)
-    )
+def _table_has_column(conn: sqlite3.Connection, table_name: str, column_name: str) -> bool:
+    return any(column.get("name") == column_name for column in _table_column_info(conn, table_name))
 
 
 def _table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
@@ -170,48 +166,30 @@ def _table_exists(conn: sqlite3.Connection, table_name: str) -> bool:
     return bool(row and row[0] == 1)
 
 
-def _table_primary_key_columns(
-    conn: sqlite3.Connection, table_name: str
-) -> list[str]:
+def _table_primary_key_columns(conn: sqlite3.Connection, table_name: str) -> list[str]:
     return [
         column["name"]
         for column in sorted(
             _table_column_info(conn, table_name),
             key=lambda c: int(c.get("pk") or 0),
         )
-        if int(column.get("pk") or 0) > 0
-        and isinstance(column.get("name"), str)
+        if int(column.get("pk") or 0) > 0 and isinstance(column.get("name"), str)
     ]
 
 
-def _table_has_exact_columns(
-    conn: sqlite3.Connection, table_name: str, expected: tuple
-) -> bool:
-    names = [
-        column.get("name")
-        for column in _table_column_info(conn, table_name)
-    ]
+def _table_has_exact_columns(conn: sqlite3.Connection, table_name: str, expected: tuple) -> bool:
+    names = [column.get("name") for column in _table_column_info(conn, table_name)]
     return len(names) == len(expected) and all(
         names[i] == expected[i] for i in range(len(expected))
     )
 
 
-def _table_has_required_columns(
-    conn: sqlite3.Connection, table_name: str, required: tuple
-) -> bool:
-    columns = {
-        column.get("name"): column
-        for column in _table_column_info(conn, table_name)
-    }
-    return all(
-        int(columns.get(name, {}).get("notnull") or 0) == 1
-        for name in required
-    )
+def _table_has_required_columns(conn: sqlite3.Connection, table_name: str, required: tuple) -> bool:
+    columns = {column.get("name"): column for column in _table_column_info(conn, table_name)}
+    return all(int(columns.get(name, {}).get("notnull") or 0) == 1 for name in required)
 
 
-def _table_has_unique_column(
-    conn: sqlite3.Connection, table_name: str, column_name: str
-) -> bool:
+def _table_has_unique_column(conn: sqlite3.Connection, table_name: str, column_name: str) -> bool:
     indexes = conn.execute(f"PRAGMA index_list({table_name})").fetchall()
     for index in indexes:
         # ``PRAGMA index_list`` columns:
@@ -223,9 +201,7 @@ def _table_has_unique_column(
             continue
         # PRAGMA index_info uses a quoted identifier.
         escaped = name.replace("'", "''")
-        columns = conn.execute(
-            f"PRAGMA index_info('{escaped}')"
-        ).fetchall()
+        columns = conn.execute(f"PRAGMA index_info('{escaped}')").fetchall()
         # ``PRAGMA index_info`` columns: seqno, cid, name
         column_names = [col[2] for col in columns]
         if len(column_names) == 1 and column_names[0] == column_name:
@@ -258,9 +234,7 @@ def _has_canonical_audit_identity_key_table(conn: sqlite3.Connection) -> bool:
         return False
     sql = (_table_sql(conn, "audit_identity_keys") or "").lower()
     return (
-        _table_has_exact_columns(
-            conn, "audit_identity_keys", ("id", "key_id", "key", "created_at")
-        )
+        _table_has_exact_columns(conn, "audit_identity_keys", ("id", "key_id", "key", "created_at"))
         and _table_primary_key_columns(conn, "audit_identity_keys") == ["id"]
         and _table_has_required_columns(
             conn, "audit_identity_keys", ("id", "key_id", "key", "created_at")
@@ -282,9 +256,8 @@ def has_canonical_audit_events_schema(conn: sqlite3.Connection) -> bool:
     if not _table_exists(conn, "audit_events"):
         user_version_row = conn.execute("PRAGMA user_version").fetchone()
         user_version = int((user_version_row or (0,))[0] or 0)
-        return (
-            user_version < AUDIT_EVENT_STATE_SCHEMA_VERSION
-            and not _table_exists(conn, "audit_identity_keys")
+        return user_version < AUDIT_EVENT_STATE_SCHEMA_VERSION and not _table_exists(
+            conn, "audit_identity_keys"
         )
     return _has_canonical_audit_event_table(
         conn, AUDIT_EVENT_V2_COLUMNS, AUDIT_EVENT_V2_REQUIRED_NOT_NULL_COLUMNS
@@ -332,9 +305,7 @@ def _read_audit_event_sequence_high_water(
         raise ValueError("audit event sequence high-water mark is invalid")
     seq = int(seq_text)
     if seq > 2**53 - 1:  # MAX_SAFE_INTEGER
-        raise ValueError(
-            "audit event sequence high-water mark exceeds the supported integer range"
-        )
+        raise ValueError("audit event sequence high-water mark exceeds the supported integer range")
     return seq
 
 

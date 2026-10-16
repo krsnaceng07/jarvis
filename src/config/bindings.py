@@ -4,7 +4,7 @@ OpenClaw parity: mirrors ``openclaw-main/src/config/bindings.ts``.
 """
 from __future__ import annotations
 
-from typing import Any, List, TypedDict
+from typing import List, TypedDict
 
 
 class AgentRouteBinding(TypedDict, total=False):

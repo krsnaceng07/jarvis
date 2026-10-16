@@ -14,7 +14,7 @@ import hmac
 import json
 import os
 import secrets
-from typing import Any, Callable, Optional, TypedDict
+from typing import Any, Optional, TypedDict
 
 
 CONFIG_SNAPSHOT_SCOPE = "config-snapshot"

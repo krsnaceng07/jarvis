@@ -1,0 +1,52 @@
+{
+  "id": "venice",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "venice"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "venice",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "VENICE_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "venice": {
+        "baseUrl": "https://api.venice.ai/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "venice-uncensored",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

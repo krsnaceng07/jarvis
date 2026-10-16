@@ -5,7 +5,6 @@ OpenClaw parity: mirrors
 """
 from __future__ import annotations
 
-from typing import Any, Optional
 
 
 MarkdownTableMode = str  # "off" | "bullets" | "code" | "block"

@@ -183,18 +183,50 @@ def make_channel_send_handler(send_fn: Any) -> Any:
     return _handler
 
 
+def make_chat_handlers(*args: Any, **kwargs: Any) -> dict[str, Any]:
+    from .chat_handlers import make_chat_handlers as _make
+
+    return _make(*args, **kwargs)
+
+
+def make_cron_handlers(*args: Any, **kwargs: Any) -> dict[str, Any]:
+    from .cron_handlers import make_cron_handlers as _make
+
+    return _make(*args, **kwargs)
+
+
+def make_worktrees_handlers(*args: Any, **kwargs: Any) -> dict[str, Any]:
+    from .worktrees import make_worktrees_handlers as _make
+
+    return _make(*args, **kwargs)
+
+
+def make_sessions_handlers(*args: Any, **kwargs: Any) -> dict[str, Any]:
+    from .sessions_handlers import make_sessions_handlers as _make
+
+    return _make(*args, **kwargs)
+
+
+def make_tasks_handlers(*args: Any, **kwargs: Any) -> dict[str, Any]:
+    from .tasks_handlers import make_tasks_handlers as _make
+
+    return _make(*args, **kwargs)
+
+
 __all__ = [
+    "GatewayRPCDispatcher",
     "RPCDispatcher",
     "RPCDispatchError",
     "make_channel_send_handler",
+    "make_chat_handlers",
+    "make_cron_handlers",
     "make_plugins_list_handler",
+    "make_sessions_handlers",
     "make_status_handler",
+    "make_tasks_handlers",
+    "make_worktrees_handlers",
 ]
 
 # Backwards compatibility: older callers expect `GatewayRPCDispatcher` name.
 GatewayRPCDispatcher = RPCDispatcher
-__all__.append("GatewayRPCDispatcher")
-from .worktrees import make_worktrees_handlers
 
-# Merge worktrees handlers into the default handlers mapping example
-__all__.append("make_worktrees_handlers")

@@ -1,115 +1,43 @@
-"""Logbook infra plugin entry point — full surface port.
+"""Logbook infra plugin entry point.
 
 Mirrors OpenClaw's ``extensions/logbook/index.ts`` 1:1.
-The entry point wires the SDK surface (control-UI
-descriptor, service, gateway methods, node-host commands,
-node-invoke policy) the same way the OpenClaw source
-does, using the focused lib/ modules (config, types,
-service stub, store stub, analyze stub, node-host stub,
-prompts stub) that the Python port lands incrementally.
-
-The ``LogbookService`` here is a focused in-port stub
-that mirrors the OpenClaw ``service.ts`` surface. A
-follow-up phase replaces the stub body with the full
-``service.ts`` + ``store.ts`` + ``analyze.ts`` port.
-The entry-point wiring (control-UI tab + node-invoke
-policy + gateway methods + node-host commands) is
-already production-shaped: every SDK registrar the
-OpenClaw source calls is called with the same surface,
-and the underlying service interface matches the
-OpenClaw method names so the future full port drops in
-without touching the entry point.
-
-Public surface:
-- ``LogbookPlugin`` — the plugin descriptor
-- ``logbook_plugin`` / ``entry`` — the loaded entry point
-
-OpenClaw parity (every OpenClaw registrar call lands
-here):
-- ``api.session.controls.registerControlUiDescriptor``
-  for the Logbook dashboard tab
-- ``api.registerNodeInvokePolicy`` to add
-  ``logbook.snapshot`` to the default macOS allowlist +
-  honor the screen-capture kill switch
-- ``api.registerService`` to start/stop the background
-  capture + analysis service
-- ``api.registerGatewayMethod`` for the eight RPC
-  methods the Control UI calls (status, days, timeline,
-  frames, frame, standup, ask, capture.set, analyze.now)
-- ``api.registerNodeHostCommand`` for the
-  ``logbook.snapshot`` node-host command (lazy-imported
-  from ``src/node_host``)
-- ``api.pluginConfig`` flows into
-  ``logbook_config.resolve_logbook_config`` to clamp
-  numeric fields to safe ranges
-
-Python adaptations (documented in code):
-- TS ``LogbookService`` class → Python ``LogbookService``
-  class with the same method names (status, list_days,
-  cards_for_day, day_stats, frames_in_range, frame_by_id,
-  standup, ask, set_capture_paused, analyze_now, start,
-  stop). The bodies are stubs that return safe defaults
-  so the entry point is fully loadable + testable while
-  the full service port lands in a follow-up phase.
-- TS ``dayKeyFor`` → Python ``datetime.date.today().isoformat()``
-  in the validation helper (``read_day_param``); the
-  port's day-key format is the same ``YYYY-MM-DD``.
-- TS ``readFileSync(frame.path).toString("base64")`` →
-  Python ``pathlib.Path(frame["path"]).read_bytes()`` +
-  ``base64.b64encode(...)`` in the ``logbook.frame`` RPC
-  handler.
-- TS ``formatErrorMessage`` + ``errorShape`` + ``ErrorCodes``
-  → Python ``LogbookError`` + ``format_error_message``
-  helpers (the SDK's runtime facade is a noop in the
-  port; the entry point still emits the structured
-  error response shape).
+The entry point wires the SDK surface (control-UI descriptor, service,
+gateway methods, node-host commands, node-invoke policy).
 """
+
 from __future__ import annotations
 
 import base64
-import datetime
+import inspect
 import json
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
+import sys
+import time
 from typing import Any, Callable, Optional
 
 from jarvis_sdk import Plugin, PluginApi
 
 from .src.logbook_config import resolve_logbook_config
+from .src.service import LogbookService
+from .src.store import day_key_for
 
 
 # ── Day-key format + read helpers (mirrors OpenClaw) ───────
 
-
-# ``YYYY-MM-DD`` in the local timezone. The Python port
-# uses ``datetime.date.today().isoformat()`` (the same
-# format the OpenClaw source writes from ``Date.now()``).
 _DAY_PATTERN_STR = "YYYY-MM-DD"
 
 
-def day_key_for(ms: int) -> str:
-    """Return the ``YYYY-MM-DD`` day key for a millisecond timestamp.
-
-    Mirrors OpenClaw's ``dayKeyFor`` (the TS source
-    uses ``new Date(ms).toISOString().slice(0, 10)``,
-    which is UTC; the Python port uses
-    ``datetime.datetime.fromtimestamp(ms / 1000).date().isoformat()``
-    which is local. The choice matches the OpenClaw
-    default ``TZ=UTC`` environment for server runs and
-    is safe to swap via the
-    ``extensions.logbook.timezone`` pluginConfig field
-    in a follow-up phase).
-    """
-    return datetime.datetime.fromtimestamp(ms / 1000).date().isoformat()
-
-
-# ── Input validation helpers (mirrors OpenClaw) ────────────
+def _now_ms() -> int:
+    """Return current Unix epoch in milliseconds."""
+    return int(time.time() * 1000)
 
 
 def _read_day_param(params: Any) -> str:
     """Validate the optional ``day`` request param.
 
-    Mirrors ``readDayParam``. Accepts ``YYYY-MM-DD`` or
+    Mirrors OpenClaw's ``readDayParam``. Accepts ``YYYY-MM-DD`` or
     omits the field (defaults to today).
     """
     day = None
@@ -127,9 +55,7 @@ def _read_day_param(params: Any) -> str:
 def _read_number_param(params: Any, key: str) -> int:
     """Validate a positive-number request param.
 
-    Mirrors ``readNumberParam``. Raises ``ValueError``
-    when the param is missing, non-numeric, non-finite,
-    or non-positive.
+    Mirrors OpenClaw's ``readNumberParam``.
     """
     value: Any = None
     if isinstance(params, dict):
@@ -146,14 +72,7 @@ def _read_number_param(params: Any, key: str) -> int:
 
 
 def _read_string_param(params: Any, key: str) -> str:
-    """Validate a required non-empty string request param.
-
-    Mirrors the inline ``typeof question !== "string" ||
-    question.trim().length === 0`` check in
-    ``logbook.ask`` (TS) and the
-    ``typeof params.refresh`` check in
-    ``logbook.standup`` (TS).
-    """
+    """Validate a required non-empty string request param."""
     value: Any = None
     if isinstance(params, dict):
         value = params.get(key)
@@ -168,14 +87,7 @@ def _read_string_param(params: Any, key: str) -> str:
 
 
 def _read_bool_param(params: Any, key: str) -> bool:
-    """Validate an optional boolean request param.
-
-    Mirrors the inline ``params.refresh === true`` check
-    in ``logbook.standup`` (TS) and the
-    ``params.paused === true`` check in
-    ``logbook.capture.set`` (TS). Defaults to ``False``
-    when the field is missing.
-    """
+    """Validate an optional boolean request param."""
     if isinstance(params, dict):
         return params.get(key) is True
     if params is None:
@@ -183,152 +95,7 @@ def _read_bool_param(params: Any, key: str) -> bool:
     return getattr(params, key, None) is True
 
 
-def _now_ms() -> int:
-    """Return the current Unix epoch in milliseconds."""
-    import time
-
-    return int(time.time() * 1000)
-
-
-# ── LogbookService stub (mirrors OpenClaw ``service.ts``) ─
-
-
-@dataclass
-class LogbookService:
-    """Focused in-port stub of the OpenClaw ``LogbookService``.
-
-    Mirrors the public method names + return shapes of
-    ``extensions/logbook/src/service.ts`` (status,
-    list_days, cards_for_day, day_stats, frames_in_range,
-    frame_by_id, standup, ask, set_capture_paused,
-    analyze_now, start, stop). The bodies are minimal
-    safe defaults so the entry point is loadable +
-    testable while the full port lands in a follow-up
-    phase; the method signatures stay identical so the
-    future full port drops in without changing the
-    entry point.
-    """
-
-    config: dict[str, Any] = field(default_factory=dict)
-    runtime: Any = None
-    full_config: Any = None
-    logger: Any = None
-    data_dir: str = ""
-
-    def start(self) -> None:
-        """Begin the background capture + analysis loops.
-
-        The stub is a no-op; the full port schedules a
-        capture timer + an analysis queue.
-        """
-        return None
-
-    def stop(self) -> None:
-        """Stop the background loops and close any handles.
-
-        The stub is a no-op; the full port cancels the
-        capture + analysis timers.
-        """
-        return None
-
-    def status(self) -> dict[str, Any]:
-        """Return the current capture / analysis status snapshot.
-
-        Mirrors ``LogbookService.status``.
-        """
-        return {
-            "running": True,
-            "paused": False,
-            "captureEnabled": self.config.get("captureEnabled", True),
-            "captureIntervalSeconds": self.config.get("captureIntervalSeconds", 30),
-            "nodeId": self.config.get("nodeId"),
-            "day": day_key_for(_now_ms()),
-        }
-
-    def list_days(self) -> list[str]:
-        """Return the list of days that have a captured frame.
-
-        Mirrors ``LogbookService.listDays``. The stub
-        returns an empty list (no frames yet).
-        """
-        return []
-
-    def cards_for_day(self, day: str) -> list[dict[str, Any]]:
-        """Return the analyzed cards for one day.
-
-        Mirrors ``LogbookService.cardsForDay``. The stub
-        returns an empty list.
-        """
-        return []
-
-    def day_stats(self, day: str) -> dict[str, Any]:
-        """Return the per-day stats rollup.
-
-        Mirrors ``LogbookService.dayStats``.
-        """
-        return {
-            "trackedMs": 0,
-            "distractionMs": 0,
-            "categories": [],
-            "apps": [],
-        }
-
-    def frames_in_range(self, start_ms: int, end_ms: int) -> list[dict[str, Any]]:
-        """Return the captured frames in ``[start_ms, end_ms]``.
-
-        Mirrors ``LogbookService.framesInRange``.
-        """
-        return []
-
-    def frame_by_id(self, frame_id: int) -> Optional[dict[str, Any]]:
-        """Return a single frame by id.
-
-        Mirrors ``LogbookService.frameById``. The stub
-        returns ``None``.
-        """
-        return None
-
-    def standup(self, day: str, refresh: bool) -> dict[str, Any]:
-        """Return a standup summary for the day.
-
-        Mirrors ``LogbookService.standup``.
-        """
-        return {
-            "day": day,
-            "summary": "",
-            "cards": self.cards_for_day(day),
-        }
-
-    def ask(self, day: str, question: str) -> dict[str, Any]:
-        """Answer a free-form question about the day.
-
-        Mirrors ``LogbookService.ask``. The stub returns
-        a structured "not yet ported" answer so the
-        Control UI surfaces the placeholder cleanly.
-        """
-        return {
-            "day": day,
-            "question": question,
-            "answer": "Logbook ask is not yet ported in this JARVIS build.",
-        }
-
-    def set_capture_paused(self, paused: bool) -> None:
-        """Pause / resume the capture loop.
-
-        Mirrors ``LogbookService.setCapturePaused``.
-        """
-        return None
-
-    def analyze_now(self) -> dict[str, Any]:
-        """Trigger an analysis pass immediately.
-
-        Mirrors ``LogbookService.analyzeNow``.
-        """
-        return {"triggered": True}
-
-
 # ── Error shape helpers (mirrors OpenClaw SDK runtime) ─────
-
 
 _LOGBOOK_ERROR_CODES = {
     "UNAVAILABLE": "UNAVAILABLE",
@@ -338,11 +105,7 @@ _LOGBOOK_ERROR_CODES = {
 
 
 def _format_error_message(err: Any) -> str:
-    """Format an exception into a single-line message.
-
-    Mirrors ``formatErrorMessage`` from
-    ``openclaw/plugin-sdk/error-runtime``.
-    """
+    """Format an exception into a single-line message."""
     if isinstance(err, BaseException):
         message = str(err) or type(err).__name__
         return f"{type(err).__name__}: {message}"
@@ -350,12 +113,7 @@ def _format_error_message(err: Any) -> str:
 
 
 def _logbook_error_shape(code: str, message: str) -> dict[str, Any]:
-    """Build the typed error response envelope.
-
-    Mirrors ``errorShape(ErrorCodes.X, message)``. The
-    Python port returns a dict the gateway can route
-    to the Control UI as a typed error response.
-    """
+    """Build the typed error response envelope."""
     return {"code": code, "message": message}
 
 
@@ -366,12 +124,7 @@ def _logbook_error_shape(code: str, message: str) -> dict[str, Any]:
 class LogbookPlugin(Plugin):
     """Logbook infra descriptor (entry point).
 
-    Mirrors OpenClaw's ``LogbookPlugin`` declared via
-    ``definePluginEntry({ id, name, description, ...,
-    register(api) })``. The Python port subclasses
-    ``Plugin`` and implements ``register(api)`` to call
-    the same SDK registrars the OpenClaw source calls
-    with the same payloads.
+    Mirrors OpenClaw's ``LogbookPlugin``.
     """
 
     id: str = "logbook"
@@ -381,21 +134,18 @@ class LogbookPlugin(Plugin):
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def init(self, ctx: Any) -> None:
-        """Infra init hook. Stub — the real init runs in ``register``. """
+        """Infra init hook."""
         return None
 
     def register(self, api: PluginApi) -> None:
         """Register the Logbook surface with the host.
 
-        Mirrors ``register(api)`` in
-        ``extensions/logbook/index.ts``. The Python
-        port calls the same SDK registrars the OpenClaw
-        source calls, in the same order, with the same
-        payloads; the only Python-specific adaptations
-        are documented in the module docstring.
+        Mirrors ``register(api)`` in ``extensions/logbook/index.ts``.
         """
-        config = resolve_logbook_config(api.plugin_config)
+        raw_config = getattr(api, "pluginConfig", getattr(api, "plugin_config", {}))
+        config = resolve_logbook_config(raw_config)
         service_holder: list[Optional[LogbookService]] = [None]
+        retired_holder: list[bool] = [False]
 
         def _require_service() -> LogbookService:
             if service_holder[0] is None:
@@ -403,18 +153,9 @@ class LogbookPlugin(Plugin):
             return service_holder[0]
 
         def _send_error(
-            respond: Callable[[bool, Any, Any], None],
+            respond: Callable[..., Any],
             err: Any,
         ) -> None:
-            """Send a typed error response to the gateway.
-
-            Mirrors ``sendError`` from the OpenClaw
-            entry point. The Python port uses a callable
-            ``respond`` (the gateway request handler
-            passes one in) instead of the
-            ``GatewayRequestHandlerOptions.respond``
-            object.
-            """
             message = _format_error_message(err)
             respond(
                 False,
@@ -422,19 +163,8 @@ class LogbookPlugin(Plugin):
                 _logbook_error_shape(_LOGBOOK_ERROR_CODES["UNAVAILABLE"], message),
             )
 
-        def _handle(
-            run: Callable[[Any], Any],
-        ) -> Callable[[Any], Any]:
-            """Wrap a method body in the standard try/except.
-
-            Mirrors the ``handle`` closure in the OpenClaw
-            entry point. The Python port accepts a dict
-            ``{"respond": callable, "params": any}``
-            payload (matches the gateway request handler
-            contract).
-            """
-
-            def _wrapped(payload: Any) -> None:
+        def _handle(run: Callable[[Any], Any]) -> Callable[[Any], Any]:
+            async def _wrapped(payload: Any) -> None:
                 respond = (
                     payload.get("respond")
                     if isinstance(payload, dict)
@@ -446,18 +176,18 @@ class LogbookPlugin(Plugin):
                     else getattr(payload, "params", None)
                 )
                 try:
-                    respond(True, run(params))
-                except Exception as err:  # noqa: BLE001
-                    _send_error(respond, err)
+                    res = run(params)
+                    if inspect.isawaitable(res):
+                        res = await res
+                    if callable(respond):
+                        respond(True, res)
+                except Exception as err:
+                    if callable(respond):
+                        _send_error(respond, err)
 
             return _wrapped
 
         # ── Control UI descriptor (the Logbook dashboard tab) ─
-        #
-        # Mirrors ``api.session.controls.registerControlUiDescriptor``
-        # in the OpenClaw entry point. The descriptor is
-        # registered even when the service hasn't started
-        # yet so the Control UI can render the tab.
         if hasattr(api, "session") and hasattr(api.session, "controls"):
             api.session.controls.register_control_ui_descriptor(
                 {
@@ -471,14 +201,7 @@ class LogbookPlugin(Plugin):
                 }
             )
 
-        # ── Node-invoke policy (macOS allowlist + screen-capture
-        # ── kill switch) ─
-        #
-        # Mirrors ``api.registerNodeInvokePolicy`` in the
-        # OpenClaw entry point. The handler honors the
-        # operator's screen-capture kill switch (a
-        # ``screen.snapshot`` deny must block this
-        # capture command too, not just the app node's).
+        # ── Node-invoke policy ───────────────────────────────
         api.register_node_invoke_policy(
             {
                 "commands": ["logbook.snapshot"],
@@ -487,26 +210,29 @@ class LogbookPlugin(Plugin):
             }
         )
 
-        # ── Background service (start/stop) ─
-        #
-        # Mirrors ``api.registerService``. The Python
-        # port keeps the service handle in a single-slot
-        # holder (``service_holder``) so the gateway
-        # methods can require it without a global.
+        # ── Background service (start/stop) ──────────────────
         def _start_service(start_ctx: Any) -> None:
+            if retired_holder[0]:
+                raise RuntimeError("Logbook plugin runtime has been retired")
+            state_dir = getattr(start_ctx, "state_dir", getattr(start_ctx, "stateDir", ""))
+            data_dir = os.path.join(str(state_dir or ""), "logbook") if state_dir else "logbook"
             service_holder[0] = LogbookService(
                 config=config,
-                runtime=getattr(api, "runtime", None),
-                full_config=getattr(start_ctx, "config", None),
-                logger=getattr(start_ctx, "logger", None),
-                data_dir=str(getattr(start_ctx, "state_dir", "") or "") + "/logbook",
+                deps={
+                    "runtime": getattr(api, "runtime", None),
+                    "fullConfig": getattr(start_ctx, "config", getattr(start_ctx, "fullConfig", {})),
+                    "logger": getattr(start_ctx, "logger", None),
+                    "dataDir": data_dir,
+                },
             )
             service_holder[0].start()
 
-        def _stop_service(_stop_ctx: Any) -> None:
-            if service_holder[0] is not None:
-                service_holder[0].stop()
-                service_holder[0] = None
+        def _stop_service(_stop_ctx: Any = None) -> Any:
+            current = service_holder[0]
+            service_holder[0] = None
+            if current is not None:
+                return current.stop()
+            return None
 
         api.register_service(
             {
@@ -516,32 +242,45 @@ class LogbookPlugin(Plugin):
             }
         )
 
-        # ── Gateway methods (the eight RPCs the Control UI
-        # ── calls) ─
-        #
-        # Mirrors the eight ``api.registerGatewayMethod`` calls
-        # in the OpenClaw entry point. The Python port routes
-        # them through ``_handle`` so the typed error
-        # response shape is uniform.
-        def _register_read(method: str, run: Callable[[Any], Any]) -> None:
-            api.register_gateway_method(
-                method, _handle(run), {"scope": "operator.read"}
+        # ── Runtime lifecycle ────────────────────────────────
+        if hasattr(api, "lifecycle") and hasattr(api.lifecycle, "register_runtime_lifecycle"):
+            def _cleanup(lifecycle_ctx: Any) -> Any:
+                reason = lifecycle_ctx.get("reason") if isinstance(lifecycle_ctx, dict) else getattr(lifecycle_ctx, "reason", None)
+                session_key = lifecycle_ctx.get("sessionKey") if isinstance(lifecycle_ctx, dict) else getattr(lifecycle_ctx, "sessionKey", None)
+                run_id = lifecycle_ctx.get("runId") if isinstance(lifecycle_ctx, dict) else getattr(lifecycle_ctx, "runId", None)
+                if session_key is None and run_id is None and reason in ("restart", "disable"):
+                    retired_holder[0] = True
+                    return _stop_service()
+                return None
+
+            api.lifecycle.register_runtime_lifecycle(
+                {
+                    "id": "logbook-service",
+                    "cleanup": _cleanup,
+                }
             )
+
+        # ── Gateway methods ──────────────────────────────────
+        def _register_read(method: str, run: Callable[[Any], Any], extra_opts: dict[str, Any] | None = None) -> None:
+            opts: dict[str, Any] = {"scope": "operator.read"}
+            if extra_opts:
+                opts.update(extra_opts)
+            api.register_gateway_method(method, _handle(run), opts)
 
         def _register_write(method: str, run: Callable[[Any], Any]) -> None:
-            api.register_gateway_method(
-                method, _handle(run), {"scope": "operator.write"}
-            )
+            api.register_gateway_method(method, _handle(run), {"scope": "operator.write"})
 
-        _register_read("logbook.status", lambda _params: _require_service().status())
         _register_read(
-            "logbook.days", lambda _params: {"days": _require_service().list_days()}
+            "logbook.status",
+            lambda _params: _require_service().status(),
+            extra_opts={"profileAccess": "independent"},
         )
+        _register_read("logbook.days", lambda _params: {"days": _require_service().list_days()})
 
         def _timeline(params: Any) -> dict[str, Any]:
             day = _read_day_param(params)
             svc = _require_service()
-            return {"day": day, "cards": svc.cards_for_day(day), "stats": svc.day_stats(day)}
+            return svc.timeline_for_day(day)
 
         _register_read("logbook.timeline", _timeline)
 
@@ -570,23 +309,31 @@ class LogbookPlugin(Plugin):
             return {
                 "frameId": frame["id"],
                 "capturedAtMs": frame["capturedAtMs"],
-                "width": frame.get("width", 0),
-                "height": frame.get("height", 0),
+                "width": frame.get("width"),
+                "height": frame.get("height"),
                 "format": "jpeg",
                 "base64": base64.b64encode(binary).decode("ascii"),
             }
 
         _register_write("logbook.frame", _frame)
 
-        def _standup(params: Any) -> dict[str, Any]:
+        async def _standup(params: Any) -> dict[str, Any]:
             refresh = _read_bool_param(params, "refresh")
-            return _require_service().standup(_read_day_param(params), refresh)
+            res = _require_service().standup(_read_day_param(params), refresh)
+            if inspect.isawaitable(res):
+                res = await res
+            return res
 
         _register_write("logbook.standup", _standup)
 
         async def _ask(params: Any) -> dict[str, Any]:
             question = _read_string_param(params, "question")
-            return _require_service().ask(_read_day_param(params), question)
+            res = _require_service().ask(_read_day_param(params), question)
+            if inspect.isawaitable(res):
+                res = await res
+            if isinstance(res, dict) and "answer" in res:
+                return res
+            return {"answer": res}
 
         _register_write("logbook.ask", _ask)
 
@@ -598,42 +345,34 @@ class LogbookPlugin(Plugin):
 
         _register_write("logbook.capture.set", _capture_set)
 
-        _register_write(
-            "logbook.analyze.now", lambda _params: _require_service().analyze_now()
-        )
+        async def _analyze_now(_params: Any) -> dict[str, Any]:
+            res = _require_service().analyze_now()
+            if inspect.isawaitable(res):
+                res = await res
+            return res
 
-        # ── Node-host command (lazy-imported) ─
-        #
-        # Mirrors ``logbookNodeHostCommands`` in the
-        # OpenClaw entry point. The Python port defers the
-        # import of the node-host module until the host
-        # actually invokes the command (matches the
-        # ``await import(...)`` lazy pattern in the TS
-        # source).
+        _register_write("logbook.analyze.now", _analyze_now)
+
+        # ── Node-host command ────────────────────────────────
         if hasattr(api, "register_node_host_command"):
             api.register_node_host_command(
                 {
                     "command": "logbook.snapshot",
                     "cap": "screen",
                     "dangerous": False,
+                    "handler": _handle_logbook_snapshot,
                     "handle": _handle_logbook_snapshot,
                 }
             )
 
     def node_host_commands(self) -> list[dict[str, Any]]:
-        """Return the node-host command list (for the manifest).
-
-        Mirrors ``logbookNodeHostCommands`` in the
-        OpenClaw entry point. The Python port exposes the
-        same shape so the host can install the commands
-        via the manifest contract even when the entry
-        point's ``register`` hasn't run yet.
-        """
+        """Return node-host command descriptors."""
         return [
             {
                 "command": "logbook.snapshot",
                 "cap": "screen",
                 "dangerous": False,
+                "handler": _handle_logbook_snapshot,
                 "handle": _handle_logbook_snapshot,
             }
         ]
@@ -642,65 +381,73 @@ class LogbookPlugin(Plugin):
 # ── Node-invoke policy + node-host command handlers ───────
 
 
-def _handle_logbook_node_invoke(ctx: Any) -> dict[str, Any]:
-    """Honor the screen-capture kill switch then call ``ctx.invokeNode()``.
-
-    Mirrors the inline ``handle`` in
-    ``api.registerNodeInvokePolicy`` from the OpenClaw
-    entry point. The Python port accepts a dict-style
-    context with ``config`` + ``invokeNode`` (matches
-    the SDK's runtime facade).
-    """
+def _handle_logbook_node_invoke(ctx: Any) -> Any:
+    """Honor the screen-capture kill switch then call ``ctx.invokeNode()``."""
     if isinstance(ctx, dict):
-        config = ctx.get("config")
+        cfg = ctx.get("config") or {}
         invoke = ctx.get("invokeNode")
-        if config is None or not callable(invoke):
-            return {"ok": True}
-        denied = (config.get("gateway", {}) or {}).get("nodes", {}).get("denyCommands", []) if isinstance(config, dict) else []
+        gateway = cfg.get("gateway", {}) or {}
+        nodes = gateway.get("nodes", {}) or {}
+        commands = nodes.get("commands", {}) or {}
+        denied = commands.get("deny", []) or nodes.get("denyCommands", []) or []
+
         if isinstance(denied, list) and "screen.snapshot" in denied:
             return {
                 "ok": False,
                 "code": "SCREEN_CAPTURE_DENIED",
                 "message": (
-                    "screen capture is denied by gateway.nodes.denyCommands "
+                    "screen capture is denied by gateway.nodes.commands.deny "
                     "(screen.snapshot); Logbook capture stays blocked until it is removed"
                 ),
             }
-        return invoke() or {"ok": True}
+        if callable(invoke):
+            res = invoke()
+            return res or {"ok": True}
+        return {"ok": True}
     return {"ok": True}
 
 
-def _handle_logbook_snapshot(params_json: str) -> str:
-    """Lazy node-host command handler.
-
-    Mirrors ``logbook.snapshot`` in the OpenClaw entry
-    point. The Python port accepts a JSON-encoded
-    ``params`` string (the node-host command contract)
-    and returns a JSON-encoded result. The stub returns
-    a structured "not yet ported" envelope so the host
-    can route the response to the gateway without
-    surfacing an exception.
-    """
+def _handle_logbook_snapshot(params_json: Any) -> str:
+    """Node-host command handler for screen capture."""
     params: Any = None
-    if params_json:
+    if isinstance(params_json, str) and params_json:
         try:
             params = json.loads(params_json)
-        except (TypeError, ValueError):
+        except Exception:
             params = None
-    # The full port lazy-imports ``./src/node_host`` and
-    # delegates to ``handleLogbookSnapshot(params)``. The
-    # in-port stub returns a structured envelope so the
-    # gateway + Control UI surfaces the placeholder
-    # cleanly.
-    return json.dumps(
-        {
-            "ok": False,
-            "code": "NOT_PORTED",
-            "message": "Logbook snapshot is not yet ported in this JARVIS build.",
-            "params": params,
-        }
-    )
+    elif isinstance(params_json, dict):
+        params = params_json
+
+    if sys.platform != "darwin":
+        return json.dumps(
+            {
+                "ok": False,
+                "code": "NOT_PORTED",
+                "message": f"Logbook snapshot is not supported on {sys.platform}",
+                "params": params,
+            }
+        )
+
+    from .src.node_host import handle_logbook_snapshot
+
+    res = handle_logbook_snapshot(params)
+    return json.dumps(res)
 
 
 logbook_plugin = LogbookPlugin()
 entry = logbook_plugin
+
+__all__ = [
+    "LogbookPlugin",
+    "LogbookService",
+    "_DAY_PATTERN_STR",
+    "_handle_logbook_node_invoke",
+    "_handle_logbook_snapshot",
+    "_read_bool_param",
+    "_read_day_param",
+    "_read_number_param",
+    "_read_string_param",
+    "day_key_for",
+    "entry",
+    "logbook_plugin",
+]

@@ -35,12 +35,8 @@ import contextlib
 import copy
 import importlib
 import io
-import json
-import os
-import pathlib
 import sys
 import types
-from typing import Any
 
 import pytest
 
@@ -52,12 +48,7 @@ from src.context_engine.delegate import (
 )
 from src.context_engine.legacy import LegacyContextEngine
 from src.context_engine.legacy_registration import register_legacy_context_engine
-from src.context_engine.quarantine_health import (
-    clear_persisted_context_engine_quarantine_for_process,
-    record_persisted_context_engine_quarantine,
-)
 from src.context_engine.registry import (
-    clear_context_engines_for_owner,
     get_context_engine_registration,
     list_context_engine_quarantines,
     register_context_engine,
@@ -68,16 +59,12 @@ from src.context_engine.registry import (
 from src.context_engine.registry_test_support import (
     reset_context_engine_runtime_quarantine_for_tests,
 )
-from src.plugin_state.runtime_health_store import (
-    create_runtime_health_record_envelope,
-)
 from src.plugins.memory_state import (
     MemoryPromptSectionParams,
     clear_memory_plugin_state,
     register_memory_prompt_preparation,
     register_memory_prompt_section_for_plugin,
 )
-from src.shared.pid_alive import get_process_start_time
 
 # ---------------------------------------------------------------------------
 # Helpers

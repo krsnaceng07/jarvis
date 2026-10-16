@@ -1,0 +1,11 @@
+[project]
+name = "jarvis-qa-channel-compat"
+version = "0.1.0"
+description = "Compatibility package for the JARVIS QA Channel extension import path."
+requires-python = ">=3.12"
+dependencies = [
+    "jarvis-plugin-sdk>=0.1.0-rc1",
+]
+
+[tool.uv]
+package = false

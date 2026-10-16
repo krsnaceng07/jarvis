@@ -88,6 +88,7 @@ Python adaptations (documented in code):
   SQL on an open connection; the caller owns the
   surrounding ``BEGIN IMMEDIATE`` transaction)
 """
+
 from __future__ import annotations
 
 from .agent_db import (
@@ -231,6 +232,10 @@ __all__ = [
     "AgentDatabaseHandle",
     "AgentDatabaseOptions",
     "AgentDatabaseOwnerStatus",
+    "append_agent_session_entry",
+    "ensure_agent_session",
+    "ensure_agent_session_schema",
+    "load_agent_session_entries",
     "DATABASE_SCHEMA_DOCS_URL",
     "DeleteBuilder",
     "InsertBuilder",

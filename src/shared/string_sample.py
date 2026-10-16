@@ -5,7 +5,6 @@ OpenClaw parity: mirrors ``openclaw-main/src/shared/string-sample.ts``.
 from __future__ import annotations
 
 import math
-from typing import Iterable, Optional
 
 
 def summarize_string_entries(params: dict) -> str:

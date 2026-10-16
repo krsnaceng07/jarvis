@@ -17,6 +17,7 @@ Key port decisions:
   throws for refs that still require gateway resolution (the
   unmarshaled value is a ref shape, not a literal).
 """
+
 from __future__ import annotations
 
 import re
@@ -148,7 +149,7 @@ def parse_legacy_secret_ref_env_marker(value: object) -> SecretRef | None:
     trimmed = value.strip()
     if not trimmed.startswith(LEGACY_SECRETREF_ENV_MARKER_PREFIX):
         return None
-    id_ = trimmed[len(LEGACY_SECRETREF_ENV_MARKER_PREFIX):]
+    id_ = trimmed[len(LEGACY_SECRETREF_ENV_MARKER_PREFIX) :]
     if not ENV_SECRET_REF_ID_RE.match(id_):
         return None
     return {
@@ -201,7 +202,7 @@ def _format_secret_ref_label(ref: SecretRef) -> str:
 def _create_unresolved_secret_input_error(*, path: str, ref: SecretRef) -> Exception:
     """Build the unresolved-ref error used when callers bypass gateway."""
     return ValueError(
-        f"{path}: unresolved SecretRef \"{_format_secret_ref_label(ref)}\". "
+        f'{path}: unresolved SecretRef "{_format_secret_ref_label(ref)}". '
         f"Resolve this command against an active gateway runtime snapshot "
         f"before reading it."
     )
@@ -217,9 +218,7 @@ def resolve_memory_secret_input_ref(value: object) -> SecretRef | None:
     return coerce_secret_ref(value)
 
 
-def normalize_resolved_memory_secret_input_string(
-    *, value: object, path: str
-) -> str | None:
+def normalize_resolved_memory_secret_input_string(*, value: object, path: str) -> str | None:
     """Normalize literal secrets; throw for unresolved refs.
 
     Mirrors OpenClaw's ``normalizeResolvedMemorySecretInputString``.

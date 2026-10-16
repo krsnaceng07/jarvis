@@ -3,6 +3,7 @@
 OpenClaw parity: mirrors the OpenClaw ``file-transfer`` infra
 extension (43 files in the OpenClaw source).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

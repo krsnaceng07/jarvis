@@ -44,8 +44,7 @@ lands in 7.1+ (when the
 from __future__ import annotations
 
 import logging
-import threading
-from typing import Any, Awaitable, Callable, Optional, Union
+from typing import Any, Optional
 
 from .run_state import (
     ABANDONED_EMBEDDED_RUNS_BY_SESSION_ID,

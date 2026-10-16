@@ -37,7 +37,6 @@ if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
 
 from src.sessions.session_store import (  # noqa: E402
-    InMemorySessionStore,
     SQLITE_SESSIONS_SCHEMA_SQL,
     SessionRecord,
     SqliteSessionStore,

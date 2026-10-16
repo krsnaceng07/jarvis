@@ -5,6 +5,7 @@ memory_host_secret_input + memory_host_secret (Phase 5.2).
 Mirrors the TypeScript test patterns from the source files in
 ``packages/memory-host-sdk/src/host/{hash,status-format,secret-input,secret-input-utils}.ts``.
 """
+
 from __future__ import annotations
 
 import hashlib
@@ -31,7 +32,6 @@ from jarvis_sdk.memory_host_secret_input_utils import (
     LEGACY_SECRETREF_ENV_MARKER_PREFIX,
     SECRET_REF_SOURCES,
     SecretRef,
-    SecretRefSource,
     coerce_secret_ref,
     has_configured_memory_secret_input_value,
     normalize_env_secret_input_string,
@@ -93,35 +93,35 @@ def test_hash_text_returns_64_hex_chars() -> None:
 def test_vector_state_disabled() -> None:
     """``enabled=False`` → disabled (muted)."""
     result = resolve_memory_vector_state({"enabled": False, "available": True})
-    assert result["tone"] == "muted"
-    assert result["state"] == "disabled"
+    assert result.get("tone") == "muted"
+    assert result.get("state") == "disabled"
 
 
 def test_vector_state_ready() -> None:
     """``enabled=True`` + ``available=True`` → ready (ok)."""
     result = resolve_memory_vector_state({"enabled": True, "available": True})
-    assert result["tone"] == "ok"
-    assert result["state"] == "ready"
+    assert result.get("tone") == "ok"
+    assert result.get("state") == "ready"
 
 
 def test_vector_state_unavailable() -> None:
     """``enabled=True`` + ``available=False`` → unavailable (warn)."""
     result = resolve_memory_vector_state({"enabled": True, "available": False})
-    assert result["tone"] == "warn"
-    assert result["state"] == "unavailable"
+    assert result.get("tone") == "warn"
+    assert result.get("state") == "unavailable"
 
 
 def test_vector_state_unknown() -> None:
     """``enabled=True`` + ``available=undefined`` → unknown (muted)."""
     result = resolve_memory_vector_state({"enabled": True})
-    assert result["tone"] == "muted"
-    assert result["state"] == "unknown"
+    assert result.get("tone") == "muted"
+    assert result.get("state") == "unknown"
 
 
 def test_vector_state_disabled_overrides_available() -> None:
     """When disabled, ``available`` is ignored."""
     result = resolve_memory_vector_state({"enabled": False, "available": False})
-    assert result["state"] == "disabled"
+    assert result.get("state") == "disabled"
 
 
 def test_vector_state_facade_matches() -> None:
@@ -137,22 +137,22 @@ def test_vector_state_facade_matches() -> None:
 def test_fts_state_disabled() -> None:
     """``enabled=False`` → disabled (muted)."""
     result = resolve_memory_fts_state({"enabled": False, "available": True})
-    assert result["tone"] == "muted"
-    assert result["state"] == "disabled"
+    assert result.get("tone") == "muted"
+    assert result.get("state") == "disabled"
 
 
 def test_fts_state_ready() -> None:
     """``enabled=True`` + ``available=True`` → ready (ok)."""
     result = resolve_memory_fts_state({"enabled": True, "available": True})
-    assert result["tone"] == "ok"
-    assert result["state"] == "ready"
+    assert result.get("tone") == "ok"
+    assert result.get("state") == "ready"
 
 
 def test_fts_state_unavailable() -> None:
     """``enabled=True`` + ``available=False`` → unavailable (warn)."""
     result = resolve_memory_fts_state({"enabled": True, "available": False})
-    assert result["tone"] == "warn"
-    assert result["state"] == "unavailable"
+    assert result.get("tone") == "warn"
+    assert result.get("state") == "unavailable"
 
 
 def test_fts_state_facade_matches() -> None:
@@ -167,28 +167,28 @@ def test_fts_state_facade_matches() -> None:
 def test_cache_summary_disabled() -> None:
     """``enabled=False`` → ``"cache off"`` (muted)."""
     result = resolve_memory_cache_summary({"enabled": False, "entries": 99})
-    assert result["tone"] == "muted"
-    assert result["text"] == "cache off"
+    assert result.get("tone") == "muted"
+    assert result.get("text") == "cache off"
 
 
 def test_cache_summary_enabled_no_entries() -> None:
     """``enabled=True`` without entries → ``"cache on"``."""
     result = resolve_memory_cache_summary({"enabled": True})
-    assert result["tone"] == "ok"
-    assert result["text"] == "cache on"
+    assert result.get("tone") == "ok"
+    assert result.get("text") == "cache on"
 
 
 def test_cache_summary_enabled_with_entries() -> None:
     """``enabled=True`` + numeric entries → ``"cache on (N)"``."""
     result = resolve_memory_cache_summary({"enabled": True, "entries": 5})
-    assert result["tone"] == "ok"
-    assert result["text"] == "cache on (5)"
+    assert result.get("tone") == "ok"
+    assert result.get("text") == "cache on (5)"
 
 
 def test_cache_summary_entries_non_numeric() -> None:
     """Non-numeric entries → no suffix."""
     result = resolve_memory_cache_summary({"enabled": True, "entries": "five"})
-    assert result["text"] == "cache on"
+    assert result.get("text") == "cache on"
 
 
 def test_cache_summary_facade_matches() -> None:
@@ -395,20 +395,13 @@ def test_resolve_ref_literal_returns_none() -> None:
 
 def test_normalize_resolved_literal() -> None:
     """Literal non-empty string is returned (trimmed)."""
-    assert (
-        normalize_resolved_memory_secret_input_string(value="  my-key  ", path="x")
-        == "my-key"
-    )
+    assert normalize_resolved_memory_secret_input_string(value="  my-key  ", path="x") == "my-key"
 
 
 def test_normalize_resolved_empty_literal() -> None:
     """Empty / whitespace-only literal returns ``None``."""
-    assert (
-        normalize_resolved_memory_secret_input_string(value="", path="x") is None
-    )
-    assert (
-        normalize_resolved_memory_secret_input_string(value="   ", path="x") is None
-    )
+    assert normalize_resolved_memory_secret_input_string(value="", path="x") is None
+    assert normalize_resolved_memory_secret_input_string(value="   ", path="x") is None
 
 
 def test_normalize_resolved_ref_raises() -> None:
@@ -420,12 +413,8 @@ def test_normalize_resolved_ref_raises() -> None:
 
 def test_normalize_resolved_non_string_non_ref_returns_none() -> None:
     """Non-string + non-ref input returns ``None``."""
-    assert (
-        normalize_resolved_memory_secret_input_string(value=123, path="x") is None
-    )
-    assert (
-        normalize_resolved_memory_secret_input_string(value=None, path="x") is None
-    )
+    assert normalize_resolved_memory_secret_input_string(value=123, path="x") is None
+    assert normalize_resolved_memory_secret_input_string(value=None, path="x") is None
 
 
 # ── normalize_env_secret_input_string ─────────────────────────────
@@ -449,10 +438,7 @@ def test_normalize_env_empty() -> None:
 
 def test_resolve_facade_literal() -> None:
     """Literal strings pass through."""
-    assert (
-        resolve_memory_secret_input_string(value="my-literal", path="x")
-        == "my-literal"
-    )
+    assert resolve_memory_secret_input_string(value="my-literal", path="x") == "my-literal"
 
 
 def test_resolve_facade_env_ref(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -493,9 +479,7 @@ def test_has_configured_facade_literal() -> None:
     assert has_configured_memory_secret_input("my-key") is True
     assert has_configured_memory_secret_input("") is False
     assert (
-        has_configured_memory_secret_input(
-            {"source": "env", "provider": "default", "id": "PATH"}
-        )
+        has_configured_memory_secret_input({"source": "env", "provider": "default", "id": "PATH"})
         is True
     )
 

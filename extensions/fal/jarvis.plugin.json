@@ -1,0 +1,52 @@
+{
+  "id": "fal",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "fal"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "fal",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "FAL_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "fal": {
+        "baseUrl": "https://api.fal.ai/v1",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "fal-llama-3.1-70b",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

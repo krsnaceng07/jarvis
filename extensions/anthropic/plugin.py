@@ -7,6 +7,7 @@ extension is loadable + discoverable; the full streaming
 + tool-use + multi-account + image-input surface lands
 incrementally in Phase 5.16+ (the provider port).
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -32,9 +33,25 @@ class AnthropicProvider(ProviderPlugin):
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def init(self, ctx: Any) -> None:
-        """Provider init hook (auth + config). Stub in Phase 5.15."""
-        # Real implementation lands in Phase 5.16 (the provider port).
-        return None
+        """Provider init hook (auth + config).
+
+        Attempt to resolve credentials via the model registry (prefers
+        model-specific `auth_profile` then provider-named profile and
+        environment overrides). Resolved credentials are stored in
+        `self.metadata['credentials']` for provider clients to consume.
+        """
+        try:
+            # lazy import to avoid cycles during test collection
+            from src.sessions.credentials import resolve_credentials
+
+            cred = resolve_credentials(provider="anthropic", model=self.default_model)
+            # Overwrite any existing value so the provider reflects the
+            # current workspace-level credential resolution.
+            self.metadata["credentials"] = cred
+        except Exception as e:
+            # Surface the exception for easier debugging during tests.
+            self.metadata["credentials_error"] = str(e)
+            raise
 
     async def complete(self, messages, **kwargs):  # type: ignore[override]
         """Streaming completion hook. Stub in Phase 5.15.

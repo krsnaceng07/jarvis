@@ -4,7 +4,7 @@ OpenClaw parity: mirrors ``openclaw-main/src/shared/device-pairing-access.ts``.
 """
 from __future__ import annotations
 
-from typing import Any, List, Optional, Set, TypedDict
+from typing import List, Optional, Set, TypedDict
 
 from .device_auth import normalize_device_auth_scopes
 

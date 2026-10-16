@@ -10,7 +10,7 @@ _role_header_text`.
 """
 from __future__ import annotations
 
-from typing import Any, Literal, Optional, TypedDict
+from typing import Literal, Optional, TypedDict
 
 
 AssistantRole = Literal["assistant", "developer", "system", "user"]

@@ -2,6 +2,7 @@
 
 Mirrors OpenClaw's ``extensions/bonjour/index.test.ts``.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -24,9 +25,11 @@ def _make_api() -> tuple[PluginApi, dict]:
     )
     # Capture register_gateway_discovery_service calls.
     original = api.register_gateway_discovery_service
+
     def capture(service: dict) -> None:
         captured["service"] = service
         return original(service)
+
     api.register_gateway_discovery_service = capture  # type: ignore[assignment]
     return api, captured
 
@@ -81,9 +84,7 @@ class TestBonjourPluginEntry:
         advertise = captured["service"]["advertise"]
 
         with mock.patch.dict(os.environ, {"NODE_ENV": "test"}, clear=True):
-            result = asyncio.run(
-                advertise({"machineDisplayName": "Test", "gatewayPort": 7433})
-            )
+            result = asyncio.run(advertise({"machineDisplayName": "Test", "gatewayPort": 7433}))
         # Even when disabled, stop() must be callable.
         assert callable(result["stop"])
         asyncio.run(result["stop"]())  # idempotent
@@ -95,7 +96,10 @@ class TestBonjourPluginMetadata:
         assert bonjour_plugin.id == "bonjour"
         assert bonjour_plugin.kind == "infra"
         assert isinstance(bonjour_plugin.version, str)
-        assert "Bonjour" in bonjour_plugin.description or "bonjour" in bonjour_plugin.description.lower()
+        assert (
+            "Bonjour" in bonjour_plugin.description
+            or "bonjour" in bonjour_plugin.description.lower()
+        )
 
     def test_init_is_noop(self) -> None:
         """``init`` is a no-op — the advertiser is lazy-loaded by the host."""

@@ -1,0 +1,52 @@
+{
+  "id": "byteplus",
+  "activation": {
+    "onStartup": false
+  },
+  "enabledByDefault": true,
+  "providers": [
+    "byteplus"
+  ],
+  "setup": {
+    "providers": [
+      {
+        "id": "byteplus",
+        "authMethods": [
+          "api-key"
+        ],
+        "envVars": [
+          "BYTEPLUS_API_KEY"
+        ]
+      }
+    ]
+  },
+  "modelCatalog": {
+    "providers": {
+      "byteplus": {
+        "baseUrl": "https://ark.ap-southeast.bytepluses.com/api/v3",
+        "api": "openai-completions",
+        "models": [
+          {
+            "id": "byteplus-doubao-pro",
+            "input": [
+              "text"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "default_model": {
+        "type": "string"
+      },
+      "max_output_tokens": {
+        "type": "integer"
+      }
+    }
+  },
+  "kind": "provider"
+}

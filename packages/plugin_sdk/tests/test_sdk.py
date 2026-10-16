@@ -18,16 +18,17 @@ import pytest
 from hypothesis import given, strategies as st
 
 from jarvis_sdk import (
+    Result,
     CommandDecl,
     Err,
     Ok,
     PluginCommandContext,
     PluginCommandResult,
-    Result,
     ToolDecl,
     ToolParam,
     define_plugin_entry,
 )
+from typing import Any
 from jarvis_sdk.api import PluginApi
 from jarvis_sdk.context import PluginContext
 from jarvis_sdk.entry import PluginEntry
@@ -75,7 +76,7 @@ def test_ok_is_ok_and_not_err(value: int) -> None:
 )
 def test_err_is_err_and_not_ok(error: str, code: str) -> None:
     """Err.error+code are preserved; is_err=True; is_ok=False."""
-    r: Result = Err(error, code=code)
+    r: Result[Any] = Err(error, code=code)
     assert r.error == error
     assert r.code == code
     assert r.is_ok is False
@@ -279,7 +280,9 @@ def test_plugin_api_register_operation_domains_round_trip() -> None:
     api.register_codex_app_server_extension_factory(
         {"id": "codex-a", "factory": lambda *_args, **_kwargs: None}
     )
-    api.register_interactive_handler({"id": "interactive-a", "handler": lambda *_args, **_kwargs: None})
+    api.register_interactive_handler(
+        {"id": "interactive-a", "handler": lambda *_args, **_kwargs: None}
+    )
 
     assert len(api.session_catalogs) == 1
     assert len(api.cli_backends) == 1
@@ -300,7 +303,9 @@ def test_plugin_api_remaining_openclaw_registrars_exist() -> None:
     api.register_trusted_tool_policy({"id": "trusted-policy-a", "allow": True})
     api.register_session_scheduler_job({"id": "job-a", "run": lambda *_args, **_kwargs: None})
     api.register_session_action({"id": "action-a", "run": lambda *_args, **_kwargs: None})
-    api.register_agent_event_subscription({"id": "subscription-a", "run": lambda *_args, **_kwargs: None})
+    api.register_agent_event_subscription(
+        {"id": "subscription-a", "run": lambda *_args, **_kwargs: None}
+    )
     api.register_memory_embedding_provider({"id": "memory-embed-a", "provider": object()})
     api.register_conversation_binding_resolved_handler(
         {"id": "binding-a", "handler": lambda *_args, **_kwargs: None}
@@ -382,15 +387,9 @@ def test_plugin_api_openclaw_compatibility_aliases_round_trip() -> None:
     api.register_http_route(
         {"path": "/health", "handler": lambda *_args, **_kwargs: {"status": "ok"}}
     )
-    api.register_text_transforms(
-        {"id": "transform-a", "handler": lambda value: value}
-    )
-    api.register_typed_hook(
-        {"name": "validate", "handler": lambda *_args, **_kwargs: None}
-    )
-    api.register_model_catalog_provider(
-        {"provider": "model-catalog"}, {"id": "catalog-a"}
-    )
+    api.register_text_transforms({"id": "transform-a", "handler": lambda value: value})
+    api.register_typed_hook({"name": "validate", "handler": lambda *_args, **_kwargs: None})
+    api.register_model_catalog_provider({"provider": "model-catalog"}, {"id": "catalog-a"})
     api.register_agent_tool_result_middleware(
         {"id": "middleware-a", "handler": lambda *_args, **_kwargs: None}
     )
@@ -427,7 +426,9 @@ def test_plugin_api_has_expected_openclaw_registrar_equivalents() -> None:
 
     for path in registrar_paths:
         registrar_text = path.read_text(encoding="utf-8")
-        registrar_names = {match.group(1) for match in re.finditer(r'"(register[A-Za-z0-9_]+)"', registrar_text)}
+        registrar_names = {
+            match.group(1) for match in re.finditer(r'"(register[A-Za-z0-9_]+)"', registrar_text)
+        }
         missing = sorted(registrar_names - api_camel)
         extra = sorted(api_camel - registrar_names - sdk_only_extras)
         assert not missing, f"Missing PluginApi aliases for {path}: {missing}"

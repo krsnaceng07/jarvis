@@ -1,0 +1,196 @@
+{
+  "id": "active_memory",
+  "name": "Active Memory",
+  "description": "Runs bounded pre-reply memory retrieval and implements per-agent Remember across conversations for eligible private conversations.",
+  "activation": "on_startup",
+  "kind": "memory",
+  "commandAliases": [
+    {
+      "name": "active-memory"
+    }
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "enabled": {
+        "type": "boolean"
+      },
+      "agents": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "model": {
+        "type": "string"
+      },
+      "modelFallback": {
+        "type": "string"
+      },
+      "modelFallbackPolicy": {
+        "type": "string",
+        "enum": [
+          "default-remote",
+          "resolved-only"
+        ]
+      },
+      "allowedChatTypes": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "direct",
+            "group",
+            "channel",
+            "explicit"
+          ]
+        }
+      },
+      "allowedChatIds": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "deniedChatIds": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "thinking": {
+        "type": "string",
+        "enum": [
+          "off",
+          "minimal",
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "adaptive"
+        ]
+      },
+      "fastMode": {
+        "anyOf": [
+          {
+            "type": "boolean"
+          },
+          {
+            "type": "string",
+            "enum": [
+              "auto"
+            ]
+          }
+        ]
+      },
+      "timeoutMs": {
+        "type": "integer",
+        "minimum": 250,
+        "maximum": 120000
+      },
+      "setupGraceTimeoutMs": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 30000
+      },
+      "queryMode": {
+        "type": "string",
+        "enum": [
+          "message",
+          "recent",
+          "full"
+        ]
+      },
+      "promptStyle": {
+        "type": "string",
+        "enum": [
+          "balanced",
+          "strict",
+          "contextual",
+          "recall-heavy",
+          "precision-heavy",
+          "preference-only"
+        ]
+      },
+      "toolsAllow": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "pattern": "^(?!\\*$)(?![Gg][Rr][Oo][Uu][Pp]:).+"
+        },
+        "maxItems": 32
+      },
+      "promptOverride": {
+        "type": "string"
+      },
+      "promptAppend": {
+        "type": "string"
+      },
+      "maxSummaryChars": {
+        "type": "integer",
+        "minimum": 40,
+        "maximum": 1000
+      },
+      "recentUserTurns": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 4
+      },
+      "recentAssistantTurns": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 3
+      },
+      "recentUserChars": {
+        "type": "integer",
+        "minimum": 40,
+        "maximum": 1000
+      },
+      "recentAssistantChars": {
+        "type": "integer",
+        "minimum": 40,
+        "maximum": 1000
+      },
+      "logging": {
+        "type": "boolean"
+      },
+      "persistTranscripts": {
+        "type": "boolean"
+      },
+      "transcriptDir": {
+        "type": "string"
+      },
+      "cacheTtlMs": {
+        "type": "integer",
+        "minimum": 1000,
+        "maximum": 120000
+      },
+      "circuitBreakerMaxTimeouts": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 20
+      },
+      "circuitBreakerCooldownMs": {
+        "type": "integer",
+        "minimum": 5000,
+        "maximum": 600000
+      },
+      "qmd": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "searchMode": {
+            "type": "string",
+            "enum": [
+              "inherit",
+              "search",
+              "vsearch",
+              "query"
+            ]
+          }
+        }
+      }
+    }
+  }
+}
