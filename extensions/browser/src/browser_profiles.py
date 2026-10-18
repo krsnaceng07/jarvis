@@ -20,9 +20,9 @@ DEFAULT_BROWSER_CDP_PORT_RANGE_SPAN = (
 
 DEFAULT_OPENCLAW_BROWSER_ENABLED = True
 DEFAULT_BROWSER_EVALUATE_ENABLED = True
-DEFAULT_OPENCLAW_BROWSER_PROFILE_NAME = "openclaw"
-DEFAULT_BROWSER_DEFAULT_PROFILE_NAME = "openclaw"
-DEFAULT_OPENCLAW_BROWSER_COLOR = "#FF6B2B"
+DEFAULT_OPENCLAW_BROWSER_PROFILE_NAME = "jarvis"
+DEFAULT_BROWSER_DEFAULT_PROFILE_NAME = "jarvis"
+DEFAULT_OPENCLAW_BROWSER_COLOR = "#00E5FF"
 DEFAULT_BROWSER_LOCAL_LAUNCH_TIMEOUT_MS = 30000
 DEFAULT_BROWSER_LOCAL_CDP_READY_TIMEOUT_MS = 30000
 DEFAULT_BROWSER_ACTION_TIMEOUT_MS = 30000
@@ -59,8 +59,12 @@ def resolve_browser_config(
     profiles = cfg.get("profiles", {})
     if not profiles:
         profiles = {
+            "jarvis": BrowserProfileConfig(
+                driver="jarvis",
+                color=DEFAULT_OPENCLAW_BROWSER_COLOR,
+            ),
             "openclaw": BrowserProfileConfig(
-                driver="openclaw",
+                driver="jarvis",
                 color=DEFAULT_OPENCLAW_BROWSER_COLOR,
             ),
             "user": BrowserProfileConfig(
@@ -145,8 +149,10 @@ def resolve_profile(
     if target_name in config.profiles:
         return config.profiles[target_name]
 
-    # Smart profile aliases (OpenClaw parity)
-    if target_name in ("chrome", "default", "chromium", "google-chrome", "google_chrome", "system"):
+    # Smart profile aliases (JARVIS parity)
+    if target_name in ("jarvis", "openclaw", "chrome", "default", "chromium", "google-chrome", "google_chrome", "system"):
+        if "jarvis" in config.profiles:
+            return config.profiles["jarvis"]
         if "openclaw" in config.profiles:
             return config.profiles["openclaw"]
     if target_name in ("user", "user-session", "personal", "my-chrome", "my_chrome", "existing"):

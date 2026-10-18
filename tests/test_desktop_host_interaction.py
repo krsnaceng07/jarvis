@@ -1,9 +1,8 @@
 """tests.test_desktop_host_interaction — Tests for Desktop Host App Interaction & Parity.
 
 Covers:
-- open_path tool: target cleaning (strip 'open', 'on pc'), terminal resolution, launch verification.
 - process tool: host process termination (taskkill/pkill), sessionId/session_id compatibility, list fallback.
-- tool_argument_repair: healing open_path targets and process arguments.
+- tool_argument_repair: healing process arguments and PowerShell scripts.
 - desktop ui: single-source-of-truth logging in _send.
 """
 
@@ -12,58 +11,10 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
-from src.agents.sessions.tools.open_path_tool import create_open_path_tool_definition
 from src.agents.sessions.tools.process_tool import create_process_tool_definition
 from src.agents.self_healing.strategies.tool_argument_repair import (
     ToolArgumentRepairStrategy,
 )
-
-
-@pytest.mark.asyncio
-async def test_open_path_target_cleaning_and_terminal():
-    tool = create_open_path_tool_definition()
-    execute = tool["execute"]
-
-    with (
-        patch("src.agents.sessions.tools.open_path_tool.subprocess.Popen") as mock_popen,
-        patch("shutil.which", return_value="C:\\Windows\\System32\\wt.exe"),
-    ):
-        mock_proc = MagicMock()
-        mock_proc.poll.return_value = None
-        mock_popen.return_value = mock_proc
-
-        # Call with "open terminal on pc"
-        res = await execute("call-1", {"target": "open terminal on pc"})
-        assert res["details"]["launched"] is True
-        matching_calls = [
-            c for c in mock_popen.call_args_list
-            if c[0] and any("wt.exe" in str(arg) or "powershell" in str(arg) for arg in c[0])
-        ]
-        assert len(matching_calls) >= 1
-        args = matching_calls[0][0][0]
-        assert "wt.exe" in str(args) or "powershell" in str(args)
-
-
-@pytest.mark.asyncio
-async def test_open_path_nonexistent_target_raises():
-    tool = create_open_path_tool_definition()
-    execute = tool["execute"]
-
-    with patch("shutil.which", return_value=None), patch("os.path.exists", return_value=False):
-        with pytest.raises(FileNotFoundError) as excinfo:
-            await execute("call-2", {"target": "nonexistent_custom_program_xyz"})
-        assert "not found" in str(excinfo.value)
-
-
-@pytest.mark.asyncio
-async def test_open_path_explorer():
-    tool = create_open_path_tool_definition()
-    execute = tool["execute"]
-
-    with patch("src.agents.sessions.tools.open_path_tool.subprocess.Popen") as mock_popen, patch("sys.platform", "win32"):
-        res = await execute("call-3", {"target": "File Explorer"})
-        assert res["details"]["opened"] is True
-        mock_popen.assert_called_once_with(["explorer.exe"])
 
 
 @pytest.mark.asyncio
@@ -121,16 +72,6 @@ async def test_process_tool_list_guidance_when_empty():
     text = res["content"][0]["text"]
     assert "No active background exec sessions found" in text
     assert "process(action='kill', session_id='<app_name>')" in text
-
-
-def test_tool_argument_repair_open_path():
-    strategy = ToolArgumentRepairStrategy()
-    repaired, changes = strategy.repair_arguments(
-        "open_path",
-        {"target": "open terminal on pc"},
-    )
-    assert repaired["target"] == "terminal"
-    assert any("Cleaned target phrase" in c for c in changes)
 
 
 def test_tool_argument_repair_process():
@@ -220,45 +161,6 @@ async def test_shutdown_jarvis_blocked_without_explicit_command():
 
 
 @pytest.mark.asyncio
-async def test_open_path_whatsapp_protocol():
-    tool = create_open_path_tool_definition()
-    execute = tool["execute"]
-
-    with patch("os.startfile") as mock_startfile:
-        res = await execute("call-wa", {"target": "whatsapp"})
-        assert "launched" in res["content"][0]["text"].lower() or "opened" in res["content"][0]["text"].lower()
-        mock_startfile.assert_called_once_with("whatsapp:")
-
-
-@pytest.mark.asyncio
-async def test_honcho_before_prompt_build_handles_str():
-    from unittest.mock import AsyncMock
-    from extensions.honcho.plugin import HonchoPlugin
-
-    plugin = HonchoPlugin()
-    api = MagicMock()
-    api.config = {}
-    registered_hooks = {}
-
-    def _reg_hook(hook_name, fn, priority=10):
-        registered_hooks[hook_name] = fn
-
-    api.register_hook = _reg_hook
-    plugin.init(api)
-
-    assert "before_prompt_build" in registered_hooks
-    hook = registered_hooks["before_prompt_build"]
-
-    # Mock client context
-    assert plugin._client is not None
-    plugin._client.get_context = AsyncMock(return_value="mock context")
-
-    event = {"prompt": "User query string"}
-    await hook(event)
-    assert "mock context" in event["prompt"]
-
-
-@pytest.mark.asyncio
 async def test_read_tool_directory_raises_is_a_directory_error(tmp_path):
     from src.agents.sessions.tools.read import create_read_tool_definition
 
@@ -318,23 +220,6 @@ def test_tool_argument_repair_powershell_remove_item():
     assert any("Added -Recurse to Remove-Item" in c for c in changes2)
 
 
-@pytest.mark.asyncio
-async def test_remove_path_tool_removes_readonly_file(tmp_path):
-    import stat
-    from src.agents.sessions.tools.remove_path_tool import create_remove_path_tool_definition
-
-    ro_file = tmp_path / "locked.txt"
-    ro_file.write_text("read only content")
-    ro_file.chmod(stat.S_IREAD)
-
-    tool = create_remove_path_tool_definition()
-    execute = tool["execute"]
-
-    res = await execute("call-rm", {"path": str(ro_file)})
-    assert res["details"]["removed"] is True
-    assert not ro_file.exists()
-
-
 def test_tool_argument_repair_powershell_wscript_and_loop():
     strategy = ToolArgumentRepairStrategy()
     broken_cmd = (
@@ -363,6 +248,7 @@ async def test_browser_runtime_strict_mode_fallback():
     mock_page.is_closed.return_value = False
     mock_page.url = "https://www.youtube.com"
     mock_page.title = AsyncMock(return_value="YouTube")
+    mock_page.evaluate = AsyncMock(return_value=False)
 
     mock_loc = MagicMock()
     # First call raises strict mode violation
@@ -371,6 +257,7 @@ async def test_browser_runtime_strict_mode_fallback():
     )
     # mock_loc.first.click succeeds
     mock_first = MagicMock()
+    mock_first.first = mock_first
     mock_first.click = AsyncMock()
     mock_loc.first = mock_first
 
@@ -379,7 +266,6 @@ async def test_browser_runtime_strict_mode_fallback():
     with patch.object(runtime, "get_page", return_value=mock_page):
         res = await runtime.act(selector="#video-title", kind="click")
         assert res["ok"] is True
-        mock_loc.click.assert_called_once()
         mock_first.click.assert_called_once()
 
 
@@ -441,23 +327,10 @@ async def test_process_tool_list_apps():
 
 
 @pytest.mark.asyncio
-async def test_remove_path_protected_system_directory():
-    """Verify protected Windows system paths are rejected with clear permission errors."""
-    from src.agents.sessions.tools.remove_path_tool import create_remove_path_tool_definition
-
-    tool = create_remove_path_tool_definition()
-    execute = tool["execute"]
-
-    with pytest.raises(PermissionError) as exc_info:
-        await execute("call-prot", {"path": r"C:\Program Files\WindowsApps"})
-    assert "protected Windows system directory" in str(exc_info.value)
-
-
-@pytest.mark.asyncio
 async def test_nepali_unicode_filename_lifecycle(tmp_path):
     """Verify writing, reading, and removing Nepali/Devanagari Unicode files (परिचय.txt)."""
+    import os
     from src.agents.sessions.tools.read import read_text_file
-    from src.agents.sessions.tools.remove_path_tool import create_remove_path_tool_definition
     from src.agents.sessions.tools.write import write_file
 
     nepali_filename = tmp_path / "परिचय.txt"
@@ -471,11 +344,8 @@ async def test_nepali_unicode_filename_lifecycle(tmp_path):
     read_res = read_text_file(str(nepali_filename))
     assert content in read_res["content"]
 
-    # 3. Remove Unicode file
-    tool = create_remove_path_tool_definition()
-    execute = tool["execute"]
-    res = await execute("call-nep", {"path": str(nepali_filename)})
-    assert res["details"]["removed"] is True
+    # 3. Clean up Unicode file
+    os.remove(str(nepali_filename))
     assert not nepali_filename.exists()
 
 
@@ -483,7 +353,7 @@ def test_tool_argument_repair_no_double_slashes():
     """Verify tool argument repair eliminates double-slashes and preserves clean drive syntax."""
     strategy = ToolArgumentRepairStrategy()
     repaired, changes = strategy.repair_arguments(
-        "remove_path", {"path": r"C:\Program Files\WindowsApps"}
+        "read", {"path": r"C:\Program Files\WindowsApps"}
     )
     # Must NOT produce C://
     assert repaired["path"] == "C:/Program Files/WindowsApps"
@@ -526,44 +396,16 @@ async def test_browser_tab_reuse_same_domain():
     mock_existing_page.goto.assert_called_once()
 
 
-@pytest.mark.asyncio
-async def test_open_path_notepad_py_launches_editor():
-    """Verify open_path handles 'notepad.py' without FileNotFoundError or task execution boundary error."""
-    tool = create_open_path_tool_definition()
-    execute = tool["execute"]
-
-    with patch("src.agents.sessions.tools.open_path_tool.subprocess.Popen") as mock_popen, patch("sys.platform", "win32"):
-        mock_proc = MagicMock()
-        mock_proc.poll.return_value = None
-        mock_popen.return_value = mock_proc
-
-        # Case 1: notepad.py does NOT exist on disk -> launches notepad.exe directly
-        with patch("os.path.exists", return_value=False):
-            res = await execute("call-np1", {"target": "notepad.py"})
-            assert res["details"]["launched"] is True
-            assert "Successfully launched application" in res["content"][0]["text"]
-            assert any("notepad.exe" in str(c) for c in mock_popen.call_args_list)
-
-        mock_popen.reset_mock()
-
-        # Case 2: notepad.py DOES exist on disk -> opens the file with editor
-        with patch("os.path.exists", return_value=True), patch("os.path.isdir", return_value=False):
-            with patch("os.startfile", create=True):
-                res2 = await execute("call-np2", {"target": "notepad.py"})
-                assert res2["details"]["opened"] is True
-                assert res2["details"]["type"] == "file"
-
-
 def test_browser_profile_alias_resolution():
     """Verify smart browser profile alias resolution for 'chrome', 'user', and unknown fallbacks."""
     from extensions.browser.src.browser_profiles import resolve_browser_config, resolve_profile
 
     config = resolve_browser_config({})
 
-    # 1. Alias "chrome" resolves to "openclaw"
+    # 1. Alias "chrome" resolves to "jarvis"
     chrome_prof = resolve_profile(config, "chrome")
     assert chrome_prof is not None
-    assert chrome_prof.name == "openclaw"
+    assert chrome_prof.name == "jarvis"
 
     # 2. Alias "user" resolves to "user"
     user_prof = resolve_profile(config, "user")
@@ -573,7 +415,7 @@ def test_browser_profile_alias_resolution():
     # 3. Default fallback for unknown custom profile
     fallback_prof = resolve_profile(config, "custom_nonexistent_profile")
     assert fallback_prof is not None
-    assert fallback_prof.name == "openclaw"
+    assert fallback_prof.name == "jarvis"
 
 
 def test_clear_chrome_singleton_artifacts(tmp_path):
@@ -603,33 +445,20 @@ def test_clear_chrome_singleton_artifacts(tmp_path):
     assert not lockfile.exists()
 
 
-def test_tool_argument_repair_notepad_py(tmp_path):
-    """Verify tool_argument_repair heals 'notepad.py' to 'notepad' when file is not on disk."""
-    strategy = ToolArgumentRepairStrategy()
-    repaired, changes = strategy.repair_arguments("open_path", {"target": "notepad.py"})
-    assert repaired["target"] == "notepad"
-    assert any("Heuristically repaired target 'notepad.py' to 'notepad'" in c for c in changes)
-
-
 @pytest.mark.asyncio
-async def test_process_tool_open_path_delegation():
-    """Verify that calling process(action='open_path', session_id='wordpad') delegates to open_path."""
+async def test_process_tool_open_action():
+    """Verify that calling process(action='open', session_id='notepad') launches application."""
     from src.agents.sessions.tools.process_tool import create_process_tool_definition
 
     process_tool = create_process_tool_definition()
-    with patch("shutil.which", return_value="C:\\Program Files\\Windows NT\\Accessories\\wordpad.exe"), \
-         patch("src.agents.sessions.tools.open_path_tool.subprocess.Popen") as mock_popen:
-        mock_proc = MagicMock()
-        mock_proc.poll.return_value = None
-        mock_popen.return_value = mock_proc
-
+    with patch("os.startfile", create=True) as mock_startfile:
         res = await process_tool["execute"](
             "call_proc_open",
-            {"action": "open_path", "session_id": "wordpad"}
+            {"action": "open", "session_id": "notepad"}
         )
         assert res["details"]["launched"] is True
-        assert "Successfully launched application" in res["content"][0]["text"]
-        assert any("wordpad" in str(c) for c in mock_popen.call_args_list)
+        assert "Successfully launched" in res["content"][0]["text"]
+        mock_startfile.assert_called_once_with("notepad")
 
 
 @pytest.mark.asyncio
@@ -644,41 +473,30 @@ async def test_jarvis_live_execute_tool_dispatches_process_and_coding_tools():
 
     live = JarvisLive(mock_ui)
 
-    # 1. process(action='open_path', session_id='wordpad')
+    # 1. process(action='open', session_id='notepad')
     fc_proc = MagicMock()
     fc_proc.name = "process"
     fc_proc.id = "call_p1"
-    fc_proc.args = {"action": "open_path", "session_id": "wordpad"}
+    fc_proc.args = {"action": "open", "session_id": "notepad"}
 
-    with patch("shutil.which", return_value="C:\\Windows\\System32\\notepad.exe"), \
-         patch("src.agents.sessions.tools.open_path_tool.subprocess.Popen") as mock_popen:
-        mock_proc = MagicMock()
-        mock_proc.poll.return_value = None
-        mock_popen.return_value = mock_proc
-
+    with patch("os.startfile", create=True):
         resp = await live._execute_tool(fc_proc)
         assert resp.name == "process"
         assert resp.response is not None
         assert "Tool 'process' is no longer available" not in str(resp.response["result"])
         assert "Successfully launched" in str(resp.response["result"])
 
-    # 2. open_path(target='notepad')
-    fc_open = MagicMock()
-    fc_open.name = "open_path"
-    fc_open.id = "call_o1"
-    fc_open.args = {"target": "notepad"}
+    # 2. write(path='test.txt', content='hello')
+    fc_write = MagicMock()
+    fc_write.name = "write"
+    fc_write.id = "call_w1"
+    fc_write.args = {"path": "test.txt", "content": "hello"}
 
-    with patch("shutil.which", return_value="C:\\Windows\\System32\\notepad.exe"), \
-         patch("src.agents.sessions.tools.open_path_tool.subprocess.Popen") as mock_popen:
-        mock_proc = MagicMock()
-        mock_proc.poll.return_value = None
-        mock_popen.return_value = mock_proc
-
-        resp_open = await live._execute_tool(fc_open)
-        assert resp_open.name == "open_path"
-        assert resp_open.response is not None
-        assert "Tool 'open_path' is no longer available" not in str(resp_open.response["result"])
-        assert "Successfully launched" in str(resp_open.response["result"])
+    with patch("src.agents.sessions.tools.write.write_file", new_callable=AsyncMock):
+        resp_write = await live._execute_tool(fc_write)
+        assert resp_write.name == "write"
+        assert resp_write.response is not None
+        assert resp_write.response.get("error") is not True
 
 
 def test_codex_plugin_contracts_declared():

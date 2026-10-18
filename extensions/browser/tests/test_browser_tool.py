@@ -96,14 +96,14 @@ async def test_browser_tool_status_and_profiles():
     assert isinstance(res_status, AgentToolResult)
     data_status = json.loads(res_status.content[0].text)
     assert data_status["ok"] is True
-    assert data_status["profile"] == "openclaw"
+    assert data_status["profile"] == "jarvis"
 
     res_profiles = await tool.execute("call_profiles", {"action": "profiles"})
     assert isinstance(res_profiles, AgentToolResult)
     data_profiles = json.loads(res_profiles.content[0].text)
     assert data_profiles["ok"] is True
     profile_names = [p["name"] for p in data_profiles["profiles"]]
-    assert "openclaw" in profile_names
+    assert "jarvis" in profile_names
 
 
 @pytest.mark.asyncio

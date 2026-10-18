@@ -44,8 +44,6 @@ def create_process_tool_definition(
         )
 
         if action in ("open", "open_path", "start", "launch"):
-            from .open_path_tool import create_open_path_tool_definition
-
             target_val = (
                 session_id
                 or params.get("target")
@@ -54,14 +52,31 @@ def create_process_tool_definition(
                 or params.get("app")
                 or ""
             )
-            open_tool = create_open_path_tool_definition(cwd, options)
-            return await open_tool["execute"](
-                tool_call_id,
-                {"target": target_val},
-                signal=signal,
-                on_update=on_update,
-                ctx=ctx,
-            )
+            if not target_val:
+                return {
+                    "content": [{"type": "text", "text": "No target specified to open or launch."}],
+                    "details": {"action": action, "launched": False, "error": "missing target"},
+                }
+            try:
+                if sys.platform == "win32":
+                    import os
+
+                    os.startfile(target_val)
+                elif sys.platform == "darwin":
+                    subprocess.Popen(["open", target_val])
+                else:
+                    subprocess.Popen(["xdg-open", target_val])
+                return {
+                    "content": [
+                        {"type": "text", "text": f"Successfully launched '{target_val}'."}
+                    ],
+                    "details": {"target": target_val, "launched": True},
+                }
+            except Exception as e:
+                return {
+                    "content": [{"type": "text", "text": f"Failed to launch '{target_val}': {e}"}],
+                    "details": {"target": target_val, "launched": False, "error": str(e)},
+                }
 
         if action in ("minimize", "minimize_all", "show_desktop"):
             if sys.platform == "win32":

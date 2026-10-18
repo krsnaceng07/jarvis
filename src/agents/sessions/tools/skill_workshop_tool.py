@@ -140,7 +140,7 @@ def create_skill_workshop_tool_definition(
                     "details": {"error": str(e)},
                 }
 
-        elif action in ("read", "inspect"):
+        elif action in ("read", "inspect", "view"):
             target_name = skill_name or proposal_id
             target_file = Path(workspace_dir) / "skills" / target_name / "SKILL.md"
             if target_file.exists():
@@ -169,6 +169,111 @@ def create_skill_workshop_tool_definition(
                 "details": {"found": False},
             }
 
+        elif action in ("write_file", "add_file"):
+            if not skill_name:
+                raise ValueError("'name' is required for action='write_file'")
+            file_path = params.get("file_path") or params.get("path")
+            if not file_path:
+                raise ValueError("'file_path' is required for action='write_file'")
+            content = params.get("content", "")
+            reason = params.get("reason")
+            out_p = service.write_support_file(skill_name, file_path, content, reason=reason)
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Successfully wrote file '{file_path}' for skill '{skill_name}'.",
+                    }
+                ],
+                "details": {
+                    "status": "written",
+                    "skill": skill_name,
+                    "file_path": str(file_path),
+                },
+            }
+
+        elif action == "patch":
+            if not skill_name:
+                raise ValueError("'name' is required for action='patch'")
+            old_text = params.get("old_text", "")
+            new_text = params.get("new_text", "")
+            target_file = Path(workspace_dir) / "skills" / skill_name / "SKILL.md"
+            if not target_file.exists():
+                raise FileNotFoundError(f"Skill '{skill_name}' does not exist")
+            raw = target_file.read_text(encoding="utf-8")
+            if old_text not in raw:
+                raise ValueError(f"old_text not found in {target_file}")
+            patched = raw.replace(old_text, new_text, 1)
+            target_file.write_text(patched, encoding="utf-8")
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Successfully patched skill '{skill_name}'.",
+                    }
+                ],
+                "details": {
+                    "status": "patched",
+                    "skill": skill_name,
+                },
+            }
+
+        elif action == "archive":
+            if not skill_name:
+                raise ValueError("'name' is required for action='archive'")
+            reason = params.get("reason")
+            archive_path = service.archive_skill(skill_name, reason=reason)
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Successfully archived skill '{skill_name}' to {archive_path}.",
+                    }
+                ],
+                "details": {
+                    "status": "archived",
+                    "skill": skill_name,
+                    "path": str(archive_path),
+                },
+            }
+
+        elif action == "restore":
+            if not skill_name:
+                raise ValueError("'name' is required for action='restore'")
+            restored_path = service.restore_skill(skill_name)
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Successfully restored skill '{skill_name}' from archive.",
+                    }
+                ],
+                "details": {
+                    "status": "restored",
+                    "skill": skill_name,
+                    "path": str(restored_path),
+                },
+            }
+
+        elif action == "install":
+            source = params.get("source") or params.get("url") or skill_name
+            if not source:
+                raise ValueError("'source' or 'name' is required for action='install'")
+            installed_dir = service.install_skill(source, name=skill_name or None)
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Successfully installed skill '{installed_dir.name}' from '{source}'.",
+                    }
+                ],
+                "details": {
+                    "status": "installed",
+                    "skill": installed_dir.name,
+                    "path": str(installed_dir),
+                },
+            }
+
         else:
             return {"content": [{"type": "text", "text": f"Unsupported action: {action}"}]}
 
@@ -186,8 +291,8 @@ def create_skill_workshop_tool_definition(
             "properties": {
                 "action": {
                     "type": "string",
-                    "enum": ["create", "apply", "list", "inspect", "read"],
-                    "description": "Action: 'create' (create new skill), 'apply' (commit proposal), 'list' (list skills), 'inspect' (read skill).",
+                    "enum": ["create", "apply", "list", "inspect", "read", "view", "write_file", "patch", "archive", "restore", "install"],
+                    "description": "Action: 'create' | 'apply' | 'list' | 'inspect' | 'view' | 'write_file' | 'patch' | 'archive' | 'restore' | 'install'.",
                 },
                 "name": {
                     "type": "string",

@@ -224,13 +224,16 @@ from .bash import (
 
 from .exec_tool import create_exec_tool
 from .process_tool import create_process_tool
-from .mkdir_tool import create_mkdir_tool, create_mkdir_tool_definition
-from .remove_path_tool import create_remove_path_tool, create_remove_path_tool_definition
-from .rename_path_tool import create_rename_path_tool, create_rename_path_tool_definition
-from .open_path_tool import create_open_path_tool, create_open_path_tool_definition
 from .skill_workshop_tool import create_skill_workshop_tool, create_skill_workshop_tool_definition
-from .audio_tool import create_audio_tool, create_audio_tool_definition
-from .system_info_tool import create_system_info_tool, create_system_info_tool_definition
+from .goal_tools import (
+    create_create_goal_tool,
+    create_get_goal_tool,
+    create_update_goal_tool,
+)
+from .plugins_tool import (
+    create_plugins_tool,
+    create_plugins_tool_definition,
+)
 from .web_search_tool import create_web_search_tool, create_web_search_tool_definition
 from .web_fetch_tool import create_web_fetch_tool, create_web_fetch_tool_definition
 from .automations_tool import create_automations_tool, create_automations_tool_definition
@@ -334,12 +337,6 @@ def create_coding_tools(
             cwd, workspace_only=opts.get("workspace_only", False), options=opts
         ),
         create_write_tool(cwd, opts),
-        create_mkdir_tool(cwd, opts),
-        create_remove_path_tool(cwd, opts),
-        create_rename_path_tool(cwd, opts),
-        create_open_path_tool(cwd, opts),
-        create_audio_tool(opts),
-        create_system_info_tool(opts),
         create_web_search_tool(opts),
         create_ls_tool(cwd, options=opts),
         create_message_tool(opts),
@@ -556,20 +553,7 @@ __all__ = [
     "create_ls_tool",
     "create_ls_tool_definition",
     "list_directory",
-    # Host control & folder operations
-    "create_mkdir_tool",
-    "create_mkdir_tool_definition",
-    "create_remove_path_tool",
-    "create_remove_path_tool_definition",
-    "create_rename_path_tool",
-    "create_rename_path_tool_definition",
-    "create_open_path_tool",
-    "create_open_path_tool_definition",
-    # Audio, system info, and web search tools
-    "create_audio_tool",
-    "create_audio_tool_definition",
-    "create_system_info_tool",
-    "create_system_info_tool_definition",
+    # Web search tools
     "create_web_search_tool",
     "create_web_search_tool_definition",
     # Channel tools
@@ -587,4 +571,10 @@ __all__ = [
     "create_pdf_tool_definition",
     "create_secrets_tool",
     "create_secrets_tool_definition",
+    # Goal and plugin tools (OpenClaw parity)
+    "create_create_goal_tool",
+    "create_get_goal_tool",
+    "create_update_goal_tool",
+    "create_plugins_tool",
+    "create_plugins_tool_definition",
 ]
