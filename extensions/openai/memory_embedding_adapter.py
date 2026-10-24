@@ -156,7 +156,7 @@ class OpenAiMemoryEmbeddingAdapter(MemoryEmbeddingProviderAdapter):
     ) -> OpenAiEmbeddingCreateResult | None:
         api_key = _resolve_api_key(config, **options)
         if not api_key:
-            _log.warning("OpenAI embedding adapter: no API key found")
+            _log.debug("OpenAI embedding adapter: no API key found")
             return None
 
         selected_model = model or DEFAULT_OPENAI_EMBEDDING_MODEL

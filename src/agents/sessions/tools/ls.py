@@ -47,7 +47,7 @@ from typing import Any, Optional, Protocol, Union, runtime_checkable
 
 from ..extensions.types import AgentToolResult, ToolDefinition
 from .limits import normalize_positive_limit
-from .path_utils import discover_system_drives, is_drive_available, resolve_to_cwd
+from .path_utils import discover_system_drives, is_drive_available, resolve_unicode_path
 from .truncate import DEFAULT_MAX_BYTES, format_size, truncate_head
 
 
@@ -138,7 +138,7 @@ async def list_directory(
         }
 
     # Resolve path
-    dir_path = resolve_to_cwd(path or ".", cwd or os.getcwd())
+    dir_path = resolve_unicode_path(path or ".", cwd or os.getcwd())
     # Check existence
     if not await _maybe_await(ops.exists(dir_path)):
         if sys.platform == "win32" and not is_drive_available(dir_path):
@@ -239,7 +239,7 @@ def create_ls_tool_definition(
             }
 
         # Resolve path
-        resolved = resolve_to_cwd(path or ".", cwd)
+        resolved = resolve_unicode_path(path or ".", cwd)
 
         # Apply sandbox tool policy and path containment
         from ...sandbox import guard_sandbox_tool_access

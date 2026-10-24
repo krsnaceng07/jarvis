@@ -52,6 +52,13 @@ class PluginApiRegistrationsA(PluginApiInit):
         optional: bool = False,
     ) -> None:
         """Register a tool. Mirrors OpenClaw's ``registerTool``."""
+        cap_contract = getattr(self, "capability_contract", None)
+        if cap_contract is not None:
+            t_name = name or (getattr(tool, "name", None) if tool else None) or "tool"
+            res = cap_contract.verify_action(t_name, "tool:execute")
+            if not res.is_ok:
+                raise PermissionError(f"Capability ladder violation: {res.error.reason}")
+
         if tool is None and name is not None:
 
             class _DynamicTool:

@@ -132,14 +132,67 @@ def _make_automation_handler(job_id: str, payload: str) -> Any:
 
     async def _handler() -> None:
         _log.info("[AUTOMATION] Fired job '%s' with payload: %s", job_id, payload)
-        # Record execution event into transcript or notification queue if available
+        clean_p = payload.strip() if payload else ""
+
+        # 1. Record execution event into persistent SQLite transcript store
+        try:
+            from src.agents.task.session_transcript_store import SessionTranscriptStore
+
+            store = SessionTranscriptStore()
+            store.add_turn(
+                "system",
+                f"[AUTOMATION TRIGGERED] Job '{job_id}' executed. Payload: {clean_p or '(no instruction)'}",
+            )
+        except Exception as store_err:
+            _log.debug("Notice: Could not record automation to transcript store: %s", store_err)
+
+        # 2. Push real-time spoken announcement to active Gemini Live voice engine if connected
+        try:
+            from packages.voice_pipeline.src.jarvis_voice_pipeline.terminal_app import (
+                NativeGeminiLiveEngine,
+            )
+
+            engine = NativeGeminiLiveEngine.get_active_engine()
+            if engine is not None and not engine.stop_event.is_set():
+                notification = (
+                    f"[SCHEDULED REMINDER / AUTOMATION] Job '{job_id}' has triggered! Instruction: {clean_p}. "
+                    f"Briefly inform Sir in 1 warm, natural sentence in Nepali that this scheduled reminder or automation has triggered."
+                )
+                engine.post_system_notification(notification)
+        except Exception as notify_err:
+            _log.debug("Notice: Could not post notification to active engine: %s", notify_err)
+
+        # 3. If payload contains an executable action or task, spawn a subagent to execute it in background
+        p_lower = clean_p.lower()
+        if clean_p and (
+            p_lower.startswith(("exec:", "run:", "command:", "task:", "subagent:", "do:"))
+            or any(p_lower.startswith(pref) for pref in ("dir", "python ", "git ", "ls ", "uv "))
+        ):
+            try:
+                from src.agents.sessions.tools.subagent_tools import get_default_spawner
+                from src.agents.subagents import (
+                    SpawnSubagentParams,
+                    SubagentSpawnContextMode,
+                )
+
+                spawner = get_default_spawner()
+                params = SpawnSubagentParams(
+                    task=clean_p,
+                    label=f"cron_{job_id}",
+                    context=SubagentSpawnContextMode.ISOLATED,
+                )
+                await spawner.spawn(params)
+            except Exception as spawner_err:
+                _log.warning("Automation subagent dispatch error: %s", spawner_err)
+
+        # 4. Canonical desktop event emit
         try:
             from apps.desktop.src.jarvis_desktop.app import _emit_canonical_event
 
             _emit_canonical_event(
                 event_type="automation_job_fired",
                 tool_name="automations",
-                args={"job_id": job_id, "payload": payload},
+                args={"job_id": job_id, "payload": clean_p},
             )
         except Exception:
             pass
@@ -165,9 +218,54 @@ def create_automations_tool_definition(
         if signal is not None and getattr(signal, "is_set", lambda: False)():
             raise RuntimeError("Operation aborted")
 
-        action = str(params.get("action", "")).strip().lower()
-        if not action:
-            raise ValueError("action is required (must be one of: list, create, delete, status).")
+        raw_action = str(params.get("action", "")).strip().lower()
+        if not raw_action:
+            raise ValueError(
+                "action is required (must be one of: list, create, add, delete, remove, status, get, run)."
+            )
+
+        # Normalize action aliases
+        if raw_action in ("create", "add", "new", "schedule", "set"):
+            action = "create"
+        elif raw_action in ("delete", "remove", "cancel", "rm", "del", "clear"):
+            action = "delete"
+        elif raw_action in ("list", "ls", "all", "show"):
+            action = "list"
+        elif raw_action in ("status", "get", "info", "check", "inspect"):
+            action = "status"
+        elif raw_action in ("run", "trigger", "fire", "execute"):
+            action = "run"
+        else:
+            action = raw_action
+
+        # Flexible parameter aliases
+        job_id = str(
+            params.get("job_id")
+            or params.get("job")
+            or params.get("jobId")
+            or params.get("id")
+            or params.get("name")
+            or ""
+        ).strip()
+
+        schedule_str = str(
+            params.get("schedule")
+            or params.get("when")
+            or params.get("time")
+            or params.get("cron")
+            or ""
+        ).strip()
+
+        payload_str = str(
+            params.get("payload")
+            or params.get("prompt")
+            or params.get("message")
+            or params.get("instruction")
+            or params.get("task")
+            or params.get("text")
+            or params.get("command")
+            or ""
+        ).strip()
 
         from extensions.cron.runtime import CronTable
 
@@ -227,22 +325,17 @@ def create_automations_tool_definition(
 
         # ── ACTION: CREATE ────────────────────────────────────────────
         elif action == "create":
-            raw_sched = str(params.get("schedule", "")).strip()
-            if not raw_sched:
+            if not schedule_str:
                 raise ValueError("schedule is required for 'create' action.")
 
-            norm_schedule = _normalize_schedule(raw_sched)
-
-            raw_job = str(params.get("job_id") or params.get("job", "")).strip()
-            job_id = raw_job or f"job_{int(time.time())}_{uuid.uuid4().hex[:4]}"
-
-            payload_str = str(params.get("prompt") or params.get("payload", "")).strip()
-            description_str = payload_str or f"Automation job {job_id}"
+            norm_schedule = _normalize_schedule(schedule_str)
+            target_job_id = job_id or f"job_{int(time.time())}_{uuid.uuid4().hex[:4]}"
+            description_str = payload_str or f"Automation job {target_job_id}"
 
             job_decl = CronDecl(
-                id=job_id,
+                id=target_job_id,
                 schedule=norm_schedule,
-                handler=_make_automation_handler(job_id, payload_str),
+                handler=_make_automation_handler(target_job_id, payload_str),
                 description=description_str,
                 enabled=True,
                 automation_payload={"payload": payload_str} if payload_str else None,
@@ -253,7 +346,7 @@ def create_automations_tool_definition(
                 runner.add(job_decl)
 
             msg = (
-                f"Successfully scheduled automation job '{job_id}'.\n"
+                f"Successfully scheduled automation job '{target_job_id}'.\n"
                 f"- Schedule: '{norm_schedule}'\n"
                 f"- Payload: '{payload_str or '(None)'}'\n"
                 f"- Status: Active"
@@ -262,7 +355,7 @@ def create_automations_tool_definition(
                 "content": [{"type": "text", "text": msg}],
                 "details": {
                     "action": "create",
-                    "job_id": job_id,
+                    "job_id": target_job_id,
                     "schedule": norm_schedule,
                     "payload": payload_str,
                     "created": True,
@@ -272,7 +365,6 @@ def create_automations_tool_definition(
 
         # ── ACTION: DELETE ────────────────────────────────────────────
         elif action == "delete":
-            job_id = str(params.get("job_id") or params.get("job", "")).strip()
             if not job_id:
                 raise ValueError("job ID is required for 'delete' action.")
 
@@ -308,11 +400,50 @@ def create_automations_tool_definition(
                     },
                 }
 
+        # ── ACTION: RUN (TRIGGER IMMEDIATELY) ─────────────────────────
+        elif action == "run":
+            if not job_id:
+                raise ValueError("job ID is required for 'run' action.")
+            decl = table.get(job_id)
+            if decl is None:
+                return {
+                    "content": [{"type": "text", "text": f"Automation job '{job_id}' not found."}],
+                    "details": {"action": "run", "job_id": job_id, "success": False},
+                }
+            run_ok = False
+            if runner is not None and hasattr(runner, "run_job"):
+                run_ok = runner.run_job(job_id)
+            else:
+                try:
+                    res = decl.handler()
+                    import asyncio
+
+                    if asyncio.iscoroutine(res):
+                        await res
+                    run_ok = True
+                except Exception as run_err:
+                    return {
+                        "content": [
+                            {"type": "text", "text": f"Error running job '{job_id}': {run_err}"}
+                        ],
+                        "details": {
+                            "action": "run",
+                            "job_id": job_id,
+                            "success": False,
+                            "error": str(run_err),
+                        },
+                    }
+            return {
+                "content": [
+                    {"type": "text", "text": f"Successfully triggered automation job '{job_id}'."}
+                ],
+                "details": {"action": "run", "job_id": job_id, "success": run_ok},
+            }
+
         # ── ACTION: STATUS ────────────────────────────────────────────
         elif action == "status":
-            target_job_id = str(params.get("job_id") or params.get("job", "")).strip()
-            if target_job_id:
-                decl = table.get(target_job_id)
+            if job_id:
+                decl = table.get(job_id)
                 if decl is not None:
                     p_text = ""
                     if decl.automation_payload:
@@ -323,7 +454,7 @@ def create_automations_tool_definition(
                             {
                                 "type": "text",
                                 "text": (
-                                    f"Automation Job '{target_job_id}':\n"
+                                    f"Automation Job '{job_id}':\n"
                                     f"• Schedule: {decl.schedule}\n"
                                     f"• Status: {status_str}\n"
                                     f"• Description/Prompt: {decl.description or p_text}"
@@ -332,7 +463,7 @@ def create_automations_tool_definition(
                         ],
                         "details": {
                             "action": "status",
-                            "job_id": target_job_id,
+                            "job_id": job_id,
                             "job": {
                                 "id": decl.id,
                                 "schedule": decl.schedule,
@@ -346,11 +477,11 @@ def create_automations_tool_definition(
                 else:
                     return {
                         "content": [
-                            {"type": "text", "text": f"Automation job '{target_job_id}' not found."}
+                            {"type": "text", "text": f"Automation job '{job_id}' not found."}
                         ],
                         "details": {
                             "action": "status",
-                            "job_id": target_job_id,
+                            "job_id": job_id,
                             "job": None,
                             "success": False,
                         },
@@ -381,7 +512,7 @@ def create_automations_tool_definition(
 
         else:
             raise ValueError(
-                f"Unknown action '{action}'. Supported actions are: 'list', 'create', 'delete', 'status'."
+                f"Unknown action '{action}'. Supported actions are: 'list', 'create', 'add', 'delete', 'remove', 'status', 'run'."
             )
 
     return {
@@ -390,29 +521,38 @@ def create_automations_tool_definition(
             "Agent cron and task scheduling tool. "
             "Actions: "
             "1. 'list': Show all scheduled jobs. "
-            "2. 'create': Schedule a new job with job ID, schedule (cron expression or seconds), and payload. "
-            "3. 'delete': Remove a scheduled job by job ID. "
-            "4. 'status': Check scheduler engine status."
+            "2. 'create' / 'add': Schedule a new job with job ID, schedule (cron expression or seconds), and payload. "
+            "3. 'delete' / 'remove': Remove a scheduled job by job ID. "
+            "4. 'status' / 'get': Check scheduler engine status or specific job. "
+            "5. 'run': Trigger an immediate execution of a scheduled job."
         ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "action": {
                     "type": "STRING",
-                    "description": "Scheduling action: 'list', 'create', 'delete', or 'status'.",
-                    "enum": ["list", "create", "delete", "status"],
+                    "description": "Scheduling action: 'list', 'create', 'add', 'delete', 'remove', 'status', or 'run'.",
+                    "enum": ["list", "create", "add", "delete", "remove", "status", "run"],
                 },
                 "job": {
                     "type": "STRING",
-                    "description": "Identifier for the job. Required for 'delete', optional for 'create'.",
+                    "description": "Identifier for the job. Required for 'delete' or 'run', optional for 'create'.",
+                },
+                "job_id": {
+                    "type": "STRING",
+                    "description": "Alias for job.",
                 },
                 "schedule": {
                     "type": "STRING",
-                    "description": "Cron expression ('*/5 * * * *'), ISO timestamp, or relative delay in seconds (e.g. '300' for 5 minutes). Required for 'create'.",
+                    "description": "Cron expression ('*/5 * * * *'), ISO timestamp, or relative delay in seconds (e.g. '300' or '5m'). Required for 'create'.",
                 },
                 "payload": {
                     "type": "STRING",
                     "description": "Prompt instruction or action string to execute when the schedule triggers. Optional for 'create'.",
+                },
+                "prompt": {
+                    "type": "STRING",
+                    "description": "Alias for payload.",
                 },
             },
             "required": ["action"],

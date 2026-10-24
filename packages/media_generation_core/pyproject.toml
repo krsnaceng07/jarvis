@@ -1,0 +1,15 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jarvis-media-generation-core"
+version = "0.1.0"
+description = "Media generation contracts, pipelines, and prompt synthesis"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "JARVIS architect" }]
+dependencies = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jarvis_media_generation_core"]

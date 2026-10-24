@@ -5,7 +5,9 @@ description = "JARVIS gateway protocol — JSON-RPC schema for gateway ↔ clien
 readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "websockets>=12.0",
+]
 
 [build-system]
 requires = ["hatchling"]

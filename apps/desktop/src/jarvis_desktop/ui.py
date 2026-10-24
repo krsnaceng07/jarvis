@@ -319,7 +319,7 @@ _metrics = _SysMetrics()
 
 
 class HudCanvas(QWidget):
-    def __init__(self, face_path: str, parent=None):
+    def __init__(self, face_path: str = "", parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent)
         self.setMinimumSize(300, 300)
@@ -562,9 +562,15 @@ class HudCanvas(QWidget):
         elif self.state == "PROCESSING":
             sym = "▷" if self._blink else "▶"
             txt, col = f"{sym}  PROCESSING", qcol(C.ACC2)
+        elif self.state == "HEARING":
+            sym = "◉"
+            txt, col = f"{sym}  HEARING YOU...", qcol(C.ACC)
         elif self.state == "LISTENING":
             sym = "●" if self._blink else "○"
             txt, col = f"{sym}  LISTENING", qcol(C.GREEN)
+        elif self.state == "STANDBY":
+            sym = "☾" if self._blink else "☽"
+            txt, col = f"{sym}  STANDBY (SAY 'HEY JARVIS')", qcol(C.MUTED_C)
         else:
             sym = "●" if self._blink else "○"
             txt, col = f"{sym}  {self.state}", qcol(C.PRI)
@@ -578,11 +584,14 @@ class HudCanvas(QWidget):
         N, bw = 36, 8
         wx0 = (W - N * bw) / 2
         for i in range(N):
-            if self.muted:
+            if self.muted or self.state == "STANDBY":
                 hgt, cl = 2, qcol(C.MUTED_C)
             elif self.speaking:
                 hgt = random.randint(3, 20)
                 cl = qcol(C.PRI) if hgt > 12 else qcol(C.PRI_DIM)
+            elif self.state == "HEARING":
+                hgt = random.randint(4, 22)
+                cl = qcol(C.ACC) if hgt > 12 else qcol(C.ACC2)
             else:
                 hgt = int(3 + 2 * math.sin(self._tick * 0.09 + i * 0.6))
                 cl = qcol(C.BORDER_B)
@@ -1166,8 +1175,9 @@ class SetupOverlay(QWidget):
 class MainWindow(QMainWindow):
     _log_sig = pyqtSignal(str)
     _state_sig = pyqtSignal(str)
+    _live_transcript_sig = pyqtSignal(str)
 
-    def __init__(self, face_path: str):
+    def __init__(self, face_path: str = ""):
         super().__init__()
         self.setWindowTitle("J.A.R.V.I.S — MARK XXXIX")
         self.setMinimumSize(_MIN_W, _MIN_H)
@@ -1222,6 +1232,7 @@ class MainWindow(QMainWindow):
 
         self._log_sig.connect(self._log.append_log)
         self._state_sig.connect(self._apply_state)
+        self._live_transcript_sig.connect(self._set_live_transcript)
 
         self._overlay: SetupOverlay | None = None
         self._ready = self._check_config()
@@ -1601,6 +1612,12 @@ class MainWindow(QMainWindow):
         self.hud.state = state
         self.hud.speaking = state == "SPEAKING"
 
+    def _set_live_transcript(self, text: str):
+        if text:
+            self._input.setPlaceholderText(f"🎤 {text}")
+        else:
+            self._input.setPlaceholderText("Type a command or question...")
+
     def _check_config(self) -> bool:
         if not API_FILE.exists():
             return False
@@ -1656,11 +1673,13 @@ class _RootShim:
 
 
 class JarvisUI:
-    def __init__(self, face_path: str, size=None):
+    def __init__(self, face_path: str = "", size=None):
         self._app = QApplication.instance() or QApplication(sys.argv)
         self._app.setStyle("Fusion")
         self._win = MainWindow(face_path)
-        self._win.show()
+        self._win.showNormal()
+        self._win.raise_()
+        self._win.activateWindow()
         self.root = _RootShim(self._app)
         self._state: str = "INITIALISING"
 
@@ -1697,6 +1716,9 @@ class JarvisUI:
 
     def write_log(self, text: str):
         self._win._log_sig.emit(text)
+
+    def set_live_transcript(self, text: str):
+        self._win._live_transcript_sig.emit(text)
 
     def wait_for_api_key(self):
         while not self._win._ready:

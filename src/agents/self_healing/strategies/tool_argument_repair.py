@@ -44,12 +44,6 @@ PARAM_ALIASES: dict[str, dict[str, str]] = {
         "file_path": "path",
         "filename": "path",
     },
-    "mkdir": {
-        "dir": "path",
-        "directory": "path",
-        "folder": "path",
-        "dirpath": "path",
-    },
     "ls": {
         "dir": "path",
         "directory": "path",
@@ -67,14 +61,6 @@ PARAM_ALIASES: dict[str, dict[str, str]] = {
         "proc": "session_id",
         "pid": "session_id",
         "app": "session_id",
-    },
-    "open_path": {
-        "path": "target",
-        "app": "target",
-        "application": "target",
-        "folder": "target",
-        "dir": "target",
-        "directory": "target",
     },
 }
 
@@ -188,32 +174,7 @@ class ToolArgumentRepairStrategy(RecoveryStrategy):
             elif "new_text" in repaired and "newText" not in repaired:
                 repaired["newText"] = repaired["new_text"]
 
-        # 6. Target phrase cleaning for open_path
-        if (
-            tool_name == "open_path"
-            and "target" in repaired
-            and isinstance(repaired["target"], str)
-        ):
-            t_val = repaired["target"].strip()
-            cleaned_t = re.sub(
-                r"^(?:open|launch|start|run)\s+", "", t_val, flags=re.IGNORECASE
-            ).strip()
-            cleaned_t = re.sub(
-                r"\s+on\s+(?:the\s+)?(?:pc|computer|windows|host)$",
-                "",
-                cleaned_t,
-                flags=re.IGNORECASE,
-            ).strip()
-            cleaned_t = re.sub(r"\s+in\s+windows$", "", cleaned_t, flags=re.IGNORECASE).strip()
-            if cleaned_t.lower() in ("notepad.py", "notepad.exe"):
-                if not Path(cleaned_t).exists():
-                    cleaned_t = "notepad"
-                    changes.append("Heuristically repaired target 'notepad.py' to 'notepad'")
-            if cleaned_t != t_val:
-                repaired["target"] = cleaned_t
-                changes.append(f"Cleaned target phrase: '{t_val}' -> '{cleaned_t}'")
-
-        # 7. Dual alias sync for process tool
+        # 6. Dual alias sync for process tool
         if tool_name == "process":
             if "session_id" in repaired and "sessionId" not in repaired:
                 repaired["sessionId"] = repaired["session_id"]

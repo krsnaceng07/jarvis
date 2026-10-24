@@ -166,6 +166,9 @@ class JarvisConfig:
     # Internal hooks
     hooks: dict[str, Any] = field(default_factory=dict)
 
+    # Messaging channels
+    channels: dict[str, Any] = field(default_factory=dict)
+
     @property
     def is_configured(self) -> bool:
         """True if a non-empty API key is present."""
@@ -268,6 +271,7 @@ class JarvisConfig:
                 )
             },
             "hooks": self.hooks,
+            "channels": self.channels,
         }
 
 
@@ -487,6 +491,9 @@ def _parse(raw: dict[str, Any]) -> JarvisConfig:
 
     if "hooks" in raw and isinstance(raw["hooks"], dict):
         kwargs["hooks"] = raw["hooks"]
+
+    if "channels" in raw and isinstance(raw["channels"], dict):
+        kwargs["channels"] = raw["channels"]
 
     unknown = set(raw) - known
     if unknown:

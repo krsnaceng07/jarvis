@@ -7,6 +7,16 @@
     "onStartup": true
   },
   "enabledByDefault": true,
+  "permissions": [
+    "tool:execute",
+    "input:synthesize",
+    "screen:capture",
+    "overlay:draw",
+    "process:inspect"
+  ],
+  "contracts": {
+    "tools": ["computer"]
+  },
   "configSchema": {
     "type": "object",
     "additionalProperties": false,

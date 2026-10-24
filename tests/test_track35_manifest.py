@@ -19,12 +19,12 @@ from pathlib import Path
 
 import pytest
 
+from tools.qa.generate_manifest import build_manifest_data
 from tools.qa.manifest_validator import (
     ManifestValidationError,
     compute_manifest_hash,
     validate_manifest,
 )
-from tools.qa.generate_manifest import build_manifest_data
 
 MANIFEST_PATH = Path("qa/manifests/track35_evidence_manifest.json")
 SCHEMA_PATH = Path("qa/manifests/track35_evidence_manifest.schema.json")

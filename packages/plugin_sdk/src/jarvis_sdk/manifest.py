@@ -92,9 +92,20 @@ class PluginManifestSummary:
     channels: list[str] = field(default_factory=list)
     providers: list[str] = field(default_factory=list)
     cli_commands: list[str] = field(default_factory=list)
+    contracts: dict[str, Any] = field(default_factory=dict)
+    capability_tier: str | None = None
 
+
+from .capability_ladder import (
+    CapabilityLadderContract,
+    CapabilityTier,
+    CapabilityViolationError,
+)
 
 __all__ = [
+    "CapabilityLadderContract",
+    "CapabilityTier",
+    "CapabilityViolationError",
     "PluginActivation",
     "PluginBundleFormat",
     "PluginFormat",

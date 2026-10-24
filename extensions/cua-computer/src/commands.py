@@ -1,6 +1,8 @@
 """CUA Computer provider command execution.
 
 OpenClaw parity: mirrors extensions/cua-computer/src/commands.ts.
+Supports tiered execution via TierRouter (Tier 0 Browser -> Tier 1 UIA -> Tier 2 Overlay Real Input)
+and mock mode for testing environments.
 """
 
 from __future__ import annotations
@@ -12,13 +14,32 @@ from .actions import normalize_key, normalize_modifiers
 
 
 class CuaComputerProvider:
-    def __init__(self, platform: str | None = None, driver_client: Any = None):
+    def __init__(
+        self,
+        platform: str | None = None,
+        driver_client: Any = None,
+        router: Any = None,
+        use_real_input: bool = False,
+    ):
         self.platform = platform or sys.platform
         self.driver_client = driver_client
+        self.use_real_input = use_real_input
+        self._router = router
         self._cursor_x = 0
         self._cursor_y = 0
 
+    @property
+    def router(self) -> Any:
+        if self._router is None and self.use_real_input:
+            from .router import TierRouter
+            self._router = TierRouter()
+        return self._router
+
     async def execute_action(self, action: str, params: dict[str, Any]) -> dict[str, Any]:
+        if self.use_real_input and self.router is not None:
+            return await self.router.execute_action("cua_session", action, params)
+
+        # Mock / Fallback execution path
         if action == "cursor_position":
             return {"x": self._cursor_x, "y": self._cursor_y}
 
@@ -80,5 +101,13 @@ class CuaComputerProvider:
         raise ValueError(f"Unknown computer action: {action}")
 
 
-def create_cua_computer_provider(platform: str | None = None) -> CuaComputerProvider:
-    return CuaComputerProvider(platform=platform)
+def create_cua_computer_provider(
+    platform: str | None = None,
+    router: Any = None,
+    use_real_input: bool = False,
+) -> CuaComputerProvider:
+    return CuaComputerProvider(
+        platform=platform,
+        router=router,
+        use_real_input=use_real_input,
+    )

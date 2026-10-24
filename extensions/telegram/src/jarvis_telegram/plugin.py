@@ -128,14 +128,39 @@ class TelegramChannelPlugin(ChannelPlugin):
             if auto_listen and self._callback is not None:
                 self.worker.start()
 
+    def _ensure_client(self) -> None:
+        """Attempt to initialize client from environment or canonical config if not yet set."""
+        if self.client:
+            return
+        import os
+        token = os.environ.get("TELEGRAM_BOT_TOKEN")
+        if not token:
+            try:
+                import json
+                from pathlib import Path
+                cfg_path = Path.home() / ".jarvis" / "config.json"
+                if cfg_path.is_file():
+                    data = json.loads(cfg_path.read_text(encoding="utf-8"))
+                    channels = data.get("channels", {})
+                    tg = channels.get("telegram", {}) if isinstance(channels, dict) else {}
+                    token = tg.get("botToken") or data.get("telegram_bot_token")
+            except Exception:
+                pass
+        if token:
+            self.client = TelegramClient(token=token)
+
     async def probe(self) -> dict[str, Any]:
         """Probe the Telegram bot token and retrieve bot metadata."""
+        if not self.client:
+            self._ensure_client()
         if not self.client:
             return {"ok": False, "error": "Telegram client not initialized (missing botToken)"}
         return await self.client.get_me()
 
     async def send(self, target: str, message: Any) -> Result[Any]:
         """Send a message to a Telegram target."""
+        if not self.client:
+            self._ensure_client()
         if not self.client:
             return Err("Telegram client not initialized")
 

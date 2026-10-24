@@ -1,14 +1,16 @@
 """Unit tests for cua-computer extension."""
 
 import asyncio
-import pytest
 
+import pytest
+from extensions.cua_computer.plugin import CuaComputerPlugin
 from extensions.cua_computer.src.actions import (
     modifier_alias,
     normalize_key,
     normalize_modifiers,
 )
 from extensions.cua_computer.src.commands import create_cua_computer_provider
+from jarvis_sdk import CapabilityLadderContract
 
 
 def test_modifier_alias():
@@ -69,3 +71,36 @@ def test_provider_actions():
     snap_res = asyncio.run(provider.execute_action("screenshot", {}))
     assert snap_res["ok"] is True
     assert snap_res["format"] == "png"
+
+
+def test_cua_plugin_registers_canonical_computer_tool():
+    class Api:
+        tools = []
+        doctor_contracts = []
+
+        def register_tool(self, tool, opts):
+            self.tools.append((tool, opts))
+
+        def register_doctor_contract(self, contract):
+            self.doctor_contracts.append(contract)
+
+    api = Api()
+    CuaComputerPlugin().register(api)
+
+    assert len(api.tools) == 1
+    tool, opts = api.tools[0]
+    assert [entry.name for entry in tool.tools] == ["computer"]
+    assert opts == {"names": ["computer"]}
+    assert len(api.doctor_contracts) == 1
+
+
+def test_cua_manifest_authorizes_registered_tool():
+    import json
+    from pathlib import Path
+
+    manifest_path = Path(__file__).parents[1] / "openclaw.plugin.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    contract = CapabilityLadderContract.from_manifest(manifest)
+
+    result = contract.verify_action("computer", "tool:execute")
+    assert result.is_ok

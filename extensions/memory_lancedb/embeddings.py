@@ -383,6 +383,24 @@ class ProviderAdapterEmbeddings(Embeddings):
 
         cfg = self._config_provider() if self._config_provider is not None else {}
         provider_id = self._provider_id
+        if provider_id == "auto":
+            try:
+                from extensions.openai.memory_embedding_adapter import _resolve_api_key as resolve_openai_key
+                openai_key = resolve_openai_key(cfg)
+            except Exception:
+                openai_key = None
+            try:
+                from extensions.google.memory_embedding_adapter import _resolve_api_key as resolve_google_key
+                google_key = resolve_google_key(cfg)
+            except Exception:
+                google_key = None
+            if openai_key:
+                provider_id = "openai"
+            elif google_key:
+                provider_id = "google"
+            else:
+                provider_id = "openai"
+
         adapter = get_provider(provider_id, cfg)
 
         # Provider fallback if requested provider is not found
@@ -416,37 +434,70 @@ class ProviderAdapterEmbeddings(Embeddings):
             create_kwargs["outputDimensionality"] = self._dimensions
             create_kwargs["dimensions"] = self._dimensions
 
+        created = None
         try:
             created = adapter.create(**create_kwargs)
             if asyncio.iscoroutine(created):
                 created = await created
         except Exception:
-            # If default provider creation fails (e.g. missing OpenAI API key), try Google fallback
-            if provider_id == "openai":
-                google_adapter = get_provider("google", cfg) or get_provider("gemini", cfg)
-                if google_adapter is not None:
-                    fb_model = getattr(google_adapter, "default_model", None) or "gemini-embedding-001"
-                    fb_kwargs: dict[str, Any] = {
-                        "config": cfg,
-                        "provider": "google",
-                        "fallback": "none",
-                        "model": fb_model,
-                    }
-                    if isinstance(self._dimensions, int):
-                        fb_kwargs["outputDimensionality"] = self._dimensions
-                    created = google_adapter.create(**fb_kwargs)
-                    if asyncio.iscoroutine(created):
-                        created = await created
-                    provider_id = "google"
-                else:
-                    raise
-            else:
-                raise
+            created = None
 
         prov = (
             getattr(created, "provider", None)
             or (created.get("provider") if isinstance(created, dict) else created)
         )
+
+        # Fallback if preferred provider is unavailable or produced no instance (e.g. missing API key)
+        if not prov and provider_id == "openai":
+            google_adapter = get_provider("google", cfg) or get_provider("gemini", cfg)
+            if google_adapter is not None:
+                fb_model = getattr(google_adapter, "default_model", None) or "gemini-embedding-001"
+                fb_kwargs: dict[str, Any] = {
+                    "config": cfg,
+                    "provider": "google",
+                    "fallback": "none",
+                    "model": fb_model,
+                }
+                if isinstance(self._dimensions, int):
+                    fb_kwargs["outputDimensionality"] = self._dimensions
+                try:
+                    fb_created = google_adapter.create(**fb_kwargs)
+                    if asyncio.iscoroutine(fb_created):
+                        fb_created = await fb_created
+                    prov = (
+                        getattr(fb_created, "provider", None)
+                        or (fb_created.get("provider") if isinstance(fb_created, dict) else fb_created)
+                    )
+                    if prov is not None:
+                        self._provider_id = "google"
+                except Exception as exc:
+                    _log.debug("Fallback to Google memory embedding adapter failed: %s", exc)
+
+        if not prov and provider_id in ("google", "gemini"):
+            openai_adapter = get_provider("openai", cfg)
+            if openai_adapter is not None:
+                fb_model = getattr(openai_adapter, "default_model", None) or "text-embedding-3-small"
+                fb_kwargs = {
+                    "config": cfg,
+                    "provider": "openai",
+                    "fallback": "none",
+                    "model": fb_model,
+                }
+                if isinstance(self._dimensions, int):
+                    fb_kwargs["outputDimensionality"] = self._dimensions
+                try:
+                    fb_created = openai_adapter.create(**fb_kwargs)
+                    if asyncio.iscoroutine(fb_created):
+                        fb_created = await fb_created
+                    prov = (
+                        getattr(fb_created, "provider", None)
+                        or (fb_created.get("provider") if isinstance(fb_created, dict) else fb_created)
+                    )
+                    if prov is not None:
+                        self._provider_id = "openai"
+                except Exception as exc:
+                    _log.warning("Fallback to OpenAI memory embedding adapter failed: %s", exc)
+
         if not prov:
             raise RuntimeError(f"Memory embedding provider {self._provider_id} is unavailable.")
         return prov

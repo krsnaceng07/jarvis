@@ -204,6 +204,32 @@ def scrub_anthropic_refusal_magic(prompt: str) -> str:
     )
 
 
+def build_error_agent_meta(
+    session_id: Optional[str] = None,
+    provider: Optional[str] = None,
+    model: Optional[str] = None,
+    **kwargs: Any,
+) -> Dict[str, Any]:
+    """Construct minimal agent metadata for error payloads."""
+    meta: Dict[str, Any] = {
+        "sessionId": session_id,
+        "provider": provider,
+        "model": model,
+    }
+    meta.update(kwargs)
+    return meta
+
+
+def resolve_max_run_retry_iterations(candidate_count: int = 1) -> int:
+    """Return max allowed run retry iterations given available candidates."""
+    return max(1, candidate_count)
+
+
+def resolve_reported_model_ref(model: Optional[str] = None) -> str:
+    """Return canonical model reference string."""
+    return str(model or "")
+
+
 __all__ = [
     "ANTHROPIC_MAGIC_STRING_REPLACEMENT",
     "ANTHROPIC_MAGIC_STRING_TRIGGER_REFUSAL",
@@ -217,10 +243,14 @@ __all__ = [
     "RuntimeAuthState",
     "SAME_MODEL_RATE_LIMIT_BACKOFF_STEP_MS",
     "SAME_MODEL_RATE_LIMIT_MAX_BACKOFF_MS",
+    "build_error_agent_meta",
+    "resolve_max_run_retry_iterations",
     "resolve_next_same_model_rate_limit_retry_count",
     "resolve_overload_failover_backoff_ms",
     "resolve_overload_profile_rotation_limit",
     "resolve_rate_limit_profile_rotation_limit",
+    "resolve_reported_model_ref",
     "resolve_same_model_rate_limit_retry_delay_ms",
     "scrub_anthropic_refusal_magic",
 ]
+

@@ -50,19 +50,21 @@ def create_web_search_tool(options: Optional[dict[str, Any]] = None) -> AgentToo
         signal: Any = None,
         on_update: Any = None,
     ) -> Any:
-        query = str(params.get("query", "")).strip()
+        query = str(params.get("query") or params.get("q") or params.get("search", "")).strip()
         if not query:
             return {
                 "content": [{"type": "text", "text": "Error: 'query' parameter is required for web_search."}]
             }
 
-        max_results = int(params.get("max_results", 5))
+        count = int(params.get("max_results") or params.get("count", 5))
         try:
-            results = await WebSearchProvider.search(query=query, max_results=max_results)
-            formatted = WebSearchProvider.format_results_for_prompt(results)
+            import asyncio
+            results_data = await asyncio.to_thread(WebSearchProvider.search, query=query, count=count)
+            formatted = WebSearchProvider.format_results_for_prompt(results_data)
+            items = results_data.get("results", []) if isinstance(results_data, dict) else results_data
             return {
                 "content": [{"type": "text", "text": formatted}],
-                "data": {"query": query, "count": len(results), "results": [r.to_dict() for r in results]},
+                "data": {"query": query, "count": len(items), "results": items},
             }
         except Exception as exc:
             return {

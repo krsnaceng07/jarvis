@@ -32,6 +32,9 @@ class TelegramClient:
             if data.get("ok"):
                 return data.get("result", [])
             _log.error("Telegram getUpdates error: %s", data.get("description"))
+        except httpx.RequestError:
+            # Re-raise network/DNS resolution errors so PollingWorker can apply backoff
+            raise
         except Exception as e:
             _log.warning("Telegram getUpdates request failed: %s", e)
         return []

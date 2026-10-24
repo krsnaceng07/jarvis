@@ -1,11 +1,11 @@
-"""Gateway server — mirrors OpenClaw's ``src/gateway/server/``.
+"""Gateway server — JARVIS micro-kernel communication layer.
 
-Phase 3. The gateway is a WebSocket and HTTP server that:
+The gateway is a WebSocket and HTTP server that:
   - Listens on a configurable host:port (default ``127.0.0.1:7433`` —
     matches the JARVIS lock-in from the migration plan).
-  - Retries on EADDRINUSE (20 x 500ms — same as OpenClaw's
-    ``EADDRINUSE_MAX_RETRIES`` x ``EADDRINUSE_RETRY_INTERVAL_MS``).
-  - Routes WebSocket clients (Control plane, Nodes) via OpenClaw wire format.
+  - Retries on EADDRINUSE (20 x 500ms).
+  - Routes WebSocket clients (HUD, CLI, TUI, Web Control UI, Nodes) via JSON-RPC 2.0 frames.
+  - Streams progressive draft previews (event.agent.draft) and lifecycle events to clients.
   - Routes HTTP requests to plugin HTTP handlers (registered via
     ``api.register_http_handler({ path, handler, auth, match })``).
 """
@@ -33,6 +33,7 @@ from .chat_handlers import make_chat_handlers
 from .cron_handlers import make_cron_handlers
 from .sessions_handlers import make_sessions_handlers
 from .tasks_handlers import make_tasks_handlers
+from .client import GatewayWSClient
 
 if TYPE_CHECKING:
     pass
@@ -103,9 +104,11 @@ class Gateway:
         self._server: Any = None
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
+        self._active_connections: set[GatewayWSConnection] = set()
+        self._conn_lock = threading.Lock()
 
-        # In OpenClaw, the RPC dispatcher handles standard JSON-RPC
-        # or the new `GatewayRequest` typed format.
+        # The RPC dispatcher routes standard JSON-RPC 2.0 frames
+        # and GatewayRequest envelopes to registered handlers.
         self._agent_runs = AgentRunService(agent_runner or _unconfigured_agent_runner)
         self._dispatcher = RPCDispatcher(
             self,
@@ -117,6 +120,8 @@ class Gateway:
                 "agents.wait": self._agent_runs.wait,
                 "agent.abort": self._agent_runs.abort,
                 "agents.abort": self._agent_runs.abort,
+                "agent.dispatch": self._agent_runs.agent,
+                "agents.dispatch": self._agent_runs.agent,
             },
         )
         # Register host gateway handlers for managed worktrees
@@ -224,6 +229,22 @@ class Gateway:
                 self._dispatcher.register(name, handler)
         except Exception:
             _log.exception("gateway: failed to register commands handlers")
+        # Register claws handlers (claws.list, claws.dispatch, claws.status, claws.jobs, claws.checkpoint)
+        try:
+            from .claws_handlers import make_claws_handlers
+
+            for name, handler in make_claws_handlers().items():
+                self._dispatcher.register(name, handler)
+        except Exception:
+            _log.exception("gateway: failed to register claws handlers")
+        # Register node handlers (node.list, node.describe, node.pair.*, node.invoke, etc.)
+        try:
+            from .node_handlers import make_node_handlers
+
+            for name, handler in make_node_handlers(self).items():
+                self._dispatcher.register(name, handler)
+        except Exception:
+            _log.exception("gateway: failed to register node handlers")
 
     @property
     def token(self) -> str:
@@ -328,6 +349,7 @@ class Gateway:
             _log.error("gateway: loop crashed: %s", e)
 
     async def _async_start(self, retry_eaddrinuse: bool) -> None:
+        logging.getLogger("websockets.server").setLevel(logging.CRITICAL)
         max_retries = EADDRINUSE_MAX_RETRIES if retry_eaddrinuse else 0
         last_err: Exception | None = None
         for attempt in range(max_retries + 1):
@@ -426,6 +448,14 @@ class Gateway:
             self._loop.call_soon_threadsafe(self._loop.stop)
             self._server = None
 
+        with self._conn_lock:
+            for conn in list(self._active_connections):
+                try:
+                    conn.on_close()
+                except Exception:
+                    pass
+            self._active_connections.clear()
+
         if self._thread is not None:
             self._thread.join(timeout=2.0)
             self._thread = None
@@ -433,9 +463,45 @@ class Gateway:
         self._loop = None
         _log.info("gateway: stopped")
 
+    def broadcast(self, method: str, params: dict[str, Any], session_key: str | None = None) -> None:
+        """Broadcast a JSON-RPC 2.0 event frame to all connected WebSocket clients."""
+        if self._loop is None or not self.is_running():
+            return
+        asyncio.run_coroutine_threadsafe(
+            self._async_broadcast(method, params, session_key),
+            self._loop,
+        )
+
+    def broadcast_agent_draft(self, session_key: str, delta: str) -> None:
+        """Broadcast progressive draft preview event (event.agent.draft) to connected clients."""
+        self.broadcast("event.agent.draft", {"sessionKey": session_key, "delta": delta}, session_key=session_key)
+
+    async def _async_broadcast(self, method: str, params: dict[str, Any], session_key: str | None = None) -> None:
+        with self._conn_lock:
+            conns = list(self._active_connections)
+        for conn in conns:
+            if session_key:
+                identity = conn.device_identity or {}
+                conn_session = identity.get("session_id")
+                if conn_session and conn_session != session_key:
+                    continue
+            try:
+                await conn.send_rpc_event(method, params)
+            except Exception as e:
+                _log.debug("gateway: broadcast to %s failed: %s", conn.conn_id, e)
+        # Notify subscribers in live state
+        try:
+            from .live_state import GLOBAL_GATEWAY_LIVE_STATE
+
+            await GLOBAL_GATEWAY_LIVE_STATE.emit_rpc_event(method, params)
+        except Exception:
+            pass
+
     async def _ws_handler(self, ws: Any) -> None:
         """Handle an incoming WebSocket connection."""
-        conn = GatewayWSConnection(ws)
+        conn = GatewayWSConnection(ws, gateway=self)
+        with self._conn_lock:
+            self._active_connections.add(conn)
         _log.debug("gateway: ws %s connected", conn.conn_id)
 
         try:
@@ -454,6 +520,8 @@ class Gateway:
         except Exception as e:
             _log.warning("gateway: ws %s error: %s", conn.conn_id, e)
         finally:
+            with self._conn_lock:
+                self._active_connections.discard(conn)
             conn.on_close()
             _log.debug("gateway: ws %s disconnected", conn.conn_id)
 
@@ -541,11 +609,13 @@ class Gateway:
         return None
 
 
+
 __all__ = [
     "DEFAULT_HOST",
     "DEFAULT_PORT",
     "Gateway",
     "GatewayLockError",
+    "GatewayWSClient",
     "HttpRoute",
     "RPCDispatcher",
     "RPCDispatchError",

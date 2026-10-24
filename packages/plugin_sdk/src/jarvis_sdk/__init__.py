@@ -369,6 +369,11 @@ from .capability_bridge import (
     SideEffectLevel,
     translate_plugin_tool,
 )
+from .capability_ladder import (
+    CapabilityLadderContract,
+    CapabilityTier,
+    CapabilityViolationError,
+)
 from .execution_adapter import (
     ExecutionAdapterOutput,
     PluginExecutionAdapter,
@@ -671,6 +676,10 @@ __all__ = [
     "StreamingResponseFixture",
     "create_provider_dynamic_model_context",
     "create_streaming_response",
+    # Capability Ladder Contract
+    "CapabilityLadderContract",
+    "CapabilityTier",
+    "CapabilityViolationError",
     # Track 3.6 Extensibility Bridge & Execution Adapter
     "BridgedCapability",
     "BridgeSecurityPolicy",

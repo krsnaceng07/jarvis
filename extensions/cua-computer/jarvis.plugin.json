@@ -1,12 +1,21 @@
 {
   "id": "cua-computer",
   "name": "CUA Computer",
-  "description": "Experimental CUA Driver computer control for macOS, Windows, and Linux node hosts.",
+  "description": "CUA Driver and native computer use control with input arbiter, takeover watcher, and cursor overlay.",
   "entry": "plugin.py",
   "activation": {
     "onStartup": true
   },
   "enabledByDefault": true,
+  "doctorContract": {
+    "configRepair": false
+  },
+  "permissions": [
+    "input:synthesize",
+    "screen:capture",
+    "overlay:draw",
+    "process:inspect"
+  ],
   "configSchema": {
     "type": "object",
     "additionalProperties": false,

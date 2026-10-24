@@ -12,7 +12,12 @@ from typing import Any
 
 from .delegate import delegate_compaction_to_runtime
 
-__all__ = ["LegacyContextEngine"]
+__all__ = ["LegacyContextEngine", "create_legacy_context_engine"]
+
+
+def create_legacy_context_engine() -> LegacyContextEngine:
+    """Factory creating a new LegacyContextEngine instance."""
+    return LegacyContextEngine()
 
 
 class LegacyContextEngine:

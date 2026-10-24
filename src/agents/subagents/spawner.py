@@ -70,7 +70,7 @@ class SubagentSpawner:
             self._completion_listeners.append(listener)
 
     def _dispatch_completion(self, record: SubagentRunRecord) -> None:
-        """Deliver child completion findings to registered listeners."""
+        """Deliver child completion findings to registered listeners and system event queues."""
         from .completion import build_child_completion_findings
 
         findings = build_child_completion_findings([record])
@@ -79,6 +79,49 @@ class SubagentSpawner:
                 listener(record, findings)
             except Exception:
                 pass
+
+        try:
+            from src.sessions.system_event_queue import enqueue_system_event
+            from src.infra.heartbeat_wake import request_heartbeat
+
+            target_session = record.parent_session_key or "agent:main:main"
+            label = record.label or record.task or record.task_id
+            status_val = (
+                record.status.value
+                if hasattr(record.status, "value")
+                else str(record.status)
+            )
+            event_text = f"Subagent task '{label}' finished with status: {status_val}."
+            if record.error:
+                event_text += f" Error: {record.error}"
+            elif findings:
+                findings_summary = findings.strip()
+                if len(findings_summary) > 300:
+                    findings_summary = findings_summary[:300] + "..."
+                event_text += f"\nFindings:\n{findings_summary}"
+
+            enqueue_system_event(
+                event_text,
+                {"sessionKey": "desktop:hud", "contextKey": f"subagent:{record.run_id}"},
+            )
+            enqueue_system_event(
+                event_text,
+                {"sessionKey": target_session, "contextKey": f"subagent:{record.run_id}"},
+            )
+            if target_session != "agent:main:main":
+                enqueue_system_event(
+                    event_text,
+                    {"sessionKey": "agent:main:main", "contextKey": f"subagent:{record.run_id}"},
+                )
+            request_heartbeat({
+                "source": "subagent_completion",
+                "intent": "immediate",
+                "reason": "subagent_completion",
+                "sessionKey": target_session,
+                "runId": record.run_id,
+            })
+        except Exception as e:
+            print(f"[SubagentSpawner] Error dispatching completion event: {e}")
 
     async def spawn(
         self,

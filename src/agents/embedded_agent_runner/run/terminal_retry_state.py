@@ -61,8 +61,27 @@ def reset_terminal_retry_state(run_id: Optional[str]) -> None:
     _TERMINAL_RETRY_COUNTER.pop(run_id, None)
 
 
+def create_embedded_run_terminal_retry_state() -> Dict[str, Any]:
+    """Create terminal retry state tracking dictionary.
+
+    Mirrors :func:`createEmbeddedRunTerminalRetryState`
+    in ``terminal-retry-state.ts``.
+    """
+    return {
+        "completionCheck": {"unfinishedPlan": False, "checked": False},
+        "reasoningOnlyAttempts": 0,
+        "emptyResponseAttempts": 0,
+        "textToolCallAttempts": 0,
+        "missingAssistantAttempts": 0,
+        "compactionContinuationAttempts": 0,
+        "beforeFinalizeRevisionAttempts": 0,
+    }
+
+
 __all__ = [
+    "create_embedded_run_terminal_retry_state",
     "get_terminal_retry_state",
     "increment_terminal_retry",
     "reset_terminal_retry_state",
 ]
+

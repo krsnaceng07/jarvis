@@ -29,7 +29,7 @@ if str(_ws) not in sys.path:
 if str(_ws / "src") not in sys.path:
     sys.path.append(str(_ws / "src"))  # Append to avoid shadowing stdlib like 'logging'!
 
-from typing import TYPE_CHECKING, Any, Optional, Sequence, cast  # noqa: E402
+from typing import TYPE_CHECKING, Any, Optional, cast  # noqa: E402
 
 if TYPE_CHECKING:
     SubParsersAction = argparse._SubParsersAction[argparse.ArgumentParser]
@@ -548,6 +548,11 @@ def _build_parser_v2() -> argparse.ArgumentParser:
     )
     sp = p.add_subparsers(dest="command", required=False, metavar="<command>")
 
+    sp.add_parser("start", help="Start unified JARVIS LiveKit voice HUD in terminal.")
+    sp.add_parser("voice", help="Alias for start.")
+    sp.add_parser("worker", help="Start standalone LiveKit agent worker.")
+    sp.add_parser("agent", help="Alias for worker.")
+
     sp.add_parser("tools-list", help="List every registered tool.")
     sp.add_parser("skills-list", help="List every loaded skill.")
     sp.add_parser("hooks-list", help="List every registered hook.")
@@ -615,10 +620,35 @@ def _build_parser_v2() -> argparse.ArgumentParser:
     gw_sub.add_parser("restart", help="Restart the JARVIS gateway.")
 
     # ── Phase 3: channels subcommands ────────────────────────────
-    ch_p = sp.add_parser("channels", help="Channels troubleshooting commands.")
+    ch_p = sp.add_parser("channels", help="Channels troubleshooting and management commands.")
     ch_sub = ch_p.add_subparsers(dest="subcommand", required=True, metavar="<action>")
     ch_status = ch_sub.add_parser("status", help="Show channels status.")
     ch_status.add_argument("--probe", action="store_true", help="Probe channels for connectivity.")
+
+    ch_doctor = ch_sub.add_parser("doctor", help="Run channels doctor diagnostics and auto-repair.")
+    ch_doctor.add_argument("--fix", action="store_true", help="Automatically attempt repair of detected issues.")
+    ch_doctor.add_argument("--channel", "-c", default=None, help="Specific channel to diagnose/repair (e.g. telegram, discord, slack).")
+
+    ch_sub.add_parser("list", help="List all supported and active channels.")
+
+    ch_add = ch_sub.add_parser("add", help="Add or configure a messaging channel.")
+    ch_add.add_argument("channel", help="Channel identifier (e.g. telegram, discord, slack, whatsapp).")
+    ch_add.add_argument("--token", default=None, help="Bot token or API key.")
+    ch_add.add_argument("--dm-policy", default="allow_all", choices=["allow_all", "pairing_required", "disabled"], help="Direct message access policy.")
+    ch_add.add_argument("--app-token", default=None, help="Slack app-level token (xapp-...) if applicable.")
+
+    ch_rem = ch_sub.add_parser("remove", help="Remove or disable a messaging channel.")
+    ch_rem.add_argument("channel", help="Channel identifier (e.g. telegram, discord, slack, whatsapp).")
+
+    ch_login = ch_sub.add_parser("login", help="Link a channel account via QR code or interactive login (e.g. whatsapp).")
+    ch_login.add_argument("channel", nargs="?", default="whatsapp", help="Channel identifier (e.g. whatsapp).")
+    ch_login.add_argument("--account", default="default", help="Account identifier (default 'default').")
+    ch_login.add_argument("--force", action="store_true", help="Force generating a fresh QR code even if already linked.")
+    ch_login.add_argument("--phone", default=None, help="Optional phone number for pairing code.")
+
+    ch_logout = ch_sub.add_parser("logout", help="Log out of a channel session (e.g. whatsapp).")
+    ch_logout.add_argument("channel", nargs="?", default="whatsapp", help="Channel identifier (e.g. whatsapp).")
+    ch_logout.add_argument("--account", default="default", help="Account identifier (default 'default').")
 
     # ── Phase 3: pairing subcommands ─────────────────────────────
     pairing_p = sp.add_parser("pairing", help="Pairing commands.")
@@ -646,6 +676,18 @@ def _build_parser_v2() -> argparse.ArgumentParser:
         help="Clear all telegram state (token + paired chat).",
     )
     tg_sub.add_parser("status", help="Show Telegram channel state.")
+
+    # ── Phase 3: whatsapp subcommands ────────────────────────────
+    wa_p = sp.add_parser("whatsapp", help="WhatsApp channel commands.")
+    wa_sub = wa_p.add_subparsers(dest="subcommand", required=True, metavar="<action>")
+    wa_login = wa_sub.add_parser("login", help="Link WhatsApp via in-terminal QR code or pairing code.")
+    wa_login.add_argument("--account", default="default", help="Account identifier (default 'default').")
+    wa_login.add_argument("--force", action="store_true", help="Force generating fresh QR code.")
+    wa_login.add_argument("--phone", default=None, help="Optional phone number for pairing code.")
+    wa_status = wa_sub.add_parser("status", help="Show WhatsApp link and credentials status.")
+    wa_status.add_argument("--account", default="default", help="Account identifier (default 'default').")
+    wa_logout = wa_sub.add_parser("logout", help="Log out WhatsApp session.")
+    wa_logout.add_argument("--account", default="default", help="Account identifier (default 'default').")
 
     mcp_p = sp.add_parser("mcp", help="Model Context Protocol (MCP) commands.")
     mcp_sub = mcp_p.add_subparsers(dest="subcommand", required=True, metavar="<action>")
@@ -1049,6 +1091,15 @@ def main(argv: list[str] | None = None) -> int:
 
         desktop_main()
         return 0
+    if args.command in ("start", "voice"):
+        from jarvis_voice_pipeline.terminal_app import main as voice_main
+
+        return voice_main()
+    if args.command in ("worker", "agent"):
+        from jarvis_voice_pipeline.worker import run_worker
+
+        run_worker()
+        return 0
     if args.command == "tools-list":
         return _cmd_tools_list(args, plugins)
     if args.command == "skills-list":
@@ -1095,6 +1146,25 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "channels":
         if args.subcommand == "status":
             return _cmd_channels_status(args, workspace)
+        if args.subcommand == "doctor":
+            return _cmd_channels_doctor(args, workspace)
+        if args.subcommand == "list":
+            return _cmd_channels_list(args, workspace)
+        if args.subcommand == "add":
+            return _cmd_channels_add(args, workspace)
+        if args.subcommand == "remove":
+            return _cmd_channels_remove(args, workspace)
+        if args.subcommand == "login":
+            return _cmd_channels_login(args, workspace)
+        if args.subcommand == "logout":
+            return _cmd_channels_logout(args, workspace)
+    if args.command == "whatsapp":
+        if args.subcommand == "login":
+            return _cmd_channels_login(args, workspace)
+        if args.subcommand == "status":
+            return _cmd_whatsapp_status(args, workspace)
+        if args.subcommand == "logout":
+            return _cmd_channels_logout(args, workspace)
     if args.command == "telegram":
         if args.subcommand == "setup":
             return _cmd_telegram_setup(args, workspace)
@@ -1171,11 +1241,20 @@ def _cmd_gateway_restart(args: argparse.Namespace, workspace: Path) -> int:
 def _cmd_channels_status(args: argparse.Namespace, workspace: Path) -> int:
     from jarvis_config_core import load_config
 
-    cfg = load_config(config_path=workspace / "config.json")
+    cfg_file = (workspace / "config.json") if (workspace / "config.json").exists() else None
+    cfg = load_config(config_path=cfg_file)
     cfg_dict = cfg.to_dict() if hasattr(cfg, "to_dict") else {}
     channels_cfg = (
         cfg_dict.get("channels", {}) if isinstance(cfg_dict.get("channels"), dict) else {}
     )
+    if not channels_cfg:
+        try:
+            from src.channels.channel_manager import _read_canonical_config
+
+            can_cfg = _read_canonical_config()
+            channels_cfg = can_cfg.get("channels", {}) if isinstance(can_cfg.get("channels"), dict) else {}
+        except Exception:
+            pass
     plugins = _load_cli_plugins(workspace)
 
     print("Channels Status")
@@ -1203,7 +1282,12 @@ def _cmd_channels_status(args: argparse.Namespace, workspace: Path) -> int:
         is_enabled = ch_conf.get("enabled", True) if isinstance(ch_conf, dict) else True
         has_token = bool(
             isinstance(ch_conf, dict)
-            and (ch_conf.get("bot_token") or ch_conf.get("token") or ch_conf.get("api_key"))
+            and (
+                ch_conf.get("bot_token")
+                or ch_conf.get("botToken")
+                or ch_conf.get("token")
+                or ch_conf.get("api_key")
+            )
         )
 
         status_parts: list[str] = []
@@ -1223,6 +1307,184 @@ def _cmd_channels_status(args: argparse.Namespace, workspace: Path) -> int:
                 print(f"  [{ch_id}] transport status: warning (missing credentials)")
             else:
                 print(f"  [{ch_id}] transport status: unconfigured")
+    return 0
+
+
+def _cmd_channels_doctor(args: argparse.Namespace, workspace: Path) -> int:
+    import asyncio
+    from src.channels.channel_manager import ChannelManager
+
+    cm = ChannelManager.get_instance()
+    ch_id = getattr(args, "channel", None)
+    auto_fix = getattr(args, "fix", False)
+
+    if auto_fix:
+        print(f"Running Channel Doctor with Auto-Fix on '{ch_id or 'all'}'...")
+        res = asyncio.run(cm.doctor_repair(channel_id=ch_id, auto_detect_tokens=True))
+        print(f"Status: {res.get('status', 'unknown')}")
+        print(f"Message: {res.get('message', '')}")
+        repairs = res.get("repairs", [])
+        if repairs:
+            print("Repairs applied:")
+            for r in repairs:
+                print(f"  ✔ [{r.get('channel')}] {r.get('action')}: {r.get('details')}")
+        rem = res.get("remaining_issues", [])
+        if rem:
+            print("Remaining issues:")
+            for issue in rem:
+                print(f"  ✖ [{issue.get('channel')}] {issue.get('issue')} -> Recommendation: {issue.get('recommendation')}")
+        return 0 if res.get("status") in ("repaired", "healthy") else 1
+    else:
+        print(f"Running Channel Doctor Diagnosis on '{ch_id or 'all'}'...")
+        res = asyncio.run(cm.doctor_diagnose(channel_id=ch_id))
+        print(f"Status: {res.get('status', 'unknown')}")
+        print(f"Message: {res.get('message', '')}")
+        issues = res.get("issues", [])
+        if issues:
+            print("Issues detected:")
+            for issue in issues:
+                fixable = " (auto-fixable)" if issue.get("auto_fixable") else ""
+                print(f"  ✖ [{issue.get('channel')}] {issue.get('issue')}{fixable}")
+                print(f"    Recommendation: {issue.get('recommendation')}")
+        else:
+            print("All inspected channels are healthy and operational.")
+        return 0 if not issues else 1
+
+
+def _cmd_channels_list(args: argparse.Namespace, workspace: Path) -> int:
+    from src.channels.channel_manager import ChannelManager
+
+    cm = ChannelManager.get_instance()
+    channels = cm.list_supported_channels()
+    print("JARVIS Supported Channels:")
+    for ch in channels:
+        status_label = "ACTIVE" if ch.get("active") else ("CONFIGURED" if ch.get("configured") else "NOT CONFIGURED")
+        tok = "yes" if ch.get("has_token") else "no"
+        healing = "yes" if ch.get("self_healing") else "no"
+        print(f"  • {ch.get('channel_id')} ({ch.get('name')}) - [{status_label}] (token: {tok}, auto-heal: {healing})")
+        print(f"    Platform: {ch.get('platform')} | Auth: {ch.get('auth_type')}")
+        print(f"    {ch.get('description')}")
+    return 0
+
+
+def _cmd_channels_add(args: argparse.Namespace, workspace: Path) -> int:
+    import asyncio
+    from src.channels.channel_manager import ChannelManager
+
+    cm = ChannelManager.get_instance()
+    ch_id = args.channel.lower()
+    token = args.token or ""
+    dm_policy = getattr(args, "dm_policy", "allow_all")
+    app_token = getattr(args, "app_token", None)
+
+    print(f"Adding/Configuring channel '{ch_id}'...")
+    res = asyncio.run(
+        cm.configure_channel(
+            channel=ch_id,
+            token=token,
+            dm_policy=dm_policy,
+            app_token=app_token,
+        )
+    )
+    if res.get("ok"):
+        print(f"✔ Successfully configured {ch_id}: {res.get('message')}")
+        print(f"  Listener status: {res.get('status')} (active: {res.get('listener_active')})")
+        return 0
+    else:
+        print(f"✖ Failed to configure {ch_id}: {res.get('error') or res.get('message')}")
+        return 1
+
+
+def _cmd_channels_remove(args: argparse.Namespace, workspace: Path) -> int:
+    import asyncio
+    from src.channels.channel_manager import ChannelManager
+
+    cm = ChannelManager.get_instance()
+    ch_id = args.channel.lower()
+    print(f"Removing channel '{ch_id}'...")
+    res = asyncio.run(cm.remove_channel(channel_id=ch_id))
+    if res.get("ok"):
+        print(f"✔ Successfully removed {ch_id}: {res.get('message')}")
+        return 0
+    else:
+        print(f"✖ Failed to remove {ch_id}: {res.get('message')}")
+        return 1
+
+
+def _cmd_channels_login(args: argparse.Namespace, workspace: Path) -> int:
+    channel = (getattr(args, "channel", None) or "whatsapp").strip().lower()
+    account_id = getattr(args, "account", "default")
+    force = getattr(args, "force", False)
+    phone = getattr(args, "phone", None)
+
+    if channel == "whatsapp":
+        from src.desktop_automation.providers.whatsapp_provider import WhatsAppDesktopProvider
+
+        # OpenClaw parity: Prompt for owner's personal phone number if not supplied
+        if not phone and sys.stdin.isatty():
+            try:
+                print("\n=======================================================")
+                print("  JARVIS WhatsApp Channel Pairing")
+                print("=======================================================")
+                print("Direct WhatsApp messages to JARVIS are secured by allowlist.")
+                print("Enter your personal phone number (with country code, e.g. +97798XXXXXXXX)")
+                print("or press Enter to generate a QR code for camera scanning.")
+                user_inp = input("Personal Phone Number: ").strip()
+                if user_inp:
+                    phone = user_inp
+            except (KeyboardInterrupt, EOFError):
+                pass
+
+        provider = WhatsAppDesktopProvider()
+        print(f"Initiating WhatsApp Web pairing for account '{account_id}'...")
+        res = provider.generate_pairing_qr(
+            account_id=account_id,
+            force=force,
+            phone=phone,
+            print_terminal=True,
+            wait_for_connection=True,
+        )
+        if res.get("connected"):
+            print(res.get("message", f"\n✔ WhatsApp account '{account_id}' successfully paired and active!"))
+            return 0
+        instructions = res.get("instructions", "")
+        if instructions:
+            print(f"\n{instructions}\n")
+        return 0 if res.get("ok") else 1
+    else:
+        print(f"Interactive login is not supported for channel '{channel}'. Supported channels: whatsapp")
+        return 1
+
+
+def _cmd_channels_logout(args: argparse.Namespace, workspace: Path) -> int:
+    channel = (getattr(args, "channel", None) or "whatsapp").strip().lower()
+    account_id = getattr(args, "account", "default")
+
+    if channel == "whatsapp":
+        from src.desktop_automation.providers.whatsapp_provider import WhatsAppDesktopProvider
+
+        provider = WhatsAppDesktopProvider()
+        res = provider.logout(account_id=account_id)
+        print(res.get("message", f"WhatsApp account '{account_id}' logged out."))
+        return 0
+    else:
+        print(f"Logout is not supported for channel '{channel}'. Supported channels: whatsapp")
+        return 1
+
+
+def _cmd_whatsapp_status(args: argparse.Namespace, workspace: Path) -> int:
+    account_id = getattr(args, "account", "default")
+    from src.desktop_automation.providers.whatsapp_provider import WhatsAppDesktopProvider
+
+    provider = WhatsAppDesktopProvider()
+    auth = provider.get_auth_state(account_id)
+    if auth.get("linked"):
+        print(f"WhatsApp Status: LINKED (Account: {account_id}, Identity: {auth.get('who')})")
+        print(f"  Auth Directory: {auth.get('auth_dir')}")
+        print(f"  Credentials: {auth.get('creds_file')}")
+    else:
+        print(f"WhatsApp Status: NOT LINKED (Account: {account_id})")
+        print("  Run 'jarvis channels login whatsapp' to generate in-terminal pairing QR code.")
     return 0
 
 
@@ -1341,6 +1603,16 @@ def _cmd_ask(args: argparse.Namespace, workspace: Path) -> int:
         if api_keys_path.exists():
             try:
                 with open(api_keys_path) as f:
+                    data = json.load(f)
+                    api_key = data.get("gemini_api_key")
+            except Exception:
+                pass
+
+    if not api_key:
+        canonical_cfg = Path.home() / ".jarvis" / "config.json"
+        if canonical_cfg.exists():
+            try:
+                with open(canonical_cfg, encoding="utf-8") as f:
                     data = json.load(f)
                     api_key = data.get("gemini_api_key")
             except Exception:

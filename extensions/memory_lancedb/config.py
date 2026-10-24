@@ -41,6 +41,8 @@ MEMORY_CATEGORIES: tuple[str, ...] = (
 EMBEDDING_DIMENSIONS: dict[str, int] = {
     "text-embedding-3-small": 1536,
     "text-embedding-3-large": 3072,
+    "gemini-embedding-001": 3072,
+    "text-embedding-004": 768,
 }
 
 ALLOWED_EMBEDDING_KEYS: tuple[str, ...] = (
@@ -206,7 +208,8 @@ def _resolve_embedding(raw: Mapping[str, Any] | None) -> dict[str, Any]:
     if not provider:
         raise ValueError("embedding.provider must not be empty")
 
-    model_raw = raw.get("model", DEFAULT_MODEL)
+    default_model = "gemini-embedding-001" if provider in ("google", "gemini") else DEFAULT_MODEL
+    model_raw = raw.get("model", default_model)
     if not isinstance(model_raw, str):
         raise ValueError("embedding.model must be a string")
     model = model_raw

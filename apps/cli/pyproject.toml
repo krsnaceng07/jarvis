@@ -5,10 +5,12 @@ description = "JARVIS CLI — headless gateway for tools/skills/doctor/memory/cr
 requires-python = ">=3.13"
 dependencies = [
     "jarvis-plugin-sdk",
+    "jarvis-voice-pipeline",
 ]
 
 [project.scripts]
 jarvis = "jarvis_cli.main:main"
+jarvis-voice = "jarvis_voice_pipeline.terminal_app:main"
 
 [build-system]
 requires = ["hatchling"]

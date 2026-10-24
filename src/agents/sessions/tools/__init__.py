@@ -30,7 +30,7 @@ Sub-phases:
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 # Phase 6.10a — foundational types + helpers
 from .tool_contracts import (
@@ -224,11 +224,17 @@ from .bash import (
 
 from .exec_tool import create_exec_tool
 from .process_tool import create_process_tool
-from .skill_workshop_tool import create_skill_workshop_tool, create_skill_workshop_tool_definition
+from .skill_workshop_tool import create_skill_workshop_tool
 from .goal_tools import (
+    clear_goal,
     create_create_goal_tool,
     create_get_goal_tool,
     create_update_goal_tool,
+    format_goal_display,
+    get_active_goal,
+    handle_goal_command,
+    set_goal,
+    update_goal_status,
 )
 from .plugins_tool import (
     create_plugins_tool,
@@ -237,14 +243,21 @@ from .plugins_tool import (
 from .web_search_tool import create_web_search_tool, create_web_search_tool_definition
 from .web_fetch_tool import create_web_fetch_tool, create_web_fetch_tool_definition
 from .automations_tool import create_automations_tool, create_automations_tool_definition
+from .claws_tool import create_claws_tool, create_claws_tool_definition
 from .pdf_tool import create_pdf_tool, create_pdf_tool_definition
 from .secrets_tool import create_secrets_tool, create_secrets_tool_definition
 from .channel_tools import (
     CHANNEL_TOOL_DECLARATIONS,
+    create_channel_doctor_definition,
+    create_channel_doctor_tool,
     create_channel_status_definition,
     create_channel_status_tool,
+    create_channels_definition,
+    create_channels_tool,
     create_configure_channel_definition,
     create_configure_channel_tool,
+    create_whatsapp_login_definition,
+    create_whatsapp_login_tool,
 )
 from .find import (
     DEFAULT_IGNORE_PATTERNS,
@@ -305,6 +318,7 @@ from .video_generate_tool import define_video_generate_tool
 from .music_generate_tool import define_music_generate_tool
 from .tts_tool import define_tts_tool
 from .stt_tool import define_stt_tool
+from .computer_tool import create_computer_tool
 
 
 def create_coding_tools(
@@ -328,7 +342,7 @@ def create_coding_tools(
     """
     _ = options
     opts = options or {}
-    return [
+    coding_tools = [
         create_read_tool(cwd, opts),
         create_exec_tool(cwd, opts),
         create_process_tool(cwd, opts),
@@ -370,10 +384,52 @@ def create_coding_tools(
         define_music_generate_tool(),
         define_tts_tool(),
         define_stt_tool(),
+        create_create_goal_tool(opts),
+        create_get_goal_tool(opts),
+        create_update_goal_tool(opts),
+        create_plugins_tool(cwd, opts),
+        create_channels_tool(),
+        create_channel_doctor_tool(),
+        create_configure_channel_tool(),
+        create_channel_status_tool(),
+        create_whatsapp_login_tool(),
+        create_computer_tool(opts),
     ]
+
+    try:
+        from extensions.browser.src.browser_tool import BrowserTool
+
+        b_tool = BrowserTool()
+        coding_tools.append(
+            {
+                "name": "browser",
+                "description": b_tool.description,
+                "parameters": b_tool.parameters,
+                "execute": lambda cid, a: b_tool.execute(cid, a),
+                "call": lambda act, a: b_tool.call(act, a),
+            }
+        )
+    except Exception:
+        pass
+
+    return coding_tools
+
+
+def load_canonical_host_tools(base_dir: Any = None) -> dict[str, Any]:
+    """Load canonical host coding and session tools keyed by tool name."""
+    cwd = str(base_dir or ".")
+    tools = create_coding_tools(cwd)
+    tools_map: dict[str, Any] = {}
+    for t in tools:
+        name = t.get("name") if isinstance(t, dict) else (getattr(t, "name", None) or getattr(t, "id", None))
+        if name:
+            tools_map[name] = t
+    return tools_map
 
 
 __all__ = [
+    "load_canonical_host_tools",
+    "create_coding_tools",
     # Phase 6.10a — tool contracts
     "BashToolDetails",
     "BashToolInput",
@@ -558,20 +614,34 @@ __all__ = [
     "create_web_search_tool_definition",
     # Channel tools
     "CHANNEL_TOOL_DECLARATIONS",
+    "create_channels_definition",
+    "create_channels_tool",
+    "create_channel_doctor_definition",
+    "create_channel_doctor_tool",
     "create_configure_channel_definition",
     "create_configure_channel_tool",
     "create_channel_status_definition",
     "create_channel_status_tool",
+    "create_whatsapp_login_definition",
+    "create_whatsapp_login_tool",
     # Web fetch, automations, pdf, and secrets tools
     "create_web_fetch_tool",
     "create_web_fetch_tool_definition",
     "create_automations_tool",
     "create_automations_tool_definition",
+    "create_claws_tool",
+    "create_claws_tool_definition",
     "create_pdf_tool",
     "create_pdf_tool_definition",
     "create_secrets_tool",
     "create_secrets_tool_definition",
     # Goal and plugin tools (OpenClaw parity)
+    "get_active_goal",
+    "set_goal",
+    "update_goal_status",
+    "clear_goal",
+    "format_goal_display",
+    "handle_goal_command",
     "create_create_goal_tool",
     "create_get_goal_tool",
     "create_update_goal_tool",

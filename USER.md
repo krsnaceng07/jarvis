@@ -98,7 +98,7 @@ Operator's notification style: voice (speak) + on-screen log
 <!-- observed: 2026-09-16 | status: superseded -->
 - channel_fav_editor: Neovim via Telegram
 
-<!-- observed: 2026-09-16 | status: active -->
+<!-- observed: 2026-09-16 | status: superseded -->
 - channel_fav_editor: Neovim via Telegram
 
 <!-- observed: 2026-09-17 | status: active -->
@@ -122,7 +122,7 @@ Operator's notification style: voice (speak) + on-screen log
 <!-- observed: 2026-09-19 | status: superseded -->
 - speaking_language: Nepali
 
-<!-- observed: 2026-09-20 | status: active -->
+<!-- observed: 2026-09-20 | status: superseded -->
 - education_status: Bachelor in Modern Economics (Ongoing)
 
 <!-- observed: 2026-09-20 | status: active -->
@@ -131,13 +131,13 @@ Operator's notification style: voice (speak) + on-screen log
 <!-- observed: 2026-09-20 | status: active -->
 - major_subject: Modern Economics
 
-<!-- observed: 2026-09-20 | status: active -->
+<!-- observed: 2026-09-20 | status: superseded -->
 - location: Sinamangal, Kathmandu
 
-<!-- observed: 2026-09-20 | status: active -->
+<!-- observed: 2026-09-20 | status: superseded -->
 - phone_number: 9822301270
 
-<!-- observed: 2026-09-20 | status: active -->
+<!-- observed: 2026-09-20 | status: superseded -->
 - high_school_major: Science
 
 <!-- observed: 2026-09-21 | status: active -->
@@ -161,5 +161,101 @@ Operator's notification style: voice (speak) + on-screen log
 <!-- observed: 2026-09-30 | status: active -->
 - last_app_open_request: Youtube
 
-<!-- observed: 2026-09-30 | status: active -->
+<!-- observed: 2026-09-30 | status: superseded -->
 - name: Krishna
+
+<!-- observed: 2026-10-18 | status: superseded -->
+- name: Krishna Singh
+
+<!-- observed: 2026-10-18 | status: superseded -->
+- phone_number: 9822301270
+
+<!-- observed: 2026-10-18 | status: active -->
+- phone_number: 9822301270
+
+<!-- observed: 2026-10-18 | status: active -->
+- location: Sinamangal, Kathmandu
+
+<!-- observed: 2026-10-18 | status: active -->
+- high_school_major: Science (Biology)
+
+<!-- observed: 2026-10-18 | status: superseded -->
+- education_status: Bachelor in Cyber Security and Digital Forensic (CSDF) at Amity College (Ongoing)
+
+<!-- observed: 2026-10-18 | status: active -->
+- education_status: Bachelor in Cyber Security and Digital Forensic (CSDF) at ISMT College (Ongoing)
+
+<!-- observed: 2026-10-20 | status: active -->
+- time_zone_preference: Nepal Time
+
+<!-- observed: 2026-10-21 | status: superseded -->
+- channel_fav_editor: Neovim via Telegram
+
+<!-- observed: 2026-10-21 | status: superseded -->
+- channel_fav_editor: Neovim via Telegram
+
+<!-- observed: 2026-10-21 | status: superseded -->
+- channel_fav_editor: Neovim via Telegram
+
+<!-- observed: 2026-10-21 | status: superseded -->
+- channel_fav_editor: Neovim via Telegram
+
+<!-- observed: 2026-10-21 | status: superseded -->
+- channel_fav_editor: Neovim via Telegram
+
+<!-- observed: 2026-10-21 | status: superseded -->
+- channel_fav_editor: Neovim via Telegram
+
+<!-- observed: 2026-10-21 | status: superseded -->
+- channel_fav_editor: Neovim via Telegram
+
+<!-- observed: 2026-10-21 | status: superseded -->
+- channel_fav_editor: Neovim via Telegram
+
+<!-- observed: 2026-10-21 | status: superseded -->
+- channel_fav_editor: Neovim via Telegram
+
+<!-- observed: 2026-10-22 | status: superseded -->
+- name: Ram Vyas
+
+<!-- observed: 2026-10-22 | status: active -->
+- feature_implemented_live_display: User implemented live display viewing feature.
+
+<!-- observed: 2026-10-22 | status: active -->
+- name: Daan
+
+<!-- observed: 2026-10-22 | status: active -->
+- agent_name: JARVIS
+
+<!-- observed: 2026-10-24 | status: superseded -->
+- channel_fav_editor: Neovim via Telegram
+
+<!-- observed: 2026-10-24 | status: superseded -->
+- channel_fav_editor: Neovim via Telegram
+
+<!-- observed: 2026-10-24 | status: superseded -->
+- channel_fav_editor: Neovim via Telegram
+
+<!-- observed: 2026-10-24 | status: superseded -->
+- channel_fav_editor: Neovim via Telegram
+
+<!-- observed: 2026-10-24 | status: superseded -->
+- channel_fav_editor: Neovim via Telegram
+
+<!-- observed: 2026-10-24 | status: superseded -->
+- channel_fav_editor: Neovim via Telegram
+
+<!-- observed: 2026-10-24 | status: superseded -->
+- channel_fav_editor: Neovim via Telegram
+
+<!-- observed: 2026-10-24 | status: superseded -->
+- channel_fav_editor: Neovim via Telegram
+
+<!-- observed: 2026-10-24 | status: superseded -->
+- channel_fav_editor: Neovim via Telegram
+
+<!-- observed: 2026-10-24 | status: active -->
+- channel_fav_editor: Neovim via Telegram
+
+<!-- observed: 2026-10-24 | status: active -->
+- probe_nickname: IronMan

@@ -122,6 +122,89 @@ async def test_configure_telegram_valid_token(
 
 
 @pytest.mark.asyncio
+async def test_telegram_listener_start_is_idempotent(
+    temp_jarvis_dir: Path, reset_channel_manager: ChannelManager
+) -> None:
+    """A duplicate auto-start must not re-open the same Telegram poller."""
+    cfg_file = temp_jarvis_dir / "config.json"
+    cfg_file.write_text(
+        json.dumps(
+            {
+                "channels": {
+                    "telegram": {
+                        "enabled": True,
+                        "botToken": "123456:ABC-DEF_valid_token",
+                        "pollingIntervalSec": 1,
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    class FakePlugin:
+        def __init__(self) -> None:
+            self.calls = 0
+            self.client = object()
+
+        def reconfigure(
+            self, config: dict[str, Any], callback: Any = None, auto_listen: bool = True
+        ) -> None:
+            self.calls += 1
+            self.callback = callback
+            self.config = config
+
+    plugin = FakePlugin()
+    reset_channel_manager._channel_plugins["telegram"] = plugin
+
+    first = await reset_channel_manager.start_channel_listener("telegram")
+    second = await reset_channel_manager.start_channel_listener("telegram")
+
+    assert first["ok"] is True
+    assert second["ok"] is True
+    assert plugin.calls == 1
+    assert reset_channel_manager._active_listeners["telegram"] is True
+
+
+@pytest.mark.asyncio
+async def test_concurrent_listener_start_does_not_start_twice(
+    temp_jarvis_dir: Path, reset_channel_manager: ChannelManager
+) -> None:
+    cfg_file = temp_jarvis_dir / "config.json"
+    cfg_file.write_text(
+        json.dumps({"channels": {"telegram": {"enabled": True, "botToken": "test-token"}}}),
+        encoding="utf-8",
+    )
+
+    entered_listen = asyncio.Event()
+    finish_listen = asyncio.Event()
+
+    class FakePlugin:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        async def listen(self, callback: Any) -> None:
+            self.calls += 1
+            entered_listen.set()
+            await finish_listen.wait()
+
+    plugin = FakePlugin()
+    reset_channel_manager._channel_plugins["telegram"] = plugin
+    first_start = asyncio.create_task(reset_channel_manager.start_channel_listener("telegram"))
+    await entered_listen.wait()
+
+    duplicate_start = await reset_channel_manager.start_channel_listener("telegram")
+    finish_listen.set()
+    first_result = await first_start
+
+    assert duplicate_start["ok"] is False
+    assert duplicate_start["status"] == "starting"
+    assert first_result["ok"] is True
+    assert plugin.calls == 1
+    assert reset_channel_manager._active_listeners["telegram"] is True
+
+
+@pytest.mark.asyncio
 async def test_configure_telegram_invalid_token(
     temp_jarvis_dir: Path, reset_channel_manager: ChannelManager
 ) -> None:

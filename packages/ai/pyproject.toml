@@ -1,0 +1,15 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jarvis-ai"
+version = "0.1.0"
+description = "AI agent foundation and model orchestration core"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "JARVIS architect" }]
+dependencies = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jarvis_ai"]

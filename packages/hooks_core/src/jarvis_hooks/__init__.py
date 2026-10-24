@@ -58,6 +58,10 @@ class HookName(str, Enum):
     TOOL_COMPLETED = "tool_completed"
     SESSION_START = "session_start"
     SESSION_END = "session_end"
+    BEFORE_PROMPT_BUILD = "before_prompt_build"
+    BEFORE_AGENT_REPLY = "before_agent_reply"
+    BEFORE_TOOL_CALL = "before_tool_call"
+    AFTER_TOOL_CALL = "after_tool_call"
 
 
 # ── Legacy string constants (kept for backward compat) ─────────────────
@@ -70,6 +74,10 @@ TOOL_CALLED = HookName.TOOL_CALLED.value
 TOOL_COMPLETED = HookName.TOOL_COMPLETED.value
 SESSION_START = HookName.SESSION_START.value
 SESSION_END = HookName.SESSION_END.value
+BEFORE_PROMPT_BUILD = HookName.BEFORE_PROMPT_BUILD.value
+BEFORE_AGENT_REPLY = HookName.BEFORE_AGENT_REPLY.value
+BEFORE_TOOL_CALL = HookName.BEFORE_TOOL_CALL.value
+AFTER_TOOL_CALL = HookName.AFTER_TOOL_CALL.value
 
 __all__ = [
     # Bus
@@ -85,4 +93,9 @@ __all__ = [
     "TOOL_COMPLETED",
     "SESSION_START",
     "SESSION_END",
+    "BEFORE_PROMPT_BUILD",
+    "BEFORE_AGENT_REPLY",
+    "BEFORE_TOOL_CALL",
+    "AFTER_TOOL_CALL",
 ]
+

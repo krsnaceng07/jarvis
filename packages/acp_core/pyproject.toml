@@ -1,0 +1,15 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jarvis-acp-core"
+version = "0.1.0"
+description = "Agent Communication Protocol (ACP) core for JARVIS"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "JARVIS architect" }]
+dependencies = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jarvis_acp_core"]

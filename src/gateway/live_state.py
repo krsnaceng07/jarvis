@@ -1,4 +1,4 @@
-"""Gateway live state — mirrors OpenClaw ``src/gateway/server/server-live-state.ts``."""
+"""Gateway live state — active sessions, channel connectivity, and subscriptions in JARVIS."""
 
 from __future__ import annotations
 
@@ -48,7 +48,16 @@ class GatewayLiveState:
     async def emit_event(self, topic: str, payload: dict[str, Any]) -> None:
         await self.subscriptions.broadcast(topic, payload)
 
+    async def emit_rpc_event(self, method: str, params: dict[str, Any]) -> None:
+        """Broadcast a JSON-RPC 2.0 event frame (e.g. event.agent.draft)."""
+        await self.subscriptions.broadcast(method, params)
+
+    async def emit_agent_draft(self, session_key: str, delta: str) -> None:
+        """Emit a progressive draft preview event (event.agent.draft)."""
+        await self.emit_rpc_event("event.agent.draft", {"sessionKey": session_key, "delta": delta})
+
 
 GLOBAL_GATEWAY_LIVE_STATE = GatewayLiveState()
 
 __all__ = ["GLOBAL_GATEWAY_LIVE_STATE", "GatewayLiveState"]
+

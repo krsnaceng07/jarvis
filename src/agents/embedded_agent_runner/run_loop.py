@@ -3,143 +3,220 @@
 OpenClaw parity: mirrors
 ``openclaw-main/src/agents/embedded-agent-runner/run-loop.ts``.
 
-Public surface (mirrors the OpenClaw
-source):
+Public surface (mirrors the OpenClaw source):
 
 - :func:`run_prepared_embedded_loop` —
-  the main embedded-agent loop.
-  Drives the full agent run:
-  prompt assembly, model streaming,
-  tool execution, recovery, +
-  terminal resolution.
-
-Phase 7.1 — focused minimal port.
-The full implementation (with
-compaction, attempt dispatch,
-failover, retry, recovery, etc.)
-lands in 7.2+ (when the
-specialized sub-modules are
-ported)."""
+  the main embedded-agent loop. Drives the full agent run:
+  prompt assembly, model streaming, tool execution, recovery,
+  and terminal resolution.
+"""
 from __future__ import annotations
 
 import logging
 import time
+from typing import Any, Optional, Union
 
+from .logger import log
+from .plugin_runtime_refresh import (
+    EmbeddedPluginRuntimeRefresh,
+    create_embedded_agent_plugin_runtime_refresh,
+)
+from .post_compaction_loop_guard import create_post_compaction_loop_guard
+from .run.context_recovery_state import create_embedded_run_context_recovery_state
 from .run.execution_context import PreparedEmbeddedRunInput
+from .run.failover_policy import resolve_run_failover_decision
+from .run.helpers import (
+    build_error_agent_meta,
+    resolve_max_run_retry_iterations,
+)
+from .run.permission_change import create_embedded_run_permission_changes
+from .run.provider_review_run import create_provider_review_run
+from .run.retry_budget import (
+    begin_run_attempt,
+    create_run_retry_budget,
+    is_run_retry_budget_exhausted,
+)
+from .run.retry_limit import handle_retry_limit_exhaustion
+from .run.run_attempt_dispatch import dispatch_embedded_run_attempt
+from .run.runtime import prepare_embedded_run_runtime
+from .run.session_prompt_state import create_embedded_run_session_prompt_state
+from .run.terminal_retry_state import create_embedded_run_terminal_retry_state
+from .run.turn_taint_state import create_agent_turn_taint_state
 from .types import (
     EmbeddedAgentMeta,
     EmbeddedAgentRunMeta,
     EmbeddedAgentRunResult,
 )
+from .usage_accumulator import create_usage_accumulator
 
-
-_LOG = logging.getLogger(
-    "jarvis.agents.embedded_agent_runner.run_loop"
-)
+_LOG = logging.getLogger("jarvis.agents.embedded_agent_runner.run_loop")
 
 
 async def run_prepared_embedded_loop(
-    input: PreparedEmbeddedRunInput,
+    input_or_refresh: Union[EmbeddedPluginRuntimeRefresh, PreparedEmbeddedRunInput],
+    maybe_input: Optional[PreparedEmbeddedRunInput] = None,
 ) -> EmbeddedAgentRunResult:
     """The main embedded-agent loop.
-    Mirrors :func:`runPreparedEmbeddedLoop`
-    (``run-loop.ts:55-635``).
-
-    Phase 7.1 — focused minimal port:
-    1. Resolve the session + tools
-       via Layer 2's
-       :func:`create_agent_session`
-       (or the caller-provided
-       session).
-    2. Run the user prompt through
-       the agent.
-    3. Return an
-       :class:`EmbeddedAgentRunResult`
-       with the final assistant
-       text + meta.
-
-    The full implementation (with
-    compaction, failover, retry,
-    recovery, hooks, etc.) lands in
-    7.2+.
+    Mirrors :func:`runPreparedEmbeddedLoop` in OpenClaw run-loop.ts.
     """
-    started = input.started_at_ms or int(time.time() * 1000)
-    run_params = input.run_params
-    provider = input.provider
-    model_id = input.model_id
+    if maybe_input is not None:
+        refresh = input_or_refresh  # type: ignore[assignment]
+        run_input = maybe_input
+    elif isinstance(input_or_refresh, EmbeddedPluginRuntimeRefresh):
+        refresh = input_or_refresh
+        raise ValueError("PreparedEmbeddedRunInput must be provided")
+    else:
+        run_input = input_or_refresh
+        refresh = create_embedded_agent_plugin_runtime_refresh(
+            getattr(run_input, "run_params", None)
+        )
+
+    params = run_input.run_params
+    provider = run_input.provider
+    model_id = run_input.model_id
+    started = run_input.started_at_ms or int(time.time() * 1000)
     session_id = (
-        run_params.get("sessionId")
-        or run_params.get("sessionKey")
+        params.get("sessionId")
+        or params.get("sessionKey")
         or "default"
     )
-    cwd = (
-        run_params.get("workspaceDir")
-        or input.workspace_dir
-        or ""
-    )
-    prompt = run_params.get("prompt") or ""
+    prompt = params.get("prompt") or ""
+    cwd = params.get("workspaceDir") or run_input.workspace_dir or ""
 
-    _LOG.info(
-        f"run_prepared_embedded_loop: "
-        f"sessionId={session_id} "
-        f"provider={provider} modelId={model_id} "
-        f"cwd={cwd} promptLen={len(prompt)}"
-    )
-
-    # Build the final response.
-    # Phase 7.1 — STUB: the actual
-    # agent run lands in 7.2+ (when
-    # the Layer 2 ``Agent`` class
-    # is integrated with the
-    # full Layer 3 loop).
-    final_text = _run_minimal_agent_loop(
-        session_id=session_id,
-        cwd=cwd,
-        prompt=prompt,
-        provider=provider,
-        model_id=model_id,
-    )
-
-    meta: EmbeddedAgentRunMeta = {
-        "durationMs": int(time.time() * 1000) - started,
-        "agentMeta": EmbeddedAgentMeta(
-            sessionId=session_id,
-            provider=provider,
-            model=model_id,
-        ),
-        "finalAssistantVisibleText": final_text,
-        "finalAssistantRawText": final_text,
-    }
-    return {"meta": meta}
-
-
-def _run_minimal_agent_loop(
-    session_id: str,
-    cwd: str,
-    prompt: str,
-    provider: str,
-    model_id: str,
-) -> str:
-    """The minimal agent loop for
-    Phase 7.1. Returns a basic
-    final-text response (the full
-    loop with model streaming,
-    tool execution, etc. lands in
-    7.2+).
-
-    The Phase 7.1 stub returns a
-    placeholder response — the
-    goal is to wire the
-    orchestrator + loop entry
-    point so callers can integrate.
-    """
+    # Check for empty prompt early
     if not prompt:
-        return ""
-    return (
-        f"[Phase 7.1 stub] session={session_id} "
-        f"provider={provider} model={model_id} "
-        f"cwd={cwd} prompt={prompt[:60]!r}"
+        return {
+            "meta": {
+                "durationMs": int(time.time() * 1000) - started,
+                "agentMeta": EmbeddedAgentMeta(
+                    sessionId=session_id,
+                    provider=provider,
+                    model=model_id,
+                ),
+                "finalAssistantVisibleText": "",
+                "finalAssistantRawText": "",
+            }
+        }
+
+    # Prepare runtime and lifecycle components
+    prepared_runtime = await prepare_embedded_run_runtime(
+        {
+            "runParams": params,
+            "provider": provider,
+            "modelId": model_id,
+            "workspaceDir": cwd,
+            "agentDir": run_input.agent_dir,
+        }
     )
+
+    retry_budget = create_run_retry_budget(
+        resolve_max_run_retry_iterations(len(prepared_runtime.profile_candidates))
+    )
+    context_recovery_state = create_embedded_run_context_recovery_state()
+    usage_accumulator = create_usage_accumulator()
+    terminal_retry_state = create_embedded_run_terminal_retry_state()
+    turn_taint_state = create_agent_turn_taint_state(params.get("initialTurnTainted") is True)
+    post_compaction_guard = create_post_compaction_loop_guard(enabled=True)
+
+    session_prompt_state = await create_embedded_run_session_prompt_state(
+        run_params=params,
+        session_agent_id=session_id,
+        resolved_session_key=run_input.resolved_session_key,
+        lifecycle_generation=run_input.lifecycle_generation,
+    )
+    provider_review = create_provider_review_run(
+        run=run_input,
+        runtime=prepared_runtime,
+        session=session_prompt_state,
+    )
+    permission_changes = create_embedded_run_permission_changes(params)
+
+    try:
+        provider_review.begin_attempt()
+        if is_run_retry_budget_exhausted(retry_budget):
+            decision = resolve_run_failover_decision(
+                stage="retry_limit",
+                fallback_configured=run_input.fallback_configured,
+            )
+            return provider_review.finish(
+                handle_retry_limit_exhaustion(
+                    message="Exceeded retry limit.",
+                    decision=decision,
+                    provider=provider,
+                    model=model_id,
+                    duration_ms=int(time.time() * 1000) - started,
+                    agent_meta=build_error_agent_meta(
+                        session_id=session_prompt_state.session_id,
+                        provider=provider,
+                        model=model_id,
+                    ),
+                )
+            )
+
+        begin_run_attempt(retry_budget)
+
+        # Execute attempt via the canonical dispatch / attempt pipeline
+        attempt_result = await dispatch_embedded_run_attempt(
+            {
+                "runInput": run_input,
+                "preparedRuntime": prepared_runtime,
+                "sessionPromptState": session_prompt_state,
+                "prompt": prompt,
+                "cwd": cwd,
+                "provider": provider,
+                "modelId": model_id,
+            }
+        )
+
+        final_text = (
+            attempt_result.get("finalAssistantVisibleText")
+            or attempt_result.get("text")
+            or attempt_result.get("assistantText")
+            or ""
+        )
+
+        meta: EmbeddedAgentRunMeta = {
+            "durationMs": int(time.time() * 1000) - started,
+            "agentMeta": EmbeddedAgentMeta(
+                sessionId=session_id,
+                provider=provider,
+                model=model_id,
+            ),
+            "finalAssistantVisibleText": final_text,
+            "finalAssistantRawText": final_text,
+        }
+        return provider_review.finish({"meta": meta})
+
+    except Exception as err:
+        _LOG.exception("Error in run_prepared_embedded_loop: %s", err)
+        # Attempt fallback to minimal session prompting if dispatch hook was empty
+        meta = {
+            "durationMs": int(time.time() * 1000) - started,
+            "agentMeta": EmbeddedAgentMeta(
+                sessionId=session_id,
+                provider=provider,
+                model=model_id,
+            ),
+            "finalAssistantVisibleText": f"JARVIS execution note: {err}",
+            "finalAssistantRawText": f"JARVIS execution note: {err}",
+        }
+        return {"meta": meta}
+
+    finally:
+        permission_changes.close()
+        try:
+            await settle_embedded_run(
+                run_input=run_input,
+                runtime=prepared_runtime,
+                compaction={
+                    "state": context_recovery_state,
+                    "session": session_prompt_state,
+                    "originalTarget": session_prompt_state.session_target,
+                    "durable": True,
+                },
+            )
+        finally:
+            await prepared_runtime.release_transport()
 
 
 __all__ = ["run_prepared_embedded_loop"]

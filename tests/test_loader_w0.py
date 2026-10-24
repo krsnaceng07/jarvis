@@ -13,7 +13,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-
 from jarvis_sdk.loader import (
     MANIFEST_FILENAME,
     LoadResult,
@@ -113,6 +112,77 @@ class TestLoadAllPluginsOnlyStartup:
         # Not skipped (filtered, not failed).
         assert "lazy_ext" not in result.skipped
 
+
+class TestHyphenatedExtensionPackages:
+    def test_tool_plugins_infer_tool_execute_permission(self, tmp_path: Path) -> None:
+        ext_id = "tool-permission-inference"
+        ext_dir = tmp_path / "extensions" / ext_id
+        ext_dir.mkdir(parents=True)
+        (ext_dir / "openclaw.plugin.json").write_text(
+            json.dumps(
+                {
+                    "id": ext_id,
+                    "kind": "tool",
+                    "contracts": {"tools": ["probe"]},
+                    "permissions": ["net:example"],
+                }
+            ),
+            encoding="utf-8",
+        )
+        (ext_dir / "__init__.py").write_text(
+            "from .plugin import entry\n",
+            encoding="utf-8",
+        )
+        (ext_dir / "plugin.py").write_text(
+            "class Entry:\n"
+            f"    id = '{ext_id}'\n"
+            "    kind = 'tool'\n"
+            "    def register(self, api):\n"
+            "        api.register_tool(name='probe', description='probe', parameters={'type': 'OBJECT', 'properties': {}}, execute=lambda args: 'ok')\n"
+            "entry = Entry()\n",
+            encoding="utf-8",
+        )
+
+        result = load_all_plugins_from_workspace(tmp_path)
+
+        assert ext_id not in result.skipped
+        assert "probe" in result.plugin_dispatch
+
+    def test_loads_package_relative_entry_despite_underscore_namespace(
+        self, tmp_path: Path
+    ) -> None:
+        ext_id = "probe-hyphen-ext"
+        ext_dir = tmp_path / "extensions" / ext_id
+        ext_dir.mkdir(parents=True)
+        (ext_dir / "openclaw.plugin.json").write_text(
+            json.dumps(
+                {
+                    "id": ext_id,
+                    "kind": "tool",
+                    "contracts": {"tools": ["probe"], "permissions": ["tool:execute"]},
+                }
+            ),
+            encoding="utf-8",
+        )
+        (ext_dir / "__init__.py").write_text(
+            "from .plugin import entry\n",
+            encoding="utf-8",
+        )
+        (ext_dir / "plugin.py").write_text(
+            "class Entry:\n"
+            f"    id = '{ext_id}'\n"
+            "    kind = 'tool'\n"
+            "    def register(self, api):\n"
+            "        api.register_tool(name='probe', description='probe', parameters={'type': 'OBJECT', 'properties': {}}, execute=lambda args: 'ok')\n"
+            "entry = Entry()\n",
+            encoding="utf-8",
+        )
+
+        result = load_all_plugins_from_workspace(tmp_path)
+
+        assert ext_id not in result.skipped
+        assert "probe" in result.plugin_dispatch
+
     def test_only_startup_includes_on_startup(self, tmp_path: Path) -> None:
         """Plugins with activation='on_startup' are included when only_startup=True."""
         ext_dir = tmp_path / "eager_ext"
@@ -148,8 +218,8 @@ class TestLoadAllPluginsOnlyStartup:
 class TestDiscoverPlugins:
     def test_discover_plugins_import_from_root_and_loader(self) -> None:
         import jarvis_sdk
-        from jarvis_sdk.loader import discover_plugins as dp1
         from jarvis_sdk import discover_plugins as dp2
+        from jarvis_sdk.loader import discover_plugins as dp1
 
         assert callable(dp1)
         assert dp1 is dp2

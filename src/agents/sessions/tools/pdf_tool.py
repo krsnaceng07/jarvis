@@ -215,6 +215,71 @@ def _extract_pdf(file_path: str, pages_spec: str | None) -> tuple[list[Extracted
     )
 
 
+def _convert_file_to_pdf(input_path: str, output_path: str | None = None) -> tuple[str, int]:
+    """Convert text, markdown, or HTML file to high-quality PDF using PyMuPDF."""
+    import html as html_lib
+    import pymupdf
+
+    if not output_path:
+        base, _ = os.path.splitext(input_path)
+        output_path = f"{base}.pdf"
+
+    with open(input_path, "r", encoding="utf-8", errors="replace") as f:
+        content = f.read()
+
+    if input_path.lower().endswith(".html") or "<html" in content.lower():
+        html_content = content
+    else:
+        body_lines = []
+        for line in content.splitlines():
+            line_str = line.strip()
+            if line_str.startswith("# "):
+                body_lines.append(f"<h1>{html_lib.escape(line_str[2:])}</h1>")
+            elif line_str.startswith("## "):
+                body_lines.append(f"<h2>{html_lib.escape(line_str[3:])}</h2>")
+            elif line_str.startswith("### "):
+                body_lines.append(f"<h3>{html_lib.escape(line_str[4:])}</h3>")
+            elif line_str.startswith("* ") or line_str.startswith("- "):
+                body_lines.append(f"<li>{html_lib.escape(line_str[2:])}</li>")
+            elif line_str:
+                body_lines.append(f"<p>{html_lib.escape(line_str)}</p>")
+        body_html = "\n".join(body_lines)
+        html_content = (
+            "<!DOCTYPE html><html><head><meta charset='utf-8'><style>"
+            "body { font-family: sans-serif; line-height: 1.5; color: #111; margin: 30px; }"
+            "h1 { color: #1a365d; border-bottom: 2px solid #2b6cb0; padding-bottom: 6px; font-size: 24px; }"
+            "h2 { color: #2b6cb0; border-bottom: 1px solid #cbd5e0; margin-top: 18px; font-size: 16px; text-transform: uppercase; }"
+            "li { margin-bottom: 3px; }"
+            "p { margin: 4px 0; }"
+            "</style></head><body>" + body_html + "</body></html>"
+        )
+
+    try:
+        story = pymupdf.Story(html=html_content)
+        writer = pymupdf.DocumentWriter(output_path)
+        rect = pymupdf.Rect(36, 36, 559, 806)
+        page_count = 0
+        while True:
+            device = writer.begin_page(pymupdf.paper_rect("a4"))
+            more, _ = story.place(rect)
+            story.draw(device)
+            writer.end_page()
+            page_count += 1
+            if not more:
+                break
+        writer.close()
+        return output_path, page_count
+    except Exception:
+        doc = pymupdf.open()
+        page = doc.new_page(width=595, height=842)
+        rect = pymupdf.Rect(40, 40, 555, 802)
+        page.insert_textbox(rect, content, fontsize=10, fontname="helv")
+        doc.save(output_path)
+        page_count = doc.page_count
+        doc.close()
+        return output_path, page_count
+
+
 def create_pdf_tool_definition(
     cwd: str = "",
     options: Optional[dict] = None,
@@ -249,6 +314,25 @@ def create_pdf_tool_definition(
 
         if not os.path.isfile(resolved_path):
             raise ValueError(f"Target '{resolved_path}' is a directory, not a PDF file.")
+
+        action = str(params.get("action") or "read").lower().strip()
+        is_convert = action in ("convert", "create") or not resolved_path.lower().endswith(".pdf")
+        if is_convert:
+            dest = params.get("output_path") or params.get("target") or params.get("destination")
+            resolved_dest = resolve_unicode_path(str(dest), workspace_root) if dest else None
+            out_pdf, page_count = _convert_file_to_pdf(resolved_path, resolved_dest)
+            size_bytes = os.path.getsize(out_pdf)
+            msg = f"Successfully converted '{resolved_path}' to PDF: '{out_pdf}' ({page_count} page(s), {size_bytes:,} bytes)."
+            return {
+                "content": [{"type": "text", "text": msg}],
+                "details": {
+                    "pdf": out_pdf,
+                    "source": resolved_path,
+                    "action": "convert",
+                    "total_pages": page_count,
+                    "size_bytes": size_bytes,
+                },
+            }
 
         pages_spec = params.get("pages")
         if pages_spec is not None:

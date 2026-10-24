@@ -364,4 +364,23 @@ entry = define_plugin_entry(
 )
 
 
-__all__ = ["entry"]
+from .hybrid_engine import (
+    LanceDBHybridEngine,
+    LocalEmbeddingEngine,
+    backfill_from_sqlite,
+    count_vector_memories,
+    get_hybrid_engine,
+    search_vector_memory,
+    upsert_vector_memory,
+)
+
+__all__ = [
+    "LanceDBHybridEngine",
+    "LocalEmbeddingEngine",
+    "backfill_from_sqlite",
+    "count_vector_memories",
+    "entry",
+    "get_hybrid_engine",
+    "search_vector_memory",
+    "upsert_vector_memory",
+]

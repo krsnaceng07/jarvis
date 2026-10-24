@@ -39,6 +39,7 @@ from typing import Any
 
 from .api import PluginApi
 from .context import PluginContext
+from .host import skills_to_prompt_section
 
 ManifestDict = dict[str, Any]
 
@@ -126,6 +127,16 @@ class LoadResult:
     def manifests(self) -> list[dict[str, Any]]:
         """List of discovered plugin manifest metadata records."""
         return self.manifest_metadata
+
+    @property
+    def tool_declarations(self) -> list[dict[str, Any]]:
+        """Alias to tool_decls for OpenClaw parity."""
+        return self.tool_decls
+
+    @property
+    def dispatch_table(self) -> dict[str, Any]:
+        """Alias to plugin_dispatch for OpenClaw parity."""
+        return self.plugin_dispatch
 
 
 # ── Manifest validation ────────────────────────────────────────────────
@@ -366,6 +377,21 @@ def _load_one_extension(
     except Exception as e:  # noqa: BLE001
         _log.warning("loader: %s set_manifest() error: %s", ext_name, e)
 
+    # Step 3.5 — evaluate Capability Ladder Contract.
+    from .capability_ladder import CapabilityLadderContract, CapabilityTier  # noqa: PLC0415
+
+    ladder_contract = CapabilityLadderContract.from_manifest(manifest)
+    setattr(ctx, "capability_contract", ladder_contract)
+    setattr(api, "capability_contract", ladder_contract)
+
+    if ladder_contract.quarantined:
+        _log.warning(
+            "loader: %s quarantined by Capability Ladder: %s",
+            ext_name,
+            ladder_contract.quarantine_reason,
+        )
+        return False
+
     # Step 4 — call register(api).
     from .contract import ChannelPlugin, Plugin  # noqa: PLC0415
 
@@ -416,15 +442,22 @@ def _load_one_extension(
             fallback_reg = getattr(entry, "register", None)
             if callable(fallback_reg):
                 target_register = fallback_reg
+            elif (
+                ladder_contract.granted_tier == CapabilityTier.TIER_0_METADATA_ONLY
+                or manifest.get("kind") in ("skill", "migration")
+                or not manifest.get("tools")
+            ):
+                # Declarative / metadata-only plugin: gracefully registered
+                target_register = lambda _api: None
 
     if target_register is None:
-        _log.warning("loader: %s has no callable register method; skipping", ext_name)
+        _log.debug("loader: %s has no callable register method; skipping", ext_name)
         return False
 
     try:
         target_register(api)
     except Exception as e:  # noqa: BLE001
-        _log.warning("loader: %s.register() raised: %s", ext_name, e)
+        _log.debug("loader: %s.register() raised: %s", ext_name, e)
         return False
 
     # Step 5 — collect registrations.
@@ -649,7 +682,7 @@ def load_all_plugins(
                 bundle_skipped.append(ext_dir.name)
 
         if bundle_skipped:
-            _log.warning("loader: skipped bundles: %s", ", ".join(bundle_skipped))
+            _log.debug("loader: skipped bundles: %s", ", ".join(bundle_skipped))
 
     except Exception as exc:  # noqa: BLE001
         # Bundle scan must never crash the native plugin load.
@@ -663,7 +696,7 @@ def load_all_plugins(
         extensions_root,
     )
     if result.skipped:
-        _log.warning("loader: skipped extensions: %s", ", ".join(result.skipped))
+        _log.debug("loader: skipped extensions: %s", ", ".join(result.skipped))
 
     return result
 
@@ -809,4 +842,5 @@ __all__ = [
     "load_all_plugins",
     "load_all_plugins_from_workspace",
     "load_plugins",
+    "skills_to_prompt_section",
 ]

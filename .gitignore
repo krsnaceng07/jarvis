@@ -102,6 +102,11 @@ target/
 *.dll
 *.so
 *.dylib
+scratch/
+node_modules/
+**/node_modules/
+
+
 
 # Upstream reference (do not commit changes inside)
 openclaw-main/

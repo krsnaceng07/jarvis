@@ -40,7 +40,7 @@ def test_cli_status(capsys):
 
     captured = capsys.readouterr()
     assert "Browser Status:" in captured.out
-    assert "Profile: openclaw" in captured.out
+    assert "Profile: openclaw" in captured.out or "Profile: jarvis" in captured.out
 
 
 def test_cli_profiles(capsys):

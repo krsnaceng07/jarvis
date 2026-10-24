@@ -51,8 +51,10 @@ class LaneContract:
     # Quick-answer policy vs background-work policy
     chat_budget: str = (
         "Answer quick questions directly. "
-        "For multi-step, slow, or tool-heavy work: acknowledge briefly, "
-        "spawn/background the work, then return the result when complete."
+        "Execute interactive and user-visible work in the foreground. "
+        "Use background workers only when the user asks for asynchronous work "
+        "or a headless job must continue independently; never claim work is running "
+        "unless it was actually started."
     )
     # Handoff instructions
     handoff: str = (
@@ -148,7 +150,9 @@ def _parse_lane_contract(text: str) -> LaneContract:
         m = re.match(r"^##\s+(.+)$", line)
         if m:
             if current_heading is not None:
-                sections[current_heading.lower().replace(" ", "_")] = "\n".join(current_lines).strip()
+                sections[current_heading.lower().replace(" ", "_")] = "\n".join(
+                    current_lines
+                ).strip()
             current_heading = m.group(1).strip()
             current_lines = []
         elif current_heading is not None:

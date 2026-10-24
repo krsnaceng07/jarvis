@@ -533,6 +533,11 @@ def sanitize_for_memory_capture(text: str) -> str:
     return cleaned.strip()
 
 
+def scrub_envelope_sludge(text: str) -> str:
+    """Scrub prompt injection, channel prefix sludge, and media annotations."""
+    return sanitize_for_memory_capture(text)
+
+
 # Re-export the OpenClaw parity surface.
 __all__ = [
     "MEMORY_TRIGGERS",
@@ -540,5 +545,6 @@ __all__ = [
     "looks_like_envelope_sludge",
     "looks_like_prompt_injection",
     "sanitize_for_memory_capture",
+    "scrub_envelope_sludge",
     "strip_media_attached_annotations",
 ]

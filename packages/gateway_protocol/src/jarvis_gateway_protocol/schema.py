@@ -1,7 +1,6 @@
-"""Gateway WS protocol schema — request, response, and event shapes.
+"""JARVIS Gateway WS protocol schema — request, response, and event shapes.
 
-Mirrors OpenClaw's ``packages/gateway-protocol/schema/`` cluster.
-Every frame exchanged over the gateway WebSocket uses one of these shapes.
+Every frame exchanged over the JARVIS Gateway WebSocket uses one of these shapes.
 """
 
 from __future__ import annotations
@@ -81,6 +80,7 @@ class RPCMethod(str, Enum):
     AGENTS_WORKSPACE_GET = "agents.workspace.get"
     AGENTS_RUN = "agents.run"
     AGENTS_ABORT = "agents.abort"
+    AGENT_DISPATCH = "agent.dispatch"
     AGENT_REACT = "agent.react"
     AGENT_MESSAGE = "agent.message"
     AGENT_ASKUSER = "agent.askUser"
@@ -391,9 +391,16 @@ class GatewayEvent:
         return d
 
 
-__all__ = ["GatewayError", "RPCMethod", "GatewayRequest", "GatewayResponse", "GatewayEvent"]
+# JSON-RPC 2.0 compatibility shapes expected by tests and clients
 
-# JSON-RPC 2.0 compatibility shapes expected by some tests
+
+class EventMethod(str, Enum):
+    """Known Gateway JSON-RPC 2.0 outbound event notification methods."""
+
+    AGENT_DRAFT = "event.agent.draft"
+    CHANNEL_MESSAGE = "event.channel.message"
+    GATEWAY_EVENT = "gateway.event"
+    TASK_COMPLETED = "event.task.completed"
 
 
 @dataclass(frozen=True, slots=True)
@@ -437,7 +444,33 @@ class RPCResponse:
         return d
 
 
+@dataclass(frozen=True, slots=True)
+class RPCEvent:
+    """JSON-RPC 2.0 event (notification) shape.
+
+    Format: { "jsonrpc": "2.0", "method": "...", "params": {...} }
+    """
+
+    method: str
+    params: dict[str, Any] = field(default_factory=dict)
+    jsonrpc: Literal["2.0"] = "2.0"
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"jsonrpc": "2.0", "method": self.method, "params": self.params}
+
+
 # Backwards RPC aliases
 RPCError = GatewayError
 
-__all__ += ["RPCError", "RPCRequest", "RPCResponse"]
+__all__ = [
+    "EventMethod",
+    "GatewayError",
+    "GatewayEvent",
+    "GatewayRequest",
+    "GatewayResponse",
+    "RPCError",
+    "RPCEvent",
+    "RPCMethod",
+    "RPCRequest",
+    "RPCResponse",
+]

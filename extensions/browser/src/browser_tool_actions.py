@@ -21,8 +21,9 @@ async def perform_act(page: Page, request: BrowserActSchema) -> str:
         candidates = [
             "input[name='search_query']",
             "input#search",
+            "#search-input input",
+            "ytd-searchbox input",
             "input.yt-searchbox-input",
-            "#search input",
             "input[type='text']",
             selector,
         ]
@@ -65,11 +66,21 @@ async def perform_act(page: Page, request: BrowserActSchema) -> str:
             return f"Typed '{request.text}' successfully."
         return "No text provided to type."
 
-    elif kind == "press":
-        if request.key:
-            await locator.press(request.key, timeout=5000)
-            return f"Pressed '{request.key}' successfully."
-        return "No key provided to press."
+    elif kind in ("press", "press_key", "key_press"):
+        raw_k = request.key or "Enter"
+        norm_k = "Enter" if str(raw_k).lower() in ("return", "enter") else str(raw_k)
+        try:
+            if request.selector or request.ref:
+                await locator.press(norm_k, timeout=5000)
+            else:
+                await page.keyboard.press(norm_k)
+            return f"Pressed '{norm_k}' successfully."
+        except Exception:
+            try:
+                await page.keyboard.press(norm_k)
+                return f"Pressed '{norm_k}' successfully."
+            except Exception as e:
+                return f"Press key failed: {e}"
 
     elif kind == "hover":
         await locator.hover(timeout=5000)

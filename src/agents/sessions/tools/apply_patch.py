@@ -347,7 +347,6 @@ def create_apply_patch_tool_definition(
                 }
             },
             "required": ["input"],
-            "additionalProperties": False,
         },
         "execute": _execute,
         "optional": False,

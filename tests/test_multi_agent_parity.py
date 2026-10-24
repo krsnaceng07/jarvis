@@ -36,10 +36,10 @@ from src.agents.subagents import (
     SubagentController,
     SubagentRegistry,
     SubagentRole,
-    SubagentRunRecord,
     SubagentRunner,
-    SubagentSpawner,
+    SubagentRunRecord,
     SubagentSpawnContextMode,
+    SubagentSpawner,
     SubagentStatus,
     SubtaskDefinition,
     can_spawn_subagents,
@@ -105,7 +105,7 @@ class TestDelegationDecisions:
         )
         assert (
             orch.evaluate_orchestration_mode("Run deep research on quantum computing algorithms")
-            == OrchestrationMode.CREATE_SUBAGENT
+            == OrchestrationMode.DIRECT_TOOL_EXECUTION
         )
 
     def test_leaf_subagent_never_spawns(self, clean_registry: SubagentRegistry):
@@ -493,6 +493,7 @@ class TestLiveWiringAndDeliveryParity:
         self, clean_registry: SubagentRegistry, tmp_path: Path
     ):
         import argparse
+
         from apps.cli.src.jarvis_cli.main import _cmd_subagents_cancel, _cmd_subagents_list
 
         # 1. Register a test run in the clean registry

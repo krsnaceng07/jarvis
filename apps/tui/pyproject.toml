@@ -1,10 +1,22 @@
-# apps/tui placeholder — replaced in Phase 12 (optional terminal UI)
-# This stub exists only so `uv workspace` validates the empty `apps/*` member.
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "jarvis-tui"
-version = "0.0.1"
-description = "JARVIS terminal UI (optional). Lands in Phase 12."
+version = "0.1.0"
+description = "JARVIS Terminal UI — Interactive terminal client communicating with the Gateway micro-kernel over WebSocket JSON-RPC 2.0 (Port 7433)."
 requires-python = ">=3.13"
+dependencies = [
+    "jarvis-gateway-protocol",
+    "websockets>=12.0",
+]
+
+[project.scripts]
+jarvis-tui = "jarvis_tui.app:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jarvis_tui"]
 
 [tool.uv]
-package = false
+package = true

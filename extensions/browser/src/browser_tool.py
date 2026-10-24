@@ -143,12 +143,37 @@ class BrowserTool:
                 "://" in target_url
                 or target_url.startswith(("about:", "data:", "chrome:", "edge:", "file:"))
             ):
-                target_url = f"https://{target_url}"
+                if " " in target_url or (
+                    "." not in target_url
+                    and target_url.lower()
+                    not in ("youtube", "google", "github", "twitter", "x", "reddit", "spotify")
+                ):
+                    import urllib.parse
+
+                    target_url = (
+                        f"https://www.google.com/search?q={urllib.parse.quote_plus(target_url)}"
+                    )
+                elif target_url.lower().startswith("www.") or "." in target_url:
+                    target_url = f"https://{target_url}"
+                else:
+                    target_url = f"https://www.{target_url.lower()}.com"
         label = raw_params.get("label", "")
 
         action = raw_params.get("action")
         if isinstance(action, str):
             action = action.strip().lower()
+            if action in ("new_tab", "newtab", "open_tab"):
+                action = "open"
+                raw_params["action"] = "open"
+            elif action in ("switch_tab", "switchtab", "focus_tab"):
+                action = "focus"
+                raw_params["action"] = "focus"
+            elif action in ("close_tab", "closetab"):
+                action = "close"
+                raw_params["action"] = "close"
+            elif action in ("goto", "visit", "browse", "go_to", "load"):
+                action = "navigate"
+                raw_params["action"] = "navigate"
         if not action:
             if target_url:
                 action = "open"
@@ -174,7 +199,7 @@ class BrowserTool:
 
         # ── Lifecycle & Status Actions ──
         if action == "status":
-            tabs = await runtime.list_tabs(profile)
+            tabs = await runtime.list_tabs(profile) if runtime.is_running else []
             return json_result(
                 {
                     "ok": True,
@@ -227,6 +252,7 @@ class BrowserTool:
             tid = res.get("targetId")
             try:
                 from src.application_automation.browser_target_manager import BrowserTargetManager
+
                 from src.agents.task.runtime_state import RuntimeStateManager
 
                 BrowserTargetManager.get_instance().register_target(
@@ -240,9 +266,12 @@ class BrowserTool:
             # OpenClaw parity (appendNavigatedPageState): attach fresh page snapshot
             # so model receives page context immediately without repeating open calls.
             try:
-                snap = await runtime.snapshot(profile, target_id=tid, max_chars=2000)
+                import asyncio
+                snap = await asyncio.wait_for(runtime.snapshot(profile, target_id=tid, max_chars=2000), timeout=1.5)
                 if snap.get("ok"):
                     res["snapshot"] = snap.get("snapshot") or snap.get("text") or ""
+                    if "elements" in snap:
+                        res["elements"] = snap["elements"]
             except Exception:
                 pass
             return json_result(res)
@@ -265,6 +294,7 @@ class BrowserTool:
             tid = res.get("targetId") or target_id
             try:
                 from src.application_automation.browser_target_manager import BrowserTargetManager
+
                 from src.agents.task.runtime_state import RuntimeStateManager
 
                 BrowserTargetManager.get_instance().register_target(
@@ -276,9 +306,12 @@ class BrowserTool:
             except Exception:
                 pass
             try:
-                snap = await runtime.snapshot(profile, target_id=tid, max_chars=2000)
+                import asyncio
+                snap = await asyncio.wait_for(runtime.snapshot(profile, target_id=tid, max_chars=2000), timeout=1.5)
                 if snap.get("ok"):
                     res["snapshot"] = snap.get("snapshot") or snap.get("text") or ""
+                    if "elements" in snap:
+                        res["elements"] = snap["elements"]
             except Exception:
                 pass
             return json_result(res)
@@ -291,6 +324,7 @@ class BrowserTool:
             )
             try:
                 from src.application_automation.observation_manager import ObservationManager
+
                 from src.agents.task.runtime_state import RuntimeStateManager
 
                 obs = ObservationManager.get_instance().record_snapshot(
@@ -310,6 +344,11 @@ class BrowserTool:
             element = raw_params.get("element")
             file_path = raw_params.get("path")
             img_type = raw_params.get("type", "png")
+            annotate = bool(
+                raw_params.get("annotate")
+                or raw_params.get("som")
+                or raw_params.get("set_of_marks")
+            )
             res = await runtime.screenshot(
                 profile,
                 target_id=target_id,
@@ -317,6 +356,7 @@ class BrowserTool:
                 element=element,
                 path=file_path,
                 image_type=img_type,
+                annotate=annotate,
             )
             b64_data = res.pop("base64", "")
             return image_result(
@@ -324,6 +364,18 @@ class BrowserTool:
                 mime_type=res.get("format", "image/png"),
                 details=res,
             )
+
+        elif action == "download":
+            res = await runtime.download(
+                profile=profile,
+                target_id=target_id,
+                selector=raw_params.get("selector"),
+                ref=raw_params.get("ref"),
+                path=raw_params.get("path"),
+                download_dir=raw_params.get("downloadDir"),
+                timeout_ms=int(raw_params.get("timeoutMs") or cfg.actionTimeoutMs),
+            )
+            return json_result(res)
 
         elif action == "text":
             res = await runtime.extract_text(profile, target_id=target_id)
@@ -343,6 +395,7 @@ class BrowserTool:
             "clickcoords",
             "type",
             "press",
+            "press_key",
             "hover",
             "scrollintoview",
             "drag",
@@ -356,7 +409,7 @@ class BrowserTool:
             if not kind:
                 if action == "act":
                     raise ValueError("kind is required for act action")
-                kind = action
+                kind = "press" if action == "press_key" else action
 
             # 1. Turn boundary & task cancellation check (OpenClaw Parity)
             try:
@@ -481,48 +534,91 @@ class BrowserTool:
 
             return json_result(res)
 
-        # ── Specialized Web Application Automation (YouTube / Media / Generic Web) ──
-        elif action in ("app", "youtube", "web"):
-            from src.application_automation.application_session_manager import (
-                ApplicationSessionManager,
+        # ── Specialized Video & Web Automation (YouTube / Google Search / Media) ──
+        elif action in ("youtube_play", "play_youtube"):
+            q = (
+                raw_params.get("query")
+                or raw_params.get("text")
+                or raw_params.get("title")
+                or target_url
+                or ""
             )
+            if not q and target_url and "youtube.com" in target_url:
+                res = await runtime.open_tab(profile, url=target_url, label="youtube")
+                return json_result(res)
+            res = await runtime.youtube_play(
+                query=str(q),
+                profile=profile,
+                target_id=target_id,
+            )
+            return json_result(res)
 
-            app_mgr = ApplicationSessionManager.get_instance()
+        elif action in ("skip_ad", "youtube_skip_ad", "skip"):
+            res = await runtime.youtube_skip_ad(profile=profile, target_id=target_id)
+            return json_result(res)
+
+        elif action in (
+            "pause",
+            "youtube_pause",
+            "pause_video",
+            "play_pause",
+            "toggle_play",
+            "resume",
+            "play_video",
+            "resume_video",
+            "pause_music",
+            "stop_music",
+        ):
+            res = await runtime.act(profile=profile, target_id=target_id, kind="pause")
+            return json_result(res)
+
+        elif action in ("google_search", "search_google"):
+            q = raw_params.get("query") or raw_params.get("text") or ""
+            res = await runtime.google_search(query=str(q), profile=profile, target_id=target_id)
+            return json_result(res)
+
+        elif action in ("search",):
+            q = raw_params.get("query") or raw_params.get("text") or ""
             page = await runtime.get_page(profile=profile, target_id=target_id)
-            page_url = getattr(page, "url", "") if page else ""
+            curr_url = getattr(page, "url", "").lower() if page else ""
+            if "youtube.com" in curr_url or "youtube" in str(q).lower():
+                res = await runtime.youtube_play(query=str(q), profile=profile, target_id=target_id)
+            else:
+                res = await runtime.google_search(
+                    query=str(q), profile=profile, target_id=target_id
+                )
+            return json_result(res)
 
-            app_name = raw_params.get("app")
-            if not app_name:
-                if action == "youtube":
-                    app_name = "youtube"
-                elif action == "web":
-                    app_name = "web"
-                else:
-                    # Auto-detect from page URL
-                    matched = app_mgr.find_adapter_for_url(page_url) if page_url else None
-                    app_name = matched.app_name if matched else "web"
-
-            cmd = (
+        elif action in ("app", "youtube", "web"):
+            cmd = str(
                 raw_params.get("command")
                 or raw_params.get("cmd")
                 or raw_params.get("kind")
-                or "status"
-            )
+                or "play"
+            ).lower()
+            q = str(raw_params.get("query") or raw_params.get("text") or "").strip()
 
-            app_res = await app_mgr.execute_action(
-                app_name=app_name,
-                action=cmd,
-                params=raw_params,
-                page=page,
-            )
-            if not app_res.is_ok:
-                return json_result({"ok": False, "error": app_res.unwrap_err()})
+            if action == "youtube" or raw_params.get("app") == "youtube":
+                if cmd in ("play", "youtube_play", "search_and_play", "play_first_result") or q:
+                    res = await runtime.youtube_play(query=q, profile=profile, target_id=target_id)
+                    return json_result(res)
+                elif cmd in ("skip_ad", "skip", "skip_advertisement"):
+                    res = await runtime.youtube_skip_ad(profile=profile, target_id=target_id)
+                    return json_result(res)
+                else:
+                    res = await runtime.open_tab(
+                        profile, url="https://www.youtube.com", label="youtube"
+                    )
+                    return json_result(res)
+
+            # Generic web action fallback
+            page = await runtime.get_page(profile=profile, target_id=target_id)
             return json_result(
                 {
                     "ok": True,
-                    "app": app_name,
+                    "action": action,
                     "command": cmd,
-                    "result": app_res.unwrap(),
+                    "url": getattr(page, "url", ""),
                 }
             )
 

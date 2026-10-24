@@ -33,3 +33,7 @@ if _SRC_DIR.exists() and str(_SRC_DIR) not in sys.path:
     sys.path.append(str(_SRC_DIR))  # append so stdlib logging is not shadowed
 
 __version__ = "0.1.0-rc1"
+
+from .gateway_client import JarvisHUDGatewayBridge, create_hud_gateway_bridge  # noqa: E402
+
+__all__ = ["JarvisHUDGatewayBridge", "create_hud_gateway_bridge", "__version__"]

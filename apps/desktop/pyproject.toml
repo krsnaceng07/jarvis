@@ -36,6 +36,7 @@ dependencies = [
     "jarvis-channels-core>=0.1.0",
     "jarvis-gateway-protocol>=0.1.0",
     "jarvis-hooks-core>=0.1.0",
+    "jarvis-net-policy>=0.1.0",
     "jarvis-state-core>=0.1.0",
     "zeroconf>=0.132.0",
     # Audio / voice
@@ -89,6 +90,12 @@ Homepage = "https://github.com/jarvis-ai/jarvis"
 Documentation = "https://github.com/jarvis-ai/jarvis/tree/main/apps/desktop"
 Issues = "https://github.com/jarvis-ai/jarvis/issues"
 
+[project.scripts]
+jarvis-desktop = "jarvis_desktop.app:main"
+
+[tool.uv]
+package = true
+
 # ─────────────────────────────────────────────────────────────────────
 # Build configuration (hatchling + src layout)
 # ─────────────────────────────────────────────────────────────────────
@@ -97,3 +104,4 @@ packages = ["src/jarvis_desktop"]
 
 [tool.hatch.build.targets.sdist]
 include = ["src/jarvis_desktop", "README.md"]
+

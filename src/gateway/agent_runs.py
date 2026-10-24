@@ -1,8 +1,7 @@
-"""Gateway agent-run entrypoints and lifecycle wait registry.
+"""Gateway agent-run entrypoints and lifecycle wait registry for JARVIS.
 
-Mirrors OpenClaw's ``agent`` / ``agent.wait`` contract while keeping the
-model runner injectable. The gateway owns acceptance, per-session lanes,
-run lifecycle, and bounded wait semantics; the embedded runner owns the turn.
+The gateway owns acceptance, per-session lanes, run lifecycle, and bounded
+wait semantics; the embedded runner owns the turn.
 """
 from __future__ import annotations
 
@@ -179,6 +178,22 @@ class AgentRunService:
             run.events.append(event)
             if event.get("stream") == "lifecycle":
                 run.lifecycle.append(event)
+
+        # Broadcast progressive draft preview if delta provided
+        if event.get("stream") == "draft" or "delta" in event:
+            delta = str(event.get("delta") or "")
+            if delta:
+                try:
+                    import asyncio
+                    from .live_state import GLOBAL_GATEWAY_LIVE_STATE
+
+                    try:
+                        loop = asyncio.get_running_loop()
+                        loop.create_task(GLOBAL_GATEWAY_LIVE_STATE.emit_agent_draft(run.session_key, delta))
+                    except RuntimeError:
+                        asyncio.run(GLOBAL_GATEWAY_LIVE_STATE.emit_agent_draft(run.session_key, delta))
+                except Exception:
+                    pass
 
 
 def _now_ms() -> int:

@@ -58,17 +58,49 @@ def create_process_tool_definition(
                     "details": {"action": action, "launched": False, "error": "missing target"},
                 }
             try:
+                launch_msg = ""
                 if sys.platform == "win32":
-                    import os
+                    from .path_utils import launch_windows_app
 
-                    os.startfile(target_val)
+                    ok, launch_msg = launch_windows_app(str(target_val))
+                    if not ok:
+                        return {
+                            "content": [{"type": "text", "text": f"Failed to launch '{target_val}': {launch_msg}"}],
+                            "details": {"target": target_val, "launched": False, "error": launch_msg},
+                        }
                 elif sys.platform == "darwin":
-                    subprocess.Popen(["open", target_val])
+                    subprocess.Popen(["open", str(target_val)])
                 else:
-                    subprocess.Popen(["xdg-open", target_val])
+                    subprocess.Popen(["xdg-open", str(target_val)])
+                import asyncio
+
+                # Adaptive readiness check: poll up to 0.4s max (in 50ms intervals) for window emergence,
+                # returning immediately as soon as target window or process is detected.
+                settled = False
+                target_str = str(target_val).lower().strip()
+                for _ in range(8):
+                    await asyncio.sleep(0.05)
+                    try:
+                        import pygetwindow as gw
+
+                        for w in gw.getAllWindows():
+                            if w.title and any(
+                                k in w.title.lower()
+                                for k in (target_str, target_str.replace(".exe", ""))
+                            ):
+                                settled = True
+                                break
+                    except Exception:
+                        pass
+                    if settled:
+                        break
+
                 return {
                     "content": [
-                        {"type": "text", "text": f"Successfully launched '{target_val}'."}
+                        {
+                            "type": "text",
+                            "text": f"Successfully launched '{target_val}'. Window ready.",
+                        }
                     ],
                     "details": {"target": target_val, "launched": True},
                 }
@@ -77,6 +109,73 @@ def create_process_tool_definition(
                     "content": [{"type": "text", "text": f"Failed to launch '{target_val}': {e}"}],
                     "details": {"target": target_val, "launched": False, "error": str(e)},
                 }
+
+        if action in ("wait", "wait_loading", "settle", "sleep"):
+            import asyncio
+
+            duration = float(
+                params.get("duration")
+                or params.get("seconds")
+                or params.get("wait_seconds")
+                or params.get("time")
+                or 1.0
+            )
+            duration = min(max(duration, 0.05), 30.0)
+            target = str(params.get("target") or params.get("app") or "").strip().lower()
+
+            # Adaptive settling: if target window is already open and ready, return immediately
+            if target:
+                try:
+                    import pygetwindow as gw
+
+                    matched = [
+                        w for w in gw.getAllWindows() if w.title and target in w.title.lower()
+                    ]
+                    if matched:
+                        msg = f"Target window '{matched[0].title}' is already loaded and ready. Proceeding immediately."
+                        return {
+                            "content": [{"type": "text", "text": msg}],
+                            "details": {
+                                "action": action,
+                                "target": target,
+                                "waited_seconds": 0.0,
+                                "ready": True,
+                            },
+                        }
+                except Exception:
+                    pass
+
+            elapsed = 0.0
+            step = 0.05
+            while elapsed < duration:
+                await asyncio.sleep(step)
+                elapsed += step
+                if target:
+                    try:
+                        import pygetwindow as gw
+
+                        matched = [
+                            w for w in gw.getAllWindows() if w.title and target in w.title.lower()
+                        ]
+                        if matched:
+                            msg = f"Target window '{matched[0].title}' settled and ready (waited {elapsed:.2f}s)."
+                            return {
+                                "content": [{"type": "text", "text": msg}],
+                                "details": {
+                                    "action": action,
+                                    "target": target,
+                                    "waited_seconds": elapsed,
+                                    "ready": True,
+                                },
+                            }
+                    except Exception:
+                        pass
+
+            msg = f"Waited {elapsed:.2f}s for UI / window {f'({target}) ' if target else ''}to settle."
+            return {
+                "content": [{"type": "text", "text": msg}],
+                "details": {"action": action, "target": target, "waited_seconds": elapsed},
+            }
 
         if action in ("minimize", "minimize_all", "show_desktop"):
             if sys.platform == "win32":
@@ -253,27 +352,36 @@ def create_process_tool_definition(
 
         if action in ("list", "ps", "status"):
             import time
+
             active = registry.get_all_active(session_key)
             finished = registry.get_all_finished(session_key)
 
             lines = ["### Background Process Sessions\n"]
             if not active and not finished:
                 lines.append("No active background exec sessions found.")
-                lines.append("To close a host application, call process(action='kill', session_id='<app_name>').")
+                lines.append(
+                    "To close a host application, call process(action='kill', session_id='<app_name>')."
+                )
             else:
                 if active:
                     lines.append("#### Running Processes:")
                     for s in active:
                         runtime_sec = int(time.time() - s.started_at)
                         cmd_display = s.command if len(s.command) <= 60 else s.command[:57] + "..."
-                        lines.append(f"- **ID:** `{s.id}` | **Status:** `running` | **PID:** {s.pid or 'n/a'} | **Elapsed:** {runtime_sec}s | **Command:** `{cmd_display}`")
+                        lines.append(
+                            f"- **ID:** `{s.id}` | **Status:** `running` | **PID:** {s.pid or 'n/a'} | **Elapsed:** {runtime_sec}s | **Command:** `{cmd_display}`"
+                        )
                 if finished:
                     lines.append("\n#### Recent Completed Processes:")
                     for f in finished:
                         runtime_sec = int(f.ended_at - f.started_at)
-                        exit_str = f"code {f.exit_code}" if f.exit_code is not None else "terminated"
+                        exit_str = (
+                            f"code {f.exit_code}" if f.exit_code is not None else "terminated"
+                        )
                         cmd_display = f.command if len(f.command) <= 60 else f.command[:57] + "..."
-                        lines.append(f"- **ID:** `{f.id}` | **Status:** `finished ({exit_str})` | **Duration:** {runtime_sec}s | **Command:** `{cmd_display}`")
+                        lines.append(
+                            f"- **ID:** `{f.id}` | **Status:** `finished ({exit_str})` | **Duration:** {runtime_sec}s | **Command:** `{cmd_display}`"
+                        )
 
             query = params.get("filter") or params.get("name") or params.get("query")
             if query:
@@ -284,25 +392,34 @@ def create_process_tool_definition(
                         text=True,
                     )
                     if res.returncode == 0 and "INFO: No tasks" not in res.stdout:
-                        lines.append(f"\n#### Host Processes matching '{query}':\n{res.stdout.strip()}")
+                        lines.append(
+                            f"\n#### Host Processes matching '{query}':\n{res.stdout.strip()}"
+                        )
                 else:
                     res = subprocess.run(
                         ["pgrep", "-l", str(query)], capture_output=True, text=True
                     )
                     if res.returncode == 0 and res.stdout.strip():
-                        lines.append(f"\n#### Host Processes matching '{query}':\n{res.stdout.strip()}")
+                        lines.append(
+                            f"\n#### Host Processes matching '{query}':\n{res.stdout.strip()}"
+                        )
 
             try:
                 from src.automation.task_registry import list_task_records
+
                 task_records = list_task_records()
                 running_tasks = [t for t in task_records if t.status == "running"]
                 queued_tasks = [t for t in task_records if t.status == "queued"]
                 if running_tasks or queued_tasks:
                     lines.append("\n#### Background Task Ledger:")
                     for t in running_tasks:
-                        lines.append(f"- **Task ID:** `{t.task_id[:8]}` | **Status:** `running` | **Label:** {t.label or t.task}")
+                        lines.append(
+                            f"- **Task ID:** `{t.task_id[:8]}` | **Status:** `running` | **Label:** {t.label or t.task}"
+                        )
                     for t in queued_tasks:
-                        lines.append(f"- **Task ID:** `{t.task_id[:8]}` | **Status:** `queued` | **Label:** {t.label or t.task}")
+                        lines.append(
+                            f"- **Task ID:** `{t.task_id[:8]}` | **Status:** `queued` | **Label:** {t.label or t.task}"
+                        )
             except Exception:
                 pass
 
@@ -312,8 +429,24 @@ def create_process_tool_definition(
                     "action": "list",
                     "activeCount": len(active),
                     "finishedCount": len(finished),
-                    "active": [{"id": s.id, "status": "running", "command": s.command, "startedAt": s.started_at} for s in active],
-                    "finished": [{"id": f.id, "status": "completed" if f.exit_code == 0 else "failed", "exitCode": f.exit_code, "command": f.command} for f in finished],
+                    "active": [
+                        {
+                            "id": s.id,
+                            "status": "running",
+                            "command": s.command,
+                            "startedAt": s.started_at,
+                        }
+                        for s in active
+                    ],
+                    "finished": [
+                        {
+                            "id": f.id,
+                            "status": "completed" if f.exit_code == 0 else "failed",
+                            "exitCode": f.exit_code,
+                            "command": f.command,
+                        }
+                        for f in finished
+                    ],
                 },
             }
 
@@ -539,7 +672,9 @@ def create_process_tool_definition(
 
         elif action in ("poll", "log"):
             session = registry.get_active(session_id) if session_id else None
-            finished_session = registry.get_finished(session_id) if (not session and session_id) else None
+            finished_session = (
+                registry.get_finished(session_id) if (not session and session_id) else None
+            )
 
             if not session and not finished_session:
                 return {
@@ -552,7 +687,11 @@ def create_process_tool_definition(
                 }
 
             if finished_session:
-                exit_msg = f"exit code {finished_session.exit_code}" if finished_session.exit_code is not None else "terminated"
+                exit_msg = (
+                    f"exit code {finished_session.exit_code}"
+                    if finished_session.exit_code is not None
+                    else "terminated"
+                )
                 output_msg = f"--- Session {session_id} ({finished_session.command}) [Finished: {exit_msg}] ---\n"
                 if finished_session.tail:
                     output_msg += f"OUTPUT:\n{finished_session.tail}\n"
@@ -595,7 +734,9 @@ def create_process_tool_definition(
                 "content": [{"type": "text", "text": output_msg}],
                 "details": {
                     "sessionId": session.id,
-                    "status": "running" if not session.exited else ("completed" if session.exit_code == 0 else "failed"),
+                    "status": "running"
+                    if not session.exited
+                    else ("completed" if session.exit_code == 0 else "failed"),
                     "exitCode": session.exit_code,
                 },
             }
@@ -676,7 +817,11 @@ def create_process_tool_definition(
                                 "text": f"Sent input/keys to session {session_id}.",
                             }
                         ],
-                        "details": {"sessionId": session_id, "status": "running", "sent": sent_count},
+                        "details": {
+                            "sessionId": session_id,
+                            "status": "running",
+                            "sent": sent_count,
+                        },
                     }
                 except Exception as e:
                     return {"content": [{"type": "text", "text": f"Failed to send keys: {e}"}]}
@@ -740,12 +885,17 @@ def create_process_tool_definition(
         "name": "process",
         "label": "process",
         "description": (
-            "Control and interact with background `exec` sessions or terminate host desktop applications (e.g. notepad, terminal, calc). "
-            "To close/kill an app or process on the PC, call with action='kill', session_id='<app_name>' (e.g. session_id='notepad'). "
+            "Control and interact with background `exec` sessions, launch or terminate host desktop applications (e.g. notepad, terminal, calc), "
+            "or pause to wait for an application or UI to settle and finish loading. "
+            "To launch an app: action='open', target='<app_or_path>'. "
+            "To wait for loading: action='wait', duration=2.0. "
+            "To close/kill an app or process: action='kill', session_id='<app_name>' (e.g. session_id='notepad'). "
             "Never ask user for PID."
         ),
-        "promptSnippet": "Interact with a background process or close desktop applications",
+        "promptSnippet": "Interact with a background process, launch/close desktop apps, or wait for UI loading",
         "promptGuidelines": [
+            "Use process with action='open' and target='<app_or_path>' to launch desktop applications.",
+            "Use process with action='wait' and duration=2.0 to wait while an application, window, or web page is loading before taking next steps.",
             "Use process with action='kill' and session_id='<app_name>' to close desktop applications immediately.",
             "Use process to poll output or kill background tasks.",
         ],
@@ -754,7 +904,15 @@ def create_process_tool_definition(
             "properties": {
                 "action": {
                     "type": "string",
-                    "description": "Process action: 'kill' (terminate app or session), 'list', 'poll', 'log', 'write', 'send-keys', 'remove'",
+                    "description": "Process action: 'open' (launch app), 'wait'/'settle' (wait for UI to load), 'kill' (terminate app or session), 'list', 'poll', 'log', 'write', 'send-keys', 'remove'",
+                },
+                "target": {
+                    "type": "string",
+                    "description": "Application name, file, or path to launch for 'open' action.",
+                },
+                "duration": {
+                    "type": "number",
+                    "description": "Duration in seconds to wait for 'wait'/'settle' action (default: 1.5, min: 0.1, max: 30.0).",
                 },
                 "session_id": {
                     "type": "string",

@@ -1,0 +1,15 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jarvis-logging-core"
+version = "0.1.0"
+description = "Structured JSON logging, telemetry, and log rotation"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "JARVIS architect" }]
+dependencies = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jarvis_logging_core"]

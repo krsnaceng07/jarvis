@@ -39,7 +39,15 @@ def image_generate_tool_handler(ctx: Any, kwargs: dict[str, Any]) -> Any:
     prompt = kwargs.get("prompt")
     if not prompt:
         return {"error": "Prompt is required for image generation."}
-        
+
+    cfg = getattr(ctx, "config", {}) if ctx else {}
+    providers = list_image_generation_providers(cfg)
+    if not providers:
+        return {
+            "status": "error",
+            "error": "No image generation model or provider configured. To generate images or UI designs, use the 'browser' tool to navigate to ChatGPT or create SVG/HTML with 'write'.",
+        }
+
     task_id = f"img_{uuid.uuid4().hex[:8]}"
     
     # In full parity, we fetch auth profiles from ctx and map image attachments

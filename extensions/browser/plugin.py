@@ -45,7 +45,7 @@ class BrowserPlugin(Plugin):
                 descriptors=[
                     CliDescriptor(
                         name="browser",
-                        description="Manage the OpenClaw browser automation runtime.",
+                        description="Manage the JARVIS browser automation runtime.",
                         has_subcommands=True,
                     )
                 ],

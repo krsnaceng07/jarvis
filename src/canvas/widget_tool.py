@@ -147,7 +147,7 @@ def create_show_widget_tool(
             "Page background stays transparent. "
             "Web chat: sendPrompt(text) sends text as the user's message — wire to buttons; "
             "works only after a real click inside the widget (never call automatically; "
-            "slash commands rejected).",
+            "slash commands rejected)."
         ),
         "parameters": parameters,
         "required_client_caps": SHOW_WIDGET_REQUIRED_CLIENT_CAPS,

@@ -1,0 +1,15 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jarvis-media-understanding-common"
+version = "0.1.0"
+description = "Common structures, feature extractors, and contracts for media understanding"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "JARVIS architect" }]
+dependencies = []
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jarvis_media_understanding_common"]

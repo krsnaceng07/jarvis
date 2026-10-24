@@ -204,7 +204,7 @@ def create_local_bash_operations() -> BashOperations:
             options: dict,
         ) -> dict:
             on_data = options.get("onData", lambda data: None)
-            signal = options.get("signal")
+            _signal = options.get("signal")
             timeout_ms = options.get("timeout")
             env_override = options.get("env")
             # Validate cwd before launching
@@ -215,9 +215,27 @@ def create_local_bash_operations() -> BashOperations:
                 )
             # Build the env
             env = dict(env_override) if env_override else dict(os.environ)
-            # Detect Windows: use cmd.exe
+            # Detect Windows: use Git Bash when available, then PowerShell, then cmd.exe
             if sys.platform == "win32":
-                shell_cmd = ["cmd.exe", "/c", command]
+                import shutil
+                git_bash = None
+                for candidate in (
+                    r"C:\Program Files\Git\bin\bash.exe",
+                    r"C:\Program Files (x86)\Git\bin\bash.exe",
+                    shutil.which("bash.exe"),
+                    shutil.which("bash"),
+                ):
+                    if candidate and os.path.isfile(candidate):
+                        git_bash = candidate
+                        break
+                if git_bash:
+                    shell_cmd = [git_bash, "-c", command]
+                else:
+                    pwsh = shutil.which("pwsh") or shutil.which("powershell")
+                    if pwsh:
+                        shell_cmd = [pwsh, "-NoProfile", "-NonInteractive", "-Command", command]
+                    else:
+                        shell_cmd = ["cmd.exe", "/c", command]
             else:
                 # Use shlex to keep quoting sane
                 shell_cmd = ["/bin/sh", "-c", command]

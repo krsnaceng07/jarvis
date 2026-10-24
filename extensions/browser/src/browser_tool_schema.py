@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Literal, Optional
+
 from pydantic import BaseModel
 
 BrowserAction = Literal[
@@ -39,6 +40,7 @@ BrowserAction = Literal[
     "clickCoords",
     "type",
     "press",
+    "press_key",
     "hover",
     "scrollIntoView",
     "drag",
@@ -50,6 +52,13 @@ BrowserAction = Literal[
     "app",
     "youtube",
     "web",
+    "youtube_play",
+    "play_youtube",
+    "google_search",
+    "search_google",
+    "skip_ad",
+    "youtube_skip_ad",
+    "search",
 ]
 
 BROWSER_ACTIONS: list[str] = [
@@ -81,6 +90,7 @@ BROWSER_ACTIONS: list[str] = [
     "clickCoords",
     "type",
     "press",
+    "press_key",
     "hover",
     "scrollIntoView",
     "drag",
@@ -92,6 +102,13 @@ BROWSER_ACTIONS: list[str] = [
     "app",
     "youtube",
     "web",
+    "youtube_play",
+    "play_youtube",
+    "google_search",
+    "search_google",
+    "skip_ad",
+    "youtube_skip_ad",
+    "search",
 ]
 
 BrowserActKind = Literal[
@@ -281,7 +298,11 @@ def get_browser_tool_schema() -> dict[str, Any]:
             },
             "path": {
                 "type": "string",
-                "description": "File path to save screenshot or PDF to.",
+                "description": "Destination file path for screenshots, PDFs, or downloads.",
+            },
+            "downloadDir": {
+                "type": "string",
+                "description": "Directory for a browser download; defaults to the user's Downloads folder.",
             },
             "element": {
                 "type": "string",
@@ -294,11 +315,23 @@ def get_browser_tool_schema() -> dict[str, Any]:
             },
             "ref": {
                 "type": "string",
-                "description": "Element reference ID from snapshot (e.g. 'e1', 'e2').",
+                "description": "Element reference ID from snapshot (e.g. '1', '2', 'e1', 'e2').",
             },
             "text": {
                 "type": "string",
                 "description": "Text to type or fill.",
+            },
+            "value": {
+                "type": "string",
+                "description": "Alternative text value to type or fill.",
+            },
+            "submit": {
+                "type": "boolean",
+                "description": "Whether to press Enter after typing text.",
+            },
+            "annotate": {
+                "type": "boolean",
+                "description": "When true with screenshot, draws numbered Set-of-Mark (SoM) badges on interactive elements.",
             },
             "key": {
                 "type": "string",

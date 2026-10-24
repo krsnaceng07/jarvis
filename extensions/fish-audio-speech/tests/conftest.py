@@ -56,17 +56,13 @@ if not any(isinstance(f, FishAudioSpeechImportFinder) for f in sys.meta_path):
 
 @pytest.fixture
 def sample_fish_config() -> dict[str, dict[str, dict[str, str | float]]]:
-    fish_audio: dict[str, str | float] = {
-        "apiKey": "test-key-123",
-        "model": "s2.1-pro",
-        "latency": "low",
-        "speed": 1.2,
+    return {
+        "providers": {
+            "fish-audio": {
+                "apiKey": "test-key-123",
+                "model": "s2.1-pro",
+                "latency": "low",
+                "speed": 1.2,
+            }
+        }
     }
-    providers: dict[str, dict[str, str | float]] = {
-        "fish-audio": fish_audio,
-    }
-    config: dict[str, dict[str, dict[str, str | float]]] = {
-        "providers": providers,
-    }
-    return config
-

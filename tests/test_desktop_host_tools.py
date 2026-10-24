@@ -1,13 +1,12 @@
 """tests.test_desktop_host_tools — Tests for desktop host tool wiring and execution parity.
 
 Validates:
-1. All core OpenClaw coding and PC tools are declared in desktop TOOL_DECLARATIONS (including mkdir and open_path).
-2. Coding tools (read, write, edit, ls, mkdir, open_path) execute and verify real filesystem states.
+1. All core OpenClaw coding and PC tools are declared in desktop TOOL_DECLARATIONS.
+2. Coding tools (read, write, edit, ls, exec, process) execute and verify real filesystem states.
 3. System prompt configuration injects real drive availability, host directories, task context, and anti-hallucination rules.
 """
 
 from pathlib import Path
-from unittest.mock import patch
 import pytest
 from apps.desktop.src.jarvis_desktop.app import (
     CODING_TOOL_DECLARATIONS,
@@ -16,16 +15,15 @@ from apps.desktop.src.jarvis_desktop.app import (
 )
 from src.agents.sessions.tools import (
     create_automations_tool,
+    create_create_goal_tool,
     create_edit_tool,
     create_exec_tool,
+    create_get_goal_tool,
     create_ls_tool,
-    create_mkdir_tool,
-    create_open_path_tool,
     create_pdf_tool,
     create_read_tool,
-    create_remove_path_tool,
-    create_rename_path_tool,
     create_secrets_tool,
+    create_update_goal_tool,
     create_web_fetch_tool,
     create_write_tool,
 )
@@ -41,15 +39,15 @@ def test_coding_tools_declared_in_desktop_app():
         "edit",
         "exec",
         "process",
-        "mkdir",
-        "remove_path",
-        "rename_path",
-        "open_path",
-        "set_task_goal",
+        "create_goal",
+        "get_goal",
+        "update_goal",
         "web_fetch",
         "automations",
         "pdf",
         "secrets",
+        "skill_workshop",
+        "plugins",
     }
 
     for name in required_coding_tools:
@@ -71,7 +69,6 @@ async def test_coding_tools_real_filesystem_roundtrip(tmp_path):
     read_tool = create_read_tool(workspace)
     edit_tool = create_edit_tool(workspace)
     ls_tool = create_ls_tool(workspace)
-    mkdir_tool = create_mkdir_tool(workspace)
 
     test_file = tmp_path / "app_module.py"
     initial_content = "def calculate():\n    return 42\n"
@@ -109,95 +106,33 @@ async def test_coding_tools_real_filesystem_roundtrip(tmp_path):
     ls_text = _extract_tool_output(ls_res)
     assert "app_module.py" in ls_text
 
-    # 5. Mkdir directory
-    new_dir = tmp_path / "subfolder" / "nested"
-    mkdir_res = await mkdir_tool["execute"]("call_m1", {"path": str(new_dir)})
-    assert new_dir.exists()
-    assert new_dir.is_dir()
-    verif_m = ExecutionVerifier.verify_filesystem_path(str(new_dir), must_be_dir=True)
-    assert verif_m.verified is True
-    assert "Directory created successfully" in _extract_tool_output(mkdir_res)
+    # 5. Writing in nested subfolder automatically creates parent directory (OpenClaw parity)
+    nested_file = tmp_path / "subfolder" / "nested" / "output.txt"
+    _ = await write_tool["execute"]("call_w2", {"path": str(nested_file), "content": "nested content"})
+    assert nested_file.exists()
+    assert (tmp_path / "subfolder" / "nested").is_dir()
 
 
 @pytest.mark.asyncio
-async def test_open_path_tool_dispatch(tmp_path):
-    workspace = str(tmp_path)
-    open_tool = create_open_path_tool(workspace)
+async def test_goal_tools_execution():
+    create_tool = create_create_goal_tool()
+    get_tool = create_get_goal_tool()
+    update_tool = create_update_goal_tool()
 
-    # 1. Test explorer target
-    with patch("subprocess.Popen") as mock_popen:
-        res_exp = await open_tool["execute"]("call_o1", {"target": "explorer"})
-        assert "File Explorer opened successfully" in _extract_tool_output(res_exp)
-        mock_popen.assert_called_once_with(["explorer.exe"])
+    # 1. Create a goal
+    res_c = await create_tool["execute"]({"objective": "Implement OpenClaw parity", "token_budget": 5000})
+    assert res_c["status"] == "ok"
+    assert res_c["goal"]["objective"] == "Implement OpenClaw parity"
 
-    # 2. Test user directory alias (Downloads)
-    with patch("subprocess.Popen") as mock_popen:
-        res_dl = await open_tool["execute"]("call_o2", {"target": "downloads"})
-        expected_dl = str(Path.home() / "Downloads")
-        assert expected_dl in _extract_tool_output(res_dl) or "Downloads" in _extract_tool_output(
-            res_dl
-        )
-        mock_popen.assert_called_once()
+    # 2. Get current goal
+    res_g = await get_tool["execute"]({})
+    assert res_g["status"] == "in_progress"
+    assert res_g["goal"]["objective"] == "Implement OpenClaw parity"
 
-    # 3. Test local directory target
-    test_dir = tmp_path / "target_folder"
-    test_dir.mkdir(parents=True, exist_ok=True)
-    with patch("subprocess.Popen") as mock_popen:
-        res_dir = await open_tool["execute"]("call_o3", {"target": str(test_dir)})
-        assert "Successfully opened folder" in _extract_tool_output(res_dir)
-        mock_popen.assert_called_once()
-
-    # 4. Test URL opening
-    with patch("webbrowser.open") as mock_webopen:
-        res_url = await open_tool["execute"]("call_o4", {"target": "https://example.com"})
-        assert "URL opened in default browser" in _extract_tool_output(res_url)
-        mock_webopen.assert_called_once_with("https://example.com")
-
-
-@pytest.mark.asyncio
-async def test_remove_path_and_rename_path_real_filesystem(tmp_path):
-    workspace = str(tmp_path)
-    remove_tool = create_remove_path_tool(workspace)
-    rename_tool = create_rename_path_tool(workspace)
-
-    # 1. Test rename file
-    file1 = tmp_path / "original.txt"
-    file1.write_text("hello world", encoding="utf-8")
-    file2 = tmp_path / "renamed.txt"
-
-    res_ren = await rename_tool["execute"](
-        "call_ren1", {"old_path": str(file1), "new_path": str(file2)}
-    )
-    assert not file1.exists()
-    assert file2.exists()
-    assert file2.read_text(encoding="utf-8") == "hello world"
-    verif_ren = ExecutionVerifier.verify_filesystem_rename(str(file1), str(file2))
-    assert verif_ren.verified is True
-    assert "Successfully renamed" in _extract_tool_output(res_ren)
-
-    # 2. Test remove file
-    res_rem = await remove_tool["execute"]("call_rem1", {"path": str(file2)})
-    assert not file2.exists()
-    verif_rem = ExecutionVerifier.verify_filesystem_removal(str(file2))
-    assert verif_rem.verified is True
-    assert "Path removed successfully" in _extract_tool_output(res_rem)
-
-    # 3. Test rename and remove directory recursively
-    dir1 = tmp_path / "test_folder"
-    dir1.mkdir()
-    child_file = dir1 / "nested.txt"
-    child_file.write_text("nested data", encoding="utf-8")
-
-    dir2 = tmp_path / "renamed_folder"
-    _ = await rename_tool["execute"]("call_ren2", {"old_path": str(dir1), "new_path": str(dir2)})
-    assert not dir1.exists()
-    assert dir2.exists()
-    assert (dir2 / "nested.txt").exists()
-
-    _ = await remove_tool["execute"]("call_rem2", {"path": str(dir2), "recursive": True})
-    assert not dir2.exists()
-    verif_rem_dir = ExecutionVerifier.verify_filesystem_removal(str(dir2))
-    assert verif_rem_dir.verified is True
+    # 3. Update goal status
+    res_u = await update_tool["execute"]({"status": "complete", "note": "All verification passed"})
+    assert res_u["status"] == "ok"
+    assert res_u["goal"]["status"] == "complete"
 
 
 @pytest.mark.asyncio
@@ -236,27 +171,19 @@ def test_normalize_user_home_path_redirection():
 
 
 @pytest.mark.asyncio
-async def test_mkdir_tool_hallucinated_user_and_permission_resilience(tmp_path):
-    import os
+async def test_write_tool_hallucinated_user_and_parent_dir_resilience(tmp_path):
     from unittest.mock import patch
 
     workspace = str(tmp_path)
-    mkdir_tool = create_mkdir_tool(workspace)
+    write_tool = create_write_tool(workspace)
 
-    # 1. Hallucinated user path redirected into temp directory safely
-    fake_path = r"C:\Users\rsnac\Downloads\subfolder"
+    # 1. Hallucinated user path redirected into temp directory safely and creates parent dir
+    fake_path = r"C:\Users\rsnac\Downloads\subfolder\nested\test.txt"
     with patch("src.agents.sessions.tools.path_utils.os.path.expanduser", return_value=str(tmp_path)):
-        res = await mkdir_tool["execute"]("call_m_fake", {"path": fake_path})
-        assert "Directory created successfully" in _extract_tool_output(res)
-        expected_dir = tmp_path / "Downloads" / "subfolder"
-        assert expected_dir.exists()
-        assert expected_dir.is_dir()
-
-    # 2. PermissionError on protected directory returns structured error result without crashing
-    with patch("os.makedirs", side_effect=PermissionError("[WinError 5] Access is denied: 'C:\\Users\\protected'")):
-        res_perm = await mkdir_tool["execute"]("call_m_perm", {"path": r"C:\Users\protected\sub"})
-        assert res_perm["details"]["created"] is False
-        assert "Permission denied" in _extract_tool_output(res_perm)
+        _ = await write_tool["execute"]("call_w_fake", {"path": fake_path, "content": "resilience test"})
+        expected_file = tmp_path / "Downloads" / "subfolder" / "nested" / "test.txt"
+        assert expected_file.exists()
+        assert expected_file.read_text(encoding="utf-8") == "resilience test"
 
 
 def test_desktop_environment_prompt_context():

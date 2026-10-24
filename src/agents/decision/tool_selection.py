@@ -56,7 +56,8 @@ class ToolSelector:
     def record_outcome(self, tool_name: str, arguments: dict[str, Any], result: Any = None) -> None:
         """Record the outcome of a tool execution for loop protection and telemetry."""
         fingerprint = self._compute_fingerprint(tool_name, arguments)
-        self._call_history.append(fingerprint)
+        if not self._call_history or self._call_history[-1] != fingerprint:
+            self._call_history.append(fingerprint)
 
     def select_tool_for_intent(
         self, intent: AnalyzedIntent, available_tools: set[str]

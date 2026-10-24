@@ -13,17 +13,44 @@ import copy
 import json
 import logging
 import os
+import subprocess
+import sys
 from pathlib import Path
 from typing import Any, Optional
 
 from google import genai
 from google.genai import types
 
+from src.agents.system_prompt_tool_list import build_tooling_section
+from src.agents.tool_loop_detection import (
+    detect_tool_call_loop,
+    record_tool_call,
+    record_tool_call_outcome,
+)
+from src.agents.tools_effective_inventory import (
+    ToolExecutor,
+    ToolSurface,
+    _stringify_output,
+    build_effective_tool_inventory,
+    invoke_host_tool,
+)
+
 _log = logging.getLogger("jarvis.channels.agent_pipeline")
 
-_DEFAULT_CHANNEL_TEXT_MODEL = "gemini-2.5-flash"
+_DEFAULT_CHANNEL_TEXT_MODEL = "gemini-3.8-flash"
 _CHANNEL_TEXT_MODEL_ENV = "JARVIS_CHANNEL_TEXT_MODEL"
 MAX_AGENT_TURNS = 6
+
+# Bounded channel turns need tighter trip points than the 10/20/30 defaults:
+# a 6-round loop must stop on the third identical no-progress call, not the 20th.
+_CHANNEL_LOOP_CONFIG: dict[str, Any] = {
+    "enabled": True,
+    "historySize": 30,
+    "warningThreshold": 2,
+    "unknownToolThreshold": 2,
+    "criticalThreshold": 3,
+    "globalCircuitBreakerThreshold": 4,
+}
 
 
 def _get_workspace_root() -> Path:
@@ -66,40 +93,110 @@ def _load_channel_system_prompt() -> str:
         )
 
 
-def _unwrap_result(result: Any) -> str:
-    """Convert a plugin or tool result to a readable string."""
-    from jarvis_sdk import Err, Ok
+def _channel_control_executors() -> dict[str, ToolExecutor]:
+    """Executors for core tools whose channel behaviour differs from the desktop."""
 
-    if isinstance(result, Ok):
-        v = result.value
-        return v if isinstance(v, str) else str(v)
-    if isinstance(result, Err):
-        return f"Error: {result.error}"
-    return str(result)
+    async def shutdown(_args: dict[str, Any], _call_id: str) -> str:
+        return (
+            "Notice: Host PC shutdown cannot be executed remotely via messaging channels "
+            "for security. Please execute shutdown directly on the host machine."
+        )
+
+    async def standby(_args: dict[str, Any], _call_id: str) -> str:
+        return "Standby is only available in the desktop session; the host stays awake."
+
+    async def save_memory(args: dict[str, Any], _call_id: str) -> str:
+        from apps.desktop.src.jarvis_desktop.memory_bridge import update_memory
+
+        category = str(args.get("category") or "notes")
+        key = str(args.get("key") or "")
+        value = str(args.get("value") or "")
+        if not key or not value:
+            return "save_memory skipped: missing key or value."
+        update_memory({category: {key: {"value": value}}})
+        return f"Successfully saved to memory: {category}/{key} = {value}"
+
+    async def recall_memory(args: dict[str, Any], _call_id: str) -> str:
+        from apps.desktop.src.jarvis_desktop.memory_bridge import hybrid_search_memory
+
+        query = str(args.get("query") or args.get("q") or "").strip()
+        if not query:
+            return "Query cannot be empty."
+        hits = await asyncio.to_thread(
+            hybrid_search_memory,
+            query=query,
+            limit=int(args.get("limit") or 8),
+            category=args.get("category"),
+            workspace_dir=_get_workspace_root(),
+        )
+        if not hits:
+            return f"No memories found matching '{query}'."
+        lines = [f"Found {len(hits)} relevant memory records:"]
+        lines.extend(
+            f"- [{hit.get('category', 'general')}] {hit.get('key')}: {hit.get('value')}"
+            for hit in hits
+        )
+        return "\n".join(lines)
+
+    return {
+        "shutdown_jarvis": shutdown,
+        "standby_jarvis": standby,
+        "save_memory": save_memory,
+        "recall_memory": recall_memory,
+    }
 
 
-def _extract_tool_output(result: Any) -> str:
-    """Extract readable text from an AgentToolResult or raw dict/string."""
-    if isinstance(result, str):
-        return result
-    if isinstance(result, dict):
-        content = result.get("content")
-        if isinstance(content, list) and content:
-            parts: list[str] = []
-            for item in content:
-                if isinstance(item, dict) and "text" in item:
-                    parts.append(str(item["text"]))
-                elif isinstance(item, str):
-                    parts.append(item)
-            if parts:
-                return "\n".join(parts)
-        if "text" in result:
-            return str(result["text"])
-        if "result" in result:
-            return str(result["result"])
-        if "output" in result:
-            return str(result["output"])
-    return str(result)
+def _channel_specific_tools() -> dict[str, dict[str, Any]]:
+    """Channel-only host tools that shipped without a declaration."""
+
+    async def mkdir(_call_id: str, args: dict[str, Any]) -> str:
+        raw_path = args.get("path") or args.get("target") or args.get("dir") or ""
+        if not raw_path:
+            return "mkdir failed: path argument required."
+        target = Path(str(raw_path))
+        target.mkdir(parents=True, exist_ok=True)
+        return f"Directory created: {target.resolve()}"
+
+    async def open_path(_call_id: str, args: dict[str, Any]) -> str:
+        raw_target = str(args.get("target") or args.get("path") or "").strip()
+        if not raw_target:
+            return "open_path failed: target path required."
+        if not Path(raw_target).exists():
+            return f"open_path failed: path does not exist: {raw_target}"
+        if sys.platform == "win32":
+            os.startfile(raw_target)  # type: ignore[attr-defined]
+        elif sys.platform == "darwin":  # pragma: no cover - non-Windows host
+            subprocess.Popen(["open", raw_target])
+        else:  # pragma: no cover - non-Windows host
+            subprocess.Popen(["xdg-open", raw_target])
+        return f"Opened: {raw_target}"
+
+    return {
+        "mkdir": {
+            "name": "mkdir",
+            "description": "Create a directory and any missing parents on the host PC.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Directory path to create"},
+                },
+                "required": ["path"],
+            },
+            "execute": mkdir,
+        },
+        "open_path": {
+            "name": "open_path",
+            "description": "Open a file or folder with its default host application.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "target": {"type": "string", "description": "File or folder path to open"},
+                },
+                "required": ["target"],
+            },
+            "execute": open_path,
+        },
+    }
 
 
 class ChannelAgentPipeline:
@@ -113,6 +210,7 @@ class ChannelAgentPipeline:
         self._plugin_dispatch: dict[str, tuple[Any, str]] = {}
         self._plugin_commands: list[Any] = []
         self._coding_tools: dict[str, Any] = {}
+        self._surface: ToolSurface | None = None
         self._initialized = False
         self._lock = asyncio.Lock()
 
@@ -123,46 +221,35 @@ class ChannelAgentPipeline:
         return cls._instance
 
     def _ensure_tools_loaded(self, live_host: Any = None) -> None:
-        """Load and cache tool declarations and dispatch targets without UI side effects."""
-        if self._initialized:
-            # If live_host has coding tools, adopt them
+        """Build the one tool surface used for both declarations and dispatch."""
+        if self._surface is not None:
+            # Adopt host tools that only the live desktop session can construct.
             if live_host is not None and hasattr(live_host, "_coding_tools"):
                 self._coding_tools.update(live_host._coding_tools)
             return
 
+        from jarvis_sdk.loader import load_all_plugins_from_workspace
+
         from apps.desktop.src.jarvis_desktop.tool_declarations import (
             TOOL_DECLARATIONS as BASE_TOOL_DECLARATIONS,
-            normalize_model_tool_declaration,
         )
-        from jarvis_sdk.loader import load_all_plugins_from_workspace
         from src.agents.sessions.tools import create_coding_tools
         from src.agents.sessions.tools.channel_tools import (
             create_channel_status_tool,
             create_configure_channel_tool,
         )
 
-        # 1. Base model declarations
-        declarations = list(BASE_TOOL_DECLARATIONS)
-        existing_names = {t["name"] for t in declarations}
-
-        # 2. Plugin loader (pure data, no UI/gateway side-effects)
+        plugin_result = None
         try:
             plugin_result = load_all_plugins_from_workspace(self._workspace_root)
             self._plugin_dispatch = dict(plugin_result.plugin_dispatch)
             self._plugin_commands = list(plugin_result.commands)
-            for decl in plugin_result.tool_decls:
-                if decl["name"] not in existing_names:
-                    declarations.append(normalize_model_tool_declaration(decl))
-                    existing_names.add(decl["name"])
         except Exception as e:
             _log.warning("ChannelAgentPipeline: plugin discovery issue: %s", e)
 
-        self._tool_declarations = declarations
-
-        # 3. Built-in coding & system tools
         try:
             tools_list = create_coding_tools(str(self._workspace_root))
-            self._coding_tools = {t["name"]: t for t in tools_list}
+            self._coding_tools = {t["name"]: t for t in tools_list if t.get("name")}
             conf_ch = create_configure_channel_tool(live_host)
             status_ch = create_channel_status_tool()
             self._coding_tools[conf_ch["name"]] = conf_ch
@@ -172,8 +259,29 @@ class ChannelAgentPipeline:
 
         if live_host is not None and hasattr(live_host, "_coding_tools"):
             self._coding_tools.update(live_host._coding_tools)
+        self._coding_tools.update(_channel_specific_tools())
 
+        tool_cfg = _read_canonical_config().get("tools") or {}
+        # Channel isolation is policy, not a runtime refusal: local GUI control
+        # must not be declared to a transport that can never execute it.
+        channel_deny = list(tool_cfg.get("deny") or [])
+        channel_deny.extend(("computer", "desktop", "desktop_action", "auto_control"))
+        self._surface = build_effective_tool_inventory(
+            base_declarations=BASE_TOOL_DECLARATIONS,
+            plugin_tools=plugin_result.tool_decls if plugin_result is not None else (),
+            plugin_dispatch=self._plugin_dispatch,
+            host_tools=self._coding_tools,
+            control_executors=_channel_control_executors(),
+            allow=tool_cfg.get("allow"),
+            deny=channel_deny,
+        )
+        self._tool_declarations = self._surface.declarations()
         self._initialized = True
+        _log.info(
+            "ChannelAgentPipeline: admitted %d tools (%s)",
+            len(self._surface),
+            ", ".join(self._surface.names),
+        )
 
     async def _dispatch_slash_command(
         self,
@@ -216,63 +324,9 @@ class ChannelAgentPipeline:
         print(f"[CHANNEL: {channel_id}] 🔧 Executing tool '{tool_name}' with args: {args}")
 
         try:
-            # 1. Plugin dispatch
-            if tool_name in self._plugin_dispatch:
-                plugin_inst, call_name = self._plugin_dispatch[tool_name]
-                loop = asyncio.get_running_loop()
-                plugin_result = await loop.run_in_executor(
-                    None,
-                    lambda inst=plugin_inst, cn=call_name, a=args: inst.call(cn, a),
-                )
-                if hasattr(plugin_result, "__await__"):
-                    plugin_result = await plugin_result
-                out = _unwrap_result(plugin_result)
-                print(f"[CHANNEL: {channel_id}] 📤 {tool_name} → {str(out)[:80]}")
-                return out or f"{tool_name} completed."
+            self._ensure_tools_loaded(live_host=live_host)
 
-            # 2. Long-term memory
-            if tool_name == "save_memory":
-                from apps.desktop.src.jarvis_desktop.memory_bridge import update_memory
-
-                category = args.get("category", "notes")
-                key = args.get("key", "")
-                value = args.get("value", "")
-                if key and value:
-                    update_memory({category: {key: {"value": value}}})
-                    print(f"[CHANNEL: {channel_id}] 💾 save_memory: {category}/{key} = {value}")
-                    return f"Successfully saved to memory: {category}/{key} = {value}"
-                return "save_memory skipped: missing key or value."
-
-            # 3. Desktop actions
-            if tool_name in ("desktop", "desktop_action", "auto_control"):
-                from apps.desktop.src.jarvis_desktop.tool_pipeline import execute_desktop_action
-
-                out = await execute_desktop_action(args)
-                print(f"[CHANNEL: {channel_id}] 📤 {tool_name} → {str(out)[:80]}")
-                return out
-
-            # 4. YouTube automation
-            if tool_name.startswith("youtube_"):
-                from src.application_automation.tools.youtube_tools import dispatch_youtube_tool
-
-                out = await dispatch_youtube_tool(tool_name, args)
-                print(f"[CHANNEL: {channel_id}] 📤 {tool_name} → {str(out)[:80]}")
-                return out
-
-            # 5. Set task goal
-            if tool_name == "set_task_goal":
-                goal = str(args.get("goal") or args.get("description") or "")
-                return f"Task goal set to: {goal}"
-
-            # 6. Coding & System tools (open_path, process, exec, mkdir, read, write, edit, ls, etc.)
-            coding_tools = self._coding_tools
-            if live_host is not None and hasattr(live_host, "_coding_tools"):
-                coding_tools = live_host._coding_tools
-
-            active_name = tool_name
-            active_args = dict(args)
-
-            # Parity delegation: process(action='open_path', ...) -> open_path
+            # process(action='open_path') opens a host path through the delegated tool.
             if tool_name == "process" and args.get("action") in (
                 "open",
                 "open_path",
@@ -286,33 +340,31 @@ class ChannelAgentPipeline:
                     or args.get("app")
                     or ""
                 )
-                if "open_path" in coding_tools:
-                    active_name = "open_path"
-                    active_args = {"target": target_val}
+                # Late-bound host tools (e.g. a desktop session's open_path) win
+                # here so injected/overridden executors stay honoured.
+                open_path_tool = self._coding_tools.get("open_path")
+                if open_path_tool is not None:
+                    raw = await invoke_host_tool(
+                        open_path_tool, {"target": target_val}, f"chan_{tool_name}"
+                    )
+                    return _stringify_output(raw)
 
-            if active_name in coding_tools:
-                tool_entry = coding_tools[active_name]
-                execute_fn = tool_entry.get("execute")
-                if execute_fn:
-                    raw_res = await execute_fn(f"chan_{tool_name}", active_args)
-                    out = _extract_tool_output(raw_res)
-                    print(f"[CHANNEL: {channel_id}] 📤 {active_name} → {str(out)[:80]}")
-                    return out
-                return f"Tool '{active_name}' has no execute handler."
+            if self._surface is None:
+                return "Tool surface is not initialized for this channel turn."
 
-            # 7. Security: Shutdown blocked via channel
-            if tool_name == "shutdown_jarvis":
-                return (
-                    "Notice: Host PC shutdown cannot be executed remotely via messaging channels "
-                    "for security. Please execute shutdown directly on the host machine."
-                )
-
-            return f"Tool '{tool_name}' is not recognized or available in this environment."
+            return await self._surface_invoke(tool_name, args, f"chan_{tool_name}")
 
         except Exception as e:
             err_msg = f"Tool '{tool_name}' failed: {e}"
             _log.exception("Channel tool %s error: %s", tool_name, e)
             return err_msg
+
+    async def _surface_invoke(self, tool_name: str, args: dict[str, Any], call_id: str) -> str:
+        """Invoke one admitted tool and log its outcome."""
+        assert self._surface is not None
+        invocation = await self._surface.invoke(tool_name, args, call_id)
+        print(f"[CHANNEL] 📤 {tool_name} → {invocation.result_text[:80]}")
+        return invocation.result_text
 
     async def dispatch_turn(self, assembled: Any, live_host: Any = None) -> Optional[str]:
         """Process an inbound channel turn with full tool capabilities and transcript persistence."""
@@ -323,6 +375,22 @@ class ChannelAgentPipeline:
         channel_id = assembled.message.channel_id
         sender_id = assembled.message.sender_id
         session_key = assembled.session.session_key
+
+        # Bridge inbound channel turn to Desktop HUD event queue (OpenClaw parity)
+        try:
+            from jarvis_session_core.system_event_queue import enqueue_system_event
+
+            enqueue_system_event(
+                f"[{str(channel_id).upper()}] {str(sender_id)}: {user_text[:100]}",
+                {
+                    "sessionKey": session_key or "desktop:hud",
+                    "type": "channel_inbound",
+                    "channel": str(channel_id),
+                    "sender": str(sender_id),
+                },
+            )
+        except Exception:
+            pass
 
         # ── 1. Slash command fast-path ─────────────────────────────
         if user_text.startswith("/"):
@@ -345,12 +413,15 @@ class ChannelAgentPipeline:
         )
         candidates = [
             configured_model,
-            "gemini-2.5-flash",
-            "gemini-flash-latest",
+            "gemini-3.8-flash",
+            "gemini-3.7-flash",
+            "gemini-3.6-flash",
+            "gemini-3.5-flash",
             "gemini-flash-lite-latest",
-            "gemini-2.5-pro",
+            "gemini-flash-latest",
+            "gemini-3.1-flash-lite",
             "gemini-3-flash-preview",
-            "gemini-3.1-flash-lite-preview",
+            "gemini-2.5-flash",
         ]
         unique_candidates: list[str] = []
         for c in candidates:
@@ -399,21 +470,16 @@ class ChannelAgentPipeline:
         if channel_status_ctx:
             prompt_blocks.append(channel_status_ctx)
 
+        assert self._surface is not None
+        prompt_blocks.append(build_tooling_section(self._surface))
         prompt_blocks.append(
-            "[HOST TOOL ACCESS & CAPABILITIES]\n"
-            "You have direct execution access to tools on the user's host PC (running Windows).\n"
-            "Available capabilities include: file management (read, write, edit, mkdir, ls, open_path), "
-            "terminal execution (exec, process), desktop GUI control (desktop, desktop_action), "
-            "YouTube playback & search (youtube_*), long-term personal memory (save_memory), "
-            "web search, and channel management (configure_channel, channel_status).\n\n"
-            "RULES FOR CHANNEL OPERATIONS:\n"
-            "1. When the user asks you to perform a task on their PC (such as creating files/folders, "
-            "launching applications, running terminal commands, searching YouTube, or checking status), "
-            "YOU MUST EXECUTE THE APPROPRIATE TOOL IMMEDIATELY.\n"
-            "2. NEVER claim actions were done unless you actually called the tool and verified the result.\n"
-            "3. NEVER say you cannot access their computer or ask them to do it manually.\n"
-            "4. Be concise and direct in your channel reply. Confirm what was actually accomplished.\n"
-            "5. Save personal user facts silently using save_memory whenever they share things worth remembering."
+            "[CHANNEL EXECUTION RULES]\n"
+            "1. Execute the matching tool in the same turn as the request.\n"
+            "2. NEVER claim an action succeeded unless a tool result in this turn reports success.\n"
+            "3. NEVER say you cannot access the host PC; if a capability is genuinely missing, "
+            "name the exact blocker instead of pretending it worked.\n"
+            "4. Keep the channel reply concise and state only what actually happened.\n"
+            "5. Save durable personal facts silently with save_memory."
         )
 
         system_instruction = "\n\n".join(prompt_blocks)
@@ -441,8 +507,7 @@ class ChannelAgentPipeline:
 
         # Add current user message
         channel_user_prompt = (
-            f"[Channel Message from {channel_id} | Sender: {sender_id}]\n"
-            f"{user_text}"
+            f"[Channel Message from {channel_id} | Sender: {sender_id}]\n{user_text}"
         )
         raw_contents.append(
             types.Content(
@@ -479,6 +544,8 @@ class ChannelAgentPipeline:
 
         final_reply: Optional[str] = None
         executed_tool_records: list[dict[str, Any]] = []
+        loop_state: dict[str, Any] = {}
+        loop_scope = {"runId": session_key}
 
         for cand_model in unique_candidates:
             try:
@@ -520,13 +587,55 @@ class ChannelAgentPipeline:
                                 continue
                             fc_name = str(getattr(fc, "name", "") or "")
                             fc_args = dict(getattr(fc, "args", {}) or {})
+                            call_id = getattr(fc, "id", None)
 
-                            tool_out = await self._execute_channel_tool(
-                                tool_name=fc_name,
-                                args=fc_args,
-                                channel_id=channel_id,
-                                live_host=live_host,
+                            verdict = detect_tool_call_loop(
+                                loop_state,
+                                fc_name,
+                                fc_args,
+                                config=_CHANNEL_LOOP_CONFIG,
+                                scope=loop_scope,
                             )
+                            if verdict.get("level") == "critical":
+                                tool_out = str(verdict.get("message") or "Tool loop detected.")
+                                _log.warning(
+                                    "Channel tool loop blocked (%s) for %s",
+                                    verdict.get("detector"),
+                                    fc_name,
+                                )
+                            else:
+                                tool_out = await self._execute_channel_tool(
+                                    tool_name=fc_name,
+                                    args=fc_args,
+                                    channel_id=channel_id,
+                                    live_host=live_host,
+                                )
+                                if verdict.get("stuck"):
+                                    _log.warning(
+                                        "Channel tool loop warning (%s) for %s",
+                                        verdict.get("detector"),
+                                        fc_name,
+                                    )
+                                    tool_out = f"{verdict.get('message')}\n\n{tool_out}"
+                                record_tool_call(
+                                    loop_state,
+                                    fc_name,
+                                    fc_args,
+                                    call_id,
+                                    config=_CHANNEL_LOOP_CONFIG,
+                                    scope=loop_scope,
+                                )
+                                record_tool_call_outcome(
+                                    loop_state,
+                                    {
+                                        "toolName": fc_name,
+                                        "toolParams": fc_args,
+                                        "result": tool_out,
+                                        "toolCallId": call_id,
+                                        "config": _CHANNEL_LOOP_CONFIG,
+                                        "runId": session_key,
+                                    },
+                                )
                             executed_tool_records.append(
                                 {"name": fc_name, "args": fc_args, "result": tool_out}
                             )
@@ -538,9 +647,7 @@ class ChannelAgentPipeline:
                             )
 
                         # Append tool responses as user turn
-                        working_contents.append(
-                            types.Content(role="user", parts=tool_responses)
-                        )
+                        working_contents.append(types.Content(role="user", parts=tool_responses))
                     else:
                         # Final textual response reached
                         reply_text = getattr(response, "text", None)
@@ -568,10 +675,23 @@ class ChannelAgentPipeline:
                 _log.warning("Candidate model %s encountered error: %s", cand_model, cand_err)
                 continue
 
-        # If tools executed but model ended without text, synthesize confirmation
+        # If tools executed but model ended without text, report only what actually happened.
         if not final_reply and executed_tool_records:
-            completed_tools = ", ".join(t["name"] for t in executed_tool_records)
-            final_reply = f"Task completed on host PC ({completed_tools})."
+            failed = sorted(
+                {
+                    record["name"]
+                    for record in executed_tool_records
+                    if str(record.get("result", "")).lower().startswith("tool '")
+                    and " failed:" in str(record.get("result", "")).lower()
+                }
+            )
+            if failed:
+                final_reply = (
+                    "I could not complete this on the host PC. Failed: " + ", ".join(failed) + "."
+                )
+            else:
+                completed_tools = ", ".join(record["name"] for record in executed_tool_records)
+                final_reply = f"Task completed on host PC ({completed_tools})."
 
         # ── 6. Persist turn to SQLite SessionTranscriptStore ──────────────
         if final_reply:
@@ -601,6 +721,34 @@ class ChannelAgentPipeline:
                 _log.warning("Failed to persist transcript for %s: %s", session_key, e)
 
         return final_reply
+
+    async def execute_turn(
+        self,
+        user_text: str,
+        channel_id: str = "default",
+        sender_id: str = "owner",
+        live_host: Any = None,
+        session_key_override: str | None = None,
+        draft_sink: Any = None,
+    ) -> str:
+        """Parity dispatch method for Stage 5 Turn Runner."""
+        import time
+        import types
+
+        session_key = session_key_override or f"{channel_id}:chat_{sender_id}"
+        assembled = types.SimpleNamespace(
+            turn_id=f"turn_{int(time.time() * 1000)}",
+            message=types.SimpleNamespace(
+                channel_id=channel_id,
+                sender_id=sender_id,
+                text=user_text,
+            ),
+            session=types.SimpleNamespace(
+                session_key=session_key,
+            ),
+        )
+        reply = await self.dispatch_turn(assembled, live_host=live_host)
+        return reply or ""
 
 
 __all__ = ["ChannelAgentPipeline"]

@@ -98,3 +98,13 @@ person, project, todo). Example:
 - relationships/friend_name_manjeet: Manjeet
 - notes/last_error: open_path target 'paytm' not found
 - notes/current_user_feeling: problem with speaking due to feeling unwell
+- notes/assumed_model_version: Gemini 2.5 Flash Native Audio Preview (December 2025)
+- notes/primary_model_capabilities: multimodal: image, text, visual support
+- projects/fix_source_code_plan: User plans to fix my source code based on problem log
+- notes/noted_missing_file_desktop: current_problems_log.txt not found on desktop
+- notes/last_action: sent email via powershell
+- notes/telegram_bot_token: 8450809939:Aah59Nkws0aGZp9kTeTj03g_myYsdQcA
+- notes/telegram_bot_token: 8450809939:AAH59Nkw0aG6P3ZP9KtEtj03G-_myUsdQgA
+- notes/user_statement_faith: User is making a statement about faith and concentration, potentially philosophical or spiritual context.
+- notes/current_context: User mentioned needing to charge.
+- health/user_health_status: fever

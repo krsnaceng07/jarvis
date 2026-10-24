@@ -11,10 +11,12 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import json
 import os
 import re
 import shutil
 import sys
+import time
 from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -36,6 +38,11 @@ except ImportError:
 
 from .browser_profiles import resolve_browser_config, resolve_profile
 from .config import ResolvedBrowserConfig, ResolvedBrowserProfile
+from .dom_som_injector import (
+    cleanup_set_of_marks,
+    format_som_elements_summary,
+    inject_set_of_marks,
+)
 
 
 def find_system_chromium() -> str | None:
@@ -87,6 +94,17 @@ def find_system_chromium() -> str | None:
     return None
 
 
+def is_port_open(host: str = "127.0.0.1", port: int = 9222) -> bool:
+    """Fast non-blocking check whether a TCP port is actively listening."""
+    import socket
+
+    try:
+        with socket.create_connection((host, port), timeout=0.08):
+            return True
+    except Exception:
+        return False
+
+
 def resolve_space_safe_temp_dir() -> Path:
     """Ensure a temporary directory with sufficient disk space is selected.
 
@@ -118,6 +136,7 @@ class TabRecord:
     title: str = ""
     url: str = ""
     label: str = ""
+    session_key: str = ""
 
 
 async def _goto_domcontentloaded_best_effort(
@@ -205,18 +224,144 @@ def _chromium_launch_args(config: ResolvedBrowserConfig, *, minimal: bool = Fals
     return args
 
 
+async def _dismiss_overlays_if_present(page: Any) -> None:
+    """Auto-dismiss cookie consent, terms, or promotion popups (e.g. YouTube, Google)."""
+    try:
+        consent_selectors = [
+            "button[aria-label*='Accept' i]",
+            "button[aria-label*='Agree' i]",
+            "ytd-button-renderer:has-text('Accept all')",
+            "button:has-text('Accept all')",
+            "button:has-text('Reject all')",
+            "button:has-text('I agree')",
+            "button:has-text('Agree')",
+            "#dismiss-button",
+        ]
+        for sel in consent_selectors:
+            loc = page.locator(sel).first
+            if await loc.count() > 0:
+                try:
+                    await loc.click(timeout=1000)
+                    await asyncio.sleep(0.1)
+                    break
+                except Exception:
+                    pass
+    except Exception:
+        pass
+
+
+async def _wait_for_page_ready(page: Any, max_wait_ms: int = 5000) -> None:
+    """Detect page loading states (progress bar, spinners, DOM ready, aria-busy) and wait for completion.
+
+    Prevents blind clicks on slow PCs or while pages are loading.
+    """
+    try:
+        # 1. Wait for DOM load state
+        try:
+            await page.wait_for_load_state("domcontentloaded", timeout=min(max_wait_ms, 2500))
+        except Exception:
+            pass
+
+        # 2. Check for active loading indicators in DOM
+        loading_script = """() => {
+            if (document.readyState === 'loading') return true;
+
+            // YouTube progress bar
+            const ytProgress = document.querySelector('yt-page-navigation-progress');
+            if (ytProgress) {
+                const val = ytProgress.getAttribute('aria-valuenow');
+                const isVisible = window.getComputedStyle(ytProgress).display !== 'none' && ytProgress.offsetHeight > 0;
+                if ((val && parseInt(val, 10) < 100) || ytProgress.classList.contains('progress') || isVisible) {
+                    return true;
+                }
+            }
+
+            // General & YouTube spinners / busy indicators
+            const spinners = document.querySelectorAll(
+                'paper-spinner[active], paper-spinner-lite[active], .ytp-spinner:not([style*="display: none"]), ' +
+                '.spinner:not([style*="display: none"]), [aria-busy="true"], .loading:not([style*="display: none"])'
+            );
+            for (const s of spinners) {
+                if (s.offsetWidth > 0 && s.offsetHeight > 0 && window.getComputedStyle(s).visibility !== 'hidden') {
+                    return true;
+                }
+            }
+            return false;
+        }"""
+
+        start = time.monotonic()
+        deadline = start + (max_wait_ms / 1000.0)
+        had_loading = False
+        while time.monotonic() < deadline:
+            is_loading = await page.evaluate(loading_script)
+            if not is_loading:
+                break
+            had_loading = True
+            await asyncio.sleep(0.08)
+
+        # Brief settle time for render only if page was actively loading
+        if had_loading:
+            await asyncio.sleep(0.05)
+    except Exception:
+        pass
+
+
+def _clean_target_ref(val: Optional[str]) -> str:
+    """Clean and strip brackets, quotes, and prefixes from element ref strings."""
+    if not val:
+        return ""
+    s = val.strip()
+    # Strip quotes and brackets e.g. ['e1'], "[e1]", (e1), [e2]
+    s = re.sub(r"^[\"\'\[\(]+|[\"\'\]\)]+$", "", s).strip()
+    if s.lower().startswith("ref=") or s.lower().startswith("ref:"):
+        s = s[4:].strip()
+    elif s.startswith("@"):
+        s = s[1:].strip()
+    return s
+
+
 def _resolve_element_locator(
     page: Any, selector: Optional[str] = None, ref: Optional[str] = None
 ) -> Optional[Any]:
     """Resolve a selector or OpenClaw ref into a Playwright Locator with smart fallbacks."""
-    if selector and not re.match(r"^e\d+$", selector.strip(), re.I):
-        return page.locator(selector)
-
-    target_ref = (ref or selector or "").strip()
-    if not target_ref:
+    raw_target = (ref or selector or "").strip()
+    if not raw_target:
         return None
 
-    semantic = target_ref.lower()
+    clean_target = _clean_target_ref(raw_target)
+    url = getattr(page, "url", "").lower()
+
+    # 1. Check for Set-of-Mark or OpenClaw-style role ref (e.g. 1, e1, [1], [e1], ref-1)
+    ref_match = re.match(r"^(?:ref-?)?e?(\d+)$", clean_target, re.I)
+    if ref_match:
+        num = ref_match.group(1)
+        idx = max(0, int(num) - 1)
+        ref_id = f"e{idx + 1}"
+
+        if "youtube.com" in url:
+            yt_loc = page.locator(
+                f"[data-jarvis-ref='{num}'], [data-ref='{ref_id}'], [data-ref='{num}'], "
+                "ytd-video-renderer #video-title, "
+                "ytd-rich-item-renderer #video-title, "
+                "ytd-compact-video-renderer #video-title, "
+                "#contents ytd-video-renderer a#thumbnail, "
+                "#contents ytd-video-renderer a#video-title-link, "
+                "#video-title, a#video-title"
+            )
+            return yt_loc.nth(idx)
+        elif "google.com" in url:
+            g_loc = page.locator(
+                f"[data-jarvis-ref='{num}'], [data-ref='{ref_id}'], [data-ref='{num}'], #search a h3, #rso a h3, a h3"
+            )
+            return g_loc.nth(idx)
+        else:
+            return page.locator(
+                f"[data-jarvis-ref='{num}'], [data-ref='{ref_id}'], [data-ref='{num}'], [aria-ref='{ref_id}'], #{ref_id}, "
+                "main a:visible, article a:visible, a:visible, button:visible"
+            ).nth(idx)
+
+    # 2. Check semantic queries
+    semantic = clean_target.lower()
     if "homepage" in semantic or "home page" in semantic:
         return page.locator(
             "a:has-text('Homepage'), a:has-text('Home page'), a:has-text('Home'), "
@@ -234,31 +379,22 @@ def _resolve_element_locator(
             "[aria-label*='sign in' i], [aria-label*='log in' i]"
         ).first
 
-    # Check for OpenClaw-style role ref (e.g. e1, e2, e3) or integer ref (1, 2)
-    ref_match = re.match(r"^e?(\d+)$", target_ref, re.I)
-    if ref_match:
-        idx = max(0, int(ref_match.group(1)) - 1)
-        url = getattr(page, "url", "").lower()
-        if "youtube.com" in url:
-            # YouTube video titles / thumbnails in search or feed
-            yt_loc = page.locator(
-                "ytd-video-renderer #video-title, "
-                "ytd-rich-item-renderer #video-title, "
-                "ytd-compact-video-renderer #video-title, "
-                "#contents ytd-video-renderer a#thumbnail, "
-                "#video-title, a#video-title"
-            )
-            return yt_loc.nth(idx)
-        elif "google.com" in url:
-            g_loc = page.locator("#search a h3, #rso a h3, a h3")
-            return g_loc.nth(idx)
-        else:
-            ref_sel = f"[data-ref='{target_ref}'], [aria-ref='{target_ref}'], #{target_ref}"
+    # 3. Special YouTube selector normalization
+    if "youtube.com" in url:
+        if clean_target.lower() in ("#search", "search", "ytd-searchbox", "input#search"):
             return page.locator(
-                f"{ref_sel}, main a:visible, article a:visible, a:visible, button:visible"
-            ).nth(idx)
+                "input[name='search_query'], input#search, #search input, ytd-searchbox input"
+            ).first
+        if "search-icon" in clean_target.lower() or clean_target.lower() in (
+            "#search-icon-legacy",
+            "search-icon-legacy",
+        ):
+            return page.locator(
+                "button#search-icon-legacy, #search-icon-legacy, button[aria-label*='Search' i]"
+            ).first
 
-    return page.locator(target_ref)
+    # 4. Standard CSS selector
+    return page.locator(raw_target).first
 
 
 class BrowserRuntime:
@@ -430,7 +566,7 @@ class BrowserRuntime:
                 endpoint_url = profile.cdpUrl or f"http://{profile.cdpHost}:{profile.cdpPort}"
                 try:
                     self.browser = await self.playwright.chromium.connect_over_cdp(
-                        endpoint_url, timeout=self.resolved.remoteCdpHandshakeTimeoutMs
+                        endpoint_url, timeout=min(self.resolved.remoteCdpHandshakeTimeoutMs, 1000)
                     )
                 except Exception:
                     # Graceful fallback: If Chrome is not running with remote debugging,
@@ -466,29 +602,87 @@ class BrowserRuntime:
                 profile_dir = (
                     Path(profile.userDataDir)
                     if profile.userDataDir
-                    else safe_temp / "browser" / profile.name
+                    else (
+                        Path.home() / ".jarvis" / "browser" / "chrome_profile"
+                        if profile.name in ("jarvis", "openclaw", "default")
+                        else safe_temp / "browser" / profile.name
+                    )
                 )
                 profile_dir.mkdir(parents=True, exist_ok=True)
                 clear_chrome_singleton_artifacts(profile_dir)
 
+                cdp_port = getattr(profile, "cdpPort", None) or 9222
+
+                # 0. Fast CDP re-attach ONLY if Chrome is already actively listening on remote debugging port
+                if (
+                    not profile.headless
+                    and profile.name in ("jarvis", "openclaw", "default")
+                    and is_port_open("127.0.0.1", cdp_port)
+                ):
+                    try:
+                        self.browser = await self.playwright.chromium.connect_over_cdp(
+                            f"http://127.0.0.1:{cdp_port}", timeout=800
+                        )
+                        if self.browser and self.browser.contexts:
+                            context = self.browser.contexts[0]
+                        elif self.browser:
+                            context = await self.browser.new_context()
+                        else:
+                            context = None
+                        if context:
+                            self.contexts[profile.name] = context
+                            for page in context.pages:
+                                self._register_page(page)
+                            context.on("page", lambda new_page: self._register_page(new_page))
+                            return context
+                    except Exception:
+                        pass
+
                 launch_args = _chromium_launch_args(self.resolved)
+                port_arg = f"--remote-debugging-port={cdp_port}"
+                if port_arg not in launch_args:
+                    launch_args.append(port_arg)
+                if "--start-maximized" not in launch_args:
+                    launch_args.append("--start-maximized")
 
                 try:
+                    # Attempt launch using real Chrome channel first (best media codec & login support)
                     context = await self.playwright.chromium.launch_persistent_context(
                         user_data_dir=str(profile_dir.resolve()),
-                        executable_path=exec_path,
+                        channel="chrome",
                         headless=bool(profile.headless),
                         args=launch_args,
+                        ignore_default_args=["--enable-automation"],
+                        no_viewport=True,
+                        timeout=12000,
                     )
                 except Exception:
-                    # Fallback to standard launch if persistent context fails
-                    if self.browser is None:
-                        self.browser = await self.playwright.chromium.launch(
+                    # Fallback to direct executable_path or standard launch
+                    try:
+                        context = await self.playwright.chromium.launch_persistent_context(
+                            user_data_dir=str(profile_dir.resolve()),
                             executable_path=exec_path,
                             headless=bool(profile.headless),
                             args=launch_args,
+                            ignore_default_args=["--enable-automation"],
+                            timeout=12000,
                         )
-                    context = await self.browser.new_context()
+                    except Exception:
+                        if self.browser is None:
+                            self.browser = await self.playwright.chromium.launch(
+                                executable_path=exec_path,
+                                headless=bool(profile.headless),
+                                args=launch_args,
+                            )
+                        context = await self.browser.new_context()
+
+                # Anti-detection stealth init script
+                try:
+                    await context.add_init_script(
+                        "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
+                    )
+                except Exception:
+                    pass
 
             self.contexts[profile.name] = context
 
@@ -586,15 +780,19 @@ class BrowserRuntime:
         return rec.page
 
     async def list_tabs(
-        self, profile: Optional[Union[ResolvedBrowserProfile, str]] = None
+        self,
+        profile: Optional[Union[ResolvedBrowserProfile, str]] = None,
+        session_key: str | None = None,
     ) -> List[Dict[str, Any]]:
-        """List all open tabs across profiles."""
+        """List all open tabs across profiles with optional sessionKey filtering."""
         prof = self._resolve_profile(profile)
         await self.get_or_create_context(prof)
 
         results = []
         for tid, tab in list(self._tabs.items()):
             if tab.page.is_closed():
+                continue
+            if session_key and tab.session_key and tab.session_key != session_key:
                 continue
             try:
                 title = await tab.page.title()
@@ -609,6 +807,7 @@ class BrowserRuntime:
                     "url": tab.page.url,
                     "active": tid == self._active_tab_id,
                     "label": tab.label,
+                    "sessionKey": tab.session_key,
                 }
             )
         return results
@@ -619,6 +818,7 @@ class BrowserRuntime:
         url: Optional[str] = None,
         label: str = "",
         force_new_tab: bool = False,
+        session_key: str = "",
     ) -> dict[str, Any]:
         """Open a tab or reuse an existing tab with matching label or domain."""
         if isinstance(profile, str) and (
@@ -630,7 +830,9 @@ class BrowserRuntime:
             prof = self._resolve_profile(profile)
 
         # Normalize bare domain URLs (e.g. "youtube.com" -> "https://www.youtube.com")
-        if url and not url.startswith(("http://", "https://", "about:")):
+        if url and not url.startswith(
+            ("http://", "https://", "about:", "data:", "chrome:", "edge:", "file:")
+        ):
             if url.lower().startswith("www.") or "." in url:
                 url = f"https://{url}"
             elif url.lower() in (
@@ -644,21 +846,6 @@ class BrowserRuntime:
             ):
                 url = f"https://www.{url.lower()}.com"
 
-        def _sync_tab_tracker(tid: str, record: TabRecord, title: str = "") -> None:
-            try:
-                from src.application_automation.active_tab_tracker import ActiveTabTracker
-
-                tracker = ActiveTabTracker.get_instance()
-                tracker.register_tab(
-                    target_id=tid,
-                    url=record.page.url,
-                    title=title or record.title,
-                    label=record.label,
-                    tab_id=tid,
-                )
-            except Exception:
-                pass
-
         # 0. Ensure context is initialized and sync any unrecorded pages into self._tabs
         try:
             context = await self.get_or_create_context(prof)
@@ -668,57 +855,13 @@ class BrowserRuntime:
         except Exception:
             pass
 
-        # 0b. Check ActiveTabTracker for registered application affinity (e.g. YouTube)
-        if not force_new_tab:
-            try:
-                from src.application_automation.active_tab_tracker import ActiveTabTracker
-
-                tracker = ActiveTabTracker.get_instance()
-                target_app = (
-                    "youtube"
-                    if ("youtube" in (label or "").lower() or (url and "youtube" in url.lower()))
-                    else ""
-                )
-                if target_app:
-                    tracked = tracker.find_tab_by_app(target_app)
-                    if tracked and tracked.target_id in self._tabs:
-                        cand_tab = self._tabs[tracked.target_id]
-                        if not cand_tab.page.is_closed():
-                            self._active_tab_id = tracked.target_id
-                            await cand_tab.page.bring_to_front()
-                            if url and cand_tab.page.url != url:
-                                from urllib.parse import urlparse
-
-                                tab_p = urlparse(cand_tab.page.url)
-                                target_p = urlparse(url)
-                                tab_h = tab_p.netloc.lower().removeprefix("www.")
-                                target_h = target_p.netloc.lower().removeprefix("www.")
-                                if tab_h == target_h and target_p.path in ("", "/"):
-                                    pass
-                                else:
-                                    await _goto_domcontentloaded_best_effort(
-                                        cand_tab.page,
-                                        url,
-                                        timeout_ms=self.resolved.actionTimeoutMs,
-                                    )
-                            t_title = await cand_tab.page.title()
-                            _sync_tab_tracker(tracked.target_id, cand_tab, t_title)
-                            return {
-                                "ok": True,
-                                "targetId": tracked.target_id,
-                                "suggestedTargetId": cand_tab.label or tracked.target_id,
-                                "url": cand_tab.page.url,
-                                "title": t_title,
-                                "reused": True,
-                            }
-            except Exception:
-                pass
-
         # 1. Reuse existing tab by explicit label if provided
         if label and not force_new_tab:
             for tid, tab in list(self._tabs.items()):
                 if not tab.page.is_closed() and tab.label and tab.label.lower() == label.lower():
                     self._active_tab_id = tid
+                    if session_key:
+                        tab.session_key = session_key
                     await tab.page.bring_to_front()
                     if url and tab.page.url != url:
                         from urllib.parse import urlparse
@@ -736,7 +879,6 @@ class BrowserRuntime:
                                 timeout_ms=self.resolved.actionTimeoutMs,
                             )
                     t_title = await tab.page.title()
-                    _sync_tab_tracker(tid, tab, t_title)
                     return {
                         "ok": True,
                         "targetId": tid,
@@ -778,7 +920,6 @@ class BrowserRuntime:
                                             timeout_ms=self.resolved.actionTimeoutMs,
                                         )
                                 t_title = await tab.page.title()
-                                _sync_tab_tracker(tid, tab, t_title)
                                 return {
                                     "ok": True,
                                     "targetId": tid,
@@ -793,8 +934,25 @@ class BrowserRuntime:
         for attempt in range(2):
             try:
                 context = await self.get_or_create_context(prof)
-                page = await context.new_page()
+                # Reuse initial blank tab created during persistent context launch to prevent duplicate tabs/windows
+                reusable_page = None
+                if not force_new_tab and getattr(context, "pages", None):
+                    for p in context.pages:
+                        if not p.is_closed() and p.url in ("about:blank", "", "data:,"):
+                            already_used = any(
+                                t.page == p and t.page.url not in ("about:blank", "", "data:,")
+                                for t in self._tabs.values()
+                            )
+                            if not already_used:
+                                reusable_page = p
+                                break
+                if reusable_page is not None:
+                    page = reusable_page
+                else:
+                    page = await context.new_page()
                 rec = self._register_page(page, label=label)
+                if session_key:
+                    rec.session_key = session_key
                 self._active_tab_id = rec.target_id
                 navigation_warning = None
                 if url:
@@ -804,7 +962,6 @@ class BrowserRuntime:
                         timeout_ms=self.resolved.actionTimeoutMs,
                     )
                 t_title = await page.title()
-                _sync_tab_tracker(rec.target_id, rec, t_title)
                 result = {
                     "ok": True,
                     "targetId": rec.target_id,
@@ -844,26 +1001,8 @@ class BrowserRuntime:
         else:
             prof = self._resolve_profile(profile)
 
-        # 1. Resolve alias or application name via ActiveTabTracker
+        # 1. Search active tabs by label, url, or domain if tid is not a direct key
         tid = target_id
-        if tid:
-            try:
-                from src.application_automation.active_tab_tracker import ActiveTabTracker
-
-                tracker = ActiveTabTracker.get_instance()
-                resolved = tracker.resolve_target_id(tid)
-                if not resolved and tid.lower() in ("youtube", "yt"):
-                    tracked = tracker.find_tab_by_app("youtube") or tracker.find_tab_by_domain(
-                        "youtube.com"
-                    )
-                    if tracked:
-                        resolved = tracked.target_id
-                if resolved:
-                    tid = resolved
-            except Exception:
-                pass
-
-        # 2. Search active tabs by label or URL if tid is not a direct key
         if tid and tid not in self._tabs:
             for tab_key, tab in list(self._tabs.items()):
                 if not tab.page.is_closed():
@@ -871,6 +1010,9 @@ class BrowserRuntime:
                         tid = tab_key
                         break
                     if tid.lower() in tab.page.url.lower():
+                        tid = tab_key
+                        break
+                    if tid.lower() in ("youtube", "yt") and "youtube.com" in tab.page.url.lower():
                         tid = tab_key
                         break
 
@@ -891,14 +1033,6 @@ class BrowserRuntime:
                 self._tabs.pop(final_tid, None)
             except Exception:
                 final_tid = effective_tid or "unknown"
-
-        # 3. Clean up ActiveTabTracker registration
-        try:
-            from src.application_automation.active_tab_tracker import ActiveTabTracker
-
-            ActiveTabTracker.get_instance().untrack_tab(final_tid)
-        except Exception:
-            pass
 
         # 4. Re-target active tab to another available open tab
         if self._active_tab_id == final_tid:
@@ -939,12 +1073,78 @@ class BrowserRuntime:
     ) -> dict[str, Any]:
         """Navigate tab to a target URL."""
         if isinstance(profile, str) and (
-            url is None or profile.startswith("http") or profile == "about:blank"
+            url is None
+            or profile.startswith(
+                ("http://", "https://", "about:", "data:", "chrome:", "edge:", "file:")
+            )
         ):
             url = profile
             prof = self.default_profile
         else:
             prof = self._resolve_profile(profile)
+
+        if url and not url.startswith(
+            ("http://", "https://", "about:", "data:", "chrome:", "edge:", "file:")
+        ):
+            if url.lower().startswith("www.") or "." in url:
+                url = f"https://{url}"
+            elif url.lower() in (
+                "youtube",
+                "google",
+                "github",
+                "twitter",
+                "x",
+                "reddit",
+                "spotify",
+            ):
+                url = f"https://www.{url.lower()}.com"
+
+        # Domain-aware tab reuse: if navigating without an explicit target_id,
+        # reuse and focus any existing tab already on that domain (e.g. YouTube)
+        if url and not target_id:
+            try:
+                from urllib.parse import urlparse
+
+                target_parsed = urlparse(url)
+                target_host = target_parsed.netloc.lower().removeprefix("www.")
+                if target_host:
+                    # Sync any unrecorded pages into self._tabs first
+                    context = await self.get_or_create_context(prof)
+                    for p in getattr(context, "pages", []):
+                        if not getattr(p, "is_closed", lambda: False)():
+                            self._register_page(p)
+
+                    for tid, tab in list(self._tabs.items()):
+                        if not tab.page.is_closed():
+                            tab_parsed = urlparse(tab.page.url)
+                            tab_host = tab_parsed.netloc.lower().removeprefix("www.")
+                            if tab_host and (
+                                tab_host == target_host
+                                or target_host in tab_host
+                                or tab_host in target_host
+                            ):
+                                self._active_tab_id = tid
+                                await tab.page.bring_to_front()
+                                # Do not destructive reload if target is root URL and tab is already on that site
+                                if tab.page.url != url:
+                                    if target_parsed.path in ("", "/") and tab_parsed.path != "":
+                                        pass  # Keep active search or watch page
+                                    else:
+                                        await _goto_domcontentloaded_best_effort(
+                                            tab.page,
+                                            url,
+                                            timeout_ms=self.resolved.actionTimeoutMs,
+                                        )
+                                await _wait_for_page_ready(tab.page)
+                                return {
+                                    "ok": True,
+                                    "targetId": tid,
+                                    "url": tab.page.url,
+                                    "title": await tab.page.title(),
+                                    "reused": True,
+                                }
+            except Exception:
+                pass
 
         effective_target_id = target_id or self._active_tab_id
         page = await self.get_page(prof, effective_target_id)
@@ -953,12 +1153,238 @@ class BrowserRuntime:
             url,
             timeout_ms=self.resolved.actionTimeoutMs,
         )
+        await _wait_for_page_ready(page)
         return {
             "ok": True,
             "targetId": self._active_tab_id,
             "url": page.url,
             "title": await page.title(),
             **({"warning": navigation_warning} if navigation_warning else {}),
+        }
+
+    async def youtube_play(
+        self,
+        query: str,
+        profile: Optional[Union[ResolvedBrowserProfile, str]] = None,
+        target_id: Optional[str] = None,
+        auto_skip_ad: bool = True,
+    ) -> dict[str, Any]:
+        """Search and play a video on YouTube in the active or reused YouTube tab.
+
+        Follows OpenClaw active browser targeting:
+        1. Targets existing YouTube tab if open, otherwise navigates current tab or opens single tab.
+        2. Waits for page load completion and dismisses cookie consent dialogs.
+        3. Navigates to search results and clicks first playable video.
+        4. Auto-skips pre-roll ads if present.
+        """
+        import urllib.parse
+
+        prof = self._resolve_profile(profile)
+        # 1. Reuse existing YouTube tab if available across active tabs
+        page = None
+        active_tid = None
+        for tid, tab in list(self._tabs.items()):
+            if not tab.page.is_closed() and "youtube.com" in tab.page.url.lower():
+                page = tab.page
+                active_tid = tid
+                self._active_tab_id = tid
+                try:
+                    await page.bring_to_front()
+                except Exception:
+                    pass
+                break
+
+        if page is None:
+            # Check if active tab is blank/new, reuse it
+            if self._active_tab_id and self._active_tab_id in self._tabs:
+                curr_tab = self._tabs[self._active_tab_id]
+                if not curr_tab.page.is_closed() and curr_tab.page.url in (
+                    "about:blank",
+                    "",
+                    "data:,",
+                ):
+                    page = curr_tab.page
+                    active_tid = self._active_tab_id
+
+        if page is None:
+            res = await self.open_tab(profile=prof, url="https://www.youtube.com", label="youtube")
+            active_tid = res.get("targetId")
+            page = await self.get_page(prof, active_tid)
+
+        clean_query = (query or "").strip()
+        search_url = (
+            f"https://www.youtube.com/results?search_query={urllib.parse.quote_plus(clean_query)}"
+        )
+
+        # 2. Navigate to search query and wait for load
+        await _goto_domcontentloaded_best_effort(
+            page, search_url, timeout_ms=self.resolved.actionTimeoutMs
+        )
+        await _wait_for_page_ready(page, max_wait_ms=1200)
+        await _dismiss_overlays_if_present(page)
+
+        # 3. Locate the first video in the search results
+        loc = page.locator(
+            "ytd-video-renderer a#video-title, ytd-video-renderer #video-title, a#video-title, ytd-rich-item-renderer #video-title"
+        ).first
+        try:
+            await loc.wait_for(state="visible", timeout=3000)
+        except Exception:
+            try:
+                await loc.wait_for(state="attached", timeout=1500)
+            except Exception:
+                pass
+
+        video_title = clean_query
+        try:
+            txt = await loc.text_content()
+            if txt and txt.strip():
+                video_title = txt.strip()
+        except Exception:
+            pass
+
+        # 4. Click video to start playback
+        clicked = False
+        try:
+            await loc.click(timeout=3500)
+            clicked = True
+        except Exception:
+            try:
+                href = await loc.get_attribute("href")
+                if href:
+                    target_v = f"https://www.youtube.com{href}" if href.startswith("/") else href
+                    await page.goto(target_v, wait_until="domcontentloaded", timeout=8000)
+                    clicked = True
+            except Exception:
+                pass
+
+        if not clicked:
+            try:
+                await loc.click(force=True, timeout=2000)
+            except Exception:
+                pass
+
+        # 5. Wait for video page to settle and start video playback
+        await _wait_for_page_ready(page, max_wait_ms=4000)
+        await _dismiss_overlays_if_present(page)
+
+        # Unmute & trigger play on HTML5 video element if paused
+        try:
+            await page.evaluate("""() => {
+                const v = document.querySelector('video');
+                if (v) {
+                    v.muted = false;
+                    v.play().catch(() => {});
+                }
+            }""")
+        except Exception:
+            pass
+
+        # 6. Auto-skip pre-roll ad if enabled
+        ad_skipped = False
+        if auto_skip_ad:
+            await asyncio.sleep(0.5)
+            ad_skipped = await self._try_skip_youtube_ad(page)
+
+        return {
+            "ok": True,
+            "action": "youtube_play",
+            "status": "playing",
+            "playing_title": video_title,
+            "query": clean_query,
+            "url": page.url,
+            "targetId": active_tid,
+            "ad_skipped": ad_skipped,
+        }
+
+    async def _try_skip_youtube_ad(self, page: Any) -> bool:
+        """Internal helper to click skip ad buttons or fast-forward active ads."""
+        try:
+            skip_selectors = [
+                ".ytp-ad-skip-button",
+                ".ytp-ad-skip-button-modern",
+                "button.ytp-skip-ad-button",
+                ".ytp-skip-ad-button",
+                "button.ytp-ad-skip-button-icon",
+                "[class*='ytp-ad-skip-button']",
+            ]
+            for sel in skip_selectors:
+                btn = page.locator(sel).first
+                if await btn.is_visible():
+                    await btn.click(timeout=1000)
+                    return True
+
+            # If inside ad container, seek video to end
+            skipped = await page.evaluate("""() => {
+                const ad = document.querySelector('.ad-showing, .ad-interrupting, .video-ads');
+                const v = document.querySelector('video');
+                if (ad && v && !isNaN(v.duration) && v.duration > 0) {
+                    v.currentTime = v.duration;
+                    return true;
+                }
+                return false;
+            }""")
+            return bool(skipped)
+        except Exception:
+            return False
+
+    async def youtube_skip_ad(
+        self,
+        profile: Optional[Union[ResolvedBrowserProfile, str]] = None,
+        target_id: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Skip currently playing advertisement on YouTube."""
+        prof = self._resolve_profile(profile)
+        page = await self.get_page(prof, target_id)
+        skipped = await self._try_skip_youtube_ad(page)
+        return {
+            "ok": True,
+            "action": "skip_ad",
+            "status": "ad_skipped" if skipped else "no_active_ad",
+            "url": page.url,
+        }
+
+    async def google_search(
+        self,
+        query: str,
+        profile: Optional[Union[ResolvedBrowserProfile, str]] = None,
+        target_id: Optional[str] = None,
+    ) -> dict[str, Any]:
+        """Search Google in active or reused Google tab."""
+        import urllib.parse
+
+        prof = self._resolve_profile(profile)
+        page = None
+        for tid, tab in list(self._tabs.items()):
+            if not tab.page.is_closed() and "google.com" in tab.page.url.lower():
+                page = tab.page
+                self._active_tab_id = tid
+                try:
+                    await page.bring_to_front()
+                except Exception:
+                    pass
+                break
+
+        if page is None:
+            res = await self.open_tab(profile=prof, url="https://www.google.com", label="google")
+            page = await self.get_page(prof, res.get("targetId"))
+
+        clean_query = (query or "").strip()
+        search_url = f"https://www.google.com/search?q={urllib.parse.quote_plus(clean_query)}"
+        await _goto_domcontentloaded_best_effort(
+            page, search_url, timeout_ms=self.resolved.actionTimeoutMs
+        )
+        await _wait_for_page_ready(page, max_wait_ms=4000)
+        await _dismiss_overlays_if_present(page)
+
+        snap = await self.snapshot(profile=prof, target_id=self._active_tab_id, max_chars=2000)
+        return {
+            "ok": True,
+            "action": "google_search",
+            "query": clean_query,
+            "url": page.url,
+            "title": await page.title(),
+            "summary": snap.get("snapshot") or snap.get("text") or "",
         }
 
     async def snapshot(
@@ -971,6 +1397,24 @@ class BrowserRuntime:
         """Capture an ARIA or text DOM snapshot of the tab."""
         prof = self._resolve_profile(profile)
         page = await self.get_page(prof, target_id)
+        await _wait_for_page_ready(page)
+
+        # Extract Set-of-Mark interactive element map
+        elements: list[dict[str, Any]] = []
+        try:
+            elements = await inject_set_of_marks(page, annotate=False)
+        except Exception:
+            pass
+
+        page_title = ""
+        try:
+            page_title = await page.title()
+        except Exception:
+            pass
+
+        som_summary = ""
+        if elements:
+            som_summary = format_som_elements_summary(elements, title=page_title, url=page.url)
 
         snapshot_content = ""
         try:
@@ -978,6 +1422,21 @@ class BrowserRuntime:
             snapshot_content = await page.locator("body").aria_snapshot()
             if "youtube.com" in page.url.lower():
                 try:
+                    await page.evaluate("""() => {
+                        const titles = document.querySelectorAll(
+                            'ytd-video-renderer #video-title, ytd-rich-item-renderer #video-title, ytd-compact-video-renderer #video-title, #video-title'
+                        );
+                        titles.forEach((el, i) => {
+                            const ref = 'e' + (i + 1);
+                            el.setAttribute('data-ref', ref);
+                            const card = el.closest('ytd-video-renderer, ytd-rich-item-renderer, ytd-compact-video-renderer');
+                            if (card) {
+                                card.setAttribute('data-ref', ref);
+                                const thumb = card.querySelector('a#thumbnail');
+                                if (thumb) thumb.setAttribute('data-ref', ref);
+                            }
+                        });
+                    }""")
                     titles = await page.locator(
                         "ytd-video-renderer #video-title, ytd-rich-item-renderer #video-title, #video-title"
                     ).all_inner_texts()
@@ -997,6 +1456,9 @@ class BrowserRuntime:
             except Exception as e:
                 snapshot_content = f"Error extracting snapshot: {e}"
 
+        if som_summary:
+            snapshot_content = f"{som_summary}\n\n[ARIA Accessibility Tree]:\n{snapshot_content}"
+
         if max_chars and len(snapshot_content) > max_chars:
             snapshot_content = snapshot_content[:max_chars] + "\n... [truncated]"
 
@@ -1007,14 +1469,15 @@ class BrowserRuntime:
             "ok": True,
             "targetId": self._active_tab_id,
             "url": page.url,
-            "title": await page.title(),
+            "title": page_title,
             "format": snapshot_format,
             "snapshot": snapshot_content,
+            "elements": elements,
             "stats": {
                 "lines": lines,
                 "chars": chars,
-                "refs": 0,
-                "interactive": lines,
+                "refs": len(elements),
+                "interactive": len(elements),
             },
         }
 
@@ -1027,32 +1490,105 @@ class BrowserRuntime:
         path: Optional[str] = None,
         image_type: str = "png",
         selector: Optional[str] = None,
+        annotate: bool = False,
     ) -> dict[str, Any]:
         """Capture a screenshot of the tab or specific element."""
         prof = self._resolve_profile(profile)
         page = await self.get_page(prof, target_id)
 
-        shot_type = "jpeg" if image_type.lower() in ("jpeg", "jpg") else "png"
-        kwargs: dict[str, Any] = {"type": shot_type}
+        if annotate:
+            try:
+                await inject_set_of_marks(page, annotate=True)
+            except Exception:
+                pass
+
+        try:
+            shot_type = "jpeg" if image_type.lower() in ("jpeg", "jpg") else "png"
+            kwargs: dict[str, Any] = {"type": shot_type}
+            if path:
+                kwargs["path"] = path
+
+            target_selector = element or selector
+            if target_selector:
+                locator = page.locator(target_selector)
+                raw_bytes = await locator.screenshot(**kwargs)
+            else:
+                kwargs["full_page"] = full_page
+                raw_bytes = await page.screenshot(**kwargs)
+
+            b64 = base64.b64encode(raw_bytes).decode("ascii")
+            return {
+                "ok": True,
+                "targetId": self._active_tab_id,
+                "url": page.url,
+                "format": f"image/{shot_type}",
+                "path": path,
+                "base64": b64,
+                "annotated": annotate,
+            }
+        finally:
+            if annotate:
+                try:
+                    await cleanup_set_of_marks(page)
+                except Exception:
+                    pass
+
+    async def download(
+        self,
+        profile: Optional[Union[ResolvedBrowserProfile, str]] = None,
+        target_id: Optional[str] = None,
+        selector: Optional[str] = None,
+        ref: Optional[str] = None,
+        path: Optional[str] = None,
+        download_dir: Optional[str] = None,
+        timeout_ms: int = 30000,
+    ) -> dict[str, Any]:
+        """Click a visible download control and save the resulting browser download."""
+        prof = self._resolve_profile(profile)
+        page = await self.get_page(prof, target_id)
+        locator = self._resolve_element_locator(page, selector=selector, ref=ref)
+        if locator is None:
+            raise ValueError("download requires a visible selector or snapshot ref")
+
+        async with page.expect_download(timeout=timeout_ms) as download_info:
+            await getattr(locator, "first", locator).click(timeout=timeout_ms)
+        download = await download_info.value
+
+        from pathlib import Path
+
+        suggested_name = Path(download.suggested_filename or "download").name or "download"
         if path:
-            kwargs["path"] = path
-
-        target_selector = element or selector
-        if target_selector:
-            locator = page.locator(target_selector)
-            raw_bytes = await locator.screenshot(**kwargs)
+            destination = Path(path).expanduser()
+            if destination.exists() and destination.is_dir():
+                destination = destination / suggested_name
         else:
-            kwargs["full_page"] = full_page
-            raw_bytes = await page.screenshot(**kwargs)
+            destination = (
+                Path(download_dir).expanduser() if download_dir else Path.home() / "Downloads"
+            )
+            destination.mkdir(parents=True, exist_ok=True)
+            destination = destination / suggested_name
 
-        b64 = base64.b64encode(raw_bytes).decode("ascii")
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        if destination.exists():
+            stem = destination.stem
+            suffix = destination.suffix
+            counter = 1
+            while destination.exists():
+                destination = destination.with_name(f"{stem} ({counter}){suffix}")
+                counter += 1
+
+        await download.save_as(str(destination))
+        if not destination.is_file() or destination.stat().st_size == 0:
+            raise RuntimeError(f"Browser download did not produce a non-empty file: {destination}")
+
         return {
             "ok": True,
-            "targetId": self._active_tab_id,
+            "status": "downloaded",
+            "targetId": target_id or self._active_tab_id,
             "url": page.url,
-            "format": f"image/{shot_type}",
-            "path": path,
-            "base64": b64,
+            "path": str(destination),
+            "filename": destination.name,
+            "sizeBytes": destination.stat().st_size,
         }
 
     async def extract_text(
@@ -1135,42 +1671,271 @@ class BrowserRuntime:
         # Keep Playwright actionability and strict resolution: recovery must observe
         # a failed action before retrying, never click a different or covered target.
         if act_kind_key == "click":
+            await _wait_for_page_ready(page)
+            await _dismiss_overlays_if_present(page)
             if locator:
+                target_loc = getattr(locator, "first", locator)
+                clicked = False
+                last_err = None
+
+                # Tier 1: Standard Playwright click
                 try:
-                    await locator.click(timeout=timeout_ms)
+                    box = await target_loc.bounding_box()
+                    if box and box.get("width", 0) > 0 and box.get("height", 0) > 0:
+                        try:
+                            await page.mouse.move(
+                                box["x"] + box["width"] / 2, box["y"] + box["height"] / 2, steps=3
+                            )
+                        except Exception:
+                            pass
+                    await target_loc.click(timeout=min(timeout_ms, 2500))
+                    clicked = True
                 except Exception as err:
-                    first = _first_locator(locator)
-                    if first is None or not _strict_mode_violation(err):
-                        raise
-                    await first.click(timeout=timeout_ms)
+                    last_err = err
+
+                # Tier 2: Force click
+                if not clicked:
+                    try:
+                        await target_loc.click(timeout=min(timeout_ms, 1500), force=True)
+                        clicked = True
+                    except Exception as err:
+                        last_err = err
+
+                # Tier 3: JS DOM evaluation click
+                if not clicked:
+                    try:
+                        await target_loc.evaluate(
+                            "el => (el.closest('a') || el.closest('button') || el).click()"
+                        )
+                        clicked = True
+                    except Exception as err:
+                        last_err = err
+
+                # Tier 4: Center bounding box mouse click
+                if not clicked:
+                    try:
+                        box = await target_loc.bounding_box()
+                        if box and box.get("width", 0) > 0 and box.get("height", 0) > 0:
+                            await page.mouse.click(
+                                box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+                            )
+                            clicked = True
+                    except Exception as err:
+                        last_err = err
+
+                # Tier 5: Direct querySelector click if selector was given
+                if not clicked and selector:
+                    try:
+                        js_click = f"document.querySelector({json.dumps(selector)})?.click()"
+                        if await page.evaluate(js_click):
+                            clicked = True
+                    except Exception as err:
+                        last_err = err
+
+                if not clicked:
+                    if last_err:
+                        raise last_err
+                    raise RuntimeError(f"Could not click target: {selector or ref}")
             elif x is not None and y is not None:
                 await page.mouse.click(x, y)
             else:
                 raise ValueError("click requires selector, ref, or coordinates (x, y)")
+
+            # Wait for navigation / settling after click
+            await _wait_for_page_ready(page, max_wait_ms=3000)
 
         elif act_kind_key == "clickcoords":
             if x is None or y is None:
                 raise ValueError("clickCoords requires x and y coordinates")
             await page.mouse.click(x, y)
 
-        elif act_kind_key == "type":
-            type_text = text or ""
-            if locator:
-                await locator.type(type_text, timeout=timeout_ms)
-            else:
-                await page.keyboard.type(type_text)
+        elif act_kind_key in ("type", "fill"):
+            await _wait_for_page_ready(page)
+            type_text = text or str(kwargs.get("value") or "")
+            slowly = bool(kwargs.get("slowly", False))
+            submit = bool(kwargs.get("submit", False))
 
-        elif act_kind_key == "fill":
-            if not locator:
-                raise ValueError("fill requires selector or ref")
-            await locator.fill(text or "", timeout=timeout_ms)
+            await _dismiss_overlays_if_present(page)
+
+            # Build list of locator candidates
+            loc_candidates = []
+            if locator is not None:
+                loc_candidates.append(getattr(locator, "first", locator))
+
+            # Smart candidate fallback for search boxes (e.g. YouTube input#search)
+            if selector and any(s in selector.lower() for s in ("search", "query", "input")):
+                for cand in (
+                    "input[name='search_query']",
+                    "input#search",
+                    "#search-input input",
+                    "ytd-searchbox input",
+                    "input.yt-searchbox-input",
+                    "input[type='text']",
+                ):
+                    try:
+                        loc_candidates.append(page.locator(cand).first)
+                    except Exception:
+                        pass
+
+            success = False
+            last_err = None
+            for loc in loc_candidates:
+                try:
+                    if slowly:
+                        await loc.click(timeout=min(timeout_ms, 2000))
+                        try:
+                            await loc.press_sequentially(type_text, timeout=timeout_ms, delay=75)
+                        except AttributeError:
+                            await loc.type(type_text, timeout=timeout_ms, delay=75)
+                    else:
+                        await loc.fill(type_text, timeout=min(timeout_ms, 2000))
+                    success = True
+                    break
+                except Exception as ex:
+                    last_err = ex
+                    try:
+                        await loc.click(timeout=1500, force=True)
+                        await page.keyboard.type(type_text)
+                        success = True
+                        break
+                    except Exception:
+                        continue
+
+            if not success:
+                if selector:
+                    try:
+                        escaped = json.dumps(type_text)
+                        js = f"""(() => {{
+                            const el = document.querySelector({json.dumps(selector)});
+                            if (el) {{
+                                el.focus();
+                                el.value = {escaped};
+                                el.dispatchEvent(new Event('input', {{ bubbles: true }}));
+                                el.dispatchEvent(new Event('change', {{ bubbles: true }}));
+                                return true;
+                            }}
+                            return false;
+                        }})()"""
+                        if await page.evaluate(js):
+                            success = True
+                    except Exception:
+                        pass
+
+                if not success:
+                    try:
+                        await page.keyboard.type(type_text)
+                        success = True
+                    except Exception:
+                        if last_err:
+                            raise last_err
+                        raise
+
+            if submit:
+                try:
+                    if locator:
+                        await getattr(locator, "first", locator).press("Enter", timeout=2000)
+                    else:
+                        await page.keyboard.press("Enter")
+                except Exception:
+                    await page.keyboard.press("Enter")
 
         elif act_kind_key == "press":
-            press_key = key or text or "Enter"
+            await _wait_for_page_ready(page)
+            raw_key = str(key or text or "Enter").strip()
+            # Intelligent key mappings for YouTube media controls and navigation
+            key_map = {
+                "play": "k",
+                "pause": "k",
+                "playpause": "k",
+                "play_pause": "k",
+                "mute": "m",
+                "unmute": "m",
+                "fullscreen": "f",
+                "full_screen": "f",
+                "theater": "t",
+                "captions": "c",
+                "subtitles": "c",
+                "rewind": "j",
+                "forward": "l",
+            }
+            press_key = key_map.get(raw_key.lower(), raw_key)
             if locator:
-                await locator.press(press_key, timeout=timeout_ms)
+                try:
+                    await locator.press(press_key, timeout=min(timeout_ms, 3000))
+                except Exception:
+                    await page.keyboard.press(press_key)
             else:
                 await page.keyboard.press(press_key)
+            await _wait_for_page_ready(page, max_wait_ms=3000)
+
+        elif act_kind_key in ("play", "pause", "playpause", "play_pause"):
+            await _wait_for_page_ready(page)
+            try:
+                video_loc = page.locator("video").first
+                if await video_loc.count() > 0:
+                    await video_loc.click(timeout=1500)
+                else:
+                    await page.keyboard.press("k")
+            except Exception:
+                await page.keyboard.press("k")
+            await asyncio.sleep(0.05)
+
+        elif act_kind_key in ("mute", "unmute"):
+            await _wait_for_page_ready(page)
+            await page.keyboard.press("m")
+            await asyncio.sleep(0.05)
+
+        elif act_kind_key in ("fullscreen", "full_screen"):
+            await _wait_for_page_ready(page)
+            await page.keyboard.press("f")
+            await asyncio.sleep(0.05)
+
+        elif act_kind_key in (
+            "scroll",
+            "wheel",
+            "scrolldown",
+            "scrollup",
+            "scroll_down",
+            "scroll_up",
+        ):
+            await _wait_for_page_ready(page)
+            raw_y = (
+                kwargs.get("delta_y")
+                or kwargs.get("deltaY")
+                or kwargs.get("distance")
+                or kwargs.get("amount")
+                or y
+                or 600
+            )
+            try:
+                dy = float(raw_y)
+            except Exception:
+                dy = 600.0
+
+            if act_kind_key in ("scrollup", "scroll_up") or str(
+                kwargs.get("direction", "")
+            ).lower() in ("up", "top", "backward"):
+                dy = -abs(dy)
+            elif act_kind_key in ("scrolldown", "scroll_down") or str(
+                kwargs.get("direction", "")
+            ).lower() in ("down", "bottom", "forward"):
+                dy = abs(dy)
+
+            raw_x = kwargs.get("delta_x") or kwargs.get("deltaX") or x or 0
+            try:
+                dx = float(raw_x)
+            except Exception:
+                dx = 0.0
+
+            try:
+                await page.mouse.wheel(dx, dy)
+            except Exception:
+                pass
+            try:
+                await page.evaluate(f"window.scrollBy({dx}, {dy})")
+            except Exception:
+                pass
+            await asyncio.sleep(0.05)
 
         elif act_kind_key == "hover":
             if not locator:
@@ -1210,6 +1975,54 @@ class BrowserRuntime:
                 "kind": act_kind,
                 "targetId": self._active_tab_id,
                 "result": eval_result,
+            }
+
+        elif act_kind_key in ("new_tab", "newtab", "open_tab"):
+            new_tab_url = kwargs.get("url") or text
+            res = await self.open_tab(prof, url=new_tab_url)
+            return res
+
+        elif act_kind_key in ("switch_tab", "switchtab", "focus_tab"):
+            tid = kwargs.get("target_id") or kwargs.get("targetId") or ref or text
+            res = await self.focus_tab(prof, target_id=tid)
+            return res
+
+        elif act_kind_key in ("close_tab", "closetab"):
+            tid = kwargs.get("target_id") or kwargs.get("targetId") or ref or text
+            res = await self.close_tab(prof, target_id=tid)
+            return res
+
+        elif act_kind_key in ("go_back", "goback", "back"):
+            await page.go_back()
+            await _wait_for_page_ready(page)
+            return {
+                "ok": True,
+                "kind": act_kind_key,
+                "targetId": self._active_tab_id,
+                "url": page.url,
+                "title": await page.title(),
+            }
+
+        elif act_kind_key in ("go_forward", "goforward", "forward"):
+            await page.go_forward()
+            await _wait_for_page_ready(page)
+            return {
+                "ok": True,
+                "kind": act_kind_key,
+                "targetId": self._active_tab_id,
+                "url": page.url,
+                "title": await page.title(),
+            }
+
+        elif act_kind_key in ("reload", "refresh"):
+            await page.reload()
+            await _wait_for_page_ready(page)
+            return {
+                "ok": True,
+                "kind": act_kind_key,
+                "targetId": self._active_tab_id,
+                "url": page.url,
+                "title": await page.title(),
             }
 
         elif act_kind_key == "close":
@@ -1270,6 +2083,10 @@ class BrowserRuntime:
             self._console_logs.clear()
             self._page_errors.clear()
             self._active_tab_id = None
+
+    async def close(self) -> None:
+        """Alias for stop()."""
+        await self.stop()
 
 
 _runtime: Optional[BrowserRuntime] = None

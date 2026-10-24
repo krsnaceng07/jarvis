@@ -285,6 +285,22 @@ def resolve_read_path(file_path: str, cwd: str) -> str:
     if nfd_curly != resolved and _file_exists(nfd_curly):
         return nfd_curly
 
+    if sys.platform == "win32":
+        # Windows drive root fallback: e.g. cwd is 'E:\jarvis', file_path is 'stonic' -> check 'E:\stonic'
+        drive, _ = os.path.splitdrive(cwd or os.getcwd())
+        if drive:
+            clean_rel = file_path.lstrip("/\\")
+            drive_candidate = os.path.normpath(f"{drive}\\{clean_rel}")
+            if _file_exists(drive_candidate):
+                return drive_candidate
+
+        # Strip redundant repo/project folder from path if present:
+        cwd_base = os.path.basename(cwd or os.getcwd())
+        if cwd_base and f"\\{cwd_base}\\" in resolved:
+            stripped = resolved.replace(f"\\{cwd_base}\\", "\\", 1)
+            if _file_exists(stripped):
+                return stripped
+
     return resolved
 
 
@@ -292,7 +308,7 @@ def resolve_unicode_path(file_path: str, cwd: str = "") -> str:
     """Resolve a filesystem path with Unicode normalization (NFC/NFD) and slash hygiene.
 
     Ensures non-ASCII/Nepali filenames (e.g. 'परिचय.txt'), user home paths, and mixed-slash Windows paths
-    resolve accurately against the local filesystem, matching OpenClaw's getReadPathVariants.
+    resolve accurately against the local filesystem, matching JARVIS's getReadPathVariants.
     """
     if not file_path:
         return file_path
@@ -345,14 +361,185 @@ def resolve_unicode_path(file_path: str, cwd: str = "") -> str:
         except Exception:
             pass
 
+    # 8. Windows Drive Root and Subpath Recovery
+    if sys.platform == "win32":
+        drive, _ = os.path.splitdrive(cwd or os.getcwd())
+        if drive:
+            clean_rel = norm_text.lstrip("/\\")
+            drive_candidate = os.path.normpath(f"{drive}\\{clean_rel}")
+            if os.path.exists(drive_candidate) or os.path.islink(drive_candidate):
+                return drive_candidate
+
+        cwd_base = os.path.basename(cwd or os.getcwd())
+        if cwd_base and f"\\{cwd_base}\\" in resolved:
+            stripped = resolved.replace(f"\\{cwd_base}\\", "\\", 1)
+            if os.path.exists(stripped) or os.path.islink(stripped):
+                return stripped
+
     return resolved
+
+
+def open_web_url_unified(url: str) -> bool:
+    """Open a web URL in the unified JARVIS Playwright browser to prevent duplicate browser windows."""
+    try:
+        import asyncio
+        from extensions.browser.src.browser_runtime import get_browser_runtime
+
+        async def _open():
+            rt = await get_browser_runtime()
+            await rt.open_tab(url=url)
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            asyncio.create_task(_open())
+            return True
+        else:
+            asyncio.run(_open())
+            return True
+    except Exception:
+        pass
+    import webbrowser
+    webbrowser.open(url)
+    return True
+
+
+def launch_windows_app(target: str) -> tuple[bool, str]:
+    """Launch a Windows application reliably across Win32, UWP/Store apps, URI protocols, and Web fallbacks.
+
+    Prevents WinError 2 file not found errors when opening applications like WhatsApp, Spotify,
+    Telegram, Calculator, etc.
+    """
+    import shutil
+    import subprocess
+
+    t_raw = str(target or "").strip().strip("'\"`")
+    if not t_raw:
+        return False, "Target application or path is empty"
+
+    # 1. URL or URI scheme (e.g. http://, https://, whatsapp:, tg:, spotify:, calc:, ms-settings:)
+    if "://" in t_raw or (
+        ":" in t_raw
+        and not os.path.exists(t_raw)
+        and not (len(t_raw) >= 3 and t_raw[1:3] in (":\\", ":/"))
+    ):
+        try:
+            if t_raw.startswith(("http://", "https://")):
+                open_web_url_unified(t_raw)
+                return True, f"Opened web URL '{t_raw}' in browser"
+            else:
+                os.startfile(t_raw)
+                return True, f"Launched protocol '{t_raw}'"
+        except Exception:
+            pass
+
+    t_clean = t_raw.lower().replace(".exe", "").strip()
+
+    # 2. Known Windows application aliases to URI schemes & web fallbacks
+    PROTOCOL_MAP: dict[str, tuple[str, str | None]] = {
+        "whatsapp": ("whatsapp:", "https://web.whatsapp.com"),
+        "whatsappdesktop": ("whatsapp:", "https://web.whatsapp.com"),
+        "telegram": ("tg:", "https://web.telegram.org"),
+        "telegramdesktop": ("tg:", "https://web.telegram.org"),
+        "spotify": ("spotify:", "https://open.spotify.com"),
+        "calculator": ("calculator:", None),
+        "calc": ("calculator:", None),
+        "settings": ("ms-settings:", None),
+        "camera": ("microsoft.windows.camera:", None),
+        "photos": ("ms-photos:", None),
+        "store": ("ms-windows-store:", None),
+        "microsoftstore": ("ms-windows-store:", None),
+        "youtube": ("https://www.youtube.com", "https://www.youtube.com"),
+        "chatgpt": ("https://chatgpt.com", "https://chatgpt.com"),
+        "openai": ("https://chatgpt.com", "https://chatgpt.com"),
+        "facebook": ("https://www.facebook.com", "https://www.facebook.com"),
+        "fb": ("https://www.facebook.com", "https://www.facebook.com"),
+        "twitter": ("https://x.com", "https://x.com"),
+        "x": ("https://x.com", "https://x.com"),
+        "instagram": ("https://www.instagram.com", "https://www.instagram.com"),
+        "google": ("https://www.google.com", "https://www.google.com"),
+        "reddit": ("https://www.reddit.com", "https://www.reddit.com"),
+        "linkedin": ("https://www.linkedin.com", "https://www.linkedin.com"),
+        "github": ("https://github.com", "https://github.com"),
+        "gmail": ("https://mail.google.com", "https://mail.google.com"),
+        "notepad": ("notepad", None),
+        "paint": ("mspaint.exe", None),
+        "mspaint": ("mspaint.exe", None),
+        "explorer": ("explorer.exe", None),
+    }
+
+    if t_clean in PROTOCOL_MAP:
+        uri, web_fallback = PROTOCOL_MAP[t_clean]
+        try:
+            if uri.startswith("http"):
+                open_web_url_unified(uri)
+                return True, f"Opened {t_raw} via browser ({uri})"
+            elif uri.endswith(".exe"):
+                subprocess.Popen([uri], shell=False)
+                return True, f"Launched {t_raw} executable ({uri})"
+            else:
+                os.startfile(uri)
+                return True, f"Launched {t_raw} via protocol URI '{uri}'"
+        except Exception:
+            if web_fallback:
+                try:
+                    open_web_url_unified(web_fallback)
+                    return True, f"Launched {t_raw} via web fallback ({web_fallback})"
+                except Exception:
+                    pass
+
+    # 3. Direct file/path exists on disk
+    norm_path = normalize_user_home_path(t_raw)
+    if os.path.exists(norm_path):
+        try:
+            os.startfile(norm_path)
+            return True, f"Launched file '{norm_path}'"
+        except Exception:
+            pass
+
+    # 4. Standard executable found in system PATH
+    exe_path = shutil.which(t_raw) or shutil.which(f"{t_raw}.exe")
+    if exe_path:
+        try:
+            subprocess.Popen([exe_path], shell=False)
+            return True, f"Launched executable '{exe_path}'"
+        except Exception:
+            pass
+
+    # 5. PowerShell Get-StartApps lookup (for any Windows Store / UWP installed app)
+    try:
+        ps_cmd = f"Get-StartApps | Where-Object {{ $_.Name -like '*{t_raw}*' }} | Select-Object -ExpandProperty AppID -First 1"
+        res = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
+            capture_output=True,
+            text=True,
+            timeout=3.0,
+        )
+        app_id = res.stdout.strip()
+        if app_id:
+            subprocess.Popen(f'explorer.exe shell:AppsFolder\\{app_id}', shell=True)
+            return True, f"Launched Store App '{t_raw}' (AppID: {app_id})"
+    except Exception:
+        pass
+
+    # 6. Fallback: cmd.exe /c start "" "<target>"
+    try:
+        subprocess.Popen(f'cmd.exe /c start "" "{t_raw}"', shell=True)
+        return True, f"Attempted launch via cmd start for '{t_raw}'"
+    except Exception as exc:
+        return False, f"Failed to launch '{t_raw}': {exc}"
 
 
 __all__ = [
     "discover_system_drives",
     "is_drive_available",
+    "launch_windows_app",
     "normalize_user_home_path",
     "resolve_read_path",
     "resolve_to_cwd",
     "resolve_unicode_path",
 ]
+

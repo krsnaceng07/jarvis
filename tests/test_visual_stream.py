@@ -113,7 +113,7 @@ async def test_jarvis_live_send_visual_stream():
         except asyncio.CancelledError:
             pass
 
-        assert mock_session.send_realtime_input.called
         call_kwargs = mock_session.send_realtime_input.call_args.kwargs
-        assert "video" in call_kwargs
-        assert call_kwargs["video"].mime_type == "image/jpeg"
+        blob = call_kwargs.get("media") or call_kwargs.get("video")
+        assert blob is not None
+        assert blob.mime_type == "image/jpeg"

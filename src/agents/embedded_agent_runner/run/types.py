@@ -77,14 +77,18 @@ EmbeddedRunContextWindowInfo = Dict[str, Any]
 EmbeddedRunAttemptBase = Dict[str, Any]
 
 
-#: Attempt params. Mirrors :class:`EmbeddedRunAttemptParams``
-#: (``types.ts:94-...``).
+#: Attempt params.
 EmbeddedRunAttemptParams = Dict[str, Any]
+
+
+#: Attempt result shape.
+EmbeddedRunAttemptResult = Dict[str, Any]
 
 
 __all__ = [
     "EmbeddedRunAttemptBase",
     "EmbeddedRunAttemptParams",
+    "EmbeddedRunAttemptResult",
     "EmbeddedRunAttemptToolTerminalObservation",
     "EmbeddedRunAttemptToolTerminalResolution",
     "EmbeddedRunAttemptToolTerminalObserver",
@@ -92,3 +96,4 @@ __all__ = [
     "EmbeddedRunContextWindowInfo",
     "EmbeddedRunFastModeParam",
 ]
+

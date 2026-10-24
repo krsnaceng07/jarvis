@@ -19,12 +19,12 @@ def register_cli(ctx: Any) -> None:
     """Register CLI handlers with argparse."""
     subparsers_parent = ctx["program"] if isinstance(ctx, dict) else ctx.program
     browser_parser = subparsers_parent.add_parser(
-        "browser", help="Manage the OpenClaw browser automation runtime."
+        "browser", help="Manage the JARVIS browser automation runtime."
     )
     browser_parser.add_argument(
         "--browser-profile",
         dest="browser_profile",
-        default="openclaw",
+        default="jarvis",
         help="Browser profile to use",
     )
     subparsers = browser_parser.add_subparsers(dest="browser_command")

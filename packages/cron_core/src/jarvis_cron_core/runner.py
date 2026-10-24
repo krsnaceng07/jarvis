@@ -99,14 +99,33 @@ class CronRunner:
             self._last_fired[job_id] = now
             self._fire(job)
 
+            # Auto-retire one-shot ISO timestamp jobs after successful firing
+            if ISO_TS_RE.match(job.schedule):
+                self._jobs.pop(job_id, None)
+                try:
+                    from extensions.cron.runtime import CronTable
+
+                    CronTable.default().remove(job_id)
+                except Exception:
+                    pass
+
     def _is_due(self, job: CronDecl, now: datetime) -> bool:
         """Return True if ``job`` should fire at ``now``."""
         if ISO_TS_RE.match(job.schedule):
             try:
-                target = datetime.fromisoformat(job.schedule)
+                raw_ts = job.schedule.replace("Z", "+00:00")
+                target = datetime.fromisoformat(raw_ts)
+                if target.tzinfo is not None and now.tzinfo is None:
+                    from datetime import timezone
+
+                    now_cmp = datetime.now(timezone.utc)
+                elif target.tzinfo is None and now.tzinfo is not None:
+                    now_cmp = now.replace(tzinfo=None)
+                else:
+                    now_cmp = now
             except ValueError as e:
                 raise ValueError(f"invalid ISO timestamp: {job.schedule!r}") from e
-            return now >= target
+            return now_cmp >= target
         # Cron expression — evaluate minute-level match.
         return cron_matches(job.schedule, now)
 

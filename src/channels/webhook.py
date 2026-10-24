@@ -100,7 +100,7 @@ class ChannelWirer:
             if update is None:
                 return {"ok": True}  # plugin chose to ignore this update
 
-            # Convert update dict → InboundMessage.
+            # Convert update dict → InboundMessage for binding router.
             msg = InboundMessage(
                 channel_id=channel_id,
                 conversation_id=str(update.get("conversation_id", "")),

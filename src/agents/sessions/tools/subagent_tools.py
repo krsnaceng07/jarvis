@@ -19,16 +19,30 @@ from src.agents.subagents import (
     SubagentRegistry,
     SubagentRole,
     SubagentRunner,
-    SubagentSpawner,
     SubagentSpawnContextMode,
+    SubagentSpawner,
 )
 
 from .tool_definition_wrapper import AgentTool
 
 
+def _get_default_subagent_tools(role: SubagentRole) -> dict[str, Any]:
+    from pathlib import Path
+
+    from . import create_coding_tools
+
+    base_dir = str(Path(__file__).resolve().parents[4])
+    try:
+        return {t["name"]: t for t in create_coding_tools(base_dir)}
+    except Exception:
+        return {}
+
+
 # Global default instances for standard tool calls
 _default_registry = SubagentRegistry.get_instance()
-_default_spawner = SubagentSpawner(registry=_default_registry)
+_default_spawner = SubagentSpawner(
+    registry=_default_registry, tool_provider=_get_default_subagent_tools
+)
 _default_runner = SubagentRunner(registry=_default_registry)
 _default_controller = SubagentController(registry=_default_registry, spawner=_default_spawner)
 _default_orchestrator = MultiAgentOrchestrator(spawner=_default_spawner, registry=_default_registry)
@@ -55,7 +69,11 @@ def create_sessions_spawn_tool_definition() -> dict:
     return {
         "name": "sessions_spawn",
         "label": "Sessions",
-        "description": "Spawn an isolated or forked sub-agent session for background work.",
+        "description": (
+            "Spawn an isolated or forked sub-agent for work the user explicitly asked to run "
+            "asynchronously, or for a headless job that must continue independently. "
+            "Do not use for interactive browser or desktop automation."
+        ),
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -98,7 +116,11 @@ def create_sessions_spawn_tool_definition() -> dict:
                 },
                 "parent_depth": {"type": "integer", "description": "Current caller spawn depth."},
                 "cwd": {"type": "string", "description": "Child working directory."},
-                "attachments": {"type": "array", "description": "Optional file attachments."},
+                "attachments": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional file attachments.",
+                },
             },
             "required": [],
         },

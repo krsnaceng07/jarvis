@@ -9,6 +9,7 @@ Handles:
 from __future__ import annotations
 
 import logging
+import asyncio
 import time
 import uuid
 from typing import Any
@@ -24,24 +25,70 @@ def _default_agent_runner(
     abort: Any,
     emit: Any,
 ) -> dict[str, Any]:
-    """Fallback agent turn executor when no custom runner is wired."""
+    """Execute gateway chat turns through the canonical channel turn runner."""
     emit({"stream": "lifecycle", "phase": "start"})
     if hasattr(abort, "is_set") and abort.is_set():
         return {"status": "aborted"}
 
-    # Attempt to use packages/agent_runtime if available
+    emit({"stream": "lifecycle", "phase": "executing"})
+    msg_text = str(params.get("message") or "")
+    session_key = str(
+        params.get("sessionKey")
+        or params.get("sessionId")
+        or params.get("session_id")
+        or "desktop:hud:main"
+    )
+
+    if not msg_text.strip():
+        emit({"stream": "lifecycle", "phase": "end"})
+        return {"status": "dropped", "output": None, "duration_ms": 0.0}
+
+    message_id = str(params.get("messageId") or uuid.uuid4().hex[:12])
+
+    async def run_turn() -> Any:
+        from jarvis_channels import ChannelTurnRunner
+        from jarvis_channels.types import InboundMessage
+
+        from src.channels.channel_agent_pipeline import ChannelAgentPipeline
+
+        pipeline = ChannelAgentPipeline.get_instance()
+
+        async def dispatch(assembled: Any, _adapter: Any) -> str | None:
+            if hasattr(abort, "is_set") and abort.is_set():
+                return None
+            return await pipeline.dispatch_turn(assembled)
+
+        message = InboundMessage(
+            channel_id="gateway",
+            conversation_id=session_key,
+            sender_id=str(params.get("senderId") or "gateway_client"),
+            text=msg_text,
+            raw={"message_id": message_id, "session_key": session_key},
+            is_owner=True,
+        )
+        runner = ChannelTurnRunner(channel_id="gateway")
+        return await runner.run_turn(message, agent_dispatch_fn=dispatch)
+
     try:
-        import jarvis_agent  # noqa: F401
+        result = asyncio.run(run_turn())
+    except Exception as exc:  # noqa: BLE001 - reported as an RPC result, not a crash
+        _log.exception("Gateway chat turn failed: %s", exc)
+        emit({"stream": "lifecycle", "phase": "end"})
+        return {
+            "status": "failed",
+            "output": None,
+            "error": str(exc),
+            "duration_ms": 0.0,
+        }
 
-        # Minimal turn acknowledgment
-        emit({"stream": "lifecycle", "phase": "executing"})
-    except ImportError:
-        pass
-
+    reply_text = result.response_text
+    if reply_text:
+        emit({"stream": "draft", "delta": reply_text, "sessionKey": session_key})
     emit({"stream": "lifecycle", "phase": "end"})
     return {
-        "status": "completed",
-        "output": f"Acknowledged: {params.get('message', '')[:100]}",
+        "status": "completed" if result.dispatched else "dropped",
+        "output": reply_text,
+        "duration_ms": result.duration_ms,
     }
 
 
@@ -252,6 +299,36 @@ def make_chat_handlers(
             "total": len(messages),
         }
 
+    def dispatch_handler(params: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Dispatch agent message via JSON-RPC 2.0 (OpenClaw / JARVIS parity)."""
+        params = dict(params or {})
+        # Unpack context if provided:
+        # e.g., { "sessionKey": "desktop:hud:main", "message": "...", "context": { "agentId": "default" } }
+        ctx = params.get("context")
+        if isinstance(ctx, dict):
+            if "agentId" in ctx and "agentId" not in params:
+                params["agentId"] = ctx["agentId"]
+            if "model" in ctx and "model" not in params:
+                params["model"] = ctx["model"]
+            if "model_ref" in ctx and "model_ref" not in params:
+                params["model_ref"] = ctx["model_ref"]
+
+        if params.get("wait") is True:
+            res = send_handler(params)
+            run_id = str(res.get("runId", ""))
+            timeout_ms = params.get("timeoutMs", 30_000)
+            wait_res = active_agent_runs.wait({"runId": run_id, "timeoutMs": timeout_ms})
+            return {
+                "ok": wait_res.get("status") == "ok",
+                "runId": run_id,
+                "status": wait_res.get("status", "completed"),
+                "sessionKey": res.get("sessionKey"),
+                "result": wait_res.get("result"),
+                "error": wait_res.get("error"),
+            }
+
+        return send_handler(params)
+
     return {
         "chat.send": send_handler,
         "chat_send": send_handler,
@@ -259,6 +336,9 @@ def make_chat_handlers(
         "chat_abort": abort_handler,
         "chat.history": history_handler,
         "chat_history": history_handler,
+        "agent.dispatch": dispatch_handler,
+        "agents.dispatch": dispatch_handler,
+        "sessions.dispatch": dispatch_handler,
     }
 
 

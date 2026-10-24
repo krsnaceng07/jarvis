@@ -44,9 +44,11 @@ class PollingWorker:
 
     async def _loop(self) -> None:
         offset = 0
+        backoff = float(self.interval)
         while self.is_running:
             try:
                 updates = await self.client.get_updates(offset=offset, timeout=25)
+                backoff = float(self.interval)
                 for update in updates:
                     offset = max(offset, update["update_id"] + 1)
                     # Dispatch update to the plugin callback.
@@ -59,7 +61,9 @@ class PollingWorker:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                _log.error("Telegram polling loop error: %s", e)
-                await asyncio.sleep(self.interval * 5)
+                _log.warning("Telegram polling network error (retrying in %.1fs): %s", backoff, e)
+                await asyncio.sleep(backoff)
+                backoff = min(15.0, backoff * 1.5)
+                continue
 
             await asyncio.sleep(self.interval)

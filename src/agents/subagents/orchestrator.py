@@ -100,16 +100,16 @@ class MultiAgentOrchestrator:
         ):
             return OrchestrationMode.RUN_PARALLEL_SUBAGENTS
 
-        # Check for complex, long-running, or deep background delegation
+        # Delegation changes the user's visibility; require explicit asynchronous intent.
         if any(
             phrase in intent_lower
             for phrase in [
                 "background task",
+                "run in the background",
+                "do this in background",
+                "asynchronous task",
                 "subagent",
                 "spawn subagent",
-                "deep research",
-                "investigate across",
-                "audit all",
             ]
         ):
             return OrchestrationMode.CREATE_SUBAGENT

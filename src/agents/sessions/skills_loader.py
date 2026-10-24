@@ -320,6 +320,16 @@ def loadSkills(
                 os.path.join(cwd, ".jarvis", "skills"), "project", True
             )
         )
+        add_skills(
+            _load_skills_from_dir_internal(
+                os.path.join(cwd, "skills"), "project", True
+            )
+        )
+        add_skills(
+            _load_skills_from_dir_internal(
+                os.path.join(cwd, ".agents", "skills"), "project", True
+            )
+        )
 
     user_skills_dir = os.path.join(agent_dir, "skills")
     project_skills_dir = os.path.join(cwd, ".jarvis", "skills")

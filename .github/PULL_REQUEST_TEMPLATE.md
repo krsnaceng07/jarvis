@@ -1,61 +1,62 @@
 <!--
-This template follows the per-phase PR template from OPENCLAW_MIGRATION_PLAN.md §8.
-Fill every section. Cross-link the migration plan phase this PR implements.
+Optional linked context:
+Add a visible `Closes #<issue-number>` or `Related: #<issue-number>` line
+below this comment.
+
+Required PR title:
+type: user-facing description
+Use a parenthesized scope only when it adds clarity:
+fix(auth): login redirect loops when session cookie is expired
+
+Types: feat, fix, improve, refactor, docs, chore.
+For fixes, describe the user-visible symptom and trigger:
+fix: task list fails to load when user has no environments
+Avoid implementation details such as:
+fix: add null check to task query
+
+**MUST:** Keep **Allow edits from maintainers** enabled for this PR so maintainers
+can help update the branch when needed.
 -->
 
-## What
+## What Problem This Solves
 
-One-sentence summary. References `AGENTS.md` for the area it touches.
+<!--
+Describe the concrete user, product, or operational problem.
+Use one short, plain-language sentence. For fixes, prefer:
+"Fixes: <what goes wrong> when <trigger or condition>."
+For other changes, describe the need without inventing a bug.
+Name the affected workflow, not the code-level cause.
+-->
 
-## Why
+## User Impact
 
-- Problem observed (cite `file:line`)
-- Why the chosen fix is the best fix (cite sibling/scope evidence)
-- What alternatives were considered and rejected
+<!--
+"User impact: <what users, operators, or developers can now do or expect>."
+Lead with the concrete outcome in plain language, usually one sentence.
+For internal-only changes, say there is no user-visible change; do not invent a benefit.
+Keep important risks, breaking changes, migrations, and required user actions visible here.
+-->
 
-## How
+## Why This Change Was Made
 
-- Files added / moved / removed (with line counts)
-- Schema version bumps (if any)
-- Migration / doctor impact (if any)
-- New config keys (if any) — must justify why existing product
-  behavior / doctor migration could not solve it (per AGENTS.md
-  "Config/env surface bar is high")
+<!--
+Briefly explain how the change addresses the problem without repeating the impact.
+Keep the body short. Leave file lists, internal acronyms, and root-cause walkthroughs
+in the diff or optional <details>; include technical detail only when it explains
+behavior or a material tradeoff. Do not hide risks or required actions in <details>.
+-->
 
 ## Evidence
 
-- Local: `uv run pytest tests/ -q` (paste result)
-- Local: `uv run ruff check` (paste result)
-- Local: `uv run pyright packages/<x> extensions/<x>` (paste result)
-- Local: `uv run python tools/ci/check_imports.py` (paste result)
-- Manual: `uv run python -m jarvis_desktop` launched, observed X
-- Skill/tool/scenario that exercises the change
+<!--
+Show the most useful proof that this change works. Screenshots, screencasts,
+terminal output, focused tests, CI results, live observations, redacted logs,
+and artifact links are all useful. For user-visible UI changes, follow the root
+AGENTS.md "Product and validation" screenshot completion/landing gate; these other
+forms of evidence do not replace the required screenshots in chat AND the PR.
 
-## Risk
-
-- Compatibility: what existing user config/data could break
-- Rollback: `git revert <sha>` is safe because …
-- Follow-up: linked issue / discussion thread
-
-## Docs
-
-- Updated: `docs/<area>/<file>.md`
-- New: `docs/<area>/<new>.md`
-- Changelog: included in PR body (release generation pulls it in;
-  CHANGELOG.md is release-only per AGENTS.md)
-
-## Migration plan link
-
-This PR implements phase: [link to OPENCLAW_MIGRATION_PLAN.md §N]
-
-## Self-review checklist
-
-- [ ] One PR = one topic (per AGENTS.md)
-- [ ] Lines changed < 5,000 (per AGENTS.md)
-- [ ] No silent compat (per AGENTS.md)
-- [ ] No new config keys without justification
-- [ ] Tests prove behavior, not branches
-- [ ] `tools/ci/check_imports.py` passes (extensions import only from `jarvis_sdk.*`)
-- [ ] `tools/ci/check_cycles.py` passes (no import cycles)
-- [ ] `tools/ci/check_max_lines.py` passes (no file > 2000 lines)
-- [ ] `tools/ci/check_manifests.py` passes (all `jarvis.plugin.json` valid)
+Reviewers will inspect the code, tests, and CI. Use this section to make the
+validation easy to understand, not to restate the diff.
+Summarize what was checked and the result; note meaningful gaps. Link long output
+or put it in optional <details>, keeping the useful evidence summary visible.
+-->

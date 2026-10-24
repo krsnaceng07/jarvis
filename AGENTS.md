@@ -21,7 +21,8 @@ JARVIS is a personal AI assistant that follows the OpenClaw architecture: a mult
 - **CODEOWNERS:** maintainer/refactor/tests ok. Larger behavior/product/security/ownership: owner ask/review.
 - **Product/docs/UI/changelog wording:** "extension/extensions"; `extensions/` is internal implementation.
 - **New extension/plugin/app/doc surface:** update `.github/labeler.yml` + GH labels.
-- **Frontend / UI development:** When designing, building, styling, or reviewing any frontend code, components, layout, or interfaces (in `frontend/`, `ui/`, or desktop UI), ALWAYS automatically use the `ui-ux-pro-max` skill (`.agents/skills/ui-ux-pro-max/scripts/search.py` or `.agents/skills/ui-ux-pro-max/SKILL.md`) without waiting for user reminders. Always follow its design systems, WCAG accessibility, color harmonies, typography pairings, and responsive patterns.
+- **Frontend / UI development:** When designing, building, styling, or reviewing any frontend code, components, layout, or interfaces (in `frontend/`, `ui/`, `apps/desktop/`, etc.), ALWAYS automatically use the `ui-ux-pro-max` skill (`.agents/skills/ui-ux-pro-max/scripts/search.py` or `.agents/skills/ui-ux-pro-max/SKILL.md`) without waiting for user reminders. Always follow its design systems, WCAG accessibility, color harmonies, typography pairings, and responsive patterns.
+- **Engineering reliability runtime (Gravitas):** For any implementation, debugging, refactoring, review, planning, or migration work, ALWAYS automatically apply and adhere to the `gravitas` skill (`.agents/skills/gravitas/SKILL.md` or global `gravitas`) without waiting for user reminders. Enforce the 6 Gravitas invariants: ground before mutating, bounded scope, evidence-backed completion, no exact retries, contract satisfaction, and explicit disclosure of unverified claims.
 
 ## Map
 

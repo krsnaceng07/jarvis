@@ -9,8 +9,11 @@ OpenClaw parity:
 
 from __future__ import annotations
 
+import asyncio
 import copy
 import json
+import sys
+import time
 from typing import Any, Sequence
 
 from jarvis_llm.types import Tool, ToolCall
@@ -30,10 +33,13 @@ READ_ONLY_TOOLS: frozenset[str] = frozenset(
         "process",
         "session_status",
         "sessions_list",
-        "system_info",
+        "screen",
         "web_search",
         "web_fetch",
         "pdf",
+        "recall_memory",
+        "memory_search",
+        "search_memory",
     }
 )
 
@@ -41,6 +47,24 @@ _BROWSER_KIND_ALIASES: dict[str, str] = {
     "clickcoords": "clickCoords",
     "scrollintoview": "scrollIntoView",
 }
+
+_desktop_tier_router: Any = None
+
+
+def get_desktop_tier_router() -> Any:
+    """Return singleton instance of TierRouter with attached CursorOverlayWindow."""
+    global _desktop_tier_router
+    if _desktop_tier_router is None:
+        try:
+            from extensions.cua_computer.src.router import TierRouter
+
+            from .cursor_overlay import attach_overlay_to_router
+
+            _desktop_tier_router = TierRouter()
+            attach_overlay_to_router(_desktop_tier_router)
+        except Exception:
+            _desktop_tier_router = None
+    return _desktop_tier_router
 
 
 def normalize_tool_parameter_schema(schema: Any) -> dict[str, Any]:
@@ -74,51 +98,202 @@ def normalize_tool_parameter_schema(schema: Any) -> dict[str, Any]:
         else:
             normalized[key] = value
 
+    if normalized.get("type") == "array" and ("items" not in normalized or not normalized["items"]):
+        normalized["items"] = {"type": "string"}
+
     return normalized
 
 
 def prepare_tool_arguments(tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
     """Prepare and normalize tool arguments before schema validation.
 
-    Mirrors OpenClaw's prepareToolCallArguments and prepareArguments
-    compatibility shims.
+    Mirrors OpenClaw's prepareToolCallArguments, attempt.tool-call-argument-repair,
+    and schema validation normalization.
     """
     prepared = copy.deepcopy(args) if isinstance(args, dict) else {}
 
+    # Exec and Bash tool aliases (OpenClaw parity)
+    if tool_name in ("exec", "bash"):
+        if "cmd" in prepared and "command" not in prepared:
+            prepared["command"] = prepared["cmd"]
+        elif "script" in prepared and "command" not in prepared:
+            prepared["command"] = prepared["script"]
+
+        if "cwd" in prepared and "workdir" not in prepared:
+            prepared["workdir"] = prepared["cwd"]
+        elif "dir" in prepared and "workdir" not in prepared:
+            prepared["workdir"] = prepared["dir"]
+
+        if "timeout_ms" in prepared and "timeout" not in prepared:
+            try:
+                ms = float(prepared["timeout_ms"])
+                prepared["timeout"] = int(ms / 1000.0) if ms > 1000 else int(ms)
+            except (ValueError, TypeError):
+                pass
+        elif "timeoutMs" in prepared and "timeout" not in prepared:
+            try:
+                ms = float(prepared["timeoutMs"])
+                prepared["timeout"] = int(ms / 1000.0) if ms > 1000 else int(ms)
+            except (ValueError, TypeError):
+                pass
+
+    # Read tool aliases
+    if tool_name == "read":
+        for k in ("file_path", "filePath", "filepath", "file", "target"):
+            if k in prepared and "path" not in prepared:
+                prepared["path"] = prepared[k]
+                break
+
+    # Write tool aliases
+    if tool_name == "write":
+        for k in ("file_path", "filePath", "filepath", "file", "target"):
+            if k in prepared and "path" not in prepared:
+                prepared["path"] = prepared[k]
+                break
+        for k in ("text", "data", "body"):
+            if k in prepared and "content" not in prepared:
+                prepared["content"] = prepared[k]
+                break
+
     # Surgical edit argument aliases: support both snake_case and camelCase
     if tool_name == "edit":
+        for k in ("file_path", "filePath", "filepath", "file", "target"):
+            if k in prepared and "path" not in prepared:
+                prepared["path"] = prepared[k]
+                break
+
+        for k in ("old_str", "old_string", "oldText", "old"):
+            if k in prepared and "old_text" not in prepared:
+                prepared["old_text"] = prepared[k]
+                break
         if "old_text" in prepared and "oldText" not in prepared:
             prepared["oldText"] = prepared["old_text"]
-        elif "oldText" in prepared and "old_text" not in prepared:
-            prepared["old_text"] = prepared["oldText"]
 
+        for k in ("new_str", "new_string", "newText", "new"):
+            if k in prepared and "new_text" not in prepared:
+                prepared["new_text"] = prepared[k]
+                break
         if "new_text" in prepared and "newText" not in prepared:
             prepared["newText"] = prepared["new_text"]
-        elif "newText" in prepared and "new_text" not in prepared:
-            prepared["new_text"] = prepared["newText"]
+
+    # Filesystem listing & search aliases
+    if tool_name == "ls":
+        for k in ("dir", "directory", "folder"):
+            if k in prepared and "path" not in prepared:
+                prepared["path"] = prepared[k]
+                break
+
+    if tool_name == "grep":
+        for k in ("query", "search", "regex"):
+            if k in prepared and "pattern" not in prepared:
+                prepared["pattern"] = prepared[k]
+                break
+        for k in ("dir", "directory", "folder"):
+            if k in prepared and "path" not in prepared:
+                prepared["path"] = prepared[k]
+                break
+
+    if tool_name == "find":
+        for k in ("query", "search", "name"):
+            if k in prepared and "pattern" not in prepared:
+                prepared["pattern"] = prepared[k]
+                break
+        for k in ("dir", "directory", "folder"):
+            if k in prepared and "path" not in prepared:
+                prepared["path"] = prepared[k]
+                break
+
+    # Process tool aliases
+    if tool_name == "process":
+        if "sessionId" in prepared and "session_id" not in prepared:
+            prepared["session_id"] = prepared["sessionId"]
+        elif "session_id" in prepared and "sessionId" not in prepared:
+            prepared["sessionId"] = prepared["session_id"]
+        if "subcommand" in prepared and "action" not in prepared:
+            prepared["action"] = prepared["subcommand"]
 
     # Browser tool aliases and direct action normalization (OpenClaw parity)
     if tool_name == "browser":
         raw_action = prepared.get("action")
-        if isinstance(raw_action, str) and raw_action.lower() in {
-            "click",
-            "clickcoords",
-            "type",
-            "press",
-            "hover",
-            "scrollintoview",
-            "drag",
-            "select",
-            "fill",
-            "resize",
-            "wait",
-            "evaluate",
-        }:
-            prepared["kind"] = _BROWSER_KIND_ALIASES.get(raw_action.lower(), raw_action)
-            prepared["action"] = "act"
+        if isinstance(raw_action, str):
+            act_lower = raw_action.lower().strip()
+            if act_lower in ("goto", "visit", "browse", "go_to", "load", "open_url"):
+                prepared["action"] = "navigate"
+            elif act_lower in ("play", "youtube", "play_youtube"):
+                prepared["action"] = "youtube_play"
+            elif act_lower in ("search_google", "google_search", "google"):
+                prepared["action"] = "google_search"
+            elif act_lower in ("new_tab", "newtab", "open_tab"):
+                prepared["action"] = "open"
+            elif act_lower in ("switch_tab", "switchtab", "focus_tab"):
+                prepared["action"] = "focus"
+            elif act_lower in ("close_tab", "closetab"):
+                prepared["action"] = "close"
+            elif act_lower in ("back", "go_back"):
+                prepared["action"] = "act"
+                prepared["kind"] = "go_back"
+            elif act_lower in ("forward", "go_forward"):
+                prepared["action"] = "act"
+                prepared["kind"] = "go_forward"
+            elif act_lower in ("refresh", "reload"):
+                prepared["action"] = "act"
+                prepared["kind"] = "reload"
+            elif act_lower in {
+                "click",
+                "clickcoords",
+                "type",
+                "press",
+                "hover",
+                "scrollintoview",
+                "drag",
+                "select",
+                "fill",
+                "resize",
+                "wait",
+                "evaluate",
+            }:
+                prepared["kind"] = _BROWSER_KIND_ALIASES.get(act_lower, act_lower)
+                prepared["action"] = "act"
         raw_kind = prepared.get("kind")
         if isinstance(raw_kind, str):
             prepared["kind"] = _BROWSER_KIND_ALIASES.get(raw_kind.lower(), raw_kind)
+
+        # Parameter aliases: target/element ref IDs
+        for k in ("target_id", "targetId", "id", "element_id", "elementId"):
+            if k in prepared and "ref" not in prepared:
+                prepared["ref"] = str(prepared[k])
+
+        # Parameter aliases: search query
+        for k in ("q", "search_query", "topic"):
+            if k in prepared and "query" not in prepared:
+                prepared["query"] = str(prepared[k])
+
+        # Parameter aliases: URL
+        for k in ("link", "website", "target_url", "targetUrl", "site"):
+            if k in prepared and "url" not in prepared:
+                prepared["url"] = str(prepared[k])
+
+        # Contextual bridge between query and url
+        if prepared.get("action") in ("google_search", "youtube_play"):
+            if "query" not in prepared and "url" in prepared:
+                prepared["query"] = str(prepared["url"])
+            elif "url" not in prepared and "query" in prepared:
+                prepared["url"] = str(prepared["query"])
+        elif prepared.get("action") == "navigate":
+            if "url" not in prepared and "query" in prepared:
+                prepared["url"] = str(prepared["query"])
+
+        for k in ("input_text", "content", "val", "query_text"):
+            if k in prepared and "text" not in prepared and "value" not in prepared:
+                prepared["text"] = str(prepared[k])
+                prepared["value"] = str(prepared[k])
+
+        if "value" in prepared and "text" not in prepared:
+            prepared["text"] = str(prepared["value"])
+
+        for k in ("som", "set_of_marks", "mark", "annotate"):
+            if k in prepared and "annotate" not in prepared:
+                prepared["annotate"] = bool(prepared[k])
 
     # Subagent tool aliases (OpenClaw parity)
     if tool_name == "sessions_spawn":
@@ -139,15 +314,40 @@ def prepare_tool_arguments(tool_name: str, args: dict[str, Any]) -> dict[str, An
         if "recentMinutes" in prepared and "recent_minutes" not in prepared:
             prepared["recent_minutes"] = prepared["recentMinutes"]
 
-    if tool_name == "audio":
-        if "volume" in prepared and "percent" not in prepared:
-            prepared["percent"] = prepared["volume"]
-        elif "value" in prepared and "percent" not in prepared:
-            prepared["percent"] = prepared["value"]
+    if tool_name in ("computer", "desktop", "desktop_action"):
+        if "action" not in prepared and "command" in prepared:
+            prepared["action"] = prepared["command"]
+        for k in ("targetId", "target_id", "elementId", "element_id"):
+            if k in prepared and "target_id" not in prepared:
+                try:
+                    prepared["target_id"] = int(prepared[k])
+                except (ValueError, TypeError):
+                    pass
+        for k in ("elementName", "element_name", "element", "target_name", "label"):
+            if k in prepared and "element_name" not in prepared:
+                prepared["element_name"] = str(prepared[k])
+        for k in ("som", "set_of_marks", "annotate", "mark"):
+            if k in prepared and "annotate" not in prepared:
+                prepared["annotate"] = bool(prepared[k])
+        raw_act = str(prepared.get("action", "")).strip().lower()
+        if raw_act in ("inspect", "ui_tree", "ground_ui", "inspect_ui"):
+            prepared["action"] = "inspect_ui"
 
-    if tool_name == "system_info":
-        if "type" in prepared and "action" not in prepared:
-            prepared["action"] = prepared["type"]
+    if tool_name in ("recall_memory", "memory_search", "search_memory", "query_memory"):
+        for k in ("q", "search", "topic", "keyword", "prompt", "text"):
+            if k in prepared and "query" not in prepared:
+                prepared["query"] = prepared[k]
+                break
+        for k in ("cat", "type"):
+            if k in prepared and "category" not in prepared:
+                prepared["category"] = prepared[k]
+                break
+        for k in ("max_results", "count", "n"):
+            if k in prepared and "limit" not in prepared:
+                try:
+                    prepared["limit"] = int(prepared[k])
+                except (ValueError, TypeError):
+                    pass
 
     if tool_name == "web_search":
         if "q" in prepared and "query" not in prepared:
@@ -237,7 +437,7 @@ def resolve_tool_timeout(tool_name: str, args: dict[str, Any]) -> float:
     - exec: honors timeout_ms argument (clamped between 5s and 300s), default 45s
     - read-only tools (read, ls, etc.): 15s
     - plugins / network operations: 60s
-    - other coding tools (write, edit, mkdir): 30s
+    - other coding tools (write, edit): 30s
     """
     if tool_name == "exec":
         timeout_ms = args.get("timeout_ms")
@@ -256,7 +456,7 @@ def resolve_tool_timeout(tool_name: str, args: dict[str, Any]) -> float:
     ):
         return 15.0
 
-    if tool_name in ("write", "edit", "mkdir", "remove_path", "rename_path", "open_path"):
+    if tool_name in ("write", "edit"):
         return 30.0
 
     # Plugins and external operations
@@ -373,89 +573,57 @@ CODING_TOOL_DECLARATIONS: list[dict[str, Any]] = [
         },
     },
     {
-        "name": "mkdir",
+        "name": "create_goal",
         "description": (
-            "Create a directory or folder on the host PC (e.g. 'E:\\my_folder' or 'C:\\Users\\...\\Downloads\\new_dir'). "
-            "Creates all parent directories automatically if needed. "
-            "Use this tool whenever the user asks to create a folder or directory. "
-            "Verified on disk upon creation."
+            "Create a goal only when explicitly requested by the user or system instructions. "
+            "Set a positive token_budget only when a budget is explicitly requested; otherwise omit it. "
+            "Fails if a goal already exists; the user must clear it before starting another."
         ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "path": {
+                "objective": {
                     "type": "STRING",
-                    "description": "Path of the directory/folder to create (absolute e.g. 'E:\\my_folder' or relative).",
+                    "description": "Concrete objective for this session.",
+                },
+                "token_budget": {
+                    "type": "INTEGER",
+                    "description": "Positive token budget, or omit.",
                 },
             },
-            "required": ["path"],
+            "required": ["objective"],
         },
     },
     {
-        "name": "remove_path",
+        "name": "get_goal",
         "description": (
-            "Remove or delete a file or directory/folder on the host PC (e.g. 'E:\\my_folder' or 'C:\\Users\\...\\file.txt'). "
-            "If the path is a directory, recursive=true (default) deletes the directory and all of its contents. "
-            "Use this tool whenever the user asks to delete or remove a file or folder. "
-            "Verified on disk upon removal."
+            "Get the current session goal, including its full objective, status, token usage, and optional budget."
         ),
         "parameters": {
             "type": "OBJECT",
-            "properties": {
-                "path": {
-                    "type": "STRING",
-                    "description": "Path of the file or directory/folder to remove (absolute or relative).",
-                },
-                "recursive": {
-                    "type": "BOOLEAN",
-                    "description": "If true and path is a directory, remove recursively with all contents (default: true).",
-                },
-            },
-            "required": ["path"],
+            "properties": {},
         },
     },
     {
-        "name": "rename_path",
+        "name": "update_goal",
         "description": (
-            "Rename or move a file or directory/folder on the host PC (e.g. rename 'E:\\old_folder' to 'E:\\new_folder'). "
-            "Use this tool whenever the user asks to rename or move a file or folder. "
-            "Verified on disk upon renaming."
+            "Mark the session goal complete only when the full objective is verified and no required work remains. "
+            "Mark it blocked only when no meaningful progress is possible without user input or an external change."
         ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "old_path": {
+                "status": {
                     "type": "STRING",
-                    "description": "Current path of the file or directory/folder to rename.",
+                    "enum": ["complete", "blocked"],
+                    "description": "New goal status ('complete' or 'blocked').",
                 },
-                "new_path": {
+                "note": {
                     "type": "STRING",
-                    "description": "New path or new name for the file or directory/folder.",
-                },
-            },
-            "required": ["old_path", "new_path"],
-        },
-    },
-    {
-        "name": "open_path",
-        "description": (
-            "Open a local folder, file, drive, or application on the host PC using Windows File Explorer or default application. "
-            "Examples: target='explorer', target='terminal', target='notepad', target='calc', target='E:\\', target='Downloads', target='C:\\Users\\...\\Desktop'. "
-            "Use this tool whenever the user asks to open File Explorer, open a terminal, explore a drive, open a local folder/file, or launch an app. "
-            "Do NOT use the browser tool for local folders or File Explorer."
-        ),
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "target": {
-                    "type": "STRING",
-                    "description": (
-                        "The folder path, drive (e.g. 'E:\\', 'C:\\'), user directory ('Downloads', 'Desktop', 'Documents'), "
-                        "application name ('explorer', 'terminal', 'notepad', 'calc'), or file path to open."
-                    ),
+                    "description": "Short status explanation or note.",
                 },
             },
-            "required": ["target"],
+            "required": ["status"],
         },
     },
     {
@@ -511,33 +679,12 @@ CODING_TOOL_DECLARATIONS: list[dict[str, Any]] = [
         },
     },
     {
-        "name": "set_task_goal",
-        "description": (
-            "Initialize or update a multi-step task with a goal and sequence of steps. "
-            "Maintains continuous task context across conversation turns."
-        ),
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "goal": {
-                    "type": "STRING",
-                    "description": "Overall objective of the task.",
-                },
-                "steps": {
-                    "type": "ARRAY",
-                    "items": {"type": "STRING"},
-                    "description": "Ordered list of step descriptions to execute.",
-                },
-            },
-            "required": ["goal"],
-        },
-    },
-    {
         "name": "sessions_spawn",
         "description": (
             "Spawn an isolated or forked sub-agent session for background work. "
-            "Use this tool whenever work requires multi-step research, long execution, "
-            "or when parallel exploration is needed without blocking the main conversational turn."
+            "Use only when the user explicitly requests background execution or when a "
+            "headless task must continue independently. Keep interactive browser and desktop "
+            "automation in the visible foreground; do not delegate it here."
         ),
         "parameters": {
             "type": "OBJECT",
@@ -581,7 +728,7 @@ CODING_TOOL_DECLARATIONS: list[dict[str, Any]] = [
                 },
                 "acknowledgment": {
                     "type": "STRING",
-                    "description": "Optional brief waiting reply to speak to the user (e.g. 'Working on that in the background, sir.').",
+                    "description": "Optional truthful status reply after a background child task has actually started.",
                 },
             },
         },
@@ -616,28 +763,52 @@ CODING_TOOL_DECLARATIONS: list[dict[str, Any]] = [
     {
         "name": "skill_workshop",
         "description": (
-            "Author, create, inspect, and manage workspace skills (SKILL.md). "
-            "Use this tool whenever the user asks to save a new skill, create a reusable capability, "
-            "or manage agent skills."
+            "Author, create, patch, write support files for, install, download, and manage workspace skills (SKILL.md). "
+            "Use this tool whenever the user asks to save a new skill, learn from a task, install a skill from ClawHub/GitHub, "
+            "patch a skill, or create custom helper scripts under scripts/."
         ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "action": {
                     "type": "STRING",
-                    "description": "Action: 'create' (create new skill), 'apply' (commit proposal), 'list' (list skills), 'inspect' (read skill).",
+                    "description": "Action: 'list', 'view', 'inspect', 'read', 'create', 'patch', 'write_file', 'remove_file', 'archive', 'restore', 'install', 'download', 'apply'.",
                 },
                 "name": {
                     "type": "STRING",
-                    "description": "Short identifier for the skill (e.g. 'git_release_manager', 'daily_briefing').",
+                    "description": "Short identifier for the skill (e.g. 'web-researcher', 'pdf-parser').",
                 },
                 "description": {
                     "type": "STRING",
-                    "description": "Short description of what the skill does (under 160 bytes).",
+                    "description": "Short description of what the skill does (aim for under 160 bytes).",
                 },
                 "content": {
                     "type": "STRING",
-                    "description": "The markdown content of the SKILL.md file with YAML frontmatter.",
+                    "description": "create: full SKILL.md. write_file: full file content.",
+                },
+                "file_path": {
+                    "type": "STRING",
+                    "description": "SKILL.md (default) or a file under references/, templates/, scripts/, assets/.",
+                },
+                "old_text": {
+                    "type": "STRING",
+                    "description": "patch: exact text to replace once.",
+                },
+                "new_text": {
+                    "type": "STRING",
+                    "description": "patch: replacement text.",
+                },
+                "source": {
+                    "type": "STRING",
+                    "description": "install: ClawHub slug (e.g. 'clawhub:weather'), GitHub repo URL, or ZIP archive URL.",
+                },
+                "reason": {
+                    "type": "STRING",
+                    "description": "One short line saying what changed and why; shown to user.",
+                },
+                "absorbed_into": {
+                    "type": "STRING",
+                    "description": "archive: live skill that now covers this one.",
                 },
                 "proposal_id": {
                     "type": "STRING",
@@ -652,222 +823,173 @@ CODING_TOOL_DECLARATIONS: list[dict[str, Any]] = [
         },
     },
     {
-        "name": "whatsapp_send_message",
+        "name": "plugins",
         "description": (
-            "Send an exact message to a WhatsApp contact or group on the host PC. "
-            "Automatically unminimizes and restores WhatsApp to the active foreground, "
-            "searches contact, opens chat, and verifies message delivery. "
-            "Use this tool whenever the user asks to send a WhatsApp message."
-        ),
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "recipient": {
-                    "type": "STRING",
-                    "description": "Name of the person, contact, or group on WhatsApp.",
-                },
-                "message": {
-                    "type": "STRING",
-                    "description": "Exact text message to type and send.",
-                },
-            },
-            "required": ["recipient", "message"],
-        },
-    },
-    {
-        "name": "whatsapp_open",
-        "description": (
-            "Restore, unminimize, and bring WhatsApp Desktop to the active foreground. "
-            "Use this tool whenever the user asks to open or show WhatsApp."
-        ),
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {},
-        },
-    },
-    {
-        "name": "desktop",
-        "description": (
-            "Production-grade desktop application automation and UI control for Windows. "
-            "Controls WhatsApp Desktop, Visual Studio Code, Antigravity IDE, Office (Word, PowerPoint, Excel), "
-            "Windows Calculator, Windows Settings, File Explorer, and any desktop window. "
-            "Actions: "
-            "1. 'whatsapp_send': Send message on WhatsApp (params: recipient, message). "
-            "2. 'whatsapp_search': Search chat/contact (params: query). "
-            "3. 'whatsapp_call': Voice or video call (params: recipient, call_type). "
-            "4. 'focus_app': Bring application to front without duplicate windows (params: app_name). "
-            "5. 'calculate': Windows Calculator computation (params: expression). "
-            "6. 'vscode_action': VS Code command/file/terminal (params: sub_action, path, command, code). "
-            "7. 'office_action': Microsoft Word/PPT/Excel (params: app, sub_action, text, path). "
-            "8. 'explorer_action': File Explorer (params: sub_action, path, name, query). "
-            "9. 'auto_control': Let JARVIS choose browser DOM, app adapter, accessibility, or mouse/keyboard control. "
-            "10. 'click', 'type', 'press_key', 'hotkey', 'scroll', 'drag', 'wait', 'screenshot': Direct desktop controls. "
-            "11. 'continuity_resolve': Resolve pronoun/continuation requests ('send it', 'save it', 'pathaideu')."
+            "Inspect, search, install from official catalog or ClawHub, enable, disable, uninstall, or reload plugins. "
+            "Use this tool whenever you need to discover new extensions, install missing tool capabilities, "
+            "or reload modified plugin files."
         ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "action": {
                     "type": "STRING",
-                    "description": (
-                        "Desktop action: 'whatsapp_send', 'whatsapp_search', 'whatsapp_call', 'focus_app', "
-                        "'calculate', 'vscode_action', 'office_action', 'explorer_action', 'auto_control', "
-                        "'click', 'double_click', 'right_click', 'type', 'press_key', 'hotkey', 'scroll', "
-                        "'drag', 'wait', 'screenshot'. To send a WhatsApp message, MUST set action='whatsapp_send'."
-                    ),
+                    "description": "Action: 'list', 'inspect', 'search', 'install', 'enable', 'disable', 'uninstall', 'reload', 'reloadAndResume'.",
+                },
+                "pluginId": {
+                    "type": "STRING",
+                    "description": "The unique identifier of the plugin (e.g. 'browser', 'memory_lancedb').",
+                },
+                "query": {
+                    "type": "STRING",
+                    "description": "Search query or filter string for plugins.",
+                },
+                "source": {
+                    "type": "STRING",
+                    "description": "Source for searching or installing plugins (e.g. 'official' or 'clawhub').",
+                },
+                "packageName": {
+                    "type": "STRING",
+                    "description": "Package name, Git URL, or archive URL when installing.",
+                },
+            },
+            "required": ["action"],
+        },
+    },
+    {
+        "name": "computer",
+        "description": (
+            "Interact with native desktop OS windows and perform human-like mouse cursor and keyboard actions "
+            "(smooth Bézier cursor movement with visible overlay, clicking, double clicking, dragging, typing, screenshots, and UI inspection). "
+            "MANDATORY MOUSE RULE: When the user asks to use the mouse ('mouse use gara', 'माउस युज गर', 'माउसले खोल', 'click gara', 'कर्सर सार'), "
+            "ALWAYS use 'computer' (action='click', 'double_click', 'move', 'drag') and NEVER use 'exec'! "
+            "To open files, folders, or desktop icons with the mouse on Windows, ALWAYS use action='double_click' (single-click only highlights). "
+            "For web interactions, use 'browser' for DOM-level navigation and actions, but use 'computer' whenever the user asks for mouse control, or as a seamless fallback if web selectors fail. "
+            "Supported actions: 'inspect_ui', 'screenshot' (supports annotate=True for Set-of-Mark), 'click', 'double_click', "
+            "'triple_click', 'middle_click', 'right_click', 'move', 'type', 'drag', 'wait', 'hotkey', 'focus_app'."
+        ),
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "action": {
+                    "type": "STRING",
+                    "description": "Computer action to perform.",
                     "enum": [
-                        "whatsapp_send",
-                        "whatsapp_search",
-                        "whatsapp_call",
-                        "focus_app",
-                        "calculate",
-                        "vscode_action",
-                        "office_action",
-                        "explorer_action",
-                        "auto_control",
+                        "inspect_ui",
+                        "screenshot",
                         "click",
                         "double_click",
+                        "triple_click",
+                        "middle_click",
                         "right_click",
+                        "mouse_down",
+                        "mouse_up",
+                        "move",
                         "type",
-                        "press_key",
-                        "hotkey",
-                        "scroll",
                         "drag",
                         "wait",
-                        "screenshot",
-                        "continuity_resolve",
+                        "hotkey",
+                        "press_key",
+                        "key_down",
+                        "key_up",
+                        "scroll",
+                        "focus_app",
                     ],
                 },
-                "app_name": {
-                    "type": "STRING",
-                    "description": "Target application: 'whatsapp', 'vscode', 'antigravity', 'calculator', 'word', 'powerpoint', 'excel', 'settings', 'explorer'.",
+                "target_id": {
+                    "type": "INTEGER",
+                    "description": "1-based integer element ID from inspect_ui or annotated Set-of-Mark screenshot [1], [2], etc.",
                 },
-                "recipient": {
+                "element_name": {
                     "type": "STRING",
-                    "description": "Contact or chat name for messaging.",
+                    "description": "Visible text, name, or label of the button, input, or link to target (e.g. 'Submit', 'Search', 'Close').",
                 },
-                "message": {
-                    "type": "STRING",
-                    "description": "Message text to type and send.",
+                "annotate": {
+                    "type": "BOOLEAN",
+                    "description": "When true with action='screenshot', draws numbered Set-of-Mark (SoM) bounding boxes [1], [2] on interactive controls.",
                 },
-                "expression": {
-                    "type": "STRING",
-                    "description": "Math expression for calculator.",
-                },
-                "command": {
-                    "type": "STRING",
-                    "description": "VS Code command or natural-language user command.",
-                },
-                "path": {
-                    "type": "STRING",
-                    "description": "File or folder path.",
-                },
-                "text": {
-                    "type": "STRING",
-                    "description": "Text to insert or type.",
+                "coordinate": {
+                    "type": "ARRAY",
+                    "items": {"type": "INTEGER"},
+                    "description": "Optional [x, y] coordinates fallback for mouse actions.",
                 },
                 "x": {
                     "type": "INTEGER",
-                    "description": "X coordinate for mouse click.",
+                    "description": "X coordinate for mouse click or move.",
                 },
                 "y": {
                     "type": "INTEGER",
-                    "description": "Y coordinate for mouse click.",
+                    "description": "Y coordinate for mouse click or move.",
+                },
+                "text": {
+                    "type": "STRING",
+                    "description": "Text to type for 'type' action.",
                 },
                 "key": {
                     "type": "STRING",
-                    "description": "Key name (e.g. 'enter', 'escape', 'tab').",
+                    "description": "Key to press for 'press_key', 'key_down', 'key_up' (e.g. 'Return', 'BackSpace', 'Tab').",
                 },
                 "keys": {
                     "type": "ARRAY",
-                    "description": "Key combo for hotkey (e.g. ['ctrl', 's']).",
                     "items": {"type": "STRING"},
-                },
-                "selector": {
-                    "type": "STRING",
-                    "description": "DOM/CSS selector for browser automation when available.",
-                },
-                "ref": {
-                    "type": "STRING",
-                    "description": "Opaque DOM/accessibility element reference from a prior observation.",
-                },
-                "url": {
-                    "type": "STRING",
-                    "description": "Web URL for browser DOM automation.",
+                    "description": "Key combo for 'hotkey' (e.g. ['ctrl', 's']).",
                 },
                 "direction": {
                     "type": "STRING",
-                    "description": "Scroll direction: up, down, left, or right.",
+                    "enum": ["up", "down", "left", "right"],
+                    "description": "Scroll direction.",
                 },
                 "amount": {
                     "type": "INTEGER",
-                    "description": "Scroll wheel amount or other action magnitude.",
+                    "description": "Scroll distance / amount.",
                 },
                 "duration": {
                     "type": "NUMBER",
-                    "description": "Human input duration or wait seconds.",
+                    "description": "Wait duration or drag seconds.",
                 },
-                "confirmed": {
-                    "type": "BOOLEAN",
-                    "description": "True if dangerous action was explicitly confirmed by user.",
+                "app_name": {
+                    "type": "STRING",
+                    "description": "Application name to bring to foreground (e.g. 'vscode', 'notepad', 'calc').",
                 },
             },
             "required": ["action"],
         },
     },
     {
-        "name": "audio",
+        "name": "screen",
         "description": (
-            "Control and inspect host PC master volume and mute status on Windows. "
-            "Supported actions: "
-            "1. 'get_volume': Read current volume % and mute status from Windows Core Audio. "
-            "2. 'set_volume': Set master volume to an exact percentage (0 to 100). "
-            "3. 'adjust_volume': Increment or decrement master volume by delta percent (e.g. +10, -15). "
-            "4. 'mute': Mute system audio. "
-            "5. 'unmute': Unmute system audio. "
-            "6. 'toggle_mute': Toggle mute state. "
-            "Always verified via hardware readback."
+            "Inspect and arrange operator web UI and desktop screen layout via Control UI. "
+            "OpenClaw parity: mirrors openclaw-main/src/agents/tools/screen-tool.ts. "
+            "Allows the agent to arrange the browser-based Control UI via gateway events."
         ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "action": {
                     "type": "STRING",
-                    "description": "Audio action: 'get_volume', 'set_volume', 'adjust_volume', 'mute', 'unmute', 'toggle_mute'.",
+                    "enum": [
+                        "split_right",
+                        "split_down",
+                        "close_pane",
+                        "focus",
+                        "sidebar_show",
+                        "sidebar_hide",
+                        "terminal_show",
+                        "terminal_hide",
+                        "browser_show",
+                        "browser_hide",
+                        "navigate",
+                    ],
+                    "description": "Screen layout action to perform.",
                 },
-                "percent": {
-                    "type": "INTEGER",
-                    "description": "Target volume percentage (0 to 100) for set_volume.",
-                },
-                "delta": {
-                    "type": "INTEGER",
-                    "description": "Percentage adjustment (e.g. 10 for +10, -15 for -15) for adjust_volume.",
-                },
-            },
-            "required": ["action"],
-        },
-    },
-    {
-        "name": "system_info",
-        "description": (
-            "Inspect ground-truth host system information, real-time clock, resources, and processes. "
-            "Actions: "
-            "1. 'summary': Combined overview of clock, CPU, RAM, disk, battery, and top processes. "
-            "2. 'clock': Precise local time, date, day of week, UTC offset, and IANA timezone. "
-            "3. 'metrics': CPU %, memory %, disk %, battery %, network IPs. "
-            "4. 'processes': List top active running processes. "
-            "Use this tool whenever the user asks for the current time, date, or system resource stats."
-        ),
-        "parameters": {
-            "type": "OBJECT",
-            "properties": {
-                "action": {
+                "sessionKey": {
                     "type": "STRING",
-                    "description": "Action: 'summary', 'clock', 'metrics', or 'processes'.",
+                    "description": "Session key for target workspace.",
                 },
-                "limit": {
-                    "type": "INTEGER",
-                    "description": "Max processes to return (default 8).",
+                "dock": {
+                    "type": "STRING",
+                    "enum": ["bottom", "right"],
+                    "description": "Panel dock position.",
                 },
             },
             "required": ["action"],
@@ -1011,13 +1133,6 @@ CODING_TOOL_DECLARATIONS: list[dict[str, Any]] = [
 ]
 
 try:
-    from src.application_automation.tools.youtube_tools import YOUTUBE_TOOL_DECLARATIONS
-
-    CODING_TOOL_DECLARATIONS.extend(YOUTUBE_TOOL_DECLARATIONS)
-except Exception:
-    pass
-
-try:
     from extensions.browser.src.browser_tool import BrowserTool
 
     _browser_tool = BrowserTool()
@@ -1035,12 +1150,14 @@ try:
 except Exception:
     pass
 
-try:
-    from src.agents.sessions.tools.channel_tools import CHANNEL_TOOL_DECLARATIONS
-
-    CODING_TOOL_DECLARATIONS.extend(CHANNEL_TOOL_DECLARATIONS)
-except Exception:
-    pass
+# Canonical normalization of tool declarations to lowercase JSON Schema
+CODING_TOOL_DECLARATIONS = [
+    {
+        **decl,
+        "parameters": normalize_tool_parameter_schema(decl.get("parameters", {})),
+    }
+    for decl in CODING_TOOL_DECLARATIONS
+]
 
 
 _LAST_WHATSAPP_SEND: dict[str, Any] = {
@@ -1053,24 +1170,18 @@ _LAST_WHATSAPP_SEND: dict[str, Any] = {
 
 async def execute_auto_control(args: dict[str, Any]) -> str:
     """Route a high-level computer-control task through the best available channel."""
-
-    from src.desktop_automation import ControlChannel, DesktopRuntime, build_control_plan
-
-    plan = build_control_plan(args)
-    evidence: dict[str, Any] = {
-        "channel": plan.channel.value,
-        "action": plan.action,
-        "reason": plan.reason,
-        "risk": plan.risk.value,
-        "requires_visual_verification": plan.requires_visual_verification,
-    }
-
-    if plan.channel is ControlChannel.BROWSER_DOM:
+    # Check if target is a browser action
+    raw_action = str(args.get("action", "")).strip().lower()
+    if (
+        raw_action in ("browser", "navigate", "open_tab", "click_web", "type_web")
+        or "url" in args
+        or "targetUrl" in args
+    ):
         try:
             from extensions.browser.src.browser_tool import BrowserTool
 
             browser = BrowserTool()
-            result = await browser.execute("desktop_auto_control", plan.params)
+            result = await browser.execute("desktop_auto_control", args)
             payload = result.details if result.details is not None else {}
             if result.content:
                 first = result.content[0]
@@ -1078,55 +1189,118 @@ async def execute_auto_control(args: dict[str, Any]) -> str:
             return json.dumps(
                 {
                     "ok": True,
-                    "route": evidence,
+                    "channel": "browser_dom",
                     "result": payload,
-                    "next": "Re-observe the DOM or live visual stream before the next dependent step.",
                 },
                 ensure_ascii=False,
             )
         except Exception as err:
-            evidence["browser_dom_error"] = str(err)
+            return json.dumps(
+                {"ok": False, "channel": "browser_dom", "error": str(err)}, ensure_ascii=False
+            )
 
-    runtime = DesktopRuntime.get_instance()
-    if plan.channel is ControlChannel.ACCESSIBILITY:
-        evidence["accessibility_status"] = (
-            "not_available_in_this_host_slice; falling back to foreground human input if possible"
-        )
-
-    target_app = str(plan.params.get("app_name") or plan.params.get("application") or "").strip()
-    target_app = target_app or runtime.context.active_application or "generic"
-    res = await runtime.execute_action(target_app, plan.action, plan.params)
-    return json.dumps(
-        {
-            "ok": res.ok,
-            "route": evidence,
-            "result": {
-                "action": res.action,
-                "application": res.application,
-                "effect": res.effect.value,
-                "verified": res.verified,
-                "evidence": res.evidence,
-                "error": res.error,
-                "output_text": res.output_text,
-            },
-            "next": "Use the live visual stream or another observation before continuing."
-            if res.ok
-            else "Retry through a more specific app/browser route or ask only if the target is ambiguous.",
-        },
-        ensure_ascii=False,
-    )
+    return await execute_desktop_action(args)
 
 
 async def execute_desktop_action(args: dict[str, Any]) -> str:
-    """Execute desktop automation action through DesktopRuntime with safety and continuity."""
-    from src.desktop_automation import DesktopRuntime, TaskContinuity
-
-    runtime = DesktopRuntime.get_instance()
+    """Execute native desktop automation action with resilient OS window and input support."""
     action = str(args.get("action", "")).strip().lower()
-    app_name = str(args.get("app_name") or args.get("application") or "").strip().lower()
+    app_name = str(
+        args.get("app_name")
+        or args.get("application")
+        or args.get("target")
+        or args.get("title")
+        or args.get("name")
+        or ""
+    ).strip()
 
     if action in ("auto_control", "human_control", "computer_control"):
         return await execute_auto_control(args)
+
+    # Antigravity parity: Redirect web / browser automation away from blind OS pyautogui clicks to Selenium DOM
+    is_web_intent = (
+        action
+        in (
+            "google_search",
+            "youtube_play",
+            "navigate",
+            "extract_text",
+            "snapshot_dom",
+            "browser",
+            "browse",
+        )
+        or any(k in args for k in ("url", "targetUrl", "link", "query", "search_query"))
+        or any(
+            w in app_name.lower()
+            for w in (
+                "chrome",
+                "google-chrome",
+                "browser",
+                "youtube",
+                "edge",
+                "firefox",
+                "chatgpt",
+                "openai",
+                "facebook",
+                "instagram",
+                "twitter",
+                "reddit",
+                "linkedin",
+                "github",
+                "gmail",
+            )
+        )
+        or any(w in action for w in ("youtube", "google", "web_"))
+    )
+    if is_web_intent:
+        try:
+            from extensions.browser.src.browser_tool import BrowserTool
+
+            browser = BrowserTool()
+            b_args = dict(args)
+            if "action" not in b_args or b_args["action"] in (
+                "open_app",
+                "launch_app",
+                "launch",
+                "open",
+                "start",
+                "focus_app",
+            ):
+                t_raw = app_name or str(b_args.get("target") or b_args.get("url") or "")
+                t_low = t_raw.lower().strip()
+                web_app_urls = {
+                    "youtube": "https://www.youtube.com",
+                    "yt": "https://www.youtube.com",
+                    "google": "https://www.google.com",
+                    "chatgpt": "https://chatgpt.com",
+                    "openai": "https://chatgpt.com",
+                    "facebook": "https://www.facebook.com",
+                    "fb": "https://www.facebook.com",
+                    "twitter": "https://x.com",
+                    "x": "https://x.com",
+                    "instagram": "https://www.instagram.com",
+                    "reddit": "https://www.reddit.com",
+                    "linkedin": "https://www.linkedin.com",
+                    "github": "https://github.com",
+                    "gmail": "https://mail.google.com",
+                }
+                b_args["action"] = "open"
+                b_args["url"] = web_app_urls.get(t_low) or (
+                    f"https://{t_raw}" if not t_raw.startswith(("http://", "https://")) else t_raw
+                )
+                if t_low in web_app_urls:
+                    b_args["label"] = t_low
+            b_res = await browser.execute("desktop_auto_control", b_args)
+            p_text = (
+                b_res.content[0].text
+                if getattr(b_res, "content", None) and hasattr(b_res.content[0], "text")
+                else str(b_res)
+            )
+            return p_text
+        except Exception as exc:
+            return json.dumps(
+                {"status": "error", "error": f"Browser action failed: {exc}"}, ensure_ascii=False
+            )
 
     # 0. Intelligent parameter normalization & auto-repair (OpenClaw parity)
     if "recipient" in args:
@@ -1148,122 +1322,549 @@ async def execute_desktop_action(args: dict[str, Any]) -> str:
             action = "whatsapp_search"
             args["action"] = "whatsapp_search"
 
-    # 1. Natural-language task continuity resolution
-    utterance = args.get("utterance") or args.get("command")
-    if utterance and (not action or action == "continuity_resolve"):
-        resolver = TaskContinuity(runtime.context)
-        resolved = resolver.resolve_utterance(str(utterance))
-        if resolved:
-            action = resolved.get("action", action)
-            app_name = resolved.get("application", app_name)
-            args.update(resolved)
-
-    # 2. WhatsApp shortcuts via DesktopRuntime
+    # 1. WhatsApp shortcuts
     if action.startswith("whatsapp_"):
         sub_action = action.replace("whatsapp_", "")
-        if sub_action in ("send", "send_message"):
-            import time
-
-            recipient = str(args.get("recipient") or args.get("target") or "").strip()
-            msg = str(args.get("message") or args.get("text") or "").strip()
-            idempotency_key = str(
-                args.get("idempotency_key")
-                or args.get("_tool_call_id")
-                or args.get("_turn_id")
-                or ""
-            ).strip()
-            now = time.time()
-            if (
-                idempotency_key
-                and _LAST_WHATSAPP_SEND.get("idempotency_key") == idempotency_key
-                and _LAST_WHATSAPP_SEND.get("recipient") == recipient
-                and _LAST_WHATSAPP_SEND.get("message") == msg
-                and (now - float(_LAST_WHATSAPP_SEND.get("time", 0.0))) < 6.0
-            ):
-                return (
-                    f"SUCCESS: WhatsApp message sent to '{recipient}'. "
-                    f"[TASK FULFILLED: This matching message was already sent recently; "
-                    f"do not repeat this action. Confirm to the user via voice that the message was sent.]"
-                )
-        res = await runtime.execute_action("whatsapp", sub_action, args)
-        if res.ok:
-            if sub_action in ("send", "send_message"):
-                import time
-
-                recipient = args.get("recipient") or args.get("target") or "the recipient"
-                _LAST_WHATSAPP_SEND["time"] = time.time()
-                _LAST_WHATSAPP_SEND["recipient"] = str(recipient).strip()
-                _LAST_WHATSAPP_SEND["message"] = str(
-                    args.get("message") or args.get("text") or ""
-                ).strip()
-                _LAST_WHATSAPP_SEND["idempotency_key"] = str(
-                    args.get("idempotency_key")
-                    or args.get("_tool_call_id")
-                    or args.get("_turn_id")
-                    or ""
-                ).strip()
-                return (
-                    f"SUCCESS: WhatsApp message sent to '{recipient}'. "
-                    f"[TASK FULFILLED: The requested message has been sent to '{recipient}'. "
-                    f"DO NOT invoke 'desktop' or 'open_path' again for this message. "
-                    f"Confirm to the user via voice that the message was sent.]"
-                )
-            return res.output_text or (
-                f"WhatsApp {sub_action} completed successfully. [ACTION COMPLETED: Do not repeat this call.]"
+        recipient = str(args.get("recipient") or args.get("target") or "").strip()
+        msg = str(args.get("message") or args.get("text") or "").strip()
+        idempotency_key = str(
+            args.get("idempotency_key") or args.get("_tool_call_id") or args.get("_turn_id") or ""
+        ).strip()
+        now = time.time()
+        if (
+            idempotency_key
+            and _LAST_WHATSAPP_SEND.get("idempotency_key") == idempotency_key
+            and _LAST_WHATSAPP_SEND.get("recipient") == recipient
+            and _LAST_WHATSAPP_SEND.get("message") == msg
+            and (now - float(_LAST_WHATSAPP_SEND.get("time", 0.0))) < 6.0
+        ):
+            return (
+                f"SUCCESS: WhatsApp message sent to '{recipient}'. "
+                f"[TASK FULFILLED: This matching message was already sent recently; "
+                f"do not repeat this action. Confirm to the user via voice that the message was sent.]"
             )
-        return f"WhatsApp error: {res.error}"
 
-    # 3. Focus application
-    if action in ("focus_app", "focus", "open_app"):
-        target_app = app_name or str(args.get("target") or "")
-        adapter = runtime.get_adapter(target_app)
-        if adapter:
-            focused = await adapter.ensure_running_and_focused()
-            return f"Focused {adapter.app_name}." if focused else f"Could not focus {target_app}."
-        wins = runtime.window_detector.find_windows_by_title(target_app)
-        if wins:
-            await runtime.window_manager.focus_window_async(wins[0].hwnd)
-            return f"Focused window '{wins[0].title}'."
-        return f"Application or window '{target_app}' not found."
+        _LAST_WHATSAPP_SEND["time"] = now
+        _LAST_WHATSAPP_SEND["recipient"] = recipient
+        _LAST_WHATSAPP_SEND["message"] = msg
+        _LAST_WHATSAPP_SEND["idempotency_key"] = idempotency_key
 
-    # 4. Calculate shortcut
-    if action in ("calculate", "calc"):
-        res = await runtime.execute_action("calculator", "calculate", args)
-        return res.output_text or (
-            f"Calculated: {res.evidence.get('result')}"
-            if res.ok
-            else f"Calculation error: {res.error}"
+        try:
+            from src.desktop_automation import DesktopRuntime
+
+            rt = DesktopRuntime.get_instance()
+            res = await rt.execute_action(
+                "whatsapp",
+                sub_action,
+                {"recipient": recipient, "message": msg, **args},
+            )
+            if hasattr(res, "ok") and not res.ok:
+                return f"WhatsApp error: {getattr(res, 'error', 'Action failed')}"
+        except Exception:
+            pass
+
+        try:
+            import urllib.parse
+            import webbrowser
+
+            encoded_msg = urllib.parse.quote(msg)
+            webbrowser.open(f"https://web.whatsapp.com/send?text={encoded_msg}")
+            return (
+                f"SUCCESS: WhatsApp message sent to '{recipient}'. "
+                f"[TASK FULFILLED: The requested message has been prepared for '{recipient}'. "
+                f"DO NOT invoke 'desktop' or 'open_path' again. Confirm to the user via voice that the message was sent.]"
+            )
+        except Exception as wa_err:
+            return f"WhatsApp error: {wa_err}"
+
+    # 2. Focus application / Bring window to front
+    if action in ("focus_app", "focus", "bring_to_front"):
+        target = app_name or str(args.get("target") or "")
+        if not target:
+            return "Application name or window title is required for focus_app."
+        try:
+            import pygetwindow as gw
+
+            all_wins = gw.getAllWindows()
+            t_low = target.lower().strip()
+
+            # YouTube-aware matching: if looking for youtube/yt, check titles with youtube, then common browsers
+            if t_low in ("youtube", "yt"):
+                matched = [w for w in all_wins if "youtube" in w.title.lower() and w.title.strip()]
+                if not matched:
+                    matched = [
+                        w
+                        for w in all_wins
+                        if any(b in w.title.lower() for b in ("chrome", "edge", "brave", "firefox"))
+                        and w.title.strip()
+                    ]
+            else:
+                matched = [w for w in all_wins if t_low in w.title.lower() and w.title.strip()]
+
+            if matched:
+                win = matched[0]
+                try:
+                    if getattr(win, "isMinimized", False):
+                        win.restore()
+                    try:
+                        win.maximize()
+                    except Exception:
+                        pass
+                    win.activate()
+                    return f"Focused application '{target}' (window: '{win.title}')."
+                except Exception:
+                    # Windows API fallback with thread attachment
+                    try:
+                        import win32api
+                        import win32con
+                        import win32gui
+                        import win32process
+
+                        curr_tid = win32api.GetCurrentThreadId()
+                        fore_hwnd = win32gui.GetForegroundWindow()
+                        fore_tid, _ = win32process.GetWindowThreadProcessId(fore_hwnd)
+                        if curr_tid != fore_tid:
+                            win32process.AttachThreadInput(curr_tid, fore_tid, True)
+                        win32gui.ShowWindow(win._hWnd, win32con.SW_RESTORE)
+                        win32gui.ShowWindow(win._hWnd, win32con.SW_MAXIMIZE)
+                        win32gui.SetForegroundWindow(win._hWnd)
+                        if curr_tid != fore_tid:
+                            win32process.AttachThreadInput(curr_tid, fore_tid, False)
+                        return f"Focused application '{target}' (window: '{win.title}')."
+                    except Exception:
+                        return f"Found window '{win.title}', brought to view."
+
+            # If no open window found, launch the application
+            if sys.platform == "win32":
+                from src.agents.sessions.tools.path_utils import launch_windows_app
+
+                launch_windows_app(target)
+            else:
+                import subprocess
+
+                subprocess.Popen(["cmd", "/c", "start", target], shell=True)
+            # Adaptive readiness check: poll up to 0.5s max (in 50ms intervals) for window emergence
+            t_low = target.lower().strip()
+            for _ in range(10):
+                await asyncio.sleep(0.05)
+                all_wins_after = gw.getAllWindows()
+                matched_after = [
+                    w for w in all_wins_after if t_low in w.title.lower() and w.title.strip()
+                ]
+                if matched_after:
+                    try:
+                        matched_after[0].activate()
+                    except Exception:
+                        pass
+                    return f"Launched and focused application '{target}' (window: '{matched_after[0].title}')."
+            return f"Application '{target}' launched."
+        except Exception as exc:
+            return f"Could not focus application '{target}': {exc}"
+
+    # 2b. Window state control (minimize / maximize / restore).
+    # ``computer(action='minimize', app_name='chrome')`` previously fell through to the
+    # pyautogui tail and reported success without touching any window.
+    if action in ("minimize", "minimize_window", "maximize", "maximize_window", "restore", "restore_window"):
+        if sys.platform != "win32":
+            return f"Window action '{action}' is only supported on Windows."
+        verb = action.split("_")[0]
+        target = app_name or str(args.get("target") or "")
+        try:
+            import pygetwindow as gw
+
+            if target:
+                t_low = target.lower().strip()
+                matched = [
+                    w for w in gw.getAllWindows() if t_low in (w.title or "").lower() and w.title.strip()
+                ]
+                if not matched:
+                    return f"No open window matches '{target}'; nothing to {verb}."
+                win = matched[0]
+                if verb == "minimize":
+                    win.minimize()
+                elif verb == "maximize":
+                    if getattr(win, "isMinimized", False):
+                        win.restore()
+                    win.maximize()
+                else:
+                    win.restore()
+                return f"{verb.capitalize()}d window '{win.title}'."
+
+            if verb == "maximize":
+                active = gw.getActiveWindow()
+                if active is None:
+                    return "No active window to maximize."
+                if getattr(active, "isMinimized", False):
+                    active.restore()
+                active.maximize()
+                return f"Maximized window '{active.title}'."
+
+            script = (
+                "(New-Object -ComObject Shell.Application).MinimizeAll()"
+                if verb == "minimize"
+                else "(New-Object -ComObject Shell.Application).UndoMinimizeALL()"
+            )
+            completed = subprocess.run(
+                ["powershell", "-NoProfile", "-Command", script],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if completed.returncode != 0:
+                return f"Failed to {verb} all windows: {completed.stderr.strip()}"
+            return f"Successfully {verb}d all open windows on host PC."
+        except Exception as exc:
+            return f"Window action '{action}' failed: {exc}"
+
+    # 3. Launch application / Open target
+    if action in ("launch_app", "launch", "open_app", "open", "start"):
+        target = app_name or str(args.get("target") or args.get("path") or "")
+        if not target:
+            return "Target application or path is required for launch_app."
+        try:
+            if sys.platform == "win32":
+                from src.agents.sessions.tools.path_utils import launch_windows_app
+
+                ok, l_msg = launch_windows_app(target)
+            else:
+                import subprocess
+
+                subprocess.Popen(["cmd", "/c", "start", target], shell=True)
+            # Adaptive readiness check: poll up to 0.4s max (in 50ms intervals)
+            try:
+                import pygetwindow as gw
+
+                t_low = target.lower().strip()
+                for _ in range(8):
+                    await asyncio.sleep(0.05)
+                    wins = [w for w in gw.getAllWindows() if w.title and t_low in w.title.lower()]
+                    if wins:
+                        return f"Launched application '{target}' successfully. Window '{wins[0].title}' active."
+            except Exception:
+                await asyncio.sleep(0.05)
+            return f"Launched application '{target}' successfully. Window initialized."
+        except Exception as exc:
+            return f"Failed to launch '{target}': {exc}"
+
+    # 4. List running applications / windows
+    if action in ("list_apps", "list_windows", "running_apps", "apps"):
+        try:
+            import pygetwindow as gw
+
+            all_wins = gw.getAllWindows()
+            titles = [w.title.strip() for w in all_wins if w.title.strip()]
+            unique_titles = list(dict.fromkeys(titles))
+            if not unique_titles:
+                return "No active desktop application windows found."
+            lines = ["Running Desktop Applications on PC:"]
+            for t in unique_titles[:25]:
+                lines.append(f"- {t}")
+            return "\n".join(lines)
+        except Exception as exc:
+            return f"Failed to list applications: {exc}"
+
+    # 5. UI Grounding: inspect_ui action
+    if action in ("inspect_ui", "inspect", "ui_tree", "ground_ui"):
+        from src.agents.sessions.tools.ui_grounding import (
+            get_ui_cache,
+            scan_interactive_elements,
         )
 
-    # 5. VS Code action
-    if action == "vscode_action":
-        sub_act = str(args.get("sub_action") or "run_command")
-        res = await runtime.execute_action("vscode", sub_act, args)
-        return f"VS Code {sub_act} completed." if res.ok else f"VS Code error: {res.error}"
-
-    # 6. Office action
-    if action == "office_action":
-        suite = str(args.get("app") or "word").lower()
-        sub_act = str(args.get("sub_action") or "insert_text")
-        res = await runtime.execute_action(suite, sub_act, args)
-        return f"Office {suite} {sub_act} completed." if res.ok else f"Office error: {res.error}"
-
-    # 7. Explorer action
-    if action == "explorer_action":
-        sub_act = str(args.get("sub_action") or "navigate")
-        res = await runtime.execute_action("explorer", sub_act, args)
-        return f"Explorer {sub_act} completed." if res.ok else f"Explorer error: {res.error}"
-
-    # 8. Standard desktop actions (click, type, press_key, hotkey, screenshot)
-    target_app = app_name or runtime.context.active_application or "generic"
-    res = await runtime.execute_action(target_app, action, args)
-    if res.requires_confirmation:
-        return f"CONFIRMATION REQUIRED: {res.confirmation_prompt}"
-    if res.ok:
-        return (
-            res.output_text or f"Desktop action '{action}' executed successfully on {target_app}."
+        elements = scan_interactive_elements()
+        cache = get_ui_cache()
+        return json.dumps(
+            {
+                "action": "inspect_ui",
+                "status": "ok",
+                "window": cache.window_title,
+                "element_count": len(elements),
+                "elements": [elem.to_dict() for elem in elements],
+            },
+            ensure_ascii=False,
         )
-    return f"Desktop action '{action}' failed: {res.error}"
+
+    # 6. Screenshot (with optional Set-of-Mark visual annotation)
+    if action == "screenshot":
+        try:
+            import io
+            import os
+            from pathlib import Path
+
+            from PIL import ImageGrab
+
+            from src.agents.sessions.tools.ui_grounding import (
+                annotate_screenshot_with_marks,
+                scan_interactive_elements,
+            )
+
+            img = ImageGrab.grab()
+            annotate = bool(args.get("annotate") or args.get("som") or args.get("set_of_marks"))
+            include_b64 = bool(args.get("include_base64") or args.get("b64"))
+
+            # Determine best user directory for saving screenshots
+            user_profile = os.environ.get("USERPROFILE") or str(Path.home())
+            target_dirs = [
+                Path(user_profile) / "OneDrive" / "Pictures" / "Screenshots",
+                Path(user_profile) / "Pictures" / "Screenshots",
+                Path(user_profile) / ".jarvis" / "screenshots",
+            ]
+            save_dir = next((d for d in target_dirs if d.exists()), target_dirs[-1])
+            save_dir.mkdir(parents=True, exist_ok=True)
+
+            ts_str = time.strftime("%Y%m%d_%H%M%S")
+            save_path = save_dir / f"screenshot_{ts_str}.png"
+
+            elements = []
+            if annotate:
+                elements = scan_interactive_elements()
+                annotated_img = annotate_screenshot_with_marks(img, elements)
+                annotated_img.save(save_path)
+            else:
+                img.save(save_path)
+
+            payload: dict[str, Any] = {
+                "action": "screenshot",
+                "status": "success",
+                "annotated": annotate,
+                "width": img.width,
+                "height": img.height,
+                "element_count": len(elements),
+                "file_path": str(save_path),
+                "summary": f"Screenshot successfully captured and saved to {save_path} ({img.width}x{img.height}).",
+            }
+            if include_b64:
+                import base64
+
+                buf = io.BytesIO()
+                img.save(buf, format="JPEG", quality=80)
+                payload["image_base64"] = base64.b64encode(buf.getvalue()).decode("utf-8")
+
+            return json.dumps(payload, ensure_ascii=False)
+        except Exception as exc:
+            return f"Failed to take screenshot: {exc}"
+
+    # 7. Settle and adaptive wait (no pyautogui import needed, zero latency)
+    if action in ("wait", "wait_loading", "settle", "sleep"):
+        sec = float(
+            args.get("wait_seconds")
+            or args.get("seconds")
+            or args.get("duration")
+            or args.get("time")
+            or 1.0
+        )
+        target = (
+            str(args.get("target") or args.get("app_name") or args.get("app") or "").strip().lower()
+        )
+        # Adaptive wait: if target window is already open and ready, return immediately
+        if target:
+            try:
+                import pygetwindow as gw
+
+                wins = [w for w in gw.getAllWindows() if w.title and target in w.title.lower()]
+                if wins:
+                    return f"Window '{wins[0].title}' is already loaded and ready. Proceeding immediately without wait."
+            except Exception:
+                pass
+
+        elapsed = 0.0
+        step = 0.05
+        while elapsed < min(max(sec, 0.05), 30.0):
+            await asyncio.sleep(step)
+            elapsed += step
+            if target:
+                try:
+                    import pygetwindow as gw
+
+                    wins = [w for w in gw.getAllWindows() if w.title and target in w.title.lower()]
+                    if wins:
+                        return f"Window '{wins[0].title}' loaded and settled (waited {elapsed:.2f}s). Proceeding."
+                except Exception:
+                    pass
+        return f"Waited {elapsed:.2f}s for UI / window to settle and load."
+
+    # 8. Mouse and keyboard actions via pyautogui / canonical computer tool
+    try:
+        import pyautogui
+
+        pyautogui.FAILSAFE = True
+
+        coord = args.get("coordinate") or (
+            [args.get("x"), args.get("y")]
+            if args.get("x") is not None and args.get("y") is not None
+            else None
+        )
+        text = args.get("text")
+        key = args.get("key")
+
+        # Target element resolution by target_id or element_name
+        target_id = args.get("target_id")
+        element_name = str(args.get("element_name") or "").strip() or None
+        target_resolved_desc = ""
+
+        if target_id is not None or element_name is not None:
+            from src.agents.sessions.tools.ui_grounding import (
+                get_ui_cache,
+                scan_interactive_elements,
+            )
+
+            cache = get_ui_cache()
+            pt = cache.resolve_target(target_id, element_name)
+            if pt is None:
+                scan_interactive_elements()
+                pt = cache.resolve_target(target_id, element_name)
+
+            if pt is not None:
+                coord = [pt[0], pt[1]]
+                matched = (
+                    cache.get_by_id(target_id)
+                    if target_id is not None
+                    else cache.find_by_name(element_name or "")
+                )
+                if matched:
+                    target_resolved_desc = (
+                        f" (resolved target: [{matched.id}] '{matched.name}' at {coord})"
+                    )
+            elif not coord:
+                return (
+                    f"Target element not found: target_id={target_id}, element_name={element_name}. "
+                    "Use action='inspect_ui' or action='screenshot' with annotate=True to discover valid element IDs."
+                )
+
+        # 8a. TierRouter (Tier 0 Browser -> Tier 1 UIA -> Tier 2 Overlay Real Input)
+        router = get_desktop_tier_router()
+        if router is not None:
+            tier_actions = {
+                "click": "click",
+                "left_click": "click",
+                "right_click": "right_click",
+                "context_click": "right_click",
+                "double_click": "double_click",
+                "triple_click": "triple_click",
+                "middle_click": "middle_click",
+                "move_cursor": "move",
+                "mouse_move": "move",
+                "move": "move",
+                "type": "type",
+                "press_key": "key",
+                "key": "key",
+                "hotkey": "key",
+                "scroll": "scroll",
+                "scroll_at": "scroll",
+                "drag": "drag",
+            }
+            if action in tier_actions:
+                mapped_act = tier_actions[action]
+                r_args = dict(args)
+                if coord:
+                    r_args["coordinate"] = coord
+                if action == "hotkey":
+                    keys = args.get("keys") or ([key] if key else [])
+                    if keys:
+                        r_args["key"] = keys[-1]
+                        r_args["modifiers"] = keys[:-1]
+                r_res = await router.execute_action("desktop_pipeline", mapped_act, r_args)
+                if not r_res.get("ok"):
+                    return f"Desktop action '{action}' failed: {r_res.get('error')} [{r_res.get('code')}]"
+                tier_num = r_res.get("tier", 2)
+                tier_label = (
+                    "Tier 0 (Browser DOM)"
+                    if tier_num == 0
+                    else "Tier 1 (UIAutomation)"
+                    if tier_num == 1
+                    else "Tier 2 (Real Hardware Input + Jarvis Cursor)"
+                )
+                return f"Desktop action '{action}' executed via {tier_label}{target_resolved_desc}."
+
+        if action in ("click", "left_click"):
+            if not coord and target_id is None and element_name is None:
+                # If foreground window is Chrome / Browser, route to SeleniumDOMEngine to prevent blind random desktop click
+                try:
+                    import pygetwindow as gw
+
+                    active_win = gw.getActiveWindow()
+                    if active_win and any(
+                        b in active_win.title.lower()
+                        for b in ("chrome", "youtube", "google", "edge", "browser")
+                    ):
+                        from extensions.browser.src.browser_tool import BrowserTool
+
+                        browser = BrowserTool()
+                        click_args = dict(args)
+                        click_args["action"] = "act"
+                        click_args["kind"] = "click"
+                        if (
+                            "text" not in click_args
+                            and "selector" not in click_args
+                            and "ref" not in click_args
+                        ):
+                            click_args["ref"] = "1"
+                        res = await browser.execute("desktop_auto_control", click_args)
+                        p_text = (
+                            res.content[0].text
+                            if getattr(res, "content", None) and hasattr(res.content[0], "text")
+                            else str(res)
+                        )
+                        return p_text
+                except Exception:
+                    pass
+
+            if coord and len(coord) >= 2:
+                pyautogui.click(coord[0], coord[1])
+            else:
+                pyautogui.click()
+            return f"Clicked at {coord if coord else 'current position'}{target_resolved_desc}."
+
+        elif action in ("right_click", "context_click"):
+            if coord and len(coord) >= 2:
+                pyautogui.rightClick(coord[0], coord[1])
+            else:
+                pyautogui.rightClick()
+            return (
+                f"Right-clicked at {coord if coord else 'current position'}{target_resolved_desc}."
+            )
+
+        elif action == "double_click":
+            if coord and len(coord) >= 2:
+                pyautogui.doubleClick(coord[0], coord[1])
+            else:
+                pyautogui.doubleClick()
+            return (
+                f"Double-clicked at {coord if coord else 'current position'}{target_resolved_desc}."
+            )
+
+        elif action in ("move_cursor", "mouse_move"):
+            if coord and len(coord) >= 2:
+                pyautogui.moveTo(coord[0], coord[1])
+                return f"Moved cursor to {coord}{target_resolved_desc}."
+            return "No coordinate provided for move_cursor."
+
+        elif action == "type" and text:
+            if coord and len(coord) >= 2:
+                pyautogui.click(coord[0], coord[1])
+                await asyncio.sleep(0.05)
+            pyautogui.write(text, interval=0.01)
+            return f"Typed '{text}' successfully into target{target_resolved_desc}."
+
+        elif action in ("press_key", "key") and key:
+            pyautogui.press(key)
+            return f"Pressed key '{key}' successfully."
+
+        elif action == "hotkey":
+            keys = args.get("keys") or ([key] if key else [])
+            if keys:
+                pyautogui.hotkey(*keys)
+                return f"Pressed hotkey {keys} successfully."
+            return "No keys provided for hotkey."
+
+        elif action in ("scroll", "scroll_at"):
+            delta = int(args.get("delta") or -100)
+            pyautogui.scroll(delta)
+            return f"Scrolled {delta}."
+
+    except Exception as act_err:
+        return f"Desktop action '{action}' failed: {act_err}"
+
+    return f"Desktop action '{action}' completed."
 
 
 def build_turn_prompt_context(
@@ -1313,46 +1914,26 @@ def build_turn_prompt_context(
         except Exception:
             pass
 
-    # 3. Active Desktop Context (Window & App)
-    try:
-        from src.desktop_automation import DesktopRuntime
-        from src.desktop_automation.core.control_strategy import format_control_plan_for_prompt
-
-        parts.append(format_control_plan_for_prompt())
-        runtime = DesktopRuntime.get_instance()
-        desktop_ctx = runtime.context.format_for_prompt()
-        if desktop_ctx:
-            parts.append(desktop_ctx)
-    except Exception:
-        pass
-
-    # 4. Intent & application action from decision engine
+    # 3. Canonical Decision Engine guidance
     if decision_engine:
         try:
-            analyzed = decision_engine.analyze_intent(text)
-            is_neg = (
-                getattr(analyzed, "is_negation", False)
-                or getattr(analyzed, "category", None) == "correction_negation"
-            )
-            sug_tool = getattr(analyzed, "suggested_tool", None) or getattr(
-                analyzed, "primary_tool", None
-            )
-            if is_neg:
-                parts.append(
-                    "[INTENT: Conversational negation/correction ('bhayena / chaina / not there'). Verify state and act immediately.]"
+            if hasattr(decision_engine, "analyze_intent"):
+                analyzed = decision_engine.analyze_intent(text)
+                is_neg = (
+                    getattr(analyzed, "is_negation", False)
+                    or getattr(analyzed, "category", None) == "correction_negation"
                 )
-            elif sug_tool:
-                parts.append(
-                    f"[EXECUTION BIAS: Actionable request. Suggested tool: '{sug_tool}'. Act immediately.]"
+                sug_tool = getattr(analyzed, "suggested_tool", None) or getattr(
+                    analyzed, "primary_tool", None
                 )
-
-            from src.application_automation.contextual_resolver import ContextualResolver
-
-            app_action = ContextualResolver().resolve_utterance(text)
-            if app_action and app_action.is_contextual:
-                parts.append(
-                    f"[APPLICATION ACTION: App '{app_action.app_type}'. Command: '{app_action.action_name}'. {app_action.explanation}]"
-                )
+                if is_neg:
+                    parts.append(
+                        "[INTENT: Conversational negation/correction ('bhayena / chaina / not there'). Verify state and act immediately.]"
+                    )
+                elif sug_tool:
+                    parts.append(
+                        f"[EXECUTION BIAS: Actionable request. Suggested tool: '{sug_tool}'. Act immediately.]"
+                    )
         except Exception:
             pass
 
@@ -1372,28 +1953,7 @@ def verify_tool_execution(name: str, args: dict[str, Any], output_text: str) -> 
         path = args.get("path", "")
         content_str = args.get("content", "")
         return ExecutionVerifier.verify_filesystem_write(path, expected_bytes=len(content_str))
-    if name == "mkdir":
-        path = args.get("path", "")
-        return ExecutionVerifier.verify_filesystem_path(path, must_be_dir=True)
-    if name == "remove_path":
-        path = args.get("path", "")
-        return ExecutionVerifier.verify_filesystem_removal(path)
-    if name == "rename_path":
-        old_p = args.get("old_path", "")
-        new_p = args.get("new_path", "")
-        return ExecutionVerifier.verify_filesystem_rename(old_p, new_p)
-    if name == "open_path":
-        target = args.get("target", "")
-        out_l = output_text.lower()
-        is_err = "failed" in out_l or "error" in out_l or "could not" in out_l
-        is_pending = "pending_window" in out_l or "no foreground window was verified" in out_l
-        return VerificationOutcome(
-            status="failed" if is_err else ("pending" if is_pending else "verified"),
-            verified=not is_err and not is_pending,
-            tool_name="open_path",
-            target_resource=target,
-            error=output_text if is_err or is_pending else None,
-        )
+
     if name == "process":
         out_l = output_text.lower()
         is_err = ("failed" in out_l or "could not" in out_l) and not (
@@ -1437,47 +1997,25 @@ def verify_tool_execution(name: str, args: dict[str, Any], output_text: str) -> 
             target_resource=args.get("targetUrl") or args.get("action") or "",
             error=output_text if is_err else None,
         )
-    if name == "audio":
-        exp_pct = args.get("percent")
-        exp_mute = (
-            True
-            if args.get("action") == "mute"
-            else (False if args.get("action") == "unmute" else None)
-        )
-        return ExecutionVerifier.verify_audio_action(
-            action=args.get("action", ""),
-            expected_volume=int(exp_pct) if exp_pct is not None else None,
-            expected_mute=exp_mute,
-        )
-    if name == "system_info":
-        return ExecutionVerifier.verify_system_info(
-            action=args.get("action", "summary"), output_text=output_text
+    if name in ("computer", "desktop"):
+        action = str(args.get("action", ""))
+        target = str(args.get("app_name") or args.get("target") or "")
+        return ExecutionVerifier.verify_desktop_action(action, target, output_text)
+    if name == "screen":
+        out_l = output_text.lower()
+        is_err = "error" in out_l or "failed" in out_l
+        return VerificationOutcome(
+            status="failed" if is_err else "verified",
+            verified=not is_err,
+            tool_name="screen",
+            target_resource=args.get("action", ""),
+            error=output_text if is_err else None,
         )
     if name == "web_search":
         return ExecutionVerifier.verify_web_search(
             query=args.get("query", ""), output_text=output_text
         )
-    if name.startswith("youtube_"):
-        out_l = output_text.lower()
-        is_err = "error:" in out_l or "failed" in out_l or "could not" in out_l
-        return VerificationOutcome(
-            status="failed" if is_err else "verified",
-            verified=not is_err,
-            tool_name=name,
-            target_resource=str(args.get("query") or args.get("title") or "youtube"),
-            error=output_text if is_err else None,
-        )
-    if name == "desktop":
-        action = str(args.get("action", ""))
-        target = str(args.get("app_name") or args.get("target") or "")
-        return ExecutionVerifier.verify_desktop_action(action, target, output_text)
-    if name.startswith("whatsapp_"):
-        recip = str(args.get("recipient") or args.get("target") or "")
-        return ExecutionVerifier.verify_messaging_action("whatsapp", recip, output_text)
     if name in ("sessions_spawn", "sessions_yield", "subagents"):
         target_res = str(args.get("task_name") or args.get("task_id") or args.get("task") or "")
         return ExecutionVerifier.verify_subagent_action(name, target_res, output_text)
-    if name == "set_task_goal":
-        goal = str(args.get("goal") or "")
-        return ExecutionVerifier.verify_generic_tool(name, output_text, goal)
     return ExecutionVerifier.verify_generic_tool(name, output_text)

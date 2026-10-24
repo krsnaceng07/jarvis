@@ -15,6 +15,7 @@ from __future__ import annotations
 import datetime
 import os
 from pathlib import Path
+import threading
 from typing import Any
 
 from extensions.memory_core.envelope_scrubber import (
@@ -263,21 +264,96 @@ def save_fact(
     except Exception as e:
         print(f"[Memory] Warning: markdown sync failed ({e})")
 
-    return {"status": "saved", "category": category, "key": key, "value": cleaned}
+    # Dual-Write to LanceDB vector table (Phase 4.1 Hybrid Parity)
+    try:
+        from extensions.memory_lancedb import upsert_vector_memory
+
+        upsert_vector_memory(category=str(category), key=str(key), value=cleaned)
+    except Exception as e:
+        print(f"[Memory] Warning: LanceDB vector upsert skipped ({e})")
+
+
+_backfill_checked = False
+_backfill_lock = threading.Lock()
+
+
+def ensure_lancedb_backfilled(
+    force: bool = False,
+    workspace_dir: Path | str | None = None,
+) -> int:
+    """Check LanceDB vector count against SQLite count; trigger backfill if needed.
+
+    Ensures zero-config parity with OpenClaw memory-lancedb: existing SQLite
+    memories are lazily vectorized and indexed into LanceDB upon startup.
+    """
+    global _backfill_checked
+    if _backfill_checked and not force:
+        return 0
+
+    with _backfill_lock:
+        if _backfill_checked and not force:
+            return 0
+        try:
+            from extensions.memory_lancedb import (
+                backfill_from_sqlite,
+                count_vector_memories,
+            )
+
+            if workspace_dir:
+                from extensions.memory_core.runtime import MemoryRuntime
+
+                ws = resolve_workspace_dir(workspace_dir)
+                rt = MemoryRuntime(ws / "memory.sqlite")
+            else:
+                rt = _runtime()
+
+            with rt._conn_lock:
+                rows = rt._conn.execute(
+                    "SELECT key, value, category, updated_at FROM memory"
+                ).fetchall()
+            sqlite_rows = [dict(r) for r in rows]
+            vec_count = count_vector_memories()
+
+            if len(sqlite_rows) > vec_count or force:
+                inserted = backfill_from_sqlite(sqlite_rows)
+                _backfill_checked = True
+                print(f"[Memory] Backfilled {inserted} records from SQLite into LanceDB")
+                return inserted
+
+            _backfill_checked = True
+            return 0
+        except Exception as e:
+            print(f"[Memory] LanceDB backfill check failed: {e}")
+            _backfill_checked = True
+            return 0
 
 
 def format_memory_for_prompt(
-    memory: dict[str, dict[str, dict[str, str]]],
+    memory: dict[str, dict[str, dict[str, str]]] | None = None,
     workspace_dir: Path | str | None = None,
+    max_user_bytes: int = 5_120,
+    max_memory_bytes: int = 20_480,
 ) -> str:
     """Render memory files and SQLite state as a prompt-injectable string.
 
     Mirrors OpenClaw bootstrap injection:
-    - Injects USER.md directives if available.
-    - Injects MEMORY.md curated notes if available.
+    - Injects USER.md directives if available (bounded by max_user_bytes).
+    - Injects MEMORY.md curated notes if available (bounded by max_memory_bytes).
     - Injects SQLite recent memory entries as supplement.
     """
+    ensure_lancedb_backfilled(workspace_dir=workspace_dir)
+
     mem_file_content, user_file_content = load_bootstrap_memory(workspace_dir)
+
+    if user_file_content:
+        encoded_user = user_file_content.encode("utf-8")
+        if len(encoded_user) > max_user_bytes:
+            user_file_content = encoded_user[:max_user_bytes].decode("utf-8", errors="ignore")
+
+    if mem_file_content:
+        encoded_mem = mem_file_content.encode("utf-8")
+        if len(encoded_mem) > max_memory_bytes:
+            mem_file_content = encoded_mem[:max_memory_bytes].decode("utf-8", errors="ignore")
 
     sections: list[str] = []
 
@@ -287,8 +363,14 @@ def format_memory_for_prompt(
     if mem_file_content:
         sections.append(f"[CURATED CORE MEMORY (MEMORY.md)]\n{mem_file_content}\n")
 
+    if memory is None:
+        try:
+            memory = load_memory()
+        except Exception:
+            memory = {}
+
     # Add SQLite rows if neither file has content, or as compact facts supplement
-    if any(memory.values()):
+    if memory and any(memory.values()):
         sqlite_lines = ["[LONG-TERM MEMORY (ACTIVE STATE)]"]
         for cat, items in memory.items():
             if not items:
@@ -310,6 +392,37 @@ def format_memory_for_prompt(
         "use `intent(action='create', ...)` for event-conditioned reminders."
     )
     return "\n\n".join(sections)
+
+
+async def recall_relevant_memories(
+    query: str,
+    top_k: int = 4,
+    workspace_dir: Path | str | None = None,
+) -> str:
+    """Recall relevant memories using unified hybrid search and format for active context injection."""
+    if not query or not query.strip():
+        return ""
+    try:
+        results = hybrid_search_memory(
+            query=query,
+            limit=top_k,
+            workspace_dir=workspace_dir,
+        )
+        if not results:
+            return ""
+        lines: list[str] = []
+        for r in results:
+            cat = r.get("category", "general")
+            key = r.get("key", "")
+            val = r.get("value", "")
+            if key and val:
+                lines.append(f"- {cat}/{key}: {val}")
+            elif val:
+                lines.append(f"- {val}")
+        return "\n".join(lines)
+    except Exception as exc:
+        print(f"[Memory] recall_relevant_memories failed: {exc}")
+        return ""
 
 
 def get_turn_memory_context(
@@ -358,6 +471,7 @@ def get_turn_memory_context(
     except Exception as e:
         print(f"[Memory] Standing intents match failed: {e}")
 
+    triggered_keys: set[str] = set()
     # 2. Trigger memory recall
     try:
         triggered_memories = rt.get_triggered_memory(
@@ -370,6 +484,7 @@ def get_turn_memory_context(
             for hit in triggered_memories:
                 key = hit.get("key", "")
                 val = hit.get("value", "")
+                triggered_keys.add(key)
                 mem_lines.append(f"- {key}: {val}")
             context_blocks.append(
                 "<trigger_memories>\n" + "\n".join(mem_lines) + "\n</trigger_memories>"
@@ -377,14 +492,146 @@ def get_turn_memory_context(
     except Exception as e:
         print(f"[Memory] Trigger memories match failed: {e}")
 
+    # 3. Hybrid semantic memory recall (LanceDB + SQLite FTS5 RRF)
+    try:
+        hybrid_hits = hybrid_search_memory(
+            query=inbound_message,
+            limit=3,
+            workspace_dir=workspace_dir,
+        )
+        semantic_lines = []
+        for hit in hybrid_hits:
+            key = hit.get("key", "")
+            val = hit.get("value", "")
+            cat = hit.get("category", "notes")
+            if key and key not in triggered_keys and val:
+                semantic_lines.append(f"- {cat}/{key}: {val}")
+        if semantic_lines:
+            context_blocks.append(
+                "<relevant_context_memories>\n" + "\n".join(semantic_lines) + "\n</relevant_context_memories>"
+            )
+    except Exception as e:
+        print(f"[Memory] Hybrid semantic recall failed: {e}")
+
     return "\n\n".join(context_blocks)
 
 
+def hybrid_search_memory(
+    query: str,
+    limit: int = 8,
+    category: str | None = None,
+    workspace_dir: Path | str | None = None,
+) -> list[dict[str, Any]]:
+    """Hybrid semantic memory retrieval combining SQLite FTS5 (BM25) and LanceDB vector search.
+
+    Uses standard Reciprocal Rank Fusion (RRF) with k=60:
+        RRF_Score(d) = 1/(60 + rank_fts) + 1/(60 + rank_vec)
+
+    Returns ranked records with provenance tags ('fts+vector', 'vector', 'fts').
+    """
+    if not query or not query.strip():
+        return []
+
+    # 1. Lexical retrieval (FTS5 BM25 + substring fallback)
+    if workspace_dir:
+        from extensions.memory_core.runtime import MemoryRuntime
+
+        ws = resolve_workspace_dir(workspace_dir)
+        rt = MemoryRuntime(ws / "memory.sqlite")
+    else:
+        rt = _runtime()
+
+    fts_candidates: list[dict[str, Any]] = []
+    try:
+        raw_fts = rt.search_ranked(query=query, limit=max(limit * 3, 20))
+        if category:
+            raw_fts = [r for r in raw_fts if r.get("category") == category]
+        fts_candidates = raw_fts
+    except Exception as e:
+        print(f"[Memory] Lexical search failed: {e}")
+
+    # Map candidate (category, key) -> rank (1-indexed) and data
+    fts_ranked: dict[tuple[str, str], tuple[int, dict[str, Any]]] = {}
+    for idx, item in enumerate(fts_candidates, 1):
+        cat = str(item.get("category") or "notes")
+        key = str(item.get("key") or "")
+        if key:
+            fts_ranked[(cat, key)] = (idx, item)
+
+    # 2. Dense vector similarity search via LanceDB
+    vec_candidates: list[dict[str, Any]] = []
+    try:
+        from extensions.memory_lancedb import search_vector_memory
+
+        vec_candidates = search_vector_memory(
+            query=query,
+            limit=max(limit * 3, 20),
+            category=category,
+        )
+    except Exception as e:
+        print(f"[Memory] Vector search failed: {e}")
+
+    vec_ranked: dict[tuple[str, str], tuple[int, dict[str, Any]]] = {}
+    for idx, item in enumerate(vec_candidates, 1):
+        cat = str(item.get("category") or "notes")
+        key = str(item.get("key") or "")
+        if key:
+            vec_ranked[(cat, key)] = (idx, item)
+
+    # 3. Reciprocal Rank Fusion (k=60)
+    rrf_k = 60.0
+    all_keys = set(fts_ranked.keys()) | set(vec_ranked.keys())
+    scored_items: list[dict[str, Any]] = []
+
+    for cat, key in all_keys:
+        in_fts = (cat, key) in fts_ranked
+        in_vec = (cat, key) in vec_ranked
+
+        rank_fts = fts_ranked[(cat, key)][0] if in_fts else None
+        rank_vec = vec_ranked[(cat, key)][0] if in_vec else None
+
+        score = 0.0
+        if rank_fts is not None:
+            score += 1.0 / (rrf_k + rank_fts)
+        if rank_vec is not None:
+            score += 1.0 / (rrf_k + rank_vec)
+
+        if in_fts and in_vec:
+            source = "fts+vector"
+            val = fts_ranked[(cat, key)][1].get("value") or vec_ranked[(cat, key)][1].get("value")
+        elif in_vec:
+            source = "vector"
+            val = vec_ranked[(cat, key)][1].get("value")
+        else:
+            source = "fts"
+            val = fts_ranked[(cat, key)][1].get("value")
+
+        scored_items.append(
+            {
+                "id": f"{cat}:{key}",
+                "category": cat,
+                "key": key,
+                "value": val or "",
+                "score": round(score, 6),
+                "source": source,
+                "rank_fts": rank_fts,
+                "rank_vec": rank_vec,
+            }
+        )
+
+    # Sort descending by RRF score
+    scored_items.sort(key=lambda x: x["score"], reverse=True)
+    return scored_items[:limit]
+
+
 __all__ = [
+    "ensure_lancedb_backfilled",
     "format_memory_for_prompt",
     "get_turn_memory_context",
+    "hybrid_search_memory",
     "load_bootstrap_memory",
     "load_memory",
+    "recall_relevant_memories",
     "save_fact",
     "update_memory",
 ]

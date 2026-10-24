@@ -30,32 +30,36 @@ class YouTubePlugin(Plugin):
     def register(self, api: PluginApi) -> None:
         """Register YouTube granular tools with the agent runtime."""
         if hasattr(api, "register_tool"):
-            from src.application_automation.tools.youtube_tools import (
-                youtube_close_tool,
-                youtube_get_state_tool,
-                youtube_pause_tool,
-                youtube_play_tool,
-                youtube_resume_tool,
-                youtube_search_tool,
-                youtube_set_volume_tool,
-                youtube_skip_ad_tool,
-                youtube_subscribe_tool,
-                youtube_unsubscribe_tool,
-            )
+            try:
+                from src.application_automation.tools.youtube_tools import (
+                    youtube_close_tool,
+                    youtube_get_state_tool,
+                    youtube_pause_tool,
+                    youtube_play_tool,
+                    youtube_resume_tool,
+                    youtube_search_tool,
+                    youtube_set_volume_tool,
+                    youtube_skip_ad_tool,
+                    youtube_subscribe_tool,
+                    youtube_unsubscribe_tool,
+                )
 
-            for tool_fn in [
-                youtube_play_tool,
-                youtube_pause_tool,
-                youtube_resume_tool,
-                youtube_search_tool,
-                youtube_skip_ad_tool,
-                youtube_set_volume_tool,
-                youtube_get_state_tool,
-                youtube_subscribe_tool,
-                youtube_unsubscribe_tool,
-                youtube_close_tool,
-            ]:
-                api.register_tool(tool_fn)
+                for tool_fn in [
+                    youtube_play_tool,
+                    youtube_pause_tool,
+                    youtube_resume_tool,
+                    youtube_search_tool,
+                    youtube_skip_ad_tool,
+                    youtube_set_volume_tool,
+                    youtube_get_state_tool,
+                    youtube_subscribe_tool,
+                    youtube_unsubscribe_tool,
+                    youtube_close_tool,
+                ]:
+                    api.register_tool(tool_fn)
+            except ImportError:
+                pass
+
 
 
 youtube_plugin = YouTubePlugin()

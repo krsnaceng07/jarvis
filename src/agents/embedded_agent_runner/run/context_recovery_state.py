@@ -8,12 +8,11 @@ Public surface:
 Types:
 
 - :data:`EmbeddedRunContextRecoveryState`
-
-Phase 7.6h-2 — focused minimal port.
+- :func:`create_embedded_run_context_recovery_state`
 """
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 
 #: Embedded-run context-recovery state shape. Mirrors
@@ -22,6 +21,22 @@ from typing import Any, Dict
 EmbeddedRunContextRecoveryState = Dict[str, Any]
 
 
+def create_embedded_run_context_recovery_state() -> Dict[str, Any]:
+    """Create fresh context recovery state for an embedded run."""
+    state: Dict[str, Any] = {
+        "autoCompactionCount": 0,
+        "compactionRequestBudget": None,
+        "lastCompactionTokensAfter": None,
+        "currentContextSnapshot": None,
+        "lastContextBudgetStatus": None,
+        "overflowCompactionAttempts": 0,
+        "timeoutCompactionAttempts": 0,
+        "toolResultTruncationAttempted": False,
+    }
+    return state
+
+
 __all__ = [
     "EmbeddedRunContextRecoveryState",
+    "create_embedded_run_context_recovery_state",
 ]

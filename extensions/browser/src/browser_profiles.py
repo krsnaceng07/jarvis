@@ -56,16 +56,23 @@ def resolve_browser_config(
         headless_cfg = env_headless in ("1", "true", "True")
         headless_source = "env"
 
+    from pathlib import Path
+
+    jarvis_profile_dir = str(Path.home() / ".jarvis" / "browser" / "chrome_profile")
     profiles = cfg.get("profiles", {})
     if not profiles:
         profiles = {
             "jarvis": BrowserProfileConfig(
                 driver="jarvis",
                 color=DEFAULT_OPENCLAW_BROWSER_COLOR,
+                userDataDir=jarvis_profile_dir,
+                cdpPort=9222,
             ),
             "openclaw": BrowserProfileConfig(
                 driver="jarvis",
                 color=DEFAULT_OPENCLAW_BROWSER_COLOR,
+                userDataDir=jarvis_profile_dir,
+                cdpPort=9222,
             ),
             "user": BrowserProfileConfig(
                 driver="existing-session",
@@ -78,7 +85,9 @@ def resolve_browser_config(
         # Ensure we have type safe defaults for the profiles
         resolved_profiles[name] = ResolvedBrowserProfile(
             name=name,
-            cdpPort=p.get("cdpPort", control_port + 2000),
+            cdpPort=p.get(
+                "cdpPort", 9222 if name in ("jarvis", "openclaw", "user") else control_port + 2000
+            ),
             cdpUrl=p.get("cdpUrl", ""),
             cdpHost="127.0.0.1",
             cdpIsLoopback=True,
@@ -88,7 +97,9 @@ def resolve_browser_config(
             headless=p.get("headless", headless_cfg),
             headlessSource=p.get("headlessSource", headless_source),
             attachOnly=p.get("attachOnly", False),
-            userDataDir=p.get("userDataDir"),
+            userDataDir=p.get(
+                "userDataDir", jarvis_profile_dir if name in ("jarvis", "openclaw") else None
+            ),
             mcpCommand=p.get("mcpCommand"),
             mcpArgs=p.get("mcpArgs"),
         )
@@ -150,7 +161,16 @@ def resolve_profile(
         return config.profiles[target_name]
 
     # Smart profile aliases (JARVIS parity)
-    if target_name in ("jarvis", "openclaw", "chrome", "default", "chromium", "google-chrome", "google_chrome", "system"):
+    if target_name in (
+        "jarvis",
+        "openclaw",
+        "chrome",
+        "default",
+        "chromium",
+        "google-chrome",
+        "google_chrome",
+        "system",
+    ):
         if "jarvis" in config.profiles:
             return config.profiles["jarvis"]
         if "openclaw" in config.profiles:

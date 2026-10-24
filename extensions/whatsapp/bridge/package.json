@@ -1,0 +1,12 @@
+{
+  "name": "jarvis-whatsapp-bridge",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Baileys WebSocket bridge for the JARVIS WhatsApp channel plugin.",
+  "main": "bridge.js",
+  "license": "MIT",
+  "dependencies": {
+    "@whiskeysockets/baileys": "6.7.24",
+    "qrcode-terminal": "0.12.0"
+  }
+}

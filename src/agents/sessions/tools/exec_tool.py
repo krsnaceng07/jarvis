@@ -1,6 +1,6 @@
 """jarvis.agents.sessions.tools.exec_tool — Built-in exec tool.
 
-Mirrors OpenClaw's `exec` tool. Replaces the older `bash` tool surface,
+JARVIS canonical `exec` tool. Replaces the older `bash` tool surface,
 providing extensive target capabilities, security profiles, and backgrounding.
 """
 
@@ -10,12 +10,12 @@ import os
 import re
 from typing import Optional
 
-from ..extensions.types import AgentToolResult, ToolDefinition
 from ..exec import (
     ExecOptions,
     exec_command,
     spawn_background_command,
 )
+from ..extensions.types import AgentToolResult, ToolDefinition
 from .bash import resolve_bash_timeout_ms
 
 
@@ -185,6 +185,7 @@ def create_exec_tool_definition(
 
             if is_restrictive:
                 import shlex
+
                 from src.infra.exec_safe_bin_policy_profiles import SAFE_BIN_PROFILES
                 from src.infra.exec_safe_bin_policy_validator import validate_safe_bin_argv
 
@@ -234,77 +235,122 @@ def create_exec_tool_definition(
         import sys
 
         if sys.platform == "win32" and not effective_sandboxed:
-            pwsh = shutil.which("pwsh") or shutil.which("powershell") or "powershell.exe"
-            shell_cmd = pwsh
+            git_bash = None
+            for candidate in (
+                r"C:\Program Files\Git\bin\bash.exe",
+                r"C:\Program Files (x86)\Git\bin\bash.exe",
+                shutil.which("bash.exe"),
+                shutil.which("bash"),
+            ):
+                if candidate and os.path.isfile(candidate):
+                    git_bash = candidate
+                    break
 
-            from .path_utils import normalize_user_home_path
+            cmd_stripped = command.strip()
+            if git_bash and (
+                params.get("shell") == "bash" or cmd_stripped.startswith(("bash ", "sh ", "./"))
+            ):
+                shell_cmd = git_bash
+                args = ["-c", command]
+            elif cmd_stripped.startswith(("cmd ", "cmd.exe ", "dir ", "echo %")):
+                shell_cmd = "cmd.exe"
+                args = ["/c", command]
+            else:
+                pwsh = shutil.which("pwsh") or shutil.which("powershell") or "powershell.exe"
+                shell_cmd = pwsh
 
-            repaired_command = command
+                from .path_utils import normalize_user_home_path
 
-            # 1. Normalize hallucinated user home directories (e.g. C:\Users\rsnac -> C:\Users\kcs23)
-            def _replace_user_path(m: re.Match) -> str:
-                return normalize_user_home_path(m.group(0))
+                repaired_command = command
 
-            repaired_command = re.sub(
-                r"[a-zA-Z]:[/\\]Users[/\\][^\s\"';&|<>]+",
-                _replace_user_path,
-                repaired_command,
-            )
-
-            # 2. Map Unix open / xdg-open to Windows Invoke-Item
-            repaired_command = re.sub(
-                r"^\s*(?:open|xdg-open)\s+",
-                "Invoke-Item ",
-                repaired_command,
-                flags=re.I,
-            )
-
-            # 3. Map Unix touch to PowerShell New-Item
-            repaired_command = re.sub(
-                r"^\s*touch\s+",
-                "New-Item -ItemType File -Force -Path ",
-                repaired_command,
-                flags=re.I,
-            )
-
-            # 4. Auto-repair non-interactive deletion commands to prevent prompt stalls
-            cmd_lower = repaired_command.lower()
-            if any(k in cmd_lower for k in ("remove-item", "del ", "rmdir ", "rm ", "erase ")):
-                # Map Linux rm flags to PowerShell parameters
+                # 0. Expand CMD-style Windows environment variables (e.g. %USERPROFILE%, %APPDATA%, %TEMP%)
+                # and tilde home directories (~/Downloads) because PowerShell does not expand %VAR% syntax.
+                repaired_command = os.path.expandvars(repaired_command)
                 repaired_command = re.sub(
-                    r"\brm\s+-(?:rf|fr)\s+",
-                    "Remove-Item -Recurse -Force -Path ",
+                    r'(^|[\s"\'=])~([/\\])',
+                    lambda m: f"{m.group(1)}{os.path.expanduser('~')}{m.group(2)}",
+                    repaired_command,
+                )
+
+                # 1. Normalize hallucinated user home directories (e.g. C:\Users\rsnac -> C:\Users\kcs23)
+                def _replace_user_path(m: re.Match) -> str:
+                    return normalize_user_home_path(m.group(0))
+
+                repaired_command = re.sub(
+                    r"[a-zA-Z]:[/\\]Users[/\\][^\s\"';&|<>]+",
+                    _replace_user_path,
+                    repaired_command,
+                )
+
+                # 2. Map Unix open / xdg-open to Windows Invoke-Item
+                repaired_command = re.sub(
+                    r"^\s*(?:open|xdg-open)\s+",
+                    "Invoke-Item ",
                     repaired_command,
                     flags=re.I,
                 )
+
+                # 3. Map Unix touch to PowerShell New-Item
                 repaired_command = re.sub(
-                    r"\brm\s+-r\s+",
-                    "Remove-Item -Recurse -Force -Path ",
-                    repaired_command,
-                    flags=re.I,
-                )
-                repaired_command = re.sub(
-                    r"\brm\s+-f\s+",
-                    "Remove-Item -Force -Path ",
+                    r"^\s*touch\s+",
+                    "New-Item -ItemType File -Force -Path ",
                     repaired_command,
                     flags=re.I,
                 )
 
-                # Ensure Remove-Item has -Force and -Recurse
-                if "remove-item" in repaired_command.lower():
-                    if "-force" not in repaired_command.lower():
-                        repaired_command = re.sub(
-                            r"\b(remove-item)\b", r"\1 -Force", repaired_command, flags=re.I
-                        )
-                    if "-recurse" not in repaired_command.lower():
-                        repaired_command = re.sub(
-                            r"\b(remove-item)\b", r"\1 -Recurse", repaired_command, flags=re.I
-                        )
+                # 4. Auto-repair non-interactive deletion commands to prevent prompt stalls
+                cmd_lower = repaired_command.lower()
+                if any(k in cmd_lower for k in ("remove-item", "del ", "rmdir ", "rm ", "erase ")):
+                    # Map Linux rm flags to PowerShell parameters
+                    repaired_command = re.sub(
+                        r"\brm\s+-(?:rf|fr)\s+",
+                        "Remove-Item -Recurse -Force -Path ",
+                        repaired_command,
+                        flags=re.I,
+                    )
+                    repaired_command = re.sub(
+                        r"\brm\s+-r\s+",
+                        "Remove-Item -Recurse -Force -Path ",
+                        repaired_command,
+                        flags=re.I,
+                    )
+                    repaired_command = re.sub(
+                        r"\brm\s+-f\s+",
+                        "Remove-Item -Force -Path ",
+                        repaired_command,
+                        flags=re.I,
+                    )
 
-                # Suppress all confirmation prompts in headless execution
-                repaired_command = f"$ConfirmPreference = 'None'; {repaired_command}"
+                    # Ensure Remove-Item has -Force and -Recurse
+                    if "remove-item" in repaired_command.lower():
+                        if "-force" not in repaired_command.lower():
+                            repaired_command = re.sub(
+                                r"\b(remove-item)\b", r"\1 -Force", repaired_command, flags=re.I
+                            )
+                        if "-recurse" not in repaired_command.lower():
+                            repaired_command = re.sub(
+                                r"\b(remove-item)\b", r"\1 -Recurse", repaired_command, flags=re.I
+                            )
 
-            args = ["-NoProfile", "-NonInteractive", "-Command", repaired_command]
+                    # Suppress all confirmation prompts in headless execution
+                    repaired_command = f"$ConfirmPreference = 'None'; {repaired_command}"
+
+                # 5. Replace Unix/CMD statement chaining '&&' with PowerShell statement separator ';'
+                repaired_command = re.sub(r"\s*&&\s*", "; ", repaired_command)
+
+                # 6. Guard against runaway recursive directory searches across root drives or Program Files
+                # Restrict -Depth 3 ONLY to Get-ChildItem (or gci/dir/ls), NEVER to Remove-Item
+                if (
+                    re.search(r"(?i)\b(?:Get-ChildItem|gci)\b", repaired_command)
+                    and "-depth" not in repaired_command.lower()
+                ):
+                    repaired_command = re.sub(
+                        r"(?i)(\b(?:Get-ChildItem|gci)\b(?:(?!\||;).)*?\s*-recurse)\b",
+                        r"\1 -Depth 3",
+                        repaired_command,
+                    )
+
+                args = ["-NoProfile", "-NonInteractive", "-Command", repaired_command]
         else:
             shell_cmd = "/bin/sh"
             args = ["-c", command]
@@ -372,6 +418,13 @@ def create_exec_tool_definition(
             if result.output_limit_exceeded:
                 output += "\n[Truncated]"
 
+            if result.code != 0:
+                output += f"\n[Process completed with exit code: {result.code}]"
+                if "Invoke-WebRequest" in output or "ambiguous" in output:
+                    output += "\n[HINT: In Windows PowerShell, 'curl' is an alias for Invoke-WebRequest. Use 'curl.exe' or invoke via Git Bash to run native cURL.]"
+                elif "not recognized as the name of a cmdlet" in output:
+                    output += "\n[HINT: Command not recognized in PowerShell. Try invoking with full extension (e.g. .exe), use Git Bash, or check PATH.]"
+
             return {
                 "content": [{"type": "text", "text": output}],
                 "details": {
@@ -390,7 +443,7 @@ def create_exec_tool_definition(
         ),
         "promptSnippet": "Execute a shell command",
         "promptGuidelines": [
-            "Use exec to run shell commands. Use background=True for long-running servers or tasks."
+            "Use exec to run shell commands in the foreground by default. Use background=True only for persistent servers, explicitly requested asynchronous work, or headless jobs that must outlive this turn."
         ],
         "parameters": {
             "type": "object",

@@ -8,7 +8,15 @@ from __future__ import annotations
 
 from typing import Any
 
-from .schema import GatewayError, GatewayRequest, GatewayResponse, RPCRequest, RPCResponse
+from .schema import (
+    GatewayError,
+    GatewayEvent,
+    GatewayRequest,
+    GatewayResponse,
+    RPCEvent,
+    RPCRequest,
+    RPCResponse,
+)
 
 
 def validate_request(
@@ -99,4 +107,38 @@ def validate_response(
     return GatewayResponse(id=str(id_), payload=payload, error=None), None
 
 
-__all__ = ["validate_request", "validate_response"]
+def validate_event(
+    raw: Any,
+) -> tuple[RPCEvent | GatewayEvent, None] | tuple[None, GatewayError]:
+    """Parse and validate a raw dict as either an RPCEvent or a GatewayEvent."""
+    if not isinstance(raw, dict):
+        return None, GatewayError.invalid_request("event must be a JSON object")
+
+    # JSON-RPC 2.0 event frame
+    if raw.get("jsonrpc") == "2.0":
+        method = raw.get("method")
+        if not isinstance(method, str) or not method.strip():
+            return None, GatewayError.invalid_request("'method' must be a non-empty string")
+        params = raw.get("params", {})
+        if not isinstance(params, dict):
+            return None, GatewayError.invalid_params("'params' must be a JSON object")
+        return RPCEvent(method=method.strip(), params=params), None
+
+    # Legacy Gateway event frame
+    if raw.get("type") != "event":
+        return None, GatewayError.invalid_request("event must have type='event'")
+
+    event_name = raw.get("event") or raw.get("method")
+    if not isinstance(event_name, str) or not event_name.strip():
+        return None, GatewayError.invalid_request("'event' must be a non-empty string")
+
+    payload = raw.get("payload") if "payload" in raw else raw.get("params")
+    return GatewayEvent(
+        event=event_name.strip(),
+        payload=payload,
+        seq=raw.get("seq"),
+        stateVersion=raw.get("stateVersion"),
+    ), None
+
+
+__all__ = ["validate_event", "validate_request", "validate_response"]

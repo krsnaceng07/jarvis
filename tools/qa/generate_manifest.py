@@ -10,11 +10,18 @@ import json
 from pathlib import Path
 import sys
 
-from tools.qa.manifest_validator import (
-    CANONICAL_ALGORITHM,
-    compute_manifest_hash,
-    validate_manifest,
-)
+try:
+    from tools.qa.manifest_validator import (
+        CANONICAL_ALGORITHM,
+        compute_manifest_hash,
+        validate_manifest,
+    )
+except (ImportError, ModuleNotFoundError):
+    from .manifest_validator import (
+        CANONICAL_ALGORITHM,
+        compute_manifest_hash,
+        validate_manifest,
+    )
 
 MANIFEST_PATH = Path("qa/manifests/track35_evidence_manifest.json")
 TIMESTAMP = "2026-09-25T13:13:00Z"

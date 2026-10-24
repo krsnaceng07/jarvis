@@ -323,17 +323,38 @@ class PluginAgentApi:
         lowered = value.strip().lower()
         return lowered or None
 
-    def run_embedded_agent(self, params: dict[str, Any]) -> dict[str, Any]:
+    async def run_embedded_agent(
+        self,
+        prompt: str | dict[str, Any],
+        *,
+        system_prompt: str | None = None,
+        model: str | None = None,
+        tools: list[Any] | None = None,
+        tool_handlers: dict[str, Callable] | None = None,
+        max_turns: int = 4,
+        timeout_seconds: float = 30.0,
+        context: dict[str, Any] | None = None,
+        custom_runner: Callable | None = None,
+    ) -> dict[str, Any]:
         """Run an embedded agent turn (provider/model/prompt).
 
-        Mirrors ``api.runtime.agent.runEmbeddedAgent``. The
-        host wires ``run_embedded_agent_fn``; the default
-        raises ``NotImplementedError`` so plugins detect the
-        missing wiring.
+        Mirrors ``api.runtime.agent.runEmbeddedAgent``.
+        Executes lightweight in-memory async micro-tasks without process-spawning overhead.
         """
-        if self.run_embedded_agent_fn is None:
-            raise NotImplementedError("api.runtime.agent.run_embedded_agent is not wired")
-        return self.run_embedded_agent_fn(params)
+        from .embedded_runner import run_embedded_agent as _run_embedded
+
+        runner = custom_runner or self.run_embedded_agent_fn
+        return await _run_embedded(
+            prompt=prompt,
+            system_prompt=system_prompt,
+            model=model,
+            tools=tools,
+            tool_handlers=tool_handlers,
+            max_turns=max_turns,
+            timeout_seconds=timeout_seconds,
+            context=context,
+            custom_runner=runner,
+        )
 
     def build_model_alias_index(self, params: dict[str, Any]) -> dict[str, Any]:
         """Build a model-alias index for the host config.

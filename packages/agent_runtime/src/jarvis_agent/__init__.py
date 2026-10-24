@@ -147,6 +147,12 @@ from .prompt_template_arguments import (
 )
 from .session_context import build_session_context
 from .uuid7 import uuidv7
+from .turn_settlement import (
+    TurnSettlementConfig,
+    TurnSettlementLoop,
+    TurnSettlementResult,
+    run_turn_settlement_loop,
+)
 from .harness_types import (
     SESSION_TREE_ENTRY_TYPES,
     BranchSummaryEntry,
@@ -348,6 +354,10 @@ __all__ = [
     "TruncatedBy",
     "TruncatedLine",
     "TruncationResult",
+    "TurnSettlementConfig",
+    "TurnSettlementLoop",
+    "TurnSettlementResult",
+    "run_turn_settlement_loop",
     "UNSET",
     "utf8_byte_length",
     "uuidv7",

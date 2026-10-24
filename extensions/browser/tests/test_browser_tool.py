@@ -197,3 +197,45 @@ async def test_browser_tool_live_lifecycle_and_automation():
 
     finally:
         await runtime.stop()
+
+
+@pytest.mark.asyncio
+async def test_browser_tool_youtube_actions_and_domain_reuse():
+    """Verify youtube_play and skip_ad actions are routed and reuse tabs by domain."""
+    from unittest.mock import AsyncMock, patch
+
+    tool = BrowserTool()
+    with patch("extensions.browser.src.browser_tool.get_browser_runtime") as mock_get_runtime:
+        mock_runtime = AsyncMock()
+        mock_runtime.youtube_play.return_value = {
+            "ok": True,
+            "action": "youtube_play",
+            "status": "playing",
+            "playing_title": "Arijit Singh Sad Song",
+            "url": "https://www.youtube.com/watch?v=mock123",
+            "targetId": "tab_1",
+            "ad_skipped": True,
+        }
+        mock_runtime.youtube_skip_ad.return_value = {
+            "ok": True,
+            "action": "skip_ad",
+            "status": "ad_skipped",
+            "url": "https://www.youtube.com/watch?v=mock123",
+        }
+        mock_get_runtime.return_value = mock_runtime
+
+        # Test youtube_play
+        res = await tool.execute(
+            "call_yt", {"action": "youtube_play", "query": "Arijit Singh hindi sad song"}
+        )
+        assert isinstance(res, AgentToolResult)
+        assert res.details["status"] == "playing"
+        assert res.details["playing_title"] == "Arijit Singh Sad Song"
+        assert res.details["ad_skipped"] is True
+        mock_runtime.youtube_play.assert_awaited_once()
+
+        # Test skip_ad
+        res_skip = await tool.execute("call_skip", {"action": "skip_ad"})
+        assert isinstance(res_skip, AgentToolResult)
+        assert res_skip.details["status"] == "ad_skipped"
+        mock_runtime.youtube_skip_ad.assert_awaited_once()

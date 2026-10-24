@@ -122,6 +122,13 @@ from .run.params import RunEmbeddedAgentParams
 from .run_execution import execute_prepared_embedded_run
 from .run_loop import run_prepared_embedded_loop
 from .run_orchestrator import run_embedded_agent as _run_embedded_agent_orchestrator  # noqa: F401
+from .turn_settlement import (
+    EmbeddedTurnSettlementRunner,
+    TurnSettlementConfig,
+    TurnSettlementLoop,
+    TurnSettlementResult,
+    run_turn_settlement_loop,
+)
 from .run_state import (
     ABANDONED_EMBEDDED_RUNS_BY_SESSION_ID,
     ABANDONED_EMBEDDED_RUN_SESSION_IDS_BY_FILE,
@@ -217,6 +224,7 @@ __all__ = [
     "resolve_embedded_run_failure_signal",
     "resolve_embedded_session_file_key",
     "resolve_failure_signal_code",
+    "FAILURE_SIGNAL_CODES",
     # Execution phase
     "EMBEDDED_AGENT_EXECUTION_PHASES",
     "EMBEDDED_AGENT_EXECUTION_PHASE_LABELS",
@@ -290,4 +298,10 @@ __all__ = [
     "PostCompactionLoopPersistedError",
     "create_post_compaction_loop_guard",
     "repair_rejected_thinking_replay_in_session_manager",
+    # Turn Settlement Loop
+    "EmbeddedTurnSettlementRunner",
+    "TurnSettlementConfig",
+    "TurnSettlementLoop",
+    "TurnSettlementResult",
+    "run_turn_settlement_loop",
 ]

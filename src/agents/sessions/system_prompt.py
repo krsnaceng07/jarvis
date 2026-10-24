@@ -44,12 +44,12 @@ Adaptations
   promised-work section (the full
   integration lands in 6.13+).
 """
+
 from __future__ import annotations
 
 import logging
 import os
 from typing import Optional, TypedDict
-
 
 _LOG = logging.getLogger("jarvis.agents.sessions.system_prompt")
 
@@ -157,17 +157,13 @@ def _format_skills_for_prompt(skills: list[SkillDict]) -> str:
     out: list[str] = ["\nThe following skills are available:"]
     out.append("\n<skills>")
     for skill in skills:
-        name = (
-            skill.get("name", "")
-            if isinstance(skill, dict)
-            else getattr(skill, "name", "")
-        )
+        name = skill.get("name", "") if isinstance(skill, dict) else getattr(skill, "name", "")
         description = (
             skill.get("description", "")
             if isinstance(skill, dict)
             else getattr(skill, "description", "")
         )
-        out.append(f"\n<skill name=\"{name}\">")
+        out.append(f'\n<skill name="{name}">')
         out.append(f"\n{description}")
         out.append("\n</skill>")
     out.append("\n</skills>\n")
@@ -181,6 +177,7 @@ def _today_date() -> str:
     + ``getFullYear`` / ``getMonth``
     / ``getDate`` block."""
     from datetime import datetime
+
     now = datetime.now()
     return f"{now.year:04d}-{now.month:02d}-{now.day:02d}"
 
@@ -240,11 +237,7 @@ def build_system_prompt(options: BuildSystemPromptOptions) -> str:
     prompt_cwd = (cwd or "").replace("\\", "/")
 
     date_str = _today_date()
-    append_section = (
-        f"\n\n{append_system_prompt}"
-        if append_system_prompt
-        else ""
-    )
+    append_section = f"\n\n{append_system_prompt}" if append_system_prompt else ""
 
     if custom_prompt:
         prompt = custom_prompt
@@ -254,8 +247,7 @@ def build_system_prompt(options: BuildSystemPromptOptions) -> str:
             prompt += "\n\n<project_context>\n\n"
             prompt += "Project-specific instructions and guidelines:\n\n"
             has_bootstrap = any(
-                os.path.basename(entry.get("path", "")) == "BOOTSTRAP.md"
-                for entry in context_files
+                os.path.basename(entry.get("path", "")) == "BOOTSTRAP.md" for entry in context_files
             )
             if has_bootstrap and is_first_turn:
                 prompt += "> [!IMPORTANT]\n> A BOOTSTRAP.md file is present and this is the first turn of the session.\n> You MUST prioritize and execute the instructions in BOOTSTRAP.md immediately before fulfilling the user's explicit request.\n\n"
@@ -271,19 +263,17 @@ def build_system_prompt(options: BuildSystemPromptOptions) -> str:
             prompt += "</project_context>\n"
         # Append skills section (only
         # if read tool is available).
-        custom_prompt_has_read = (
-            not selected_tools or "read" in selected_tools
-        )
+        custom_prompt_has_read = not selected_tools or "read" in selected_tools
         if custom_prompt_has_read and skills:
             prompt += _format_skills_for_prompt(skills)
         # Date + cwd.
         prompt += f"\nCurrent date: {date_str}"
         prompt += f"\nCurrent working directory: {prompt_cwd}"
-        
+
         # Append capability directory if provided
         if tool_directory:
             prompt += f"\n\n# Available Capabilities\n\n{tool_directory}"
-            
+
         return prompt
 
     # Default mode: build the tool
@@ -296,14 +286,9 @@ def build_system_prompt(options: BuildSystemPromptOptions) -> str:
     )
 
     tools = selected_tools or list(DEFAULT_TOOLS)
-    visible_tools = [
-        name for name in tools if tool_snippets.get(name)
-    ]
+    visible_tools = [name for name in tools if tool_snippets.get(name)]
     if visible_tools:
-        tools_list = "\n".join(
-            f"- {name}: {tool_snippets[name]}"
-            for name in visible_tools
-        )
+        tools_list = "\n".join(f"- {name}: {tool_snippets[name]}" for name in visible_tools)
     else:
         tools_list = "(none)"
 
@@ -314,7 +299,7 @@ def build_system_prompt(options: BuildSystemPromptOptions) -> str:
     if "bash" in tools:
         for guideline in (
             "Execute bash commands only when necessary.",
-            "Prefer running long-running commands in the background.",
+            "Run commands in the foreground by default. Use background execution only when the user requests it or the command must outlive the current turn; report background work only after it was actually started.",
         ):
             if guideline not in guidelines_set:
                 guidelines_set.add(guideline)
@@ -333,9 +318,7 @@ def build_system_prompt(options: BuildSystemPromptOptions) -> str:
         if guideline not in guidelines_set:
             guidelines_set.add(guideline)
             guidelines_list.append(guideline)
-    guidelines_block = "\n".join(
-        f"- {g}" for g in guidelines_list
-    ) if guidelines_list else "(none)"
+    guidelines_block = "\n".join(f"- {g}" for g in guidelines_list) if guidelines_list else "(none)"
 
     sections: list[str] = [
         "You are JARVIS, an AI assistant that helps users with tasks.",
@@ -362,8 +345,7 @@ def build_system_prompt(options: BuildSystemPromptOptions) -> str:
         sections.append("# Project context")
         sections.append("")
         has_bootstrap = any(
-            os.path.basename(entry.get("path", "")) == "BOOTSTRAP.md"
-            for entry in context_files
+            os.path.basename(entry.get("path", "")) == "BOOTSTRAP.md" for entry in context_files
         )
         if has_bootstrap and is_first_turn:
             sections.append(
@@ -373,9 +355,7 @@ def build_system_prompt(options: BuildSystemPromptOptions) -> str:
         for entry in context_files:
             file_path = entry.get("path", "")
             content = entry.get("content", "")
-            sections.append(
-                f'<project_instructions path="{file_path}">'
-            )
+            sections.append(f'<project_instructions path="{file_path}">')
             sections.append(content)
             sections.append("</project_instructions>")
             sections.append("")
@@ -388,12 +368,64 @@ def build_system_prompt(options: BuildSystemPromptOptions) -> str:
 
     # Append capability directory if provided
     if tool_directory:
-        sections.extend([
+        sections.extend(
+            [
+                "",
+                "# Available Capabilities",
+                "",
+                tool_directory,
+            ]
+        )
+
+    # Dynamic Memory Injection (MEMORY.md and memory/*.md)
+    try:
+        from pathlib import Path
+
+        memory_lines = []
+        workspace_path = Path(cwd) if cwd else Path.cwd()
+        memory_file = workspace_path / "MEMORY.md"
+        if not memory_file.exists():
+            home_memory = Path.home() / ".jarvis" / "MEMORY.md"
+            if home_memory.exists():
+                memory_file = home_memory
+
+        if memory_file.exists():
+            mem_text = memory_file.read_text(encoding="utf-8").strip()
+            if mem_text:
+                memory_lines.append(mem_text)
+
+        mem_dir = workspace_path / "memory"
+        if mem_dir.is_dir():
+            for note in sorted(mem_dir.glob("*.md"))[:10]:
+                note_text = note.read_text(encoding="utf-8").strip()
+                if note_text:
+                    memory_lines.append(f"### {note.stem}\n{note_text}")
+
+        if memory_lines:
+            sections.extend(
+                [
+                    "",
+                    "# Persistent Memory & Facts",
+                    "",
+                    "\n\n".join(memory_lines),
+                ]
+            )
+    except Exception:
+        pass
+
+    # Decision Making, Self-Healing & Execution Principles (OpenClaw Parity)
+    sections.extend(
+        [
             "",
-            "# Available Capabilities",
+            "# Decision Making, Self-Healing & Execution Principles",
             "",
-            tool_directory,
-        ])
+            "- **Continuity & Memory**: Always maintain strict continuity of ongoing tasks, past actions, and user directions. Never forget user preferences or established project context.",
+            "- **Self-Healing & Autonomous Recovery**: When any tool execution, command, or script encounters an error (e.g. command not found, syntax error, missing dependency), do NOT stop or report failure immediately. Diagnose the root cause, repair the command or arguments, fix the code, or try an alternative approach.",
+            "- **Dynamic Skill & Tool Acquisition**: When a task requires capabilities or tools you lack, dynamically acquire or create them: use `skill_workshop` to author a new skill (with procedures and supporting scripts under `scripts/`) or install an existing skill from ClawHub/GitHub; use `plugins` to search and install extensions; or write Python/PowerShell automation scripts using `write`/`exec`.",
+            "- **Goal Tenacity & Relentless Completion**: Always see every task through to complete, empirical resolution. Fulfill all acceptance criteria and verify observable outcomes before finalizing.",
+            "- **Accurate Execution**: Execute tools with canonical parameters, observe real tool outputs, and avoid assumptions.",
+        ]
+    )
 
     if append_section:
         sections.append(append_section)

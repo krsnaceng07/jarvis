@@ -5,7 +5,7 @@ description = "Personal AI assistant, OpenClaw architecture (Python port)"
 readme = "readme.md"
 license = { text = "MIT" }
 authors = [{ name = "JARVIS architect" }]
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.14"
 keywords = ["ai", "assistant", "jarvis", "openclaw", "plugin-sdk", "agent"]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -20,10 +20,66 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 
-# Runtime deps live in member apps/packages/extensions. Root has none.
 dependencies = [
+    "jarvis-plugin-sdk",
+    "jarvis-memory-host-sdk",
+    "jarvis-normalization-core",
+    "jarvis-retry",
+    "jarvis-llm-client",
+    "jarvis-agent-runtime",
+    "jarvis-state-core",
+    "jarvis-channels-core",
+    "jarvis-config-core",
+    "jarvis-gateway-protocol",
+    "jarvis-hooks-core",
+    "jarvis-i18n-core",
+    "jarvis-media-core",
+    "jarvis-mcp-core",
+    "jarvis-model-catalog-core",
+    "jarvis-learning-core",
+    "jarvis-tool-call-repair",
+    "jarvis-cli",
+    "jarvis-desktop",
+    "jarvis-tui",
+    "jarvis-client-runtime",
+    "jarvis-session-core",
+    "jarvis-cron-core",
+    "jarvis-acp-core",
+    "jarvis-ai",
+    "jarvis-audio-core",
+    "jarvis-cli-backend",
+    "jarvis-events-core",
+    "jarvis-live-session",
+    "jarvis-logging-core",
+    "jarvis-markdown-core",
+    "jarvis-media-generation-core",
+    "jarvis-media-understanding-common",
+    "jarvis-mermaid-renderer",
+    "jarvis-net-policy",
+    "jarvis-plugin-package-contract",
+    "jarvis-retry-core",
+    "jarvis-sdk",
+    "jarvis-secrets-core",
+    "jarvis-session-url-contract",
+    "jarvis-terminal-core",
+    "jarvis-transcript-core",
+    "jarvis-workboard-contract",
+    "jarvis-worker-runtime",
+    "jarvis-voice-pipeline",
     "tzdata>=2026.3",
     "websockets>=16.1.1",
+    "onnxruntime>=1.24.0",
+    "uiautomation>=2.0.29",
+    "lancedb>=0.34.0",
+    "fastembed>=0.9.0",
+    "selenium>=4.51.0",
+    "livekit-agents>=1.8.8",
+    "livekit>=1.1.20",
+    "livekit-plugins-google>=1.8.8",
+    "livekit-plugins-silero>=1.8.8",
+    "qrcode>=8.2",
+    "pycaw>=20251023",
+    "ddgs>=9.16.1",
 ]
 
 [project.urls]
@@ -54,11 +110,8 @@ default_gateway_port = 7433
 managed = true
 
 [tool.uv.workspace]
-members = [
-    "apps/*",
-    "packages/*",
-    "extensions/*",
-]
+members = ["apps/cli", "apps/desktop", "apps/tui", "packages/*", "extensions/*"]
+exclude = ["extensions/x"]
 
 [tool.uv.sources]
 jarvis-plugin-sdk = { workspace = true }
@@ -80,9 +133,32 @@ jarvis-learning-core = { workspace = true }
 jarvis-tool-call-repair = { workspace = true }
 jarvis-cli = { workspace = true }
 jarvis-desktop = { workspace = true }
+jarvis-tui = { workspace = true }
 jarvis-client-runtime = { workspace = true }
 jarvis-session-core = { workspace = true }
 jarvis-cron-core = { workspace = true }
+jarvis-acp-core = { workspace = true }
+jarvis-ai = { workspace = true }
+jarvis-audio-core = { workspace = true }
+jarvis-cli-backend = { workspace = true }
+jarvis-events-core = { workspace = true }
+jarvis-live-session = { workspace = true }
+jarvis-logging-core = { workspace = true }
+jarvis-markdown-core = { workspace = true }
+jarvis-media-generation-core = { workspace = true }
+jarvis-media-understanding-common = { workspace = true }
+jarvis-mermaid-renderer = { workspace = true }
+jarvis-net-policy = { workspace = true }
+jarvis-plugin-package-contract = { workspace = true }
+jarvis-retry-core = { workspace = true }
+jarvis-sdk = { workspace = true }
+jarvis-secrets-core = { workspace = true }
+jarvis-session-url-contract = { workspace = true }
+jarvis-terminal-core = { workspace = true }
+jarvis-transcript-core = { workspace = true }
+jarvis-workboard-contract = { workspace = true }
+jarvis-worker-runtime = { workspace = true }
+jarvis-voice-pipeline = { workspace = true }
 jarvis = { workspace = true }
 
 # Modern dependency groups (PEP 735). Replaces deprecated [tool.uv.dev-dependencies].
@@ -96,6 +172,7 @@ dev = [
     "hypothesis>=6.110.0",
     "pre-commit>=4.0.0",
     "pyrefly>=1.1.1",
+    "boto3>=1.43.115",
 ]
 
 # ─────────────────────────────────────────────────────────────────────
@@ -110,8 +187,8 @@ extend-exclude = [
     ".venv",
     "build",
     "dist",
-    "openclaw-main",     # upstream reference, do not lint
-    "**/legacy_*",       # transitional code, removed per migration plan
+    "openclaw-main", # upstream reference, do not lint
+    "**/legacy_*",   # transitional code, removed per migration plan
     # TRANSITIONAL (PR 0.4/0.5): legacy root-level code that will be
     # refactored into proper packages in Phase 1+ (see
     # OPENCLAW_MIGRATION_PLAN.md §5). Removed from exclude list as
@@ -130,108 +207,201 @@ extend-exclude = [
 [tool.ruff.lint]
 # Selected rule families (mirrors OpenClaw's oxlint rule selection but for Python).
 select = [
-    "E", "W",   # pycodestyle errors + warnings
-    "F",        # pyflakes
-    "I",        # isort (imports)
-    "N",        # pep8-naming
-    "UP",       # pyupgrade
-    "B",        # flake8-bugbear
-    "C4",       # flake8-comprehensions
-    "SIM",      # flake8-simplify
-    "RUF",      # ruff-specific
-    "ASYNC",    # flake8-async
-    "S",        # flake8-bandit (security)
-    "TCH",      # flake8-type-checking
-    "PIE",      # flake8-pie
-    "PT",       # flake8-pytest-style
-    "RET",      # flake8-return
-    "PL",       # pylint
-    "TID",      # flake8-tidy-imports
+    "E",
+    "W",     # pycodestyle errors + warnings
+    "F",     # pyflakes
+    "I",     # isort (imports)
+    "N",     # pep8-naming
+    "UP",    # pyupgrade
+    "B",     # flake8-bugbear
+    "C4",    # flake8-comprehensions
+    "SIM",   # flake8-simplify
+    "RUF",   # ruff-specific
+    "ASYNC", # flake8-async
+    "S",     # flake8-bandit (security)
+    "TCH",   # flake8-type-checking
+    "PIE",   # flake8-pie
+    "PT",    # flake8-pytest-style
+    "RET",   # flake8-return
+    "PL",    # pylint
+    "TID",   # flake8-tidy-imports
 ]
 ignore = [
-    "E501",     # line length — handled by formatter
-    "PLR0913",  # too many arguments — common in dataclasses
-    "PLR2004",  # magic value — useful in tests
-    "S101",     # assert — required for pytest
-    "B008",     # function call in default argument — required for pydantic
-    "N818",     # exception name ending in Error — keep our naming
+    "E501",    # line length — handled by formatter
+    "PLR0913", # too many arguments — common in dataclasses
+    "PLR2004", # magic value — useful in tests
+    "S101",    # assert — required for pytest
+    "B008",    # function call in default argument — required for pydantic
+    "N818",    # exception name ending in Error — keep our naming
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**/*.py" = ["S101", "S106", "S603", "PLR2004", "N802"]
-"**/legacy_*/*.py" = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "PL"]  # frozen legacy
-"**/__init__.py" = ["F401"]  # re-exports allowed
+"**/legacy_*/*.py" = [
+    "E",
+    "F",
+    "W",
+    "I",
+    "N",
+    "UP",
+    "B",
+    "C4",
+    "SIM",
+    "PL",
+] # frozen legacy
+"**/__init__.py" = ["F401"] # re-exports allowed
 # OpenClaw-parity files: preserve the structural patterns from the
 # TS source (long functions, deep nesting, broad try/except, etc.).
 # These ports mirror the OpenClaw code shape; aggressive refactoring
 # would defeat the "same-to-same" goal.
 "packages/plugin_sdk/src/jarvis_sdk/memory_host_*.py" = [
-    "PLR0912",  # too many branches (mirrors OpenClaw's per-field ladder)
-    "PLR0915",  # too many statements (mirrors long port functions)
-    "C416",     # unnecessary-comprehension (intentional for parity)
-    "SIM102",   # nested-if (mirrors OpenClaw's nested-if style)
-    "SIM103",   # return-in-condition (intentional for parity)
-    "SIM105",   # contextlib-suppress (intentional for parity)
-    "SIM108",   # ternary (intentional for parity)
-    "TRY003",   # long-message-outside-exception-class
-    "BLE001",   # blind-except (intentional — OpenClaw catch-all)
-    "EM101",    # exception-in-str (intentional for raise messages)
-    "EM102",    # exception-in-fstring (intentional for raise messages)
-    "N815",     # mixedCase (camelCase fields mirror OpenClaw JSON)
-    "N818",     # exception-name (intentional for parity)
-    "PERF203",  # try-except-in-loop (intentional for retry loops)
-    "B904",     # raise-without-from-inside-except (intentional for parity)
-    "B006",     # mutable-default-argument (intentional for callable defaults)
-    "ARG001",   # unused-function-argument (intentional for protocol parity)
-    "ARG002",   # unused-method-argument (intentional for protocol parity)
-    "S110",     # try-except-pass (intentional for OSError cleanup)
+    "PLR0912", # too many branches (mirrors OpenClaw's per-field ladder)
+    "PLR0915", # too many statements (mirrors long port functions)
+    "C416",    # unnecessary-comprehension (intentional for parity)
+    "SIM102",  # nested-if (mirrors OpenClaw's nested-if style)
+    "SIM103",  # return-in-condition (intentional for parity)
+    "SIM105",  # contextlib-suppress (intentional for parity)
+    "SIM108",  # ternary (intentional for parity)
+    "TRY003",  # long-message-outside-exception-class
+    "BLE001",  # blind-except (intentional — OpenClaw catch-all)
+    "EM101",   # exception-in-str (intentional for raise messages)
+    "EM102",   # exception-in-fstring (intentional for raise messages)
+    "N815",    # mixedCase (camelCase fields mirror OpenClaw JSON)
+    "N818",    # exception-name (intentional for parity)
+    "PERF203", # try-except-in-loop (intentional for retry loops)
+    "B904",    # raise-without-from-inside-except (intentional for parity)
+    "B006",    # mutable-default-argument (intentional for callable defaults)
+    "ARG001",  # unused-function-argument (intentional for protocol parity)
+    "ARG002",  # unused-method-argument (intentional for protocol parity)
+    "S110",    # try-except-pass (intentional for OSError cleanup)
 ]
-"tools/**/*.py" = ["T201", "PLR0912"]   # print allowed in scripts; many branches in validators
+"tools/**/*.py" = [
+    "T201",
+    "PLR0912",
+] # print allowed in scripts; many branches in validators
 # Phase 5.7 llm-core port: OpenClaw parity. These files mirror the shape of
 # `packages/llm-core/src/*.ts`, where the long type-dispatch ladders and the
 # deliberately-broad excepts *are* the design. Refactoring them would defeat
 # the "same-to-same" goal, and in stream.py the broad except is the contract.
 "packages/llm_client/src/jarvis_llm/types.py" = [
-    "TCH003",   # typing-only stdlib import (dataclass fields need runtime types)
-    "UP038",    # isinstance tuple vs union (parity with TS typeof chains)
+    "TCH003", # typing-only stdlib import (dataclass fields need runtime types)
+    "UP038",  # isinstance tuple vs union (parity with TS typeof chains)
 ]
 "packages/llm_client/src/jarvis_llm/validation.py" = [
-    "PLR0911",  # too many returns (mirrors the TS switch on schema type)
-    "PLR0912",  # too many branches (same)
-    "PLR0915",  # too many statements (same)
-    "SIM102",   # nested-if (mirrors OpenClaw's nested-if style)
-    "SIM103",   # return-in-condition (intentional for parity)
-    "SIM108",   # ternary (intentional for parity)
-    "SIM114",   # combine-if-branches (branches kept 1:1 with the TS cases)
-    "UP038",    # isinstance tuple vs union (parity with TS typeof chains)
+    "PLR0911", # too many returns (mirrors the TS switch on schema type)
+    "PLR0912", # too many branches (same)
+    "PLR0915", # too many statements (same)
+    "SIM102",  # nested-if (mirrors OpenClaw's nested-if style)
+    "SIM103",  # return-in-condition (intentional for parity)
+    "SIM108",  # ternary (intentional for parity)
+    "SIM114",  # combine-if-branches (branches kept 1:1 with the TS cases)
+    "UP038",   # isinstance tuple vs union (parity with TS typeof chains)
     "TCH003",
 ]
 "packages/llm_client/src/jarvis_llm/stream.py" = [
-    "BLE001",   # blind-except IS the never-throw contract, not an oversight
+    "BLE001", # blind-except IS the never-throw contract, not an oversight
     "TCH003",
 ]
 "packages/llm_client/src/jarvis_llm/abort.py" = [
-    "BLE001",   # best-effort teardown listeners must not break each other
-    "S110",     # try-except-pass (same: abort path must not raise)
-    "SLF001",   # private-member-access (controller owns its signal's listeners)
+    "BLE001", # best-effort teardown listeners must not break each other
+    "S110",   # try-except-pass (same: abort path must not raise)
+    "SLF001", # private-member-access (controller owns its signal's listeners)
 ]
 "packages/llm_client/src/jarvis_llm/event_stream.py" = [
-    "ASYNC",    # __aiter__ as an async generator mirrors the TS iterator
+    "ASYNC",  # __aiter__ as an async generator mirrors the TS iterator
     "TCH003",
 ]
 # Phase 4.4 dreaming port: OpenClaw parity — these rules are unavoidable
 # in deterministic helpers that mirror the TypeScript source structure.
-"extensions/memory_core/dreaming_state.py" = ["PLR0912", "PLR0915", "C416", "PLW0603", "TCH003", "UP038"]
-"extensions/memory_core/dreaming_shared.py" = ["PLR0912", "C416", "TCH003", "UP038"]
-"extensions/memory_core/dreaming_events.py" = ["PLR0912", "C416", "TCH003", "UP038"]
+"extensions/memory_core/dreaming_state.py" = [
+    "PLR0912",
+    "PLR0915",
+    "C416",
+    "PLW0603",
+    "TCH003",
+    "UP038",
+]
+"extensions/memory_core/dreaming_shared.py" = [
+    "PLR0912",
+    "C416",
+    "TCH003",
+    "UP038",
+]
+"extensions/memory_core/dreaming_events.py" = [
+    "PLR0912",
+    "C416",
+    "TCH003",
+    "UP038",
+]
 "extensions/memory_core/time.py" = ["C416"]
-"extensions/memory_core/dreaming_dreams_file.py" = ["PLR0912", "PLR0915", "C416", "SIM102", "SIM103", "SIM105", "TCH003", "UP038"]
-"extensions/memory_core/dreaming_markdown.py" = ["PLR0912", "PLR0915", "C416", "SIM102", "SIM105", "ASYNC230", "TCH003", "UP038"]
-"extensions/memory_core/dreaming_narrative.py" = ["PLR0912", "PLR0915", "C416", "SIM103", "PIE810", "N803", "S324", "S110", "TCH003", "UP038", "PTH", "RUF012", "RET504"]
-"extensions/memory_core/dreaming_repair.py" = ["PLR0912", "PLR0915", "C416", "S110", "TCH003", "UP038"]
-"extensions/memory_core/dreaming_shadow_trial.py" = ["PLR0912", "C416", "SIM105", "TCH003", "UP038", "RUF012"]
-"extensions/memory_core/dreaming_phases.py" = ["S324", "PLR0912", "C416", "N803", "PLR0915", "PIE810", "RUF005", "UP038", "TCH003"]
-"extensions/memory_core/dreaming_command.py" = ["S105", "SIM102", "S110", "PLR0912"]
+"extensions/memory_core/dreaming_dreams_file.py" = [
+    "PLR0912",
+    "PLR0915",
+    "C416",
+    "SIM102",
+    "SIM103",
+    "SIM105",
+    "TCH003",
+    "UP038",
+]
+"extensions/memory_core/dreaming_markdown.py" = [
+    "PLR0912",
+    "PLR0915",
+    "C416",
+    "SIM102",
+    "SIM105",
+    "ASYNC230",
+    "TCH003",
+    "UP038",
+]
+"extensions/memory_core/dreaming_narrative.py" = [
+    "PLR0912",
+    "PLR0915",
+    "C416",
+    "SIM103",
+    "PIE810",
+    "N803",
+    "S324",
+    "S110",
+    "TCH003",
+    "UP038",
+    "PTH",
+    "RUF012",
+    "RET504",
+]
+"extensions/memory_core/dreaming_repair.py" = [
+    "PLR0912",
+    "PLR0915",
+    "C416",
+    "S110",
+    "TCH003",
+    "UP038",
+]
+"extensions/memory_core/dreaming_shadow_trial.py" = [
+    "PLR0912",
+    "C416",
+    "SIM105",
+    "TCH003",
+    "UP038",
+    "RUF012",
+]
+"extensions/memory_core/dreaming_phases.py" = [
+    "S324",
+    "PLR0912",
+    "C416",
+    "N803",
+    "PLR0915",
+    "PIE810",
+    "RUF005",
+    "UP038",
+    "TCH003",
+]
+"extensions/memory_core/dreaming_command.py" = [
+    "S105",
+    "SIM102",
+    "S110",
+    "PLR0912",
+]
 "extensions/memory_core/dreaming.py" = ["PLR0912", "C416", "TCH003", "UP038"]
 "extensions/memory_core/cli.py" = ["PLR0912", "C416", "TCH003", "UP038", "PTH"]
 
@@ -248,14 +418,7 @@ docstring-code-format = true
 # Pyright — Python equivalent of OpenClaw's `tsgo` strict mode.
 # ─────────────────────────────────────────────────────────────────────
 [tool.pyright]
-include = [
-    "apps",
-    "packages",
-    "extensions",
-    "tools",
-    "tests",
-    "examples",
-]
+include = ["apps", "packages", "extensions", "tools", "tests", "examples"]
 exclude = [
     "**/__pycache__",
     "**/.git",
@@ -362,6 +525,7 @@ markers = [
     "integration: marks tests as integration (require external services)",
     "e2e: marks tests as end-to-end (full system)",
     "contract: marks tests as plugin contract tests",
+    "live: marks tests as live tests (require live network or external runtime)",
 ]
 
 # ─────────────────────────────────────────────────────────────────────
@@ -370,12 +534,7 @@ markers = [
 [tool.coverage.run]
 branch = true
 source = ["apps", "packages", "extensions"]
-omit = [
-    "**/legacy_*",
-    "**/__init__.py",
-    "**/test_*",
-    "openclaw-main/*",
-]
+omit = ["**/legacy_*", "**/__init__.py", "**/test_*", "openclaw-main/*"]
 
 [tool.coverage.report]
 precision = 1

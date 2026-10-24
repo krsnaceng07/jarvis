@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jarvis-voice-pipeline"
+version = "0.2.0"
+description = "Official LiveKit Agents voice and tool execution pipeline for JARVIS"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+authors = [{ name = "JARVIS architect" }]
+dependencies = [
+    "livekit>=1.0.0",
+    "livekit-agents>=1.0.0",
+    "livekit-plugins-google>=1.8.8",
+    "livekit-plugins-silero>=1.8.8",
+    "numpy>=1.26.4",
+    "pillow>=10.3.0",
+    "jarvis-plugin-sdk",
+    "jarvis-agent-runtime",
+    "jarvis-memory-host-sdk",
+    "jarvis-audio-core",
+    "jarvis-net-policy",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jarvis_voice_pipeline"]

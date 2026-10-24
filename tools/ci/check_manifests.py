@@ -41,8 +41,8 @@ ALLOWED_ACTIVATION = {"always", "on_startup", "on_demand"}
 SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$")
 # Python extensions use snake_case (since `from extensions.<id> import X`
 # requires a valid Python identifier). OpenClaw uses kebab-case because Node
-# imports tolerate hyphens. We allow both.
-ID_RE = re.compile(r"^[a-z][a-z0-9_-]*[a-z0-9]$")
+# imports tolerate hyphens. We allow both (including single-character ids like 'x').
+ID_RE = re.compile(r"^[a-z]([a-z0-9_-]*[a-z0-9])?$")
 
 
 def validate_manifest(ext_dir: Path) -> list[str]:
@@ -105,9 +105,8 @@ def validate_manifest(ext_dir: Path) -> list[str]:
     # activation (optional) — accept both string form
     # (``"always" | "on_startup" | "on_demand"``) and OpenClaw's
     # dict form (``{"onStartup": false, "onMessage": true, ...}``).
-    # The dict form mirrors OpenClaw's `openclaw.plugin.json` shape;
-    # keys are event names, values are booleans meaning
-    # "activate on this event".
+    # OpenClaw supports boolean triggers (onStartup, onMessage, etc.)
+    # and list triggers (onCommands, onAgentHarnesses, onConfigPaths, onCapabilities).
     if "activation" in manifest:
         act = manifest["activation"]
         if isinstance(act, str):
@@ -117,17 +116,24 @@ def validate_manifest(ext_dir: Path) -> list[str]:
                     f"must be one of {sorted(ALLOWED_ACTIVATION)}"
                 )
         elif isinstance(act, dict):
-            allowed_keys = {"onStartup", "onMessage", "onDemand", "always", "on_startup", "on_demand"}
+            bool_keys = {"onStartup", "onMessage", "onDemand", "always", "on_startup", "on_demand"}
+            list_keys = {"onCommands", "onAgentHarnesses", "onConfigPaths", "onCapabilities"}
+            allowed_keys = bool_keys | list_keys
             for k, v in act.items():
                 if k not in allowed_keys:
                     errors.append(
                         f"{ext_dir.name}: 'activation' dict key {k!r} "
                         f"must be one of {sorted(allowed_keys)}"
                     )
-                if not isinstance(v, bool):
+                elif k in bool_keys and not isinstance(v, bool):
                     errors.append(
                         f"{ext_dir.name}: 'activation[{k}]' value {v!r} "
                         f"must be a boolean"
+                    )
+                elif k in list_keys and not (isinstance(v, list) and all(isinstance(x, str) for x in v)):
+                    errors.append(
+                        f"{ext_dir.name}: 'activation[{k}]' value {v!r} "
+                        f"must be a list of strings"
                     )
         else:
             errors.append(

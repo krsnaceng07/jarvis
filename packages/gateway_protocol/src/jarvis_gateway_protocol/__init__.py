@@ -15,6 +15,7 @@ the same shapes.
 from __future__ import annotations
 
 from .schema import (
+    EventMethod,
     GatewayError,
     RPCMethod,
     GatewayRequest,
@@ -22,21 +23,29 @@ from .schema import (
     GatewayEvent,
     RPCRequest,
     RPCResponse,
+    RPCEvent,
 )
-from .validators import validate_request, validate_response
+from .client import GatewayWSClient
+from .validators import validate_event, validate_request, validate_response
 from .version import PROTOCOL_VERSION
-
-__all__ = [
-    "PROTOCOL_VERSION",
-    "GatewayError",
-    "RPCMethod",
-    "GatewayRequest",
-    "GatewayResponse",
-    "GatewayEvent",
-    "validate_request",
-    "validate_response",
-]
 
 # Export JSON-RPC shapes and keep GatewayError as RPCError alias for compatibility.
 RPCError = GatewayError
-__all__ += ["RPCError", "RPCRequest", "RPCResponse"]
+
+__all__ = [
+    "EventMethod",
+    "GatewayError",
+    "GatewayEvent",
+    "GatewayRequest",
+    "GatewayResponse",
+    "GatewayWSClient",
+    "PROTOCOL_VERSION",
+    "RPCError",
+    "RPCEvent",
+    "RPCMethod",
+    "RPCRequest",
+    "RPCResponse",
+    "validate_event",
+    "validate_request",
+    "validate_response",
+]
