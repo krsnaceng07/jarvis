@@ -45,9 +45,14 @@ class PollingWorker:
     async def _loop(self) -> None:
         offset = 0
         backoff = float(self.interval)
+        last_logged_error_time = 0.0
+        was_failing = False
         while self.is_running:
             try:
                 updates = await self.client.get_updates(offset=offset, timeout=25)
+                if was_failing:
+                    _log.info("Telegram polling reconnected successfully.")
+                    was_failing = False
                 backoff = float(self.interval)
                 for update in updates:
                     offset = max(offset, update["update_id"] + 1)
@@ -61,9 +66,13 @@ class PollingWorker:
             except asyncio.CancelledError:
                 break
             except Exception as e:
-                _log.warning("Telegram polling network error (retrying in %.1fs): %s", backoff, e)
+                now = asyncio.get_running_loop().time()
+                if not was_failing or (now - last_logged_error_time) > 60.0:
+                    _log.warning("Telegram polling network error (retrying in %.1fs): %s", backoff, e)
+                    last_logged_error_time = now
+                was_failing = True
                 await asyncio.sleep(backoff)
-                backoff = min(15.0, backoff * 1.5)
+                backoff = min(25.0, backoff * 1.5)
                 continue
 
             await asyncio.sleep(self.interval)

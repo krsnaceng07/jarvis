@@ -626,29 +626,61 @@ def _build_parser_v2() -> argparse.ArgumentParser:
     ch_status.add_argument("--probe", action="store_true", help="Probe channels for connectivity.")
 
     ch_doctor = ch_sub.add_parser("doctor", help="Run channels doctor diagnostics and auto-repair.")
-    ch_doctor.add_argument("--fix", action="store_true", help="Automatically attempt repair of detected issues.")
-    ch_doctor.add_argument("--channel", "-c", default=None, help="Specific channel to diagnose/repair (e.g. telegram, discord, slack).")
+    ch_doctor.add_argument(
+        "--fix", action="store_true", help="Automatically attempt repair of detected issues."
+    )
+    ch_doctor.add_argument(
+        "--channel",
+        "-c",
+        default=None,
+        help="Specific channel to diagnose/repair (e.g. telegram, discord, slack).",
+    )
 
     ch_sub.add_parser("list", help="List all supported and active channels.")
 
     ch_add = ch_sub.add_parser("add", help="Add or configure a messaging channel.")
-    ch_add.add_argument("channel", help="Channel identifier (e.g. telegram, discord, slack, whatsapp).")
+    ch_add.add_argument(
+        "channel", help="Channel identifier (e.g. telegram, discord, slack, whatsapp)."
+    )
     ch_add.add_argument("--token", default=None, help="Bot token or API key.")
-    ch_add.add_argument("--dm-policy", default="allow_all", choices=["allow_all", "pairing_required", "disabled"], help="Direct message access policy.")
-    ch_add.add_argument("--app-token", default=None, help="Slack app-level token (xapp-...) if applicable.")
+    ch_add.add_argument(
+        "--dm-policy",
+        default="allow_all",
+        choices=["allow_all", "pairing_required", "disabled"],
+        help="Direct message access policy.",
+    )
+    ch_add.add_argument(
+        "--app-token", default=None, help="Slack app-level token (xapp-...) if applicable."
+    )
 
     ch_rem = ch_sub.add_parser("remove", help="Remove or disable a messaging channel.")
-    ch_rem.add_argument("channel", help="Channel identifier (e.g. telegram, discord, slack, whatsapp).")
+    ch_rem.add_argument(
+        "channel", help="Channel identifier (e.g. telegram, discord, slack, whatsapp)."
+    )
 
-    ch_login = ch_sub.add_parser("login", help="Link a channel account via QR code or interactive login (e.g. whatsapp).")
-    ch_login.add_argument("channel", nargs="?", default="whatsapp", help="Channel identifier (e.g. whatsapp).")
-    ch_login.add_argument("--account", default="default", help="Account identifier (default 'default').")
-    ch_login.add_argument("--force", action="store_true", help="Force generating a fresh QR code even if already linked.")
+    ch_login = ch_sub.add_parser(
+        "login", help="Link a channel account via QR code or interactive login (e.g. whatsapp)."
+    )
+    ch_login.add_argument(
+        "channel", nargs="?", default="whatsapp", help="Channel identifier (e.g. whatsapp)."
+    )
+    ch_login.add_argument(
+        "--account", default="default", help="Account identifier (default 'default')."
+    )
+    ch_login.add_argument(
+        "--force",
+        action="store_true",
+        help="Force generating a fresh QR code even if already linked.",
+    )
     ch_login.add_argument("--phone", default=None, help="Optional phone number for pairing code.")
 
     ch_logout = ch_sub.add_parser("logout", help="Log out of a channel session (e.g. whatsapp).")
-    ch_logout.add_argument("channel", nargs="?", default="whatsapp", help="Channel identifier (e.g. whatsapp).")
-    ch_logout.add_argument("--account", default="default", help="Account identifier (default 'default').")
+    ch_logout.add_argument(
+        "channel", nargs="?", default="whatsapp", help="Channel identifier (e.g. whatsapp)."
+    )
+    ch_logout.add_argument(
+        "--account", default="default", help="Account identifier (default 'default')."
+    )
 
     # ── Phase 3: pairing subcommands ─────────────────────────────
     pairing_p = sp.add_parser("pairing", help="Pairing commands.")
@@ -680,14 +712,22 @@ def _build_parser_v2() -> argparse.ArgumentParser:
     # ── Phase 3: whatsapp subcommands ────────────────────────────
     wa_p = sp.add_parser("whatsapp", help="WhatsApp channel commands.")
     wa_sub = wa_p.add_subparsers(dest="subcommand", required=True, metavar="<action>")
-    wa_login = wa_sub.add_parser("login", help="Link WhatsApp via in-terminal QR code or pairing code.")
-    wa_login.add_argument("--account", default="default", help="Account identifier (default 'default').")
+    wa_login = wa_sub.add_parser(
+        "login", help="Link WhatsApp via in-terminal QR code or pairing code."
+    )
+    wa_login.add_argument(
+        "--account", default="default", help="Account identifier (default 'default')."
+    )
     wa_login.add_argument("--force", action="store_true", help="Force generating fresh QR code.")
     wa_login.add_argument("--phone", default=None, help="Optional phone number for pairing code.")
     wa_status = wa_sub.add_parser("status", help="Show WhatsApp link and credentials status.")
-    wa_status.add_argument("--account", default="default", help="Account identifier (default 'default').")
+    wa_status.add_argument(
+        "--account", default="default", help="Account identifier (default 'default')."
+    )
     wa_logout = wa_sub.add_parser("logout", help="Log out WhatsApp session.")
-    wa_logout.add_argument("--account", default="default", help="Account identifier (default 'default').")
+    wa_logout.add_argument(
+        "--account", default="default", help="Account identifier (default 'default')."
+    )
 
     mcp_p = sp.add_parser("mcp", help="Model Context Protocol (MCP) commands.")
     mcp_sub = mcp_p.add_subparsers(dest="subcommand", required=True, metavar="<action>")
@@ -1008,15 +1048,12 @@ def main(argv: list[str] | None = None) -> int:
             break
     workspace = workspace.resolve()
 
-    # Desktop owns its own startup-scoped plugin discovery. Avoid loading all
-    # CLI plugins first, which would activate optional non-startup extensions
-    # before the desktop host applies its OpenClaw activation policy.
-    if "desktop" in argv:
-        args = parser.parse_args(argv)
-        from jarvis_desktop.app import main as desktop_main
+    # If no command is provided or 'desktop' is invoked, launch the integrated
+    # JARVIS desktop application (Voice Engine + Hologram Desktop UI together).
+    if len(argv) == 0 or "desktop" in argv:
+        from jarvis_voice_pipeline.terminal_app import main as voice_main
 
-        desktop_main()
-        return 0
+        return voice_main()
 
     # sys.path is already patched at module level to include workspace and src.
 
@@ -1087,10 +1124,9 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     if args.command == "desktop":
-        from jarvis_desktop.app import main as desktop_main
+        from jarvis_voice_pipeline.terminal_app import main as voice_main
 
-        desktop_main()
-        return 0
+        return voice_main()
     if args.command in ("start", "voice"):
         from jarvis_voice_pipeline.terminal_app import main as voice_main
 
@@ -1252,7 +1288,9 @@ def _cmd_channels_status(args: argparse.Namespace, workspace: Path) -> int:
             from src.channels.channel_manager import _read_canonical_config
 
             can_cfg = _read_canonical_config()
-            channels_cfg = can_cfg.get("channels", {}) if isinstance(can_cfg.get("channels"), dict) else {}
+            channels_cfg = (
+                can_cfg.get("channels", {}) if isinstance(can_cfg.get("channels"), dict) else {}
+            )
         except Exception:
             pass
     plugins = _load_cli_plugins(workspace)
@@ -1332,7 +1370,9 @@ def _cmd_channels_doctor(args: argparse.Namespace, workspace: Path) -> int:
         if rem:
             print("Remaining issues:")
             for issue in rem:
-                print(f"  ✖ [{issue.get('channel')}] {issue.get('issue')} -> Recommendation: {issue.get('recommendation')}")
+                print(
+                    f"  ✖ [{issue.get('channel')}] {issue.get('issue')} -> Recommendation: {issue.get('recommendation')}"
+                )
         return 0 if res.get("status") in ("repaired", "healthy") else 1
     else:
         print(f"Running Channel Doctor Diagnosis on '{ch_id or 'all'}'...")
@@ -1358,10 +1398,16 @@ def _cmd_channels_list(args: argparse.Namespace, workspace: Path) -> int:
     channels = cm.list_supported_channels()
     print("JARVIS Supported Channels:")
     for ch in channels:
-        status_label = "ACTIVE" if ch.get("active") else ("CONFIGURED" if ch.get("configured") else "NOT CONFIGURED")
+        status_label = (
+            "ACTIVE"
+            if ch.get("active")
+            else ("CONFIGURED" if ch.get("configured") else "NOT CONFIGURED")
+        )
         tok = "yes" if ch.get("has_token") else "no"
         healing = "yes" if ch.get("self_healing") else "no"
-        print(f"  • {ch.get('channel_id')} ({ch.get('name')}) - [{status_label}] (token: {tok}, auto-heal: {healing})")
+        print(
+            f"  • {ch.get('channel_id')} ({ch.get('name')}) - [{status_label}] (token: {tok}, auto-heal: {healing})"
+        )
         print(f"    Platform: {ch.get('platform')} | Auth: {ch.get('auth_type')}")
         print(f"    {ch.get('description')}")
     return 0
@@ -1412,22 +1458,27 @@ def _cmd_channels_remove(args: argparse.Namespace, workspace: Path) -> int:
 
 
 def _cmd_channels_login(args: argparse.Namespace, workspace: Path) -> int:
+    import asyncio
+
     channel = (getattr(args, "channel", None) or "whatsapp").strip().lower()
     account_id = getattr(args, "account", "default")
     force = getattr(args, "force", False)
     phone = getattr(args, "phone", None)
 
     if channel == "whatsapp":
-        from src.desktop_automation.providers.whatsapp_provider import WhatsAppDesktopProvider
+        from extensions.whatsapp.plugin import WhatsAppPlugin
 
-        # OpenClaw parity: Prompt for owner's personal phone number if not supplied
+        # OpenClaw parity: prompt for the owner's phone number if not supplied
         if not phone and sys.stdin.isatty():
             try:
                 print("\n=======================================================")
                 print("  JARVIS WhatsApp Channel Pairing")
                 print("=======================================================")
                 print("Direct WhatsApp messages to JARVIS are secured by allowlist.")
-                print("Enter your personal phone number (with country code, e.g. +97798XXXXXXXX)")
+                print(
+                    "Enter your personal phone number with country code "
+                    "(e.g. +97798XXXXXXXX) for an 8-digit pairing code,"
+                )
                 print("or press Enter to generate a QR code for camera scanning.")
                 user_inp = input("Personal Phone Number: ").strip()
                 if user_inp:
@@ -1435,24 +1486,26 @@ def _cmd_channels_login(args: argparse.Namespace, workspace: Path) -> int:
             except (KeyboardInterrupt, EOFError):
                 pass
 
-        provider = WhatsAppDesktopProvider()
-        print(f"Initiating WhatsApp Web pairing for account '{account_id}'...")
-        res = provider.generate_pairing_qr(
-            account_id=account_id,
-            force=force,
-            phone=phone,
-            print_terminal=True,
-            wait_for_connection=True,
+        plugin = WhatsAppPlugin()
+        plugin.metadata["accountId"] = account_id
+        print(f"Initiating WhatsApp pairing for account '{account_id}'...")
+        res = asyncio.run(
+            plugin.login(
+                account_id=account_id,
+                force=force,
+                print_terminal=True,
+                phone=phone,
+            )
         )
-        if res.get("connected"):
-            print(res.get("message", f"\n✔ WhatsApp account '{account_id}' successfully paired and active!"))
+        if res.get("ok"):
+            print(res.get("message", f"✔ WhatsApp account '{account_id}' is linked."))
             return 0
-        instructions = res.get("instructions", "")
-        if instructions:
-            print(f"\n{instructions}\n")
-        return 0 if res.get("ok") else 1
+        print(f"✖ WhatsApp login failed: {res.get('error')}")
+        return 1
     else:
-        print(f"Interactive login is not supported for channel '{channel}'. Supported channels: whatsapp")
+        print(
+            f"Interactive login is not supported for channel '{channel}'. Supported channels: whatsapp"
+        )
         return 1
 
 
@@ -1461,12 +1514,13 @@ def _cmd_channels_logout(args: argparse.Namespace, workspace: Path) -> int:
     account_id = getattr(args, "account", "default")
 
     if channel == "whatsapp":
-        from src.desktop_automation.providers.whatsapp_provider import WhatsAppDesktopProvider
+        import asyncio
 
-        provider = WhatsAppDesktopProvider()
-        res = provider.logout(account_id=account_id)
+        from extensions.whatsapp.plugin import WhatsAppPlugin
+
+        res = asyncio.run(WhatsAppPlugin().logout(account_id=account_id))
         print(res.get("message", f"WhatsApp account '{account_id}' logged out."))
-        return 0
+        return 0 if res.get("ok") else 1
     else:
         print(f"Logout is not supported for channel '{channel}'. Supported channels: whatsapp")
         return 1
@@ -1474,17 +1528,16 @@ def _cmd_channels_logout(args: argparse.Namespace, workspace: Path) -> int:
 
 def _cmd_whatsapp_status(args: argparse.Namespace, workspace: Path) -> int:
     account_id = getattr(args, "account", "default")
-    from src.desktop_automation.providers.whatsapp_provider import WhatsAppDesktopProvider
+    from extensions.whatsapp.plugin import WhatsAppPlugin
 
-    provider = WhatsAppDesktopProvider()
-    auth = provider.get_auth_state(account_id)
-    if auth.get("linked"):
-        print(f"WhatsApp Status: LINKED (Account: {account_id}, Identity: {auth.get('who')})")
-        print(f"  Auth Directory: {auth.get('auth_dir')}")
-        print(f"  Credentials: {auth.get('creds_file')}")
+    auth = WhatsAppPlugin().auth_state(account_id)
+    if auth["linked"]:
+        print(f"WhatsApp Status: LINKED (Account: {account_id}, Identity: {auth['who']})")
+        print(f"  Auth Directory: {auth['auth_dir']}")
+        print(f"  Credentials: {auth['creds_file']}")
     else:
         print(f"WhatsApp Status: NOT LINKED (Account: {account_id})")
-        print("  Run 'jarvis channels login whatsapp' to generate in-terminal pairing QR code.")
+        print("  Run 'jarvis channels login whatsapp' to pair a device.")
     return 0
 
 
@@ -1630,6 +1683,7 @@ def _cmd_ask(args: argparse.Namespace, workspace: Path) -> int:
 
     if not api_key:
         import os
+
         api_key = os.environ.get("GEMINI_API_KEY")
 
     if not api_key:
@@ -1665,7 +1719,9 @@ def _cmd_ask(args: argparse.Namespace, workspace: Path) -> int:
         return 0
 
     except ImportError:
-        print("Error: neither google-genai nor google-generativeai is installed. Run: uv add google-genai")
+        print(
+            "Error: neither google-genai nor google-generativeai is installed. Run: uv add google-genai"
+        )
         return 1
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)

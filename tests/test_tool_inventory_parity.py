@@ -151,7 +151,9 @@ async def test_executor_override_wins_over_plugin_dispatch() -> None:
 
     surface = build_effective_tool_inventory(
         base_declarations=[{"name": "computer", "description": "desktop", "parameters": {}}],
-        plugin_dispatch={"computer": (type("P", (), {"call": staticmethod(plugin_call)})(), "computer")},
+        plugin_dispatch={
+            "computer": (type("P", (), {"call": staticmethod(plugin_call)})(), "computer")
+        },
         executor_overrides={"computer": override},
     )
 

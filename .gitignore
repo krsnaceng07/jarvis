@@ -105,6 +105,8 @@ target/
 scratch/
 node_modules/
 **/node_modules/
+*.tsbuildinfo
+uploads/
 
 
 

@@ -19,6 +19,56 @@ from ..extensions.types import AgentToolResult, ToolDefinition
 from .bash import resolve_bash_timeout_ms
 
 
+def repair_cmd_syntax_to_powershell(command: str) -> str:
+    """Auto-repair Windows CMD syntax constructs to idiomatic PowerShell."""
+    # 1. Translate CMD 'if not exist <path> <action>' -> 'if (-not (Test-Path <path>)) { <action> }'
+    def _rep_if_not_exist(m: re.Match) -> str:
+        target = m.group(1).strip()
+        action = m.group(2).strip()
+        if action.startswith("(") and action.endswith(")"):
+            action = action[1:-1].strip()
+        md_match = re.match(r'^(?:mkdir|md)\s+("?[^"\r\n]+?"?|\S+)$', action, flags=re.I)
+        if md_match:
+            folder = md_match.group(1).strip()
+            return f"if (-not (Test-Path {target})) {{ New-Item -ItemType Directory -Force -Path {folder} | Out-Null }}"
+        return f"if (-not (Test-Path {target})) {{ {action} }}"
+
+    command = re.sub(
+        r'(?i)\bif\s+not\s+exist\s+("?[^"\r\n;]+?"?|\S+)\s+([^;\r\n]+)',
+        _rep_if_not_exist,
+        command,
+    )
+
+    # 2. Translate CMD 'if exist <path> <action>' -> 'if (Test-Path <path>) { <action> }'
+    def _rep_if_exist(m: re.Match) -> str:
+        target = m.group(1).strip()
+        action = m.group(2).strip()
+        if action.startswith("(") and action.endswith(")"):
+            action = action[1:-1].strip()
+        return f"if (Test-Path {target}) {{ {action} }}"
+
+    command = re.sub(
+        r'(?i)\bif\s+exist\s+("?[^"\r\n;]+?"?|\S+)\s+([^;\r\n]+)',
+        _rep_if_exist,
+        command,
+    )
+
+    # 3. Translate CMD 'type nul > <file>' to New-Item
+    command = re.sub(
+        r'(?i)\btype\s+nul\s*>\s*("?[^"\r\n;]+?"?|\S+)',
+        r'New-Item -ItemType File -Force -Path \1 | Out-Null',
+        command,
+    )
+
+    # 4. Translate CMD 'move /y' or 'move' with flags
+    command = re.sub(r'(?i)\bmove\s+/y\s+', 'Move-Item -Force -Path ', command)
+
+    # 5. Translate CMD 'copy /y' or 'copy' with flags
+    command = re.sub(r'(?i)\bcopy\s+/y\s+', 'Copy-Item -Force -Path ', command)
+
+    return command
+
+
 def create_exec_tool_definition(
     cwd: str = "",
     options: Optional[dict] = None,
@@ -337,6 +387,9 @@ def create_exec_tool_definition(
 
                 # 5. Replace Unix/CMD statement chaining '&&' with PowerShell statement separator ';'
                 repaired_command = re.sub(r"\s*&&\s*", "; ", repaired_command)
+
+                # 5b. Translate Windows CMD constructs (if not exist, if exist, move /y, etc.) to PowerShell
+                repaired_command = repair_cmd_syntax_to_powershell(repaired_command)
 
                 # 6. Guard against runaway recursive directory searches across root drives or Program Files
                 # Restrict -Depth 3 ONLY to Get-ChildItem (or gci/dir/ls), NEVER to Remove-Item

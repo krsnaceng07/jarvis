@@ -407,11 +407,51 @@ def open_web_url_unified(url: str) -> bool:
     return True
 
 
+_START_APPS_CACHE: list[tuple[str, str]] = []
+_START_APPS_CACHE_TIME: float = 0.0
+
+
+def _get_start_apps() -> list[tuple[str, str]]:
+    """Return list of (app_name, app_id) installed on Windows, cached with a 1-hour TTL."""
+    global _START_APPS_CACHE, _START_APPS_CACHE_TIME
+    import json
+    import subprocess
+    import time
+
+    now = time.time()
+    if _START_APPS_CACHE and (now - _START_APPS_CACHE_TIME) < 3600:
+        return _START_APPS_CACHE
+
+    try:
+        ps_cmd = "Get-StartApps | ConvertTo-Json -Compress"
+        res = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
+            capture_output=True,
+            text=True,
+            timeout=8.0,
+        )
+        if res.returncode == 0 and res.stdout.strip():
+            data = json.loads(res.stdout.strip())
+            if isinstance(data, dict):
+                data = [data]
+            if isinstance(data, list):
+                _START_APPS_CACHE = [
+                    (str(item.get("Name", "")).strip(), str(item.get("AppID", "")).strip())
+                    for item in data
+                    if item.get("Name") and item.get("AppID")
+                ]
+                _START_APPS_CACHE_TIME = now
+                return _START_APPS_CACHE
+    except Exception:
+        pass
+    return _START_APPS_CACHE
+
+
 def launch_windows_app(target: str) -> tuple[bool, str]:
     """Launch a Windows application reliably across Win32, UWP/Store apps, URI protocols, and Web fallbacks.
 
     Prevents WinError 2 file not found errors when opening applications like WhatsApp, Spotify,
-    Telegram, Calculator, etc.
+    Telegram, Calculator, Stonic AI, etc. Truthfully reports failure when an application is not found.
     """
     import shutil
     import subprocess
@@ -509,28 +549,61 @@ def launch_windows_app(target: str) -> tuple[bool, str]:
         except Exception:
             pass
 
-    # 5. PowerShell Get-StartApps lookup (for any Windows Store / UWP installed app)
+    # 5. Fast cached StartApps lookup (for Windows Store / UWP / Installed Desktop apps)
     try:
-        ps_cmd = f"Get-StartApps | Where-Object {{ $_.Name -like '*{t_raw}*' }} | Select-Object -ExpandProperty AppID -First 1"
-        res = subprocess.run(
-            ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", ps_cmd],
-            capture_output=True,
-            text=True,
-            timeout=3.0,
-        )
-        app_id = res.stdout.strip()
-        if app_id:
-            subprocess.Popen(f'explorer.exe shell:AppsFolder\\{app_id}', shell=True)
-            return True, f"Launched Store App '{t_raw}' (AppID: {app_id})"
+        apps = _get_start_apps()
+        # Pass 1: exact match
+        for app_name, app_id in apps:
+            if app_name.lower() == t_clean:
+                if os.path.exists(app_id):
+                    subprocess.Popen([app_id], shell=False)
+                    return True, f"Launched '{app_name}' ({app_id})"
+                subprocess.Popen(f'explorer.exe shell:AppsFolder\\{app_id}', shell=True)
+                return True, f"Launched Store App '{app_name}' (AppID: {app_id})"
+
+        # Pass 2: prefix or word boundary match (e.g. "stonic" -> "Stonic AI")
+        for app_name, app_id in apps:
+            an_lower = app_name.lower()
+            if an_lower.startswith(t_clean) or t_clean in an_lower.split():
+                if os.path.exists(app_id):
+                    subprocess.Popen([app_id], shell=False)
+                    return True, f"Launched '{app_name}' ({app_id})"
+                subprocess.Popen(f'explorer.exe shell:AppsFolder\\{app_id}', shell=True)
+                return True, f"Launched Store App '{app_name}' (AppID: {app_id})"
+
+        # Pass 3: substring match
+        for app_name, app_id in apps:
+            if t_clean in app_name.lower():
+                if os.path.exists(app_id):
+                    subprocess.Popen([app_id], shell=False)
+                    return True, f"Launched '{app_name}' ({app_id})"
+                subprocess.Popen(f'explorer.exe shell:AppsFolder\\{app_id}', shell=True)
+                return True, f"Launched Store App '{app_name}' (AppID: {app_id})"
     except Exception:
         pass
 
-    # 6. Fallback: cmd.exe /c start "" "<target>"
-    try:
-        subprocess.Popen(f'cmd.exe /c start "" "{t_raw}"', shell=True)
-        return True, f"Attempted launch via cmd start for '{t_raw}'"
-    except Exception as exc:
-        return False, f"Failed to launch '{t_raw}': {exc}"
+    # 6. Windows Start Menu .lnk shortcut lookup
+    start_menu_dirs = [
+        os.path.expandvars(r"%APPDATA%\Microsoft\Windows\Start Menu\Programs"),
+        os.path.expandvars(r"%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\Programs"),
+    ]
+    for sm_dir in start_menu_dirs:
+        if os.path.isdir(sm_dir):
+            try:
+                for root, _, files in os.walk(sm_dir):
+                    for f in files:
+                        if f.lower().endswith((".lnk", ".url")) and t_clean in f.lower():
+                            lnk_path = os.path.join(root, f)
+                            try:
+                                os.startfile(lnk_path)
+                                return True, f"Launched shortcut '{f}' ({lnk_path})"
+                            except Exception:
+                                pass
+            except Exception:
+                pass
+
+    # 7. Truthful failure report: do not pretend to launch via cmd.exe start
+    return False, f"Application or file '{t_raw}' was not found on this system."
 
 
 __all__ = [

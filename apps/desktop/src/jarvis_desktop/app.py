@@ -996,8 +996,9 @@ class JarvisLive:
             )
         )
 
+        # Native-audio models default to AUDIO output automatically; omitting explicit response_modalities
+        # prevents RFC 6455 1007 'CONTENT_TYPE_AUDIO is not supported' schema rejections on tool-call turns.
         return types.LiveConnectConfig(
-            response_modalities=[types.Modality.AUDIO],
             output_audio_transcription=types.AudioTranscriptionConfig(),
             input_audio_transcription=types.AudioTranscriptionConfig(),
             system_instruction="\n".join(parts),
@@ -2140,21 +2141,25 @@ class JarvisLive:
                             if txt and txt not in in_buf:
                                 in_buf.append(txt)
                             if hasattr(self.ui, "set_live_transcript"):
-                                self.ui.set_live_transcript(" ".join(in_buf))
+                                try:
+                                    self.ui.set_live_transcript(" ".join(in_buf), is_final=False, role="user")
+                                except TypeError:
+                                    self.ui.set_live_transcript(" ".join(in_buf))
                         elif live_interim and getattr(live_interim, "text", None):
                             interim_txt = live_interim.text.strip()
                             if interim_txt:
                                 display_txt = f"{' '.join(in_buf)} {interim_txt}".strip()
                                 if hasattr(self.ui, "set_live_transcript"):
-                                    self.ui.set_live_transcript(display_txt)
+                                    try:
+                                        self.ui.set_live_transcript(display_txt, is_final=False, role="user")
+                                    except TypeError:
+                                        self.ui.set_live_transcript(display_txt)
 
                         if sc.turn_complete:
                             self._turns_completed_in_session += 1
                             self._audio_stream_ended = True
                             self._user_is_speaking = False
                             self._interrupted = False
-                            if hasattr(self.ui, "set_live_transcript"):
-                                self.ui.set_live_transcript("")
                             # Signal _play_audio that Gemini has finished
                             # sending audio. _play_audio will drain remaining
                             # queued chunks then end speech instantly.
@@ -2164,6 +2169,11 @@ class JarvisLive:
 
                             full_in = " ".join(in_buf).strip()
                             if full_in:
+                                if hasattr(self.ui, "set_live_transcript"):
+                                    try:
+                                        self.ui.set_live_transcript(f"You: {full_in}", is_final=True, role="user")
+                                    except TypeError:
+                                        self.ui.set_live_transcript(f"You: {full_in}")
                                 self.ui.write_log(f"You: {full_in}")
                                 if hasattr(self, "rolling_context") and self.rolling_context:
                                     self.rolling_context.record_user_turn(full_in)

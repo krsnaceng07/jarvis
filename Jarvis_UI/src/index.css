@@ -1,0 +1,171 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-cyan: #00f0ff;
+    --color-green: #00ff88;
+    --color-red: #ff2b44;
+    --color-blue: #38bdf8;
+  }
+
+  body {
+    background-color: #03060c;
+    color: #f1f5f9;
+    font-family: 'Rajdhani', Inter, system-ui, sans-serif;
+    user-select: none;
+    overflow: hidden;
+  }
+}
+
+/* Sci-Fi HUD Background Grid */
+.hud-grid-bg {
+  background-size: 32px 32px;
+  background-image: 
+    linear-gradient(to right, rgba(0, 240, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 240, 255, 0.035) 1px, transparent 1px);
+}
+
+.hud-panel-grid {
+  background-size: 20px 20px;
+  background-image: 
+    linear-gradient(to right, rgba(0, 240, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 240, 255, 0.04) 1px, transparent 1px);
+}
+
+/* Shared cut-corner frame used by the dashboard panels in the reference UI. */
+.hud-panel-frame {
+  --hud-panel-bg: #06111a;
+  --hud-panel-border: #1c414b;
+  position: relative;
+  isolation: isolate;
+  border: 1px solid transparent !important;
+  border-radius: 0 !important;
+  background: var(--hud-panel-border) !important;
+  clip-path: polygon(
+    12px 0,
+    calc(100% - 12px) 0,
+    100% 12px,
+    100% calc(100% - 12px),
+    calc(100% - 12px) 100%,
+    12px 100%,
+    0 calc(100% - 12px),
+    0 12px
+  );
+}
+
+.hud-panel-frame::after {
+  position: absolute;
+  pointer-events: none;
+  content: '';
+}
+
+@media (max-height: 720px) {
+  .assistant-panel-controls {
+    padding-bottom: 8px;
+  }
+
+  .assistant-panel-controls > :not(:first-child) {
+    margin-top: 4px;
+  }
+
+  .assistant-terminate-button {
+    padding: 4px 28px;
+    font-size: 10px;
+  }
+
+  .assistant-microphone-wrap > div {
+    height: 32px;
+    width: 32px;
+  }
+
+  .assistant-microphone-button {
+    height: 28px;
+    width: 28px;
+  }
+}
+
+.hud-panel-frame::after {
+  z-index: -1;
+  inset: 1px;
+  background: var(--hud-panel-bg);
+  clip-path: polygon(
+    11px 0,
+    calc(100% - 11px) 0,
+    100% 11px,
+    100% calc(100% - 11px),
+    calc(100% - 11px) 100%,
+    11px 100%,
+    0 calc(100% - 11px),
+    0 11px
+  );
+}
+
+/* Chamfered Corners */
+.chamfer-lg {
+  clip-path: polygon(
+    18px 0%, 
+    calc(100% - 18px) 0%, 
+    100% 18px, 
+    100% calc(100% - 18px), 
+    calc(100% - 18px) 100%, 
+    18px 100%, 
+    0% calc(100% - 18px), 
+    0% 18px
+  );
+}
+
+.chamfer-sm {
+  clip-path: polygon(
+    8px 0%, 
+    calc(100% - 8px) 0%, 
+    100% 8px, 
+    100% calc(100% - 8px), 
+    calc(100% - 8px) 100%, 
+    8px 100%, 
+    0% calc(100% - 8px), 
+    0% 8px
+  );
+}
+
+.chamfer-terminate {
+  clip-path: polygon(
+    12px 0%, 
+    calc(100% - 12px) 0%, 
+    100% 50%, 
+    calc(100% - 12px) 100%, 
+    12px 100%, 
+    0% 50%
+  );
+}
+
+/* Custom Futuristic Scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(4, 9, 18, 0.6);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 240, 255, 0.25);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 240, 255, 0.5);
+}
+
+/* Scanline effect */
+.scanline-overlay {
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%, 
+    rgba(0, 240, 255, 0.02) 50%
+  ), linear-gradient(
+    90deg,
+    rgba(255, 0, 0, 0.01),
+    rgba(0, 255, 0, 0.005),
+    rgba(0, 0, 255, 0.01)
+  );
+  background-size: 100% 3px, 6px 100%;
+}

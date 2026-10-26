@@ -80,6 +80,9 @@ dependencies = [
     "qrcode>=8.2",
     "pycaw>=20251023",
     "ddgs>=9.16.1",
+    "fastapi>=0.162.0",
+    "pywebview>=6.2.1",
+    "pyqt6-webengine>=6.11.0",
 ]
 
 [project.urls]

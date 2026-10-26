@@ -108,3 +108,27 @@ person, project, todo). Example:
 - notes/user_statement_faith: User is making a statement about faith and concentration, potentially philosophical or spiritual context.
 - notes/current_context: User mentioned needing to charge.
 - health/user_health_status: fever
+
+- Test Preference: Dark theme enabled #user
+
+- Test Preference: Dark theme enabled #user
+
+- Test Preference: Dark theme enabled #user
+
+- Test Preference: Dark theme enabled #user
+
+- Test Preference: Dark theme enabled #user
+
+- Test Preference: Dark theme enabled #user
+
+- Test Preference: Dark theme enabled #user
+
+- Test Preference: Dark theme enabled #user
+
+- Test Preference: Dark theme enabled #user
+
+- Test Preference: Dark theme enabled #user
+
+- Test Preference: Dark theme enabled #user
+
+- Test Preference: Dark theme enabled #user

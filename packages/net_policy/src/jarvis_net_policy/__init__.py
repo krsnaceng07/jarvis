@@ -15,6 +15,13 @@ from .resilient_dns import (
     get_resilient_dns_resolver,
     is_internet_connected,
 )
+from .windows_socket_patch import (
+    install_asyncio_resilience_handler,
+    patch_windows_asyncio_connection_lost,
+)
+
+# Proactively patch Windows ProactorEventLoop on module import
+patch_windows_asyncio_connection_lost()
 
 
 def is_private_ip(ip_str: str) -> bool:
@@ -43,4 +50,6 @@ __all__ = [
     "disable_resilient_dns",
     "get_resilient_dns_resolver",
     "is_internet_connected",
+    "install_asyncio_resilience_handler",
+    "patch_windows_asyncio_connection_lost",
 ]

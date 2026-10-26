@@ -22,7 +22,9 @@ import pytest
 from src.agents.sessions.tools.channel_tools import (
     CHANNEL_TOOL_DECLARATIONS,
     create_channel_status_tool,
+    create_channels_tool,
     create_configure_channel_tool,
+    create_whatsapp_login_tool,
 )
 from src.channels.channel_manager import ChannelManager
 
@@ -144,15 +146,20 @@ async def test_telegram_listener_start_is_idempotent(
 
     class FakePlugin:
         def __init__(self) -> None:
-            self.calls = 0
-            self.client = object()
+            self.reconfigures = 0
+            self.listens = 0
 
         def reconfigure(
             self, config: dict[str, Any], callback: Any = None, auto_listen: bool = True
-        ) -> None:
-            self.calls += 1
+        ) -> bool:
+            self.reconfigures += 1
             self.callback = callback
             self.config = config
+            assert auto_listen is False, "listener start must go through listen()"
+            return True
+
+        async def listen(self, callback: Any) -> None:
+            self.listens += 1
 
     plugin = FakePlugin()
     reset_channel_manager._channel_plugins["telegram"] = plugin
@@ -162,7 +169,8 @@ async def test_telegram_listener_start_is_idempotent(
 
     assert first["ok"] is True
     assert second["ok"] is True
-    assert plugin.calls == 1
+    assert second["status"] == "already_listening"
+    assert plugin.listens == 1
     assert reset_channel_manager._active_listeners["telegram"] is True
 
 
@@ -331,9 +339,76 @@ def test_channel_tool_declarations_schema() -> None:
     names = {d["name"] for d in CHANNEL_TOOL_DECLARATIONS}
     assert "configure_channel" in names
     assert "channel_status" in names
+    assert "channels" in names
+    assert "whatsapp_login" in names
 
     cfg_decl = next(d for d in CHANNEL_TOOL_DECLARATIONS if d["name"] == "configure_channel")
     assert "channel" in cfg_decl["parameters"]["properties"]
     assert "token" in cfg_decl["parameters"]["properties"]
     assert "dm_policy" in cfg_decl["parameters"]["properties"]
     assert cfg_decl["parameters"]["required"] == ["channel", "token"]
+
+
+def test_whatsapp_plugin_qr_rendering() -> None:
+    """Test QR PNG data URL and ASCII art rendering for WhatsApp login."""
+    from extensions.whatsapp.plugin import WhatsAppPlugin
+
+    payload = "1@dummy_whatsapp_qr_pairing_string,test_pubkey,test_adv"
+    data_url = WhatsAppPlugin._render_qr_data_url(payload)
+    assert data_url.startswith("data:image/png;base64,")
+    assert len(data_url) > 100
+
+    ascii_qr = WhatsAppPlugin._render_ascii_qr(payload)
+    assert "\n" in ascii_qr
+    assert len(ascii_qr) > 50
+
+
+@pytest.mark.asyncio
+async def test_whatsapp_login_tool_returns_qr_markdown(
+    reset_channel_manager: ChannelManager,
+) -> None:
+    """Test whatsapp_login tool generates and embeds QR markdown image for phone scanning."""
+    mock_login_res = {
+        "ok": True,
+        "status": "qr_ready",
+        "qr": "dummy_qr",
+        "qr_data_url": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==",
+        "ascii_qr": "██████",
+    }
+
+    with patch.object(
+        reset_channel_manager, "login_whatsapp", new_callable=AsyncMock
+    ) as mock_login:
+        mock_login.return_value = mock_login_res
+        tool = create_whatsapp_login_tool()
+        res = await tool["execute"]("call_wa_login", {"action": "start"})
+
+        assert mock_login.called
+        text = res["content"][0]["text"]
+        assert "![WhatsApp QR](data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==)" in text
+        assert "Linked Devices" in text
+
+
+@pytest.mark.asyncio
+async def test_channels_tool_login_whatsapp(
+    reset_channel_manager: ChannelManager,
+) -> None:
+    """Test unified channels tool with action='login' and channel='whatsapp' returns QR."""
+    mock_login_res = {
+        "ok": True,
+        "status": "qr_ready",
+        "qr_data_url": "data:image/png;base64,test_qr_123",
+        "ascii_qr": "████",
+    }
+
+    with patch.object(
+        reset_channel_manager, "login_whatsapp", new_callable=AsyncMock
+    ) as mock_login:
+        mock_login.return_value = mock_login_res
+        tool = create_channels_tool()
+        res = await tool["execute"]("call_channels_wa", {"action": "login", "channel": "whatsapp"})
+
+        assert mock_login.called
+        text = res["content"][0]["text"]
+        assert "![WhatsApp QR](data:image/png;base64,test_qr_123)" in text
+

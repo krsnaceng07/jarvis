@@ -1,6 +1,6 @@
 """src.agents.self_healing.strategies.tool_argument_repair — Autonomous parameter healing.
 
-OpenClaw parity: mirrors prepareToolCallArguments and preflight coercion.
+Autonomous parameter coercion and repair.
 Repairs model syntax mistakes, path formatting, quote wrapping, parameter
 aliases, and missing parent directories.
 """
@@ -272,6 +272,15 @@ class ToolArgumentRepairStrategy(RecoveryStrategy):
                         flags=re.IGNORECASE,
                     )
                     changes.append("Added -ErrorAction SilentlyContinue to Get-ChildItem")
+
+            # Fix CMD syntax 'if not exist' or 'if exist' in exec command
+            if re.search(r"(?i)\bif\s+(?:not\s+)?exist\b", new_cmd):
+                from src.agents.sessions.tools.exec_tool import repair_cmd_syntax_to_powershell
+
+                fixed = repair_cmd_syntax_to_powershell(new_cmd)
+                if fixed != new_cmd:
+                    new_cmd = fixed
+                    changes.append("Translated CMD 'if (not) exist' to PowerShell syntax")
 
             if new_cmd != cmd:
                 repaired["command"] = new_cmd

@@ -254,8 +254,35 @@ Operator's notification style: voice (speak) + on-screen log
 <!-- observed: 2026-10-24 | status: superseded -->
 - channel_fav_editor: Neovim via Telegram
 
-<!-- observed: 2026-10-24 | status: active -->
+<!-- observed: 2026-10-24 | status: superseded -->
 - channel_fav_editor: Neovim via Telegram
 
 <!-- observed: 2026-10-24 | status: active -->
 - probe_nickname: IronMan
+
+<!-- observed: 2026-10-24 | status: active -->
+- builder: User (Krishna) built JARVIS using Google API
+
+<!-- observed: 2026-10-25 | status: superseded -->
+- channel_fav_editor: Neovim via Telegram
+
+<!-- observed: 2026-10-25 | status: superseded -->
+- channel_fav_editor: Neovim via Telegram
+
+<!-- observed: 2026-10-25 | status: superseded -->
+- channel_fav_editor: Neovim via Telegram
+
+<!-- observed: 2026-10-25 | status: superseded -->
+- channel_fav_editor: Neovim via Telegram
+
+<!-- observed: 2026-10-25 | status: superseded -->
+- channel_fav_editor: Neovim via Telegram
+
+<!-- observed: 2026-10-25 | status: superseded -->
+- channel_fav_editor: Neovim via Telegram
+
+<!-- observed: 2026-10-25 | status: active -->
+- channel_fav_editor: Neovim via Telegram
+
+<!-- observed: 2026-10-26 | status: active -->
+- learning_feedback: User emphasizes learning from mistakes and demonstrated actions, not just verbal promises.

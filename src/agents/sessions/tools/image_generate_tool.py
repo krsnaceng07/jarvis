@@ -45,7 +45,12 @@ def image_generate_tool_handler(ctx: Any, kwargs: dict[str, Any]) -> Any:
     if not providers:
         return {
             "status": "error",
-            "error": "No image generation model or provider configured. To generate images or UI designs, use the 'browser' tool to navigate to ChatGPT or create SVG/HTML with 'write'.",
+            "error": (
+                "No image generation provider or API key is currently configured. "
+                "Report this clearly to the user and ask how they would like to proceed "
+                "(e.g. configuring an API key, or using a specific service like ChatGPT or Gemini if they wish). "
+                "STRICT BAN: NEVER automatically navigate to ChatGPT or any external website unless the user explicitly requested that platform by name."
+            ),
         }
 
     task_id = f"img_{uuid.uuid4().hex[:8]}"

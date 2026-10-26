@@ -1,9 +1,7 @@
 """src.agents.self_healing.classifier — Error classification engine.
 
-OpenClaw parity: mirrors
-- packages/ai/src/utils/retryable-network-errors.ts
-- packages/gateway-protocol/src/failover-reasons.ts
-- packages/agent-core/src/errors.ts
+JARVIS reliability: mirrors retryable network errors,
+failover reasons, and execution loop errors.
 """
 
 from __future__ import annotations
@@ -14,7 +12,7 @@ from typing import Any
 
 from .failure_event import ErrorCategory, FailureEvent
 
-#: Transient network error patterns matching OpenClaw's TRANSIENT_NETWORK_CODES
+#: Transient network error patterns matching TRANSIENT_NETWORK_CODES
 TRANSIENT_NETWORK_PATTERNS = re.compile(
     r"econnreset|econnrefused|enotfound|etimedout|eai_again|epipe|ehostunreach|"
     r"connection reset|connection refused|socket hang up|broken pipe|"
@@ -74,35 +72,35 @@ SYSTEM_IO_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
-#: TLS certificate error patterns matching OpenClaw's tls_certificate
+#: TLS certificate error patterns matching tls_certificate
 TLS_CERT_PATTERNS = re.compile(
     r"certificate_verify_failed|self[- ]?signed certificate|unable to get local issuer certificate|"
     r"certificate has expired|ssl.*certificate|tls.*handshake.*failed",
     re.IGNORECASE,
 )
 
-#: Billing exhausted patterns matching OpenClaw's billing failover reason and HTTP 402
+#: Billing exhausted patterns matching billing failover reason and HTTP 402
 BILLING_PATTERNS = re.compile(
     r"402|payment required|insufficient_quota|credit balance too low|insufficient credits|"
     r"billing.*disabled|billing.*account|current quota|exceeded your.*quota",
     re.IGNORECASE,
 )
 
-#: Model not found patterns matching OpenClaw's model_not_found
+#: Model not found patterns matching model_not_found
 MODEL_NOT_FOUND_PATTERNS = re.compile(
     r"model not found|model.*does not exist|unknown model|model_not_found|"
     r"the model `.*` does not exist",
     re.IGNORECASE,
 )
 
-#: Format error patterns matching OpenClaw's format failover reason
+#: Format error patterns matching format failover reason
 FORMAT_ERROR_PATTERNS = re.compile(
     r"jsondecodeerror|failed to parse|invalid json|malformed response|"
     r"expecting value|unterminated string",
     re.IGNORECASE,
 )
 
-#: Session expired patterns matching OpenClaw's session_expired
+#: Session expired patterns matching session_expired
 SESSION_EXPIRED_PATTERNS = re.compile(
     r"session expired|session terminated|session not found|session closed|"
     r"session_expired",
@@ -145,7 +143,7 @@ class ErrorClassifier:
                 context=ctx,
             )
 
-        # 3. Billing & Quota exhaustion (OpenClaw parity: distinct from transient rate limit)
+        # 3. Billing & Quota exhaustion (distinct from transient rate limit)
         if BILLING_PATTERNS.search(err_msg):
             return FailureEvent(
                 category=ErrorCategory.BILLING_EXHAUSTED,
@@ -357,6 +355,72 @@ class ErrorClassifier:
         )
 
     @classmethod
+    def classify_error(
+        cls,
+        error: Any,
+        context: dict[str, Any] | None = None,
+        attempt_count: int = 1,
+    ) -> FailureEvent:
+        """Classify an arbitrary error, exception, or failure string into a FailureEvent.
+
+        Accepts exceptions, error strings, tool result payloads, or objects.
+        """
+        ctx = dict(context or {})
+        if attempt_count > 1:
+            ctx["attempt_count"] = attempt_count
+
+        if isinstance(error, BaseException):
+            return cls.classify_exception(error, context=ctx)
+
+        err_str = str(error or "")
+        tool_name = ctx.get("tool_name", "")
+        args = ctx.get("args", {})
+
+        if tool_name:
+            return cls.classify_tool_error(tool_name, args, error)
+
+        if RATE_LIMIT_PATTERNS.search(err_str):
+            return FailureEvent(
+                category=ErrorCategory.RATE_LIMIT,
+                severity="transient",
+                error_message=err_str,
+                exception_type="RateLimitError",
+                context=ctx,
+            )
+        if TRANSIENT_NETWORK_PATTERNS.search(err_str):
+            return FailureEvent(
+                category=ErrorCategory.NETWORK_TRANSIENT,
+                severity="transient",
+                error_message=err_str,
+                exception_type="NetworkError",
+                context=ctx,
+            )
+        if SYSTEM_IO_PATTERNS.search(err_str):
+            return FailureEvent(
+                category=ErrorCategory.SYSTEM_IO_ERROR,
+                severity="recoverable",
+                error_message=err_str,
+                exception_type="SystemIOError",
+                context=ctx,
+            )
+        if TOOL_VALIDATION_PATTERNS.search(err_str):
+            return FailureEvent(
+                category=ErrorCategory.TOOL_VALIDATION_ERROR,
+                severity="recoverable",
+                error_message=err_str,
+                exception_type="ValidationError",
+                context=ctx,
+            )
+
+        return FailureEvent(
+            category=ErrorCategory.UNKNOWN,
+            severity="recoverable",
+            error_message=err_str,
+            exception_type="Error",
+            context=ctx,
+        )
+
+    @classmethod
     def classify_http_status(
         cls,
         status_code: int,
@@ -441,11 +505,7 @@ class ErrorClassifier:
         is_reasoning_only: bool = False,
         context: dict[str, Any] | None = None,
     ) -> FailureEvent | None:
-        """Inspect model turn output to detect empty responses or reasoning-only deadlocks.
-
-        Matches OpenClaw qa/scenarios/runtime/empty-response-recovery-replay-safe-read.yaml
-        and qa/scenarios/runtime/reasoning-only-recovery-replay-safe-read.yaml.
-        """
+        """Inspect model turn output to detect empty responses or reasoning-only deadlocks."""
         ctx = dict(context or {})
         clean_text = (content or "").strip()
 

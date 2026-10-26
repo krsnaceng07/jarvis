@@ -17,6 +17,14 @@ async def start_jarvis_gateway_server(host: str = "127.0.0.1", port: int = 7433)
     if _running_gateway is not None:
         return _running_gateway
 
+    # Check if port is already bound by an existing gateway process
+    import socket
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.settimeout(0.2)
+        if s.connect_ex((host, port)) == 0:
+            logger.debug("Gateway port %s:%d already bound by another instance", host, port)
+            return None
+
     try:
         from src.gateway import Gateway
 
@@ -30,10 +38,6 @@ async def start_jarvis_gateway_server(host: str = "127.0.0.1", port: int = 7433)
         return None
 
 
-# Backwards compatibility alias
-start_openclaw_gateway_server = start_jarvis_gateway_server
-
-
 def get_running_gateway() -> Any:
     return _running_gateway
 
@@ -41,6 +45,5 @@ def get_running_gateway() -> Any:
 __all__ = [
     "get_running_gateway",
     "start_jarvis_gateway_server",
-    "start_openclaw_gateway_server",
 ]
 

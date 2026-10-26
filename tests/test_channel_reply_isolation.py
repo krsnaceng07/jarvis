@@ -157,8 +157,12 @@ async def test_generic_channel_configuration():
 
 
 @pytest.mark.asyncio
-async def test_telegram_turn_attaches_voice_bytes():
-    """Verify that Telegram channel turn delivery attaches synthesized voice note bytes."""
+async def test_telegram_turn_leaves_voice_synthesis_to_plugin():
+    """The channel manager must not synthesize TTS before handing off to the plugin.
+
+    Manager-side synthesis delayed every reply; the owning plugin now sends text
+    first and synthesizes the voice note afterwards.
+    """
     mgr = ChannelManager()
     tg_plugin = DummyChannelPlugin("telegram")
     mgr.register_plugin("telegram", tg_plugin)
@@ -188,8 +192,8 @@ async def test_telegram_turn_attaches_voice_bytes():
     target, payload = tg_plugin.sent_messages[0]
     assert "tg_voice_chat" in target
     assert payload["text"] == "Why did the computer catch a cold? Because it had a bad Windows."
-    assert payload.get("voice_bytes") == b"RIFFdummywavbytes"
-    mock_synth.assert_called_once()
+    assert "voice_bytes" not in payload
+    mock_synth.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -212,9 +216,43 @@ async def test_telegram_plugin_dual_modality_delivery():
     res = await plugin.send("telegram:999888", message)
     assert res.is_ok
     mock_client.send_message.assert_called_once()
-    assert mock_client.send_message.call_args.kwargs["text"] == "Hello, this is a dual modality reply."
+    assert (
+        mock_client.send_message.call_args.kwargs["text"] == "Hello, this is a dual modality reply."
+    )
     mock_client.send_voice.assert_called_once()
     assert mock_client.send_voice.call_args.kwargs["voice_bytes"] == b"RIFFfakevoice"
+
+
+@pytest.mark.asyncio
+async def test_telegram_plugin_sends_text_before_synthesizing_voice():
+    """Telegram text goes out first; TTS runs only after the reply landed."""
+    from extensions.telegram.src.jarvis_telegram.plugin import TelegramChannelPlugin
+
+    plugin = TelegramChannelPlugin()
+    events: list[str] = []
+    mock_client = AsyncMock()
+
+    async def _send_message(**_kwargs: Any) -> dict[str, Any]:
+        events.append("text")
+        return {"ok": True, "result": {"message_id": 201}}
+
+    mock_client.send_message.side_effect = _send_message
+    mock_client.send_voice.return_value = {"ok": True, "result": {"message_id": 202}}
+    plugin.client = mock_client
+
+    async def _synthesize(_text: str) -> bytes:
+        events.append("synth")
+        return b"RIFFlatevoice"
+
+    with patch(
+        "src.talk.speech_synthesizer.synthesize_speech_wav_async",
+        side_effect=_synthesize,
+    ):
+        res = await plugin.send("telegram:999888", {"text": "Fast reply please."})
+
+    assert res.is_ok
+    assert events == ["text", "synth"]
+    mock_client.send_voice.assert_called_once()
 
 
 def test_speech_text_cleaning():
@@ -234,4 +272,3 @@ def test_speech_text_cleaning():
     assert "https://" not in cleaned
     assert "#" not in cleaned
     assert "*" not in cleaned
-

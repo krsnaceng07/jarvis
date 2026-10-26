@@ -35,5 +35,6 @@ if _SRC_DIR.exists() and str(_SRC_DIR) not in sys.path:
 __version__ = "0.1.0-rc1"
 
 from .gateway_client import JarvisHUDGatewayBridge, create_hud_gateway_bridge  # noqa: E402
+from .web_bridge import JarvisWebUI  # noqa: E402
 
-__all__ = ["JarvisHUDGatewayBridge", "create_hud_gateway_bridge", "__version__"]
+__all__ = ["JarvisHUDGatewayBridge", "create_hud_gateway_bridge", "JarvisWebUI", "__version__"]

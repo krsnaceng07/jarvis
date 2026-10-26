@@ -28,6 +28,24 @@ class BrightnessController:
 
     def get_brightness(self) -> Dict[str, Any]:
         """Read actual current display brightness percentage."""
+        # 1. Fast path: Direct in-process Windows WMI COM query (~50ms)
+        try:
+            import win32com.client  # type: ignore
+
+            wmi = win32com.client.GetObject("winmgmts:\\\\.\\root\\wmi")
+            monitors = wmi.InstancesOf("WmiMonitorBrightness")
+            for m in monitors:
+                val = int(m.CurrentBrightness)
+                return {
+                    "ok": True,
+                    "brightness_percent": val,
+                    "formatted": f"Current screen brightness is {val}%.",
+                    "verified": True,
+                }
+        except Exception as wmi_err:
+            logger.debug("win32com WMI brightness query failed, trying PowerShell: %s", wmi_err)
+
+        # 2. Resilient fallback: PowerShell CIM query
         try:
             cmd = (
                 "powershell -NoProfile -NonInteractive -Command "
@@ -67,6 +85,37 @@ class BrightnessController:
     def set_brightness(self, target_percent: int) -> Dict[str, Any]:
         """Set screen brightness percentage [0-100] and verify physical outcome."""
         target_percent = max(0, min(100, int(target_percent)))
+
+        # 1. Fast path: Direct in-process Windows WMI COM method execution (~45ms)
+        try:
+            import win32com.client  # type: ignore
+
+            wmi = win32com.client.GetObject("winmgmts:\\\\.\\root\\wmi")
+            methods = wmi.InstancesOf("WmiMonitorBrightnessMethods")
+            set_success = False
+            for m in methods:
+                in_params = m.Methods_("WmiSetBrightness").inParameters.SpawnInstance_()
+                in_params.Properties_("Brightness").Value = target_percent
+                in_params.Properties_("Timeout").Value = 1
+                m.ExecMethod_("WmiSetBrightness", in_params)
+                set_success = True
+
+            if set_success:
+                # Fast readback verification
+                current = self.get_brightness()
+                actual = current.get("brightness_percent", target_percent) if current.get("ok") else target_percent
+                verified = abs(actual - target_percent) <= 5
+                return {
+                    "ok": True,
+                    "brightness_percent": actual,
+                    "target_percent": target_percent,
+                    "verified": verified,
+                    "formatted": f"Screen brightness set to {actual}%.",
+                }
+        except Exception as wmi_err:
+            logger.debug("win32com WMI brightness set failed, trying PowerShell: %s", wmi_err)
+
+        # 2. Resilient fallback: PowerShell CIM method invocation
         try:
             cmd = (
                 "powershell -NoProfile -NonInteractive -Command "

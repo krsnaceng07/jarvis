@@ -53,6 +53,46 @@ class ToolInvocation:
         return f"Tool '{self.name}' failed: {self.error}"
 
 
+def _resolve_tool_result_failure(raw: Any) -> str | None:
+    """Classify a resolved tool result to detect structured failures and errors.
+
+    Inspects result dicts, details, exit codes, and launched flags (matching OpenClaw
+    tool result error contract).
+    """
+    if isinstance(raw, dict):
+        details = raw.get("details")
+        if isinstance(details, dict):
+            if details.get("launched") is False:
+                return str(details.get("error") or _stringify_output(raw) or "Failed to launch application")
+            if details.get("ok") is False or details.get("success") is False:
+                return str(details.get("error") or "Tool reported failure")
+            status = str(details.get("status", "")).strip().lower()
+            if status in (
+                "error",
+                "failed",
+                "failure",
+                "timeout",
+                "timed_out",
+                "blocked",
+                "denied",
+                "invalid",
+            ):
+                return str(details.get("error") or f"Tool execution failed with status: {status}")
+            exit_code = details.get("exitCode")
+            if isinstance(exit_code, int) and exit_code != 0:
+                return str(details.get("error") or f"Process exited with non-zero exit code {exit_code}")
+            if details.get("error") and not details.get("ok"):
+                return str(details["error"])
+        if raw.get("isError") is True:
+            return str(raw.get("error") or _stringify_output(raw))
+        if str(raw.get("status", "")).lower() in ("error", "failed"):
+            return str(raw.get("error") or "Execution failed")
+    unwrapped = _unwrap_sdk_result(raw)
+    if unwrapped is not None and unwrapped.startswith("Error: "):
+        return unwrapped
+    return None
+
+
 class ToolSurface:
     """Ordered, immutable view of the tools admitted for one live surface."""
 
@@ -112,7 +152,13 @@ class ToolSurface:
         except Exception as exc:  # noqa: BLE001 - tool failures become model feedback
             _log.warning("Tool %s failed: %s", name, exc)
             return ToolInvocation(name=name, ok=False, output="", error=_describe_error(exc))
-        return ToolInvocation(name=name, ok=True, output=_stringify_output(raw))
+
+        output_text = _stringify_output(raw)
+        failure_msg = _resolve_tool_result_failure(raw)
+        if failure_msg is not None:
+            return ToolInvocation(name=name, ok=False, output=output_text, error=failure_msg)
+
+        return ToolInvocation(name=name, ok=True, output=output_text)
 
 
 async def invoke_host_tool(tool: Any, args: Mapping[str, Any], call_id: str = "call") -> Any:

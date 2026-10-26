@@ -205,12 +205,17 @@ def make_chat_handlers(
 
         if session_key and not run_id:
             target_key = str(session_key)
+            matches: list[tuple[str, Any]] = []
             with active_agent_runs._lock:
                 for rid, run in active_agent_runs._runs.items():
                     if run.session_key == target_key and not run.done.is_set():
                         run.abort.set()
-                        active_agent_runs._emit(run, "abort_requested")
-                        aborted_run_ids.append(rid)
+                        matches.append((rid, run))
+            # _emit() takes the same service lock; emitting inside the block above
+            # deadlocked the whole gateway on the first abort-by-session request.
+            for rid, run in matches:
+                active_agent_runs._emit(run, "abort_requested")
+                aborted_run_ids.append(rid)
 
         return {
             "ok": True,

@@ -316,6 +316,28 @@ def create_pdf_tool_definition(
             raise ValueError(f"Target '{resolved_path}' is a directory, not a PDF file.")
 
         action = str(params.get("action") or "read").lower().strip()
+        if action in ("open", "view", "launch", "open_file"):
+            if os.name == "nt":
+                try:
+                    os.startfile(resolved_path)
+                except Exception:
+                    import subprocess
+
+                    subprocess.Popen(f'start "" "{resolved_path}"', shell=True)
+            else:
+                import subprocess
+
+                subprocess.Popen(["xdg-open", resolved_path])
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Opened PDF '{resolved_path}' in system default desktop viewer.",
+                    }
+                ],
+                "details": {"pdf": resolved_path, "action": "open", "status": "ok"},
+            }
+
         is_convert = action in ("convert", "create") or not resolved_path.lower().endswith(".pdf")
         if is_convert:
             dest = params.get("output_path") or params.get("target") or params.get("destination")

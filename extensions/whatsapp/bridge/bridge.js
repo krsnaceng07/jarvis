@@ -242,57 +242,67 @@ async function main() {
 
   connect();
 
-  const rl = readline.createInterface({ input: process.stdin });
-  rl.on('line', async (line) => {
-    const raw = line.trim();
-    if (!raw) return;
-    let cmd;
+  function shutdown(reason) {
+    if (stopping) return;
+    stopping = true;
+    if (restartTimer) clearTimeout(restartTimer);
+    // Never call sock.logout() here: logout unlinks the device server-side and
+    // forces a fresh QR on the next start. Just drop the socket.
     try {
-      cmd = JSON.parse(raw);
+      sock?.end(new Error(reason));
     } catch (err) {
-      log(`invalid stdin command: ${err.message}`);
-      return;
+      log(`socket close failed: ${err.message}`);
     }
+    setTimeout(() => process.exit(0), 100);
+  }
 
-    const action = cmd.action;
-    if (action === 'stop') {
-      stopping = true;
-      if (restartTimer) clearTimeout(restartTimer);
+  if (opts.mode === 'listen') {
+    const rl = readline.createInterface({ input: process.stdin });
+    rl.on('line', async (line) => {
+      const raw = line.trim();
+      if (!raw) return;
+      let cmd;
       try {
-        await sock?.logout?.();
+        cmd = JSON.parse(raw);
       } catch (err) {
-        log(`logout on stop failed: ${err.message}`);
-      }
-      process.exit(0);
-      return;
-    }
-
-    if (action === 'send') {
-      const target = String(cmd.target || '').trim();
-      const text = String(cmd.text || '');
-      const requestId = cmd.requestId || null;
-      if (!target || !text) {
-        emit({ event: 'send_result', requestId, ok: false, error: 'missing target or text' });
+        log(`invalid stdin command: ${err.message}`);
         return;
       }
-      try {
-        const sent = await sock.sendMessage(target, { text });
-        emit({
-          event: 'send_result',
-          requestId,
-          ok: true,
-          messageId: sent?.key?.id || '',
-        });
-      } catch (err) {
-        emit({ event: 'send_result', requestId, ok: false, error: err.message });
-      }
-    }
-  });
 
-  process.on('SIGTERM', () => {
-    stopping = true;
-    process.exit(0);
-  });
+      const action = cmd.action;
+      if (action === 'stop') {
+        shutdown('bridge stop requested');
+        return;
+      }
+
+      if (action === 'send') {
+        const target = String(cmd.target || '').trim();
+        const text = String(cmd.text || '');
+        const requestId = cmd.requestId || null;
+        if (!target || !text) {
+          emit({ event: 'send_result', requestId, ok: false, error: 'missing target or text' });
+          return;
+        }
+        try {
+          const sent = await sock.sendMessage(target, { text });
+          emit({
+            event: 'send_result',
+            requestId,
+            ok: true,
+            messageId: sent?.key?.id || '',
+          });
+        } catch (err) {
+          emit({ event: 'send_result', requestId, ok: false, error: err.message });
+        }
+      }
+    });
+    // Parent Python died or closed the pipe: do not leave a linked-device
+    // socket behind, and never let it hijack the next bridge start.
+    rl.on('close', () => shutdown('bridge stdin closed'));
+  }
+
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('uncaughtException', (err) => {
     log(`uncaught exception: ${err.stack || err.message}`);
     emit({ event: 'listener_closed', error: err.message });

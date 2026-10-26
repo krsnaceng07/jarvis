@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import copy
 import json
+import os
 import sys
 import time
 from typing import Any, Sequence
@@ -332,6 +333,13 @@ def prepare_tool_arguments(tool_name: str, args: dict[str, Any]) -> dict[str, An
         raw_act = str(prepared.get("action", "")).strip().lower()
         if raw_act in ("inspect", "ui_tree", "ground_ui", "inspect_ui"):
             prepared["action"] = "inspect_ui"
+        elif raw_act in ("open_file", "view_file", "open", "launch_file"):
+            prepared["action"] = "open_file"
+            for pk in ("file_path", "filePath", "target", "path", "file"):
+                if pk in prepared:
+                    prepared["target"] = str(prepared[pk])
+                    prepared["file_path"] = str(prepared[pk])
+                    break
 
     if tool_name in ("recall_memory", "memory_search", "search_memory", "query_memory"):
         for k in ("q", "search", "topic", "keyword", "prompt", "text"):
@@ -859,14 +867,16 @@ CODING_TOOL_DECLARATIONS: list[dict[str, Any]] = [
     {
         "name": "computer",
         "description": (
-            "Interact with native desktop OS windows and perform human-like mouse cursor and keyboard actions "
+            "Interact with native desktop OS windows, launch apps, open files, and perform human-like mouse cursor and keyboard actions "
             "(smooth Bézier cursor movement with visible overlay, clicking, double clicking, dragging, typing, screenshots, and UI inspection). "
+            "To physically open and display ANY file, CV, PDF, image, text document, or media on the user's desktop monitor, ALWAYS use action='open_file' (with target='<file_path>')! "
             "MANDATORY MOUSE RULE: When the user asks to use the mouse ('mouse use gara', 'माउस युज गर', 'माउसले खोल', 'click gara', 'कर्सर सार'), "
             "ALWAYS use 'computer' (action='click', 'double_click', 'move', 'drag') and NEVER use 'exec'! "
             "To open files, folders, or desktop icons with the mouse on Windows, ALWAYS use action='double_click' (single-click only highlights). "
             "For web interactions, use 'browser' for DOM-level navigation and actions, but use 'computer' whenever the user asks for mouse control, or as a seamless fallback if web selectors fail. "
-            "Supported actions: 'inspect_ui', 'screenshot' (supports annotate=True for Set-of-Mark), 'click', 'double_click', "
-            "'triple_click', 'middle_click', 'right_click', 'move', 'type', 'drag', 'wait', 'hotkey', 'focus_app'."
+            "Supported actions: 'open_file', 'launch_app', 'close_app', 'focus_app', 'set_volume', 'adjust_volume', 'get_volume', "
+            "'set_brightness', 'adjust_brightness', 'get_brightness', 'inspect_ui', 'screenshot' (supports annotate=True for Set-of-Mark), "
+            "'click', 'double_click', 'triple_click', 'middle_click', 'right_click', 'move', 'type', 'drag', 'wait', 'hotkey'."
         ),
         "parameters": {
             "type": "OBJECT",
@@ -875,6 +885,17 @@ CODING_TOOL_DECLARATIONS: list[dict[str, Any]] = [
                     "type": "STRING",
                     "description": "Computer action to perform.",
                     "enum": [
+                        "open_file",
+                        "launch_app",
+                        "open_app",
+                        "close_app",
+                        "focus_app",
+                        "set_volume",
+                        "adjust_volume",
+                        "get_volume",
+                        "set_brightness",
+                        "adjust_brightness",
+                        "get_brightness",
                         "inspect_ui",
                         "screenshot",
                         "click",
@@ -893,8 +914,23 @@ CODING_TOOL_DECLARATIONS: list[dict[str, Any]] = [
                         "key_down",
                         "key_up",
                         "scroll",
-                        "focus_app",
                     ],
+                },
+                "target": {
+                    "type": "STRING",
+                    "description": "Target file path to open (for action='open_file') or application name (for action='launch_app'/'focus_app'/'close_app').",
+                },
+                "file_path": {
+                    "type": "STRING",
+                    "description": "Absolute or relative file path to open on desktop (for action='open_file').",
+                },
+                "value": {
+                    "type": "INTEGER",
+                    "description": "Target level (0-100) for set_volume or set_brightness.",
+                },
+                "delta": {
+                    "type": "INTEGER",
+                    "description": "Relative percentage adjustment (+20 or -20) for adjust_volume or adjust_brightness.",
                 },
                 "target_id": {
                     "type": "INTEGER",
@@ -1217,6 +1253,82 @@ async def execute_desktop_action(args: dict[str, Any]) -> str:
     if action in ("auto_control", "human_control", "computer_control"):
         return await execute_auto_control(args)
 
+    # Native Audio Volume & Mute Controls
+    if action in ("set_volume", "volume", "adjust_volume", "get_volume", "mute", "unmute"):
+        from src.system.audio_controller import AudioController
+
+        ac = AudioController.get_instance()
+        if action == "get_volume":
+            res = ac.get_volume()
+            return res.get("formatted") or json.dumps(res, ensure_ascii=False)
+        if action == "mute":
+            res = ac.set_mute(True)
+            return res.get("formatted") or json.dumps(res, ensure_ascii=False)
+        if action == "unmute":
+            res = ac.set_mute(False)
+            return res.get("formatted") or json.dumps(res, ensure_ascii=False)
+        if action == "adjust_volume":
+            raw_delta = args.get("delta") if args.get("delta") is not None else args.get("value")
+            try:
+                delta_pct = int(raw_delta) if raw_delta is not None else 10
+            except (ValueError, TypeError):
+                delta_pct = 10
+            res = ac.adjust_volume(delta_pct)
+            return res.get("formatted") or json.dumps(res, ensure_ascii=False)
+        raw_val = (
+            args.get("value")
+            if args.get("value") is not None
+            else args.get("volume")
+            if args.get("volume") is not None
+            else args.get("level")
+            if args.get("level") is not None
+            else args.get("percent")
+        )
+        if raw_val is None:
+            res = ac.get_volume()
+            return res.get("formatted") or json.dumps(res, ensure_ascii=False)
+        try:
+            target_pct = int(raw_val)
+        except (ValueError, TypeError):
+            target_pct = 50
+        res = ac.set_volume(target_pct)
+        return res.get("formatted") or json.dumps(res, ensure_ascii=False)
+
+    # Native Display Brightness Controls
+    if action in ("set_brightness", "brightness", "adjust_brightness", "get_brightness"):
+        from src.system.brightness_controller import BrightnessController
+
+        bc = BrightnessController.get_instance()
+        if action == "get_brightness":
+            res = await bc.get_brightness_async()
+            return res.get("formatted") or json.dumps(res, ensure_ascii=False)
+        if action == "adjust_brightness":
+            raw_delta = args.get("delta") if args.get("delta") is not None else args.get("value")
+            try:
+                delta_pct = int(raw_delta) if raw_delta is not None else 10
+            except (ValueError, TypeError):
+                delta_pct = 10
+            res = await bc.adjust_brightness_async(delta_pct)
+            return res.get("formatted") or json.dumps(res, ensure_ascii=False)
+        raw_val = (
+            args.get("value")
+            if args.get("value") is not None
+            else args.get("brightness")
+            if args.get("brightness") is not None
+            else args.get("level")
+            if args.get("level") is not None
+            else args.get("percent")
+        )
+        if raw_val is None:
+            res = await bc.get_brightness_async()
+            return res.get("formatted") or json.dumps(res, ensure_ascii=False)
+        try:
+            target_pct = int(raw_val)
+        except (ValueError, TypeError):
+            target_pct = 50
+        res = await bc.set_brightness_async(target_pct)
+        return res.get("formatted") or json.dumps(res, ensure_ascii=False)
+
     # Antigravity parity: Redirect web / browser automation away from blind OS pyautogui clicks to Selenium DOM
     is_web_intent = (
         action
@@ -1327,6 +1439,22 @@ async def execute_desktop_action(args: dict[str, Any]) -> str:
         sub_action = action.replace("whatsapp_", "")
         recipient = str(args.get("recipient") or args.get("target") or "").strip()
         msg = str(args.get("message") or args.get("text") or "").strip()
+
+        if sub_action != "send":
+            return (
+                f"WhatsApp action '{sub_action}' is not supported here. "
+                "Use action='whatsapp_send' with a phone number or JID recipient."
+            )
+        if not recipient or not msg:
+            return "WhatsApp send requires both 'recipient' and 'message'."
+
+        digits = "".join(c for c in recipient if c.isdigit())
+        if "@" not in recipient and len(digits) < 8:
+            return (
+                f"WhatsApp cannot resolve '{recipient}' to a chat. Use a phone number "
+                "with country code (e.g. +97798XXXXXXXX) or a full WhatsApp JID."
+            )
+
         idempotency_key = str(
             args.get("idempotency_key") or args.get("_tool_call_id") or args.get("_turn_id") or ""
         ).strip()
@@ -1338,44 +1466,36 @@ async def execute_desktop_action(args: dict[str, Any]) -> str:
             and _LAST_WHATSAPP_SEND.get("message") == msg
             and (now - float(_LAST_WHATSAPP_SEND.get("time", 0.0))) < 6.0
         ):
-            return (
-                f"SUCCESS: WhatsApp message sent to '{recipient}'. "
-                f"[TASK FULFILLED: This matching message was already sent recently; "
-                f"do not repeat this action. Confirm to the user via voice that the message was sent.]"
-            )
-
-        _LAST_WHATSAPP_SEND["time"] = now
-        _LAST_WHATSAPP_SEND["recipient"] = recipient
-        _LAST_WHATSAPP_SEND["message"] = msg
-        _LAST_WHATSAPP_SEND["idempotency_key"] = idempotency_key
+            return f"WhatsApp message to '{recipient}' was already sent this turn; not sending it again."
 
         try:
-            from src.desktop_automation import DesktopRuntime
+            from src.channels.channel_manager import ChannelManager
 
-            rt = DesktopRuntime.get_instance()
-            res = await rt.execute_action(
-                "whatsapp",
-                sub_action,
-                {"recipient": recipient, "message": msg, **args},
-            )
-            if hasattr(res, "ok") and not res.ok:
-                return f"WhatsApp error: {getattr(res, 'error', 'Action failed')}"
-        except Exception:
-            pass
+            plugin = ChannelManager.get_instance().get_plugin("whatsapp")
+            if plugin is None:
+                from extensions.whatsapp.plugin import WhatsAppPlugin
 
-        try:
-            import urllib.parse
-            import webbrowser
+                plugin = WhatsAppPlugin()
+            target = recipient if "@" in recipient else f"whatsapp:{digits}"
+            res = await plugin.send(target, {"text": msg})
+        except Exception as exc:  # noqa: BLE001 - reported to the model as tool output
+            return f"WhatsApp error: could not reach the WhatsApp channel bridge: {exc}"
 
-            encoded_msg = urllib.parse.quote(msg)
-            webbrowser.open(f"https://web.whatsapp.com/send?text={encoded_msg}")
-            return (
-                f"SUCCESS: WhatsApp message sent to '{recipient}'. "
-                f"[TASK FULFILLED: The requested message has been prepared for '{recipient}'. "
-                f"DO NOT invoke 'desktop' or 'open_path' again. Confirm to the user via voice that the message was sent.]"
-            )
-        except Exception as wa_err:
-            return f"WhatsApp error: {wa_err}"
+        if getattr(res, "is_err", False):
+            return f"WhatsApp error: {getattr(res, 'error', 'send failed')}"
+
+        evidence = res.value if isinstance(getattr(res, "value", None), dict) else {}
+        message_id = str(evidence.get("message_id") or "")
+        _LAST_WHATSAPP_SEND.update(
+            {
+                "time": now,
+                "recipient": recipient,
+                "message": msg,
+                "idempotency_key": idempotency_key,
+            }
+        )
+        suffix = f" (message id {message_id})" if message_id else ""
+        return f"SUCCESS: WhatsApp message delivered to '{recipient}'{suffix}."
 
     # 2. Focus application / Bring window to front
     if action in ("focus_app", "focus", "bring_to_front"):
@@ -1464,7 +1584,14 @@ async def execute_desktop_action(args: dict[str, Any]) -> str:
     # 2b. Window state control (minimize / maximize / restore).
     # ``computer(action='minimize', app_name='chrome')`` previously fell through to the
     # pyautogui tail and reported success without touching any window.
-    if action in ("minimize", "minimize_window", "maximize", "maximize_window", "restore", "restore_window"):
+    if action in (
+        "minimize",
+        "minimize_window",
+        "maximize",
+        "maximize_window",
+        "restore",
+        "restore_window",
+    ):
         if sys.platform != "win32":
             return f"Window action '{action}' is only supported on Windows."
         verb = action.split("_")[0]
@@ -1475,7 +1602,9 @@ async def execute_desktop_action(args: dict[str, Any]) -> str:
             if target:
                 t_low = target.lower().strip()
                 matched = [
-                    w for w in gw.getAllWindows() if t_low in (w.title or "").lower() and w.title.strip()
+                    w
+                    for w in gw.getAllWindows()
+                    if t_low in (w.title or "").lower() and w.title.strip()
                 ]
                 if not matched:
                     return f"No open window matches '{target}'; nothing to {verb}."
@@ -1517,15 +1646,21 @@ async def execute_desktop_action(args: dict[str, Any]) -> str:
             return f"Window action '{action}' failed: {exc}"
 
     # 3. Launch application / Open target
-    if action in ("launch_app", "launch", "open_app", "open", "start"):
-        target = app_name or str(args.get("target") or args.get("path") or "")
+    if action in ("launch_app", "launch", "open_app", "open", "start", "open_file"):
+        target = app_name or str(args.get("target") or args.get("file_path") or args.get("path") or "")
         if not target:
-            return "Target application or path is required for launch_app."
+            return "Target application or path is required for launch_app or open_file."
         try:
             if sys.platform == "win32":
                 from src.agents.sessions.tools.path_utils import launch_windows_app
 
                 ok, l_msg = launch_windows_app(target)
+                if not ok and os.path.exists(target):
+                    try:
+                        os.startfile(target)
+                        ok = True
+                    except Exception as sf_exc:
+                        return f"Failed to open '{target}': {sf_exc}"
             else:
                 import subprocess
 
@@ -1539,12 +1674,12 @@ async def execute_desktop_action(args: dict[str, Any]) -> str:
                     await asyncio.sleep(0.05)
                     wins = [w for w in gw.getAllWindows() if w.title and t_low in w.title.lower()]
                     if wins:
-                        return f"Launched application '{target}' successfully. Window '{wins[0].title}' active."
+                        return f"Opened '{target}' successfully. Window '{wins[0].title}' active."
             except Exception:
                 await asyncio.sleep(0.05)
-            return f"Launched application '{target}' successfully. Window initialized."
+            return f"Opened '{target}' successfully. Window initialized."
         except Exception as exc:
-            return f"Failed to launch '{target}': {exc}"
+            return f"Failed to open '{target}': {exc}"
 
     # 4. List running applications / windows
     if action in ("list_apps", "list_windows", "running_apps", "apps"):
@@ -1587,7 +1722,6 @@ async def execute_desktop_action(args: dict[str, Any]) -> str:
     if action == "screenshot":
         try:
             import io
-            import os
             from pathlib import Path
 
             from PIL import ImageGrab

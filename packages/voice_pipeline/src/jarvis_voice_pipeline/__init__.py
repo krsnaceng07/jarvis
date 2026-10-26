@@ -1,5 +1,6 @@
 """jarvis_voice_pipeline - Native Gemini Live Realtime Voice & Action Engine for JARVIS."""
 
+from jarvis_net_policy import patch_windows_asyncio_connection_lost
 from .key_rotator import KeyRotator, get_default_key_rotator
 from .echo import EchoGuard
 from .viseme import pcm_level
@@ -9,6 +10,8 @@ from .pipeline_builder import (
     build_jarvis_system_prompt,
     build_jarvis_livekit_tools,
 )
+
+patch_windows_asyncio_connection_lost()
 
 __all__ = [
     "KeyRotator",

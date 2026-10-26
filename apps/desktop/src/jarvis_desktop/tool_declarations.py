@@ -37,7 +37,9 @@ def _uppercase_schema_types(schema: Any) -> Any:
                 result[key] = [item.upper() if isinstance(item, str) else item for item in value]
             elif key == "properties" and isinstance(value, dict):
                 result[key] = {
-                    pk: _uppercase_schema_types(pv) for pk, pv in value.items() if isinstance(pv, dict)
+                    pk: _uppercase_schema_types(pv)
+                    for pk, pv in value.items()
+                    if isinstance(pv, dict)
                 }
             elif key == "items" and isinstance(value, dict):
                 result[key] = _uppercase_schema_types(value)
@@ -165,7 +167,7 @@ _BASE_TOOL_DECLARATIONS: list[dict[str, Any]] = [
         "description": (
             "Control native Windows desktop apps, windows, and hardware controls (Notepad, Explorer, Chrome, volume, brightness). "
             "Use browser(...) for any web page interaction instead. "
-            "Actions: minimize, maximize, restore, focus_app, launch_app, list_apps, screenshot, "
+            "Actions: minimize, maximize, restore, focus_app, launch_app, close_app, close_window, kill_app, list_apps, screenshot, "
             "inspect_ui, click, right_click, double_click, move, type, key, hotkey, scroll, drag, wait, "
             "set_volume, get_volume, adjust_volume, mute, unmute, set_brightness, get_brightness, adjust_brightness."
         ),
@@ -175,7 +177,7 @@ _BASE_TOOL_DECLARATIONS: list[dict[str, Any]] = [
                 "action": {
                     "type": "string",
                     "description": (
-                        "Desktop action: minimize, maximize, restore, focus_app, launch_app, "
+                        "Desktop action: minimize, maximize, restore, focus_app, launch_app, close_app, close_window, kill_app, "
                         "list_apps, screenshot, inspect_ui, click, right_click, double_click, "
                         "move, type, key, hotkey, scroll, drag, wait, "
                         "set_volume, get_volume, adjust_volume, mute, unmute, set_brightness, get_brightness, adjust_brightness"
@@ -184,8 +186,8 @@ _BASE_TOOL_DECLARATIONS: list[dict[str, Any]] = [
                 "app_name": {
                     "type": "string",
                     "description": (
-                        "Application or window title for minimize/maximize/restore/focus_app/launch_app "
-                        "(e.g. 'chrome', 'notepad'). Omit to act on the whole desktop or active window."
+                        "Application or window title for minimize/maximize/restore/focus_app/launch_app/close_app/kill_app "
+                        "(e.g. 'chrome', 'youtube', 'notepad'). Omit to act on the whole desktop or active window."
                     ),
                 },
                 "value": {
@@ -214,7 +216,10 @@ _BASE_TOOL_DECLARATIONS: list[dict[str, Any]] = [
                     "items": {"type": "string"},
                     "description": "Key combination for hotkey (e.g. ['ctrl', 'c']).",
                 },
-                "delta": {"type": "integer", "description": "Scroll delta (negative scrolls down)."},
+                "delta": {
+                    "type": "integer",
+                    "description": "Adjustment delta for adjust_volume (+15, -15), adjust_brightness (+15, -15), or scroll delta.",
+                },
                 "target_id": {
                     "type": "integer",
                     "description": "Element ID from inspect_ui/screenshot annotation.",

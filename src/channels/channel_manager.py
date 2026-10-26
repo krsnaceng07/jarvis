@@ -495,7 +495,7 @@ class ChannelManager:
         auto_start: bool = True,
         live_host: Any | None = None,
     ) -> dict[str, Any]:
-        """Configure WhatsApp channel with desktop/web automation integration."""
+        """Configure WhatsApp channel with real-time Baileys bridge and in-terminal / UI QR login."""
         if live_host is not None:
             self._live_host = live_host
 
@@ -505,7 +505,7 @@ class ChannelManager:
         wa_cfg["enabled"] = True
         wa_cfg["accountId"] = account_id
         wa_cfg["dmPolicy"] = dm_policy
-        wa_cfg["provider"] = "desktop_automation"
+        wa_cfg["provider"] = "baileys_bridge"
 
         clean_phone = "".join(c for c in str(phone or "") if c.isdigit())
         if len(clean_phone) == 10 and clean_phone.startswith(("98", "97", "96")):
@@ -521,12 +521,62 @@ class ChannelManager:
 
         _write_canonical_config(cfg)
 
+        plugin = self.get_plugin("whatsapp")
+        auth = plugin.auth_state(account_id) if plugin and hasattr(plugin, "auth_state") else {"linked": False}
+
+        if auth.get("linked"):
+            if auto_start:
+                await self.start_channel_listener("whatsapp")
+            who = auth.get("who", "linked")
+            return {
+                "ok": True,
+                "channel": "whatsapp",
+                "status": "connected",
+                "who": who,
+                "message": f"WhatsApp channel is active and connected as {who}.",
+            }
+
+        # Not yet linked: start QR pairing immediately so user can scan from their phone
+        if plugin and hasattr(plugin, "start_login_qr"):
+            login_res = await asyncio.to_thread(plugin.start_login_qr, account_id, False, phone)
+            return {
+                "ok": True,
+                "channel": "whatsapp",
+                "status": "pairing_required",
+                "qr_data_url": login_res.get("qr_data_url"),
+                "qr_file": login_res.get("qr_file"),
+                "ascii_qr": login_res.get("ascii_qr"),
+                "message": login_res.get("message") or "WhatsApp QR code generated. Scan to link.",
+            }
+
         return {
             "ok": True,
             "channel": "whatsapp",
             "status": "configured",
-            "message": "WhatsApp channel configured with Desktop/Web automation provider.",
+            "message": "WhatsApp channel configured. Say 'generate QR' to link your mobile phone.",
         }
+
+    async def login_whatsapp(
+        self,
+        action: str = "start",
+        account_id: str = "default",
+        force: bool = False,
+        phone: str | None = None,
+        timeout_sec: float = 60.0,
+    ) -> dict[str, Any]:
+        """Start or wait for WhatsApp QR / pairing code login."""
+        plugin = self.get_plugin("whatsapp")
+        if not plugin:
+            return {"ok": False, "error": "WhatsApp channel plugin is not available."}
+
+        act = action.strip().lower()
+        if act in ("start", "login", "pair", "qr", "reconfigure", "relink"):
+            is_force = force or act in ("reconfigure", "relink")
+            return await asyncio.to_thread(plugin.start_login_qr, account_id, is_force, phone)
+        elif act in ("wait", "check", "status"):
+            return await plugin.wait_for_login(account_id, timeout_sec)
+        else:
+            return {"ok": False, "error": f"Unknown WhatsApp login action '{action}'. Use 'start' or 'wait'."}
 
     # ── Channel Inbound Dispatcher ─────────────────────────────────────
 
@@ -635,18 +685,8 @@ class ChannelManager:
                 "metadata": dict(outbound.metadata or {}),
                 "origin_route": message.raw.get("reply_route"),
             }
-            # JARVIS dual-modality: if channel is telegram (or requested voice),
-            # synthesize speech audio alongside text without touching desktop speakers.
-            if channel_id == "telegram" and outbound.text:
-                try:
-                    from src.talk.speech_synthesizer import synthesize_speech_wav_async
-
-                    voice_bytes = await synthesize_speech_wav_async(outbound.text)
-                    if voice_bytes:
-                        delivery_payload["voice_bytes"] = voice_bytes
-                except Exception as e:
-                    _log.warning("Voice synthesis skipped: %s", e)
-
+            # Voice replies are synthesized by the owning channel plugin after
+            # the text lands; doing it here delayed every Telegram reply.
             send_result = await plugin.send(outbound.conversation_id, delivery_payload)
             failed = bool(getattr(send_result, "is_err", False)) or (
                 isinstance(send_result, dict) and send_result.get("ok") is False
@@ -865,9 +905,12 @@ class ChannelManager:
         try:
             handler = self._create_inbound_handler(channel_id)
             if hasattr(plugin, "reconfigure"):
-                plugin.reconfigure(config=ch_cfg, callback=handler, auto_listen=True)
-            elif hasattr(plugin, "listen"):
-                await plugin.listen(handler)
+                configured = plugin.reconfigure(config=ch_cfg, callback=handler, auto_listen=False)
+                if configured is False:
+                    raise RuntimeError(f"Channel '{channel_id}' rejected its configuration.")
+            if not hasattr(plugin, "listen"):
+                raise RuntimeError(f"Channel '{channel_id}' has no listener implementation.")
+            await plugin.listen(handler)
             with self._listener_lock:
                 self._active_listeners[channel_id] = True
             print(f"[INFO] channel: live listener ACTIVE for '{channel_id}'")
@@ -1206,7 +1249,26 @@ class ChannelManager:
             issues: list[str] = []
             repairable: bool = False
 
-            if not token:
+            if ch == "whatsapp":
+                # WhatsApp is QR-linked, not token-based; checking botToken here
+                # produced the bogus "bot token is missing" diagnosis for a
+                # perfectly linked session.
+                status = "configured" if is_enabled else "disabled"
+                try:
+                    from extensions.whatsapp.doctor import collect_whatsapp_status_issues
+
+                    for wi in collect_whatsapp_status_issues():
+                        issues.append(wi["message"])
+                        if wi.get("auto_fixable"):
+                            repairable = True
+                except Exception:
+                    pass
+                if not listening and is_enabled:
+                    issues.append(
+                        "WhatsApp credentials are configured but the live listener is NOT running."
+                    )
+                    repairable = True
+            elif not token:
                 if ch in recovered_tokens:
                     issues.append(
                         "Bot token is missing in config, but was recovered from secure memory/env."
@@ -1239,20 +1301,6 @@ class ChannelManager:
                             repairable = True
                     else:
                         issues.append(f"Discord token validation failed: {probe.get('error')}")
-                elif ch == "whatsapp":
-                    status = "configured" if is_enabled else "disabled"
-                    try:
-                        from extensions.whatsapp.doctor import collect_whatsapp_status_issues
-
-                        for wi in collect_whatsapp_status_issues():
-                            issues.append(wi["message"])
-                            if wi.get("auto_fixable"):
-                                repairable = True
-                    except Exception:
-                        pass
-                    if not listening and is_enabled:
-                        issues.append("WhatsApp channel configured but desktop listener is idle.")
-                        repairable = True
                 else:
                     status = "configured" if is_enabled else "disabled"
 
@@ -1324,6 +1372,38 @@ class ChannelManager:
 
         for ch in target_channels:
             ch_data = channels.setdefault(ch, {})
+
+            if ch == "whatsapp":
+                # QR-linked channel: no bot token exists or is needed.
+                account_id = str(ch_data.get("accountId") or "default")
+                auth_dir = Path.home() / ".jarvis" / "credentials" / "whatsapp" / account_id
+                linked = False
+                who = ""
+                creds_file = auth_dir / "creds.json"
+                if creds_file.exists():
+                    try:
+                        creds = json.loads(creds_file.read_text(encoding="utf-8"))
+                        me_id = str((creds.get("me") or {}).get("id") or "")
+                        linked = bool(creds.get("registered") or creds.get("linked") or me_id)
+                        who = me_id.split(":")[0]
+                    except Exception:
+                        linked = False
+                ch_data["accountId"] = account_id
+                ch_data["authDir"] = str(auth_dir)
+                ch_data["linked"] = linked
+                ch_data["who"] = who
+                ch_data.setdefault("dmPolicy", "allowlist")
+                ch_data.setdefault("selfChatMode", True)
+                if linked:
+                    changes.append(
+                        f"[whatsapp] QR-linked session found for {who or 'this device'}."
+                    )
+                elif ch_data.get("enabled"):
+                    warnings.append(
+                        "[whatsapp] Enabled but not linked. Run: jarvis channels login whatsapp"
+                    )
+                continue
+
             current_token = str(ch_data.get("botToken") or ch_data.get("token") or "").strip()
 
             # 1. Recover missing token from memory/env if needed
@@ -1371,21 +1451,6 @@ class ChannelManager:
                     )
                 else:
                     warnings.append(f"[discord] Discord token invalid: {probe.get('error')}")
-
-            elif ch == "whatsapp":
-                ch_data["enabled"] = True
-                ch_data.setdefault("dmPolicy", "open")
-                try:
-                    from extensions.whatsapp.doctor import whatsapp_doctor_contract
-
-                    doc_res = whatsapp_doctor_contract(auto_fix=True)
-                    for rep in doc_res.repaired:
-                        changes.append(f"[whatsapp] {rep}")
-                except Exception:
-                    pass
-                changes.append(
-                    "[whatsapp] Normalized WhatsApp configuration and verified provider."
-                )
 
         # Save repaired config before starting listeners
         _write_canonical_config(cfg)
@@ -1480,17 +1545,20 @@ class ChannelManager:
                 or ch_cfg.get("linked")
             )
             if not has_credentials and ch_id == "whatsapp":
+                # WhatsApp links through Baileys credentials, not a bot token.
+                account_id = str(ch_cfg.get("accountId") or "default")
+                creds_file = (
+                    Path.home() / ".jarvis" / "credentials" / "whatsapp" / account_id / "creds.json"
+                )
                 try:
-                    from src.desktop_automation.providers.whatsapp_provider import (
-                        WhatsAppDesktopProvider,
+                    creds = json.loads(creds_file.read_text(encoding="utf-8"))
+                    has_credentials = bool(
+                        creds.get("registered")
+                        or creds.get("linked")
+                        or (creds.get("me") or {}).get("id")
                     )
-
-                    auth = WhatsAppDesktopProvider().get_auth_state(
-                        ch_cfg.get("accountId", "default")
-                    )
-                    has_credentials = bool(auth.get("linked"))
                 except Exception:
-                    pass
+                    has_credentials = False
 
             if has_credentials:
                 print(

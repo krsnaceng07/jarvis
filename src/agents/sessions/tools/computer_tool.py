@@ -9,6 +9,8 @@ from __future__ import annotations
 import asyncio
 import base64
 import io
+import os
+import sys
 import time
 from typing import Any, Dict, Optional
 from .tool_definition_wrapper import AgentTool
@@ -44,7 +46,15 @@ COMPUTER_ACTIONS = [
     "focus_app",
     "focus",
     "bring_to_front",
+    "open_file",
+    "open",
     "launch_app",
+    "open_app",
+    "close_app",
+    "close_window",
+    "close",
+    "kill_app",
+    "quit_app",
     "list_apps",
     "list_windows",
     "set_volume",
@@ -235,29 +245,133 @@ def create_computer_tool(options: Optional[Dict[str, Any]] = None) -> AgentTool:
             except Exception as e:
                 return {"action": action, "error": f"Failed to focus application '{app_name}': {e}"}
 
-        # Handle launching application
-        if action in ("launch_app", "open_app"):
-            if not app_name:
+        # Handle launching application or opening files on desktop
+        if action in ("launch_app", "open_app", "open_file", "open"):
+            target = (
+                app_name
+                or str(
+                    args.get("target")
+                    or args.get("file_path")
+                    or args.get("path")
+                    or ""
+                ).strip()
+            )
+            if not target:
                 return {
                     "action": action,
-                    "error": "app_name or target is required to launch application",
+                    "error": "target or app_name or file_path is required to launch or open",
                 }
             try:
-                import subprocess
+                if sys.platform == "win32":
+                    from .path_utils import launch_windows_app
 
-                subprocess.Popen(["cmd", "/c", "start", app_name], shell=True)
-                await asyncio.sleep(0.8)
+                    ok, l_msg = launch_windows_app(target)
+                    if not ok and os.path.exists(target):
+                        try:
+                            os.startfile(target)
+                            ok = True
+                        except Exception as sf_exc:
+                            return {
+                                "action": action,
+                                "error": f"Failed to open '{target}': {sf_exc}",
+                            }
+                else:
+                    import subprocess
+
+                    subprocess.Popen(["cmd", "/c", "start", target], shell=True)
+                await asyncio.sleep(0.5)
                 return {
                     "action": action,
                     "status": "ok",
-                    "launched": app_name,
-                    "message": "Application launched and window initialized.",
+                    "launched": target,
+                    "message": f"Opened '{target}' on desktop screen.",
                 }
             except Exception as e:
                 return {
                     "action": action,
-                    "error": f"Failed to launch application '{app_name}': {e}",
+                    "error": f"Failed to open or launch '{target}': {e}",
                 }
+
+        # Handle closing or killing applications / windows
+        if action in ("close_app", "close_window", "close", "kill_app", "quit_app"):
+            if not app_name:
+                return {
+                    "action": action,
+                    "error": "app_name or target is required to close application",
+                }
+            clean_app = app_name.lower().removesuffix(".exe").strip()
+            closed_something = False
+            details_msg = []
+
+            # 1. If user specifically asks to close YouTube or a web tab:
+            if clean_app in ("youtube", "tab"):
+                try:
+                    import pyautogui
+
+                    pyautogui.hotkey("ctrl", "w")
+                    closed_something = True
+                    details_msg.append("Closed active tab via Ctrl+W.")
+                except Exception:
+                    pass
+
+            # 2. Try closing window gracefully via pygetwindow
+            try:
+                import pygetwindow as gw
+
+                for w in gw.getAllWindows():
+                    if w.title and clean_app in w.title.lower():
+                        w.close()
+                        closed_something = True
+                        details_msg.append(f"Closed window '{w.title}'.")
+            except Exception:
+                pass
+
+            # 3. If action is kill_app or graceful close didn't close any window, terminate process
+            if action in ("kill_app", "quit_app") or not closed_something:
+                try:
+                    import psutil
+
+                    for p in psutil.process_iter(["name"]):
+                        try:
+                            p_name = p.name().lower()
+                            if (
+                                clean_app == p_name
+                                or clean_app == p_name.removesuffix(".exe")
+                                or p_name.startswith(f"{clean_app}.")
+                            ):
+                                p.terminate()
+                                closed_something = True
+                                details_msg.append(f"Terminated process '{p.name()}'.")
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
+
+            # 4. Fallback to taskkill if needed
+            if not closed_something:
+                try:
+                    import subprocess
+
+                    res = subprocess.run(
+                        ["taskkill", "/IM", f"{clean_app}.exe", "/F"],
+                        capture_output=True,
+                        text=True,
+                        check=False,
+                    )
+                    if res.returncode == 0:
+                        closed_something = True
+                        details_msg.append(f"Terminated via taskkill '{clean_app}.exe'.")
+                except Exception:
+                    pass
+
+            return {
+                "action": action,
+                "status": "ok" if closed_something else "not_found",
+                "app_name": app_name,
+                "message": "; ".join(details_msg)
+                if closed_something
+                else f"No active window or process found matching '{app_name}'.",
+            }
 
         # Handle listing running apps / windows
         if action in ("list_apps", "list_windows"):
@@ -502,7 +616,7 @@ def create_computer_tool(options: Optional[Dict[str, Any]] = None) -> AgentTool:
             },
             "app_name": {
                 "type": "string",
-                "description": "Application name or window title to focus, launch, or manage.",
+                "description": "Application name or window title to focus, launch, close, kill, or manage (e.g. 'chrome', 'youtube', 'notepad').",
             },
             "coordinate": {
                 "type": "array",
@@ -569,3 +683,13 @@ def create_computer_tool_definition(options: Optional[Dict[str, Any]] = None) ->
         "description": tool.description,
         "parameters": tool.parameter_schema,
     }
+
+
+get_computer_tool = create_computer_tool
+
+__all__ = [
+    "COMPUTER_ACTIONS",
+    "create_computer_tool",
+    "create_computer_tool_definition",
+    "get_computer_tool",
+]

@@ -133,11 +133,13 @@ class TelegramChannelPlugin(ChannelPlugin):
         if self.client:
             return
         import os
+
         token = os.environ.get("TELEGRAM_BOT_TOKEN")
         if not token:
             try:
                 import json
                 from pathlib import Path
+
                 cfg_path = Path.home() / ".jarvis" / "config.json"
                 if cfg_path.is_file():
                     data = json.loads(cfg_path.read_text(encoding="utf-8"))
@@ -207,14 +209,8 @@ class TelegramChannelPlugin(ChannelPlugin):
         elif hasattr(message, "voice_bytes"):
             voice_bytes = getattr(message, "voice_bytes", None)
 
-        # Synthesize voice note if enabled on Telegram and not already provided
-        if voice_bytes is None and getattr(self.config, "voiceReplies", True) and text:
-            try:
-                from src.talk.speech_synthesizer import synthesize_speech_wav_async
-
-                voice_bytes = await synthesize_speech_wav_async(text)
-            except Exception as e:
-                _log.debug("Telegram voice note synthesis skipped: %s", e)
+        # Voice note synthesis is deferred until after the text is delivered
+        # (below); synthesizing first delayed every Telegram reply by seconds.
 
         if location:
             if location.source == "place" and location.name and location.address:
@@ -248,7 +244,23 @@ class TelegramChannelPlugin(ChannelPlugin):
                 reply_markup=reply_markup,
             )
 
-        # Dual modality: also deliver the interactive voice note to Telegram
+        # Dual modality: also deliver the interactive voice note to Telegram.
+        # Synthesize only after the text landed so a slow TTS never delays the
+        # reply the user is waiting for.
+        if (
+            voice_bytes is None
+            and not location
+            and res.get("ok")
+            and getattr(self.config, "voiceReplies", True)
+            and text
+        ):
+            try:
+                from src.talk.speech_synthesizer import synthesize_speech_wav_async
+
+                voice_bytes = await synthesize_speech_wav_async(text)
+            except Exception as e:
+                _log.debug("Telegram voice note synthesis skipped: %s", e)
+
         if voice_bytes and not location:
             try:
                 await self.client.send_voice(
@@ -263,14 +275,16 @@ class TelegramChannelPlugin(ChannelPlugin):
 
         if res.get("ok"):
             sent = res.get("result") or {}
-            return Ok({
-                "channel": "telegram",
-                "account_id": getattr(self.config, "accountId", None) or "default",
-                "peer_id": parsed_target.chat_id,
-                "delivery_status": "sent",
-                "message_id": str(sent.get("message_id", "")),
-                "verified": True,
-            })
+            return Ok(
+                {
+                    "channel": "telegram",
+                    "account_id": getattr(self.config, "accountId", None) or "default",
+                    "peer_id": parsed_target.chat_id,
+                    "delivery_status": "sent",
+                    "message_id": str(sent.get("message_id", "")),
+                    "verified": True,
+                }
+            )
         return Err(res.get("error", "Unknown error"))
 
     async def listen(self, callback: Callable[[Any], None]) -> None:

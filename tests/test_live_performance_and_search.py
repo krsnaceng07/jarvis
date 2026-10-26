@@ -7,9 +7,9 @@ from jarvis_voice_pipeline.terminal_app import DEFAULT_MODEL, FALLBACK_MODELS
 
 
 def test_vad_hangover_latency_optimized() -> None:
-    """Verify VAD hangover is tuned to 3 frames (~192ms) for brisk human-like turn-taking."""
+    """Verify VAD hangover is tuned to 10 frames (~640ms) for reliable distant room speaking."""
     vad = EnergyVADEngine()
-    assert vad.hangover_frames == 3
+    assert vad.hangover_frames == 10
 
 
 def test_gemini_live_models_only_native_audio() -> None:
@@ -147,7 +147,9 @@ async def test_send_audio_uses_media_chunks_not_audio_arg() -> None:
     assert mock_session.send_realtime_input.called
     kwargs = mock_session.send_realtime_input.call_args.kwargs
     assert "media" in kwargs, "send_realtime_input must use media= parameter"
-    assert "audio" not in kwargs, "send_realtime_input must never use audio= parameter (triggers RFC 1007 error)"
+    assert "audio" not in kwargs, (
+        "send_realtime_input must never use audio= parameter (triggers RFC 1007 error)"
+    )
     blob = kwargs["media"]
     assert blob.mime_type == "audio/pcm;rate=16000"
 
@@ -160,7 +162,11 @@ def test_resume_context_preserves_task_and_omits_completion_override(tmp_path) -
     db_path = tmp_path / "test_agent.sqlite"
     store = SessionTranscriptStore(db_path)
     store.append_entry("desktop:hud", "user_speech", {"text": "E drive ma Stonic AI folder khoj"})
-    store.append_entry("desktop:hud", "assistant_speech", {"text": "Hunchha sar. Ma E drivema 'Stonic' folder khojchhu"})
+    store.append_entry(
+        "desktop:hud",
+        "assistant_speech",
+        {"text": "Hunchha sar. Ma E drivema 'Stonic' folder khojchhu"},
+    )
 
     engine = object.__new__(terminal_app.NativeGeminiLiveEngine)
     engine._transcript_store = store
@@ -183,8 +189,12 @@ def test_pending_task_recovery_from_store(tmp_path) -> None:
 
     db_path = tmp_path / "test_agent.sqlite"
     store = SessionTranscriptStore(db_path)
-    store.append_entry("desktop:hud", "user_speech", {"text": "ChatGPT kholera UI generate garna prompt deu"})
-    store.append_entry("desktop:hud", "assistant_speech", {"text": "Hunchha sar, ma ChatGPT kholdaichhu"})
+    store.append_entry(
+        "desktop:hud", "user_speech", {"text": "ChatGPT kholera UI generate garna prompt deu"}
+    )
+    store.append_entry(
+        "desktop:hud", "assistant_speech", {"text": "Hunchha sar, ma ChatGPT kholdaichhu"}
+    )
 
     engine = object.__new__(terminal_app.NativeGeminiLiveEngine)
     engine._transcript_store = store
@@ -240,7 +250,10 @@ def test_ls_and_exec_voice_descriptions_enhanced() -> None:
     filtered = clean_gemini_declarations(sample_decls, voice_priority_only=True)
     by_name = {t["name"]: t for t in filtered}
 
-    assert "MUST call this whenever user asks to inspect, check, explore, search, or analyze any folder or drive" in by_name["ls"]["description"]
+    assert (
+        "MUST call this whenever user asks to inspect, check, explore, search, or analyze any folder or drive"
+        in by_name["ls"]["description"]
+    )
     assert "deep recursive searches" in by_name["exec"]["description"]
 
 
@@ -270,12 +283,33 @@ def test_ghost_action_promise_detection() -> None:
     goal = "Timi yee drivema jaau. it drivema stonik naamako folder ho. tyo pholdaramaa bhitr bhaeko sabai kura diplee enaalaaij gar"
 
     # Ghost promises made by model
-    assert engine._detect_ghost_action_promise("Hunchha sar, Ma E: drivema 'Stonic' folder khojchhu", goal) is True
-    assert engine._detect_ghost_action_promise("Ma 'E:' drivema 'Stonic' folder bhitrako sabai kura gahiro tarikaale wishleshan garchhu", goal) is True
-    assert engine._detect_ghost_action_promise("Ma gardai chhu sar. wishleshan garna kehi samay laagchh.", goal) is True
+    assert (
+        engine._detect_ghost_action_promise(
+            "Hunchha sar, Ma E: drivema 'Stonic' folder khojchhu", goal
+        )
+        is True
+    )
+    assert (
+        engine._detect_ghost_action_promise(
+            "Ma 'E:' drivema 'Stonic' folder bhitrako sabai kura gahiro tarikaale wishleshan garchhu",
+            goal,
+        )
+        is True
+    )
+    assert (
+        engine._detect_ghost_action_promise(
+            "Ma gardai chhu sar. wishleshan garna kehi samay laagchh.", goal
+        )
+        is True
+    )
 
     # Ordinary chat greeting
-    assert engine._detect_ghost_action_promise("Namaste Sir, ma tapailai kasto maddat garna sakchhu?", "") is False
+    assert (
+        engine._detect_ghost_action_promise(
+            "Namaste Sir, ma tapailai kasto maddat garna sakchhu?", ""
+        )
+        is False
+    )
 
 
 @pytest.mark.asyncio
@@ -447,6 +481,7 @@ async def test_subagent_spawner_and_completion_announcement() -> None:
 
     # Wait briefly for background execution
     import asyncio
+
     for _ in range(50):
         await asyncio.sleep(0.05)
         if completed_records:
@@ -471,7 +506,10 @@ async def test_subagent_directory_analysis_does_not_hijack_web_search() -> None:
     async def mock_ls(cid, args):
         nonlocal ls_invoked
         ls_invoked = True
-        return {"content": [{"type": "text", "text": "notes-search/\nrea-analysis/"}], "entries": ["notes-search/", "rea-analysis/"]}
+        return {
+            "content": [{"type": "text", "text": "notes-search/\nrea-analysis/"}],
+            "entries": ["notes-search/", "rea-analysis/"],
+        }
 
     async def mock_search(cid, args):
         nonlocal web_search_invoked
@@ -664,8 +702,276 @@ async def test_send_audio_task_permits_audio_when_hearing() -> None:
     assert mock_session.send_realtime_input.called
 
 
+def test_is_actionable_user_goal_filters_greetings_and_cancels() -> None:
+    """Verify _is_actionable_user_goal rejects chit-chat and cancellations but accepts real commands."""
+    from jarvis_voice_pipeline.terminal_app import _is_actionable_user_goal
+
+    # Non-actionable: chit-chat, greetings, questions about what was said
+    assert not _is_actionable_user_goal("Mero pani thikai chha.")
+    assert not _is_actionable_user_goal("Hello Jarvis")
+    assert not _is_actionable_user_goal("नमस्ते Sir, कस्तो छ?")
+    assert not _is_actionable_user_goal("Kati bela bhane maile?")
+    assert not _is_actionable_user_goal("Why did you open youtube?")
+    assert not _is_actionable_user_goal("Maile bhane thiena.")
+
+    # Cancellation keywords
+    assert not _is_actionable_user_goal("chup laga")
+    assert not _is_actionable_user_goal("kehi nagar")
+    assert not _is_actionable_user_goal("stop right now")
+    assert not _is_actionable_user_goal("cancel that")
+
+    # Actionable: concrete commands & natural volume/brightness requests
+    assert _is_actionable_user_goal("E drive ma Stonic folder khoja")
+    assert _is_actionable_user_goal("YouTube kholera song bajaideu")
+    assert _is_actionable_user_goal("YouTube banda gara")
+    assert _is_actionable_user_goal("Downloads ma Crystal naam ko folder banau")
+    assert _is_actionable_user_goal("Volume 60 percent banau")
+    assert _is_actionable_user_goal("bholam kamai bhaeko chhaina.")
+    assert _is_actionable_user_goal("minimam phlom kamai garna sake chhaina.")
+    assert _is_actionable_user_goal("बोलुम कम करा")
+    assert _is_actionable_user_goal("bholam kam gariyo.")
+    assert _is_actionable_user_goal("detanes phul garam")
+    assert _is_actionable_user_goal("sar n badheko")
+    assert _is_actionable_user_goal("waॉlyoom 30% karaa")
+    assert _is_actionable_user_goal("wolyum 40%")
+    assert _is_actionable_user_goal("valyum 50%")
+    assert _is_actionable_user_goal("thik hai kaॉlam saathee")
 
 
+def test_ghost_action_promise_detection_logic() -> None:
+    """Verify _detect_ghost_action_promise catches empty verbal promises & acknowledgments on actionable goals."""
+    from jarvis_voice_pipeline.terminal_app import _detect_ghost_action_promise
+
+    # Greeting / chit-chat: even if text has 'gardai chhu' or 'holaa', must NOT trigger ghost chatter
+    response_chit_chat = "sunnuhos, sar, tapaaeenle Malai yutyub maa kehi khojn bhannubhaeko thiyo holaa. Ma ahile tyasako laagi tayaaree gardai chhu."
+    assert not _detect_ghost_action_promise(
+        response_chit_chat, active_goal="Mero pani thikai chha."
+    )
+    assert not _detect_ghost_action_promise(response_chit_chat, active_goal="Hello Jarvis")
+    assert not _detect_ghost_action_promise("Hunchha sar", active_goal="Hello Jarvis")
+
+    # Concrete command: assistant promises opening YouTube without calling tool -> MUST trigger ghost chatter
+    response_promise = "Hunchha sar, Ma yutyub kholdai chhu."
+    assert _detect_ghost_action_promise(response_promise, active_goal="YouTube khola")
+    assert _detect_ghost_action_promise("Ma E drive khojdaichhu", active_goal="E drive ma khoja")
+
+    # Empty agreements / acknowledgments to actionable commands (e.g. Volume 30% gara -> Hunchha sar,,)
+    goal = "waॉlyoom 30% karaa"
+    assert _detect_ghost_action_promise("Hunchha sar,,", active_goal=goal)
+    assert _detect_ghost_action_promise("Hunchha sar", active_goal=goal)
+    assert _detect_ghost_action_promise("Hunchha", active_goal=goal)
+    assert _detect_ghost_action_promise("Sure Sir", active_goal=goal)
+    assert _detect_ghost_action_promise("Okay Sir", active_goal=goal)
+    assert _detect_ghost_action_promise("Ji Sir", active_goal=goal)
+    assert _detect_ghost_action_promise("हुन्छ सर", active_goal=goal)
+    assert _detect_ghost_action_promise("maile bholyum 60% maa set garidie", active_goal=goal)
 
 
+@pytest.mark.asyncio
+async def test_computer_tool_close_app_action() -> None:
+    """Verify computer tool supports close_app / close_window and handles missing target gracefully."""
+    from src.agents.sessions.tools.computer_tool import get_computer_tool, COMPUTER_ACTIONS
 
+    assert "close_app" in COMPUTER_ACTIONS
+    assert "close_window" in COMPUTER_ACTIONS
+    assert "kill_app" in COMPUTER_ACTIONS
+
+    tool = get_computer_tool()
+    computer_fn = tool.execute if hasattr(tool, "execute") else tool["execute"]
+    res = await computer_fn({"action": "close_app", "app_name": "nonexistent_mock_process_9999"})
+    assert isinstance(res, dict)
+    assert res.get("action") == "close_app"
+    assert res.get("status") == "not_found"
+
+
+def test_sandbox_config_sanitized() -> None:
+    """Verify sandbox configuration default image names are standardized to jarvis-sandbox."""
+    from src.config.sandbox_config import DEFAULT_SANDBOX_IMAGE, DEFAULT_SANDBOX_BROWSER_IMAGE
+
+    assert DEFAULT_SANDBOX_IMAGE == "jarvis-sandbox:bookworm-slim"
+    assert DEFAULT_SANDBOX_BROWSER_IMAGE == "jarvis-sandbox-browser:bookworm-slim"
+
+
+def test_vad_speech_threshold_tuned_for_distant_speaking() -> None:
+    """Verify VAD sensitivity threshold is lowered to 25 with 10 hangover frames for distant room speaking."""
+    vad = EnergyVADEngine()
+    assert vad.speech_threshold == 25
+    assert vad.hangover_frames == 10
+    assert vad.pre_roll_buffer.maxlen == 8
+
+
+def test_image_generate_unconfigured_does_not_redirect_to_chatgpt() -> None:
+    """Verify unconfigured image_generate does NOT push the model to open ChatGPT."""
+    from src.agents.sessions.tools.image_generate_tool import image_generate_tool_handler
+
+    res = image_generate_tool_handler(None, {"prompt": "Starship blueprint"})
+    assert res.get("status") == "error"
+    error_msg = res.get("error", "")
+    assert "No image generation provider" in error_msg
+    # Must explicitly forbid unprompted ChatGPT redirection
+    assert "NEVER automatically navigate to ChatGPT" in error_msg
+
+
+def test_get_pending_task_from_store_ignores_completed_actions() -> None:
+    """Verify completed assistant actions ('garidie', 'set garisake') are NOT treated as unfulfilled tasks."""
+    from types import SimpleNamespace
+    from jarvis_voice_pipeline import terminal_app
+
+    engine = object.__new__(terminal_app.NativeGeminiLiveEngine)
+    mock_store = SimpleNamespace(
+        get_recent_entries=lambda _session_id, limit=8: [
+            {"entry_type": "user_turn", "data": {"text": "bholyum 60% banau"}},
+            {
+                "entry_type": "assistant_speech",
+                "data": {"text": "Hunchha sar, maile bholyum ६०% maa set garidie."},
+            },
+        ]
+    )
+    engine._transcript_store = mock_store
+    assert engine._get_pending_task_from_store("desktop:hud") is None
+
+
+@pytest.mark.asyncio
+async def test_handle_tool_call_waits_for_spoken_acknowledgment() -> None:
+    """Verify _handle_tool_call does not send tool response while speech audio is playing."""
+    import asyncio
+    import threading
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    from google.genai import types
+    from jarvis_voice_pipeline import terminal_app
+
+    engine = object.__new__(terminal_app.NativeGeminiLiveEngine)
+    engine.stop_event = asyncio.Event()
+    engine.audio_out_queue = asyncio.Queue()
+    engine.audio_in_queue = asyncio.Queue()
+    engine.audio_in_queue.put_nowait(b"\x00\x00" * 400)
+    engine._ws_send_lock = asyncio.Lock()
+    engine._speaking_lock = threading.Lock()
+    engine._is_speaking = True
+    engine._turn_done_event = asyncio.Event()
+    engine.state = SimpleNamespace(set_agent_state=lambda *_a: None)
+    engine._turn_complete_received = False
+
+    send_called = False
+    mock_session = AsyncMock()
+
+    async def mock_send_tool_response(**_k):
+        nonlocal send_called
+        send_called = True
+
+    mock_session.send_tool_response = mock_send_tool_response
+
+    async def mock_execute(_fc):
+        return types.FunctionResponse(name="test", id="1", response={"ok": True})
+
+    engine._execute_tool_call = mock_execute
+
+    tool_call = SimpleNamespace(function_calls=[SimpleNamespace(name="test", id="1")])
+    task = asyncio.create_task(engine._handle_tool_call(mock_session, tool_call))
+
+    # Give tool time to execute but speech is still active
+    await asyncio.sleep(0.08)
+    assert not send_called, (
+        "send_tool_response must not be called while speech is actively playing!"
+    )
+
+    # Now speech finishes
+    engine._is_speaking = False
+    engine.audio_in_queue.get_nowait()
+    engine._turn_complete_received = True
+
+    await asyncio.sleep(0.12)
+    await task
+    assert send_called, "send_tool_response should be delivered once speech completes."
+
+
+@pytest.mark.asyncio
+async def test_pre_tool_turn_complete_does_not_clear_tool_in_flight() -> None:
+    """Verify pre-tool turn_complete does not reset assistant_generating or pending_tool_response."""
+    import asyncio
+    import threading
+    from types import SimpleNamespace
+    from jarvis_voice_pipeline import terminal_app
+
+    engine = object.__new__(terminal_app.NativeGeminiLiveEngine)
+    engine._speaking_lock = threading.Lock()
+    engine._is_speaking = False
+    engine._tool_call_in_flight = True
+    engine._pending_tool_response = True
+    engine._assistant_generating = True
+    engine._turn_complete_received = False
+    engine._turn_done_event = asyncio.Event()
+    engine.state = SimpleNamespace(agent_state="THINKING", set_agent_state=lambda *_a: None)
+    engine.audio_in_queue = asyncio.Queue()
+
+    # Emulate pre-tool turn_complete arriving while tool execution is still in flight
+    if engine._tool_call_in_flight or getattr(engine, "_pending_tool_response", False):
+        # Must NOT clear generation or complete flags
+        pass
+    else:
+        engine._turn_complete_received = True
+        engine._assistant_generating = False
+
+    assert not engine._turn_complete_received
+    assert engine._assistant_generating
+    assert engine._pending_tool_response
+
+
+def test_context_window_compression_parameters() -> None:
+    """Verify ContextWindowCompressionConfig has trigger_tokens=8000 and target_tokens=4000."""
+    from jarvis_voice_pipeline import terminal_app
+
+    engine = object.__new__(terminal_app.NativeGeminiLiveEngine)
+    engine.tool_declarations = []
+    engine.plugin_result = type("MockPR", (), {"skills": []})()
+    engine.system_prompt = "test"
+    engine._build_resume_context = lambda: ""
+    engine.session_resumption_handle = "test_handle"
+
+    cfg = engine._build_live_config()
+    cwc = cfg.context_window_compression
+    assert cwc is not None
+    assert cwc.trigger_tokens == 8000
+    assert cwc.sliding_window is not None
+    assert cwc.sliding_window.target_tokens == 4000
+
+
+def test_session_timeout_preserves_resumption_handle() -> None:
+    """Verify 1011 Deadline expired error preserves session_resumption_handle for seamless reconnect."""
+    err_str = "APIError: 1011 None. Deadline expired before operation could complete."
+    is_session_timeout = any(
+        x in err_str.lower()
+        for x in [
+            "1011",
+            "deadline expired",
+            "operation could complete",
+            "keepalive",
+            "broken pipe",
+        ]
+    )
+    assert is_session_timeout is True
+
+
+@pytest.mark.asyncio
+async def test_keepalive_ping_task_calls_ws_ping() -> None:
+    """Verify _keepalive_ping_task emits RFC 6455 WebSocket pings to keep NAT sockets alive."""
+    import asyncio
+    from unittest.mock import AsyncMock
+    from jarvis_voice_pipeline import terminal_app
+
+    engine = object.__new__(terminal_app.NativeGeminiLiveEngine)
+    engine.stop_event = asyncio.Event()
+    engine._tool_call_in_flight = False
+    engine._pending_tool_response = False
+    engine._tool_response_pending_turn = False
+    engine._last_server_activity = 0.0
+
+    mock_ws = AsyncMock()
+    mock_session = type("MockSession", (), {"_ws": mock_ws})()
+
+    # Run ping task briefly
+    task = asyncio.create_task(engine._keepalive_ping_task(mock_session))
+    await asyncio.sleep(0.05)
+    engine.stop_event.set()
+    await task

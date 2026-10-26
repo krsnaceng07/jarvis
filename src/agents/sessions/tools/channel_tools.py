@@ -26,6 +26,8 @@ def create_channels_definition() -> dict[str, Any]:
             "'doctor' or 'repair' (AUTONOMOUSLY SELF-HEAL channels: auto-recovers missing bot tokens from memory or env, "
             "validates credentials with official APIs, and automatically restarts inactive listeners), "
             "'configure' or 'add' (configure bot token/credentials and immediately launch live listener), "
+            "'login' or 'pair' or 'qr' (pair device / generate WhatsApp QR code for phone scanning), "
+            "'reconfigure' (reset credentials and re-pair/re-generate QR code), "
             "'remove' or 'disable' (disable channel and stop listener), "
             "'restart' (restart channel listener), "
             "'list' (list all supported messaging channels)."
@@ -35,7 +37,7 @@ def create_channels_definition() -> dict[str, Any]:
             "properties": {
                 "action": {
                     "type": "STRING",
-                    "description": "Action to perform: 'status', 'doctor', 'repair', 'configure', 'add', 'remove', 'restart', 'list'. Default is 'status'.",
+                    "description": "Action to perform: 'status', 'doctor', 'repair', 'configure', 'add', 'login', 'pair', 'qr', 'reconfigure', 'remove', 'restart', 'list'. Default is 'status'.",
                 },
                 "channel": {
                     "type": "STRING",
@@ -43,7 +45,7 @@ def create_channels_definition() -> dict[str, Any]:
                 },
                 "token": {
                     "type": "STRING",
-                    "description": "Bot API token or credentials (e.g. Telegram token from @BotFather, Discord bot token, etc.).",
+                    "description": "Bot API token or credentials (e.g. Telegram token from @BotFather, Discord bot token, or phone number for WhatsApp).",
                 },
                 "dm_policy": {
                     "type": "STRING",
@@ -109,10 +111,45 @@ def create_channels_tool(live_host: Any = None) -> dict[str, Any]:
                 "result": full_text,
             }
 
-        # 2. Configure / Add
+        # 2. Login / Pair / QR Pairing
+        if action in ("login", "pair", "qr", "reconfigure", "relink"):
+            target_chan = channel or "whatsapp"
+            if target_chan == "whatsapp":
+                is_force = bool(params.get("force", False)) or action in ("reconfigure", "relink")
+                phone = token or str(params.get("phone") or "").strip() or None
+                result = await manager.login_whatsapp(
+                    action="start",
+                    account_id=str(params.get("account_id") or "default").strip(),
+                    force=is_force,
+                    phone=phone,
+                )
+                msg = result.get("message", "WhatsApp pairing initiated.")
+                if result.get("qr_data_url"):
+                    qr_url = result["qr_data_url"]
+                    ascii_qr = result.get("ascii_qr", "")
+                    msg = (
+                        "### WhatsApp Pairing QR Code\n\n"
+                        f"![WhatsApp QR]({qr_url})\n\n"
+                        "Open WhatsApp on your mobile device > Settings > Linked Devices > Link a Device, and scan the QR code above.\n\n"
+                        f"```\n{ascii_qr}\n```"
+                    )
+                return {
+                    "content": [{"type": "text", "text": msg}],
+                    "data": result,
+                    "result": msg,
+                }
+
+        # 3. Configure / Add
         if action in ("configure", "add", "set"):
             if not channel:
-                return {"content": [{"type": "text", "text": "Error: 'channel' parameter is required for configure."}]}
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Error: 'channel' parameter is required for configure.",
+                        }
+                    ]
+                }
             result = await manager.configure_channel(
                 channel=channel,
                 token=token,
@@ -120,6 +157,16 @@ def create_channels_tool(live_host: Any = None) -> dict[str, Any]:
                 allow_from=allow_from,
             )
             msg = result.get("message", f"Configured channel {channel}.")
+            if result.get("qr_data_url"):
+                qr_url = result["qr_data_url"]
+                ascii_qr = result.get("ascii_qr", "")
+                msg = (
+                    f"{msg}\n\n"
+                    "### WhatsApp Pairing QR Code\n\n"
+                    f"![WhatsApp QR]({qr_url})\n\n"
+                    "Open WhatsApp on your mobile device > Settings > Linked Devices > Link a Device, and scan the QR code above.\n\n"
+                    f"```\n{ascii_qr}\n```"
+                )
             return {
                 "content": [{"type": "text", "text": msg}],
                 "data": result,
@@ -129,9 +176,20 @@ def create_channels_tool(live_host: Any = None) -> dict[str, Any]:
         # 3. Restart / Reload listener
         if action in ("restart", "reload"):
             if not channel:
-                return {"content": [{"type": "text", "text": "Error: 'channel' parameter is required for restart."}]}
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Error: 'channel' parameter is required for restart.",
+                        }
+                    ]
+                }
             res = await manager.start_channel_listener(channel)
-            msg = f"Restarted channel listener for '{channel}': {res.get('status', 'ok')}" if res.get("ok") else f"Failed to restart '{channel}': {res.get('error')}"
+            msg = (
+                f"Restarted channel listener for '{channel}': {res.get('status', 'ok')}"
+                if res.get("ok")
+                else f"Failed to restart '{channel}': {res.get('error')}"
+            )
             return {
                 "content": [{"type": "text", "text": msg}],
                 "data": res,
@@ -141,11 +199,23 @@ def create_channels_tool(live_host: Any = None) -> dict[str, Any]:
         # 4. Remove / Disable
         if action in ("remove", "disable", "stop"):
             if not channel:
-                return {"content": [{"type": "text", "text": "Error: 'channel' parameter is required for remove."}]}
+                return {
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Error: 'channel' parameter is required for remove.",
+                        }
+                    ]
+                }
             await manager.stop_channel_listener(channel)
-            cfg = manager._read_canonical_config() if hasattr(manager, "_read_canonical_config") else {}
+            cfg = (
+                manager._read_canonical_config()
+                if hasattr(manager, "_read_canonical_config")
+                else {}
+            )
             # Disable in config
             from src.channels.channel_manager import _read_canonical_config, _write_canonical_config
+
             cfg = _read_canonical_config()
             if "channels" in cfg and channel in cfg["channels"]:
                 cfg["channels"][channel]["enabled"] = False
@@ -328,7 +398,9 @@ def create_configure_channel_tool(live_host: Any = None) -> dict[str, Any]:
         allow_from = params.get("allow_from")
 
         if not channel:
-            return {"content": [{"type": "text", "text": "Error: 'channel' parameter is required."}]}
+            return {
+                "content": [{"type": "text", "text": "Error: 'channel' parameter is required."}]
+            }
         if not token:
             return {"content": [{"type": "text", "text": "Error: 'token' parameter is required."}]}
 
@@ -429,15 +501,17 @@ def create_whatsapp_login_definition() -> dict[str, Any]:
     return {
         "name": "whatsapp_login",
         "description": (
-            "Generate an in-terminal WhatsApp QR code for linking, or verify link status. "
-            "Supported actions: 'start' (generates in-terminal QR code), 'wait' or 'check' (verifies link status)."
+            "Interactive WhatsApp login and QR code generator. Supported actions: "
+            "'start', 'login', 'pair', 'qr' (generates and returns an embedded QR code image to scan with phone), "
+            "'wait' or 'check' (waits for or checks pairing status), "
+            "'reconfigure' (forces a new pairing session / fresh QR code)."
         ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "action": {
                     "type": "STRING",
-                    "description": "Action to perform: 'start' (initiate in-terminal QR pairing), 'wait' or 'check' (check link status). Default is 'start'.",
+                    "description": "Action to perform: 'start', 'login', 'pair', 'qr', 'wait', 'check', 'reconfigure'. Default is 'start'.",
                 },
                 "account_id": {
                     "type": "STRING",
@@ -445,11 +519,11 @@ def create_whatsapp_login_definition() -> dict[str, Any]:
                 },
                 "force": {
                     "type": "BOOLEAN",
-                    "description": "Optional boolean flag to force generating a fresh QR code even if already linked.",
+                    "description": "Treat an existing link as needing a fresh pairing / new QR code.",
                 },
                 "phone": {
                     "type": "STRING",
-                    "description": "Optional phone number (with country code, e.g. '+97798XXXXXXXX') for generating a pairing code.",
+                    "description": "Optional phone number to receive an 8-digit pairing code instead of scanning a QR code.",
                 },
             },
         },
@@ -468,107 +542,101 @@ def create_whatsapp_login_tool(live_host: Any = None) -> dict[str, Any]:
     ) -> dict[str, Any]:
         action = str(params.get("action") or "start").strip().lower()
         account_id = str(params.get("account_id") or "default").strip()
-        force = bool(params.get("force", False))
+        force = bool(params.get("force", False)) or action in ("reconfigure", "relink")
         phone = str(params.get("phone") or "").strip() or None
-        if not phone:
+
+        async def _ensure_listener() -> None:
             try:
-                from src.channels.channel_manager import _read_canonical_config
-                cfg = _read_canonical_config()
-                wa_cfg = cfg.get("channels", {}).get("whatsapp", {})
-                phone = wa_cfg.get("ownerPhone") or (wa_cfg.get("allowFrom", [None])[0] if wa_cfg.get("allowFrom") else None)
+                from src.channels.channel_manager import ChannelManager
+
+                cm = ChannelManager.get_instance()
+                loop = cm._ensure_event_loop()
+                if loop.is_running():
+                    loop.call_soon_threadsafe(
+                        lambda: loop.create_task(cm.start_channel_listener("whatsapp"))
+                    )
+                else:
+                    loop.run_until_complete(cm.start_channel_listener("whatsapp"))
             except Exception:
                 pass
 
         try:
-            from src.desktop_automation.providers.whatsapp_provider import WhatsAppDesktopProvider
+            from src.channels.channel_manager import ChannelManager
 
-            provider = WhatsAppDesktopProvider()
-            if action in ("start", "login", "pair"):
-                pairing_info = provider.generate_pairing_qr(
+            manager = ChannelManager.get_instance()
+
+            if action in ("start", "login", "pair", "qr", "reconfigure", "relink"):
+                res = await manager.login_whatsapp(
+                    action="start",
                     account_id=account_id,
                     force=force,
                     phone=phone,
-                    print_terminal=True,
                 )
-                if pairing_info.get("connected"):
-                    res_msg = pairing_info.get(
-                        "message",
-                        f"WhatsApp is already linked for account '{account_id}'.",
+                if res.get("qr_data_url"):
+                    qr_url = res["qr_data_url"]
+                    ascii_qr = res.get("ascii_qr", "")
+                    res_msg = (
+                        "### WhatsApp Pairing QR Code\n\n"
+                        f"![WhatsApp QR]({qr_url})\n\n"
+                        "Open WhatsApp on your mobile phone > Settings > Linked Devices > Link a Device, and scan the QR code above.\n\n"
+                        f"```\n{ascii_qr}\n```"
                     )
-                    try:
-                        from src.channels.channel_manager import ChannelManager
-                        cm = ChannelManager.get_instance()
-                        loop = cm._ensure_event_loop()
-                        if loop.is_running():
-                            loop.call_soon_threadsafe(lambda: loop.create_task(cm.start_channel_listener("whatsapp")))
-                        else:
-                            loop.run_until_complete(cm.start_channel_listener("whatsapp"))
-                    except Exception:
-                        pass
                     return {
                         "content": [{"type": "text", "text": res_msg}],
                         "result": res_msg,
+                        "data": res,
+                        "connected": False,
+                        "account_id": account_id,
+                    }
+                elif res.get("already_linked") or res.get("who"):
+                    who = res.get("who", "linked")
+                    await _ensure_listener()
+                    res_msg = f"WhatsApp is already linked as {who} for account '{account_id}'. Live listener is active."
+                    return {
+                        "content": [{"type": "text", "text": res_msg}],
+                        "result": res_msg,
+                        "data": res,
                         "connected": True,
                         "account_id": account_id,
                     }
-
-                qr_data_url = pairing_info.get("qr_data_url", "")
-                instructions = pairing_info.get("instructions", "")
-                qr_terminal = pairing_info.get("qr_terminal", "")
-
-                parts = [
-                    f"WhatsApp QR Pairing Initiated for account '{account_id}'.",
-                    "The phone-scannable QR code has been generated and printed directly to your terminal.",
-                    "",
-                    instructions,
-                ]
-                if qr_data_url:
-                    parts.extend([
-                        "",
-                        f"![whatsapp-qr]({qr_data_url})",
-                    ])
-
-                res_msg = "\n".join(parts)
-                return {
-                    "content": [{"type": "text", "text": res_msg}],
-                    "result": res_msg,
-                    "qr_data_url": qr_data_url,
-                    "qr_terminal": qr_terminal,
-                    "account_id": account_id,
-                    "connected": False,
-                }
-            else:
-                auth = provider.get_auth_state(account_id)
-                state = await provider.get_state()
-                if auth.get("linked"):
-                    status_str = f"linked and active ({auth.get('who')})"
-                    is_conn = True
-                    try:
-                        from src.channels.channel_manager import ChannelManager
-                        cm = ChannelManager.get_instance()
-                        loop = cm._ensure_event_loop()
-                        if loop.is_running():
-                            loop.call_soon_threadsafe(lambda: loop.create_task(cm.start_channel_listener("whatsapp")))
-                        else:
-                            loop.run_until_complete(cm.start_channel_listener("whatsapp"))
-                    except Exception:
-                        pass
-                elif state.is_running:
-                    status_str = "desktop app running (unpaired web session)"
-                    is_conn = False
                 else:
-                    status_str = "not linked (run whatsapp_login start to generate in-terminal QR)"
-                    is_conn = False
+                    msg = res.get("message") or res.get("error") or "WhatsApp login initiated."
+                    return {
+                        "content": [{"type": "text", "text": msg}],
+                        "result": msg,
+                        "data": res,
+                        "connected": False,
+                        "account_id": account_id,
+                    }
 
-                res_msg = f"WhatsApp channel status: {status_str} for account '{account_id}'."
+            if action in ("wait", "check", "status"):
+                res = await manager.login_whatsapp(
+                    action="wait",
+                    account_id=account_id,
+                    timeout_sec=float(params.get("timeout_sec") or 30.0),
+                )
+                is_conn = bool(res.get("ok") and res.get("linked"))
+                who = res.get("who", "")
+                if is_conn:
+                    await _ensure_listener()
+                    res_msg = f"WhatsApp is linked as {who} for account '{account_id}'."
+                else:
+                    err = res.get("error") or "WhatsApp is not linked."
+                    res_msg = f"WhatsApp status: {err}"
                 return {
                     "content": [{"type": "text", "text": res_msg}],
                     "result": res_msg,
+                    "data": res,
                     "connected": is_conn,
                     "account_id": account_id,
                 }
+
+            return {
+                "content": [{"type": "text", "text": f"Unknown action: {action}"}],
+                "result": f"Unknown action: {action}",
+            }
         except Exception as e:
-            err = f"WhatsApp provider check: {e}"
+            err = f"WhatsApp channel check failed: {e}"
             return {"content": [{"type": "text", "text": err}], "result": err}
 
     return {

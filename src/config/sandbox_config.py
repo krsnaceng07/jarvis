@@ -1,7 +1,6 @@
-"""jarvis.config.sandbox_config — OpenClaw-parity sandbox configuration contracts.
+"""jarvis.config.sandbox_config — JARVIS sandbox configuration contracts.
 
-Mirrors OpenClaw's sandbox configuration schema from ``src/config/types.openclaw.ts``
-and ``docs/gateway/sandboxing.md``:
+Defines JARVIS's sandbox configuration schema:
 - SandboxMode: "off" | "non-main" | "all"
 - SandboxScope: "agent" | "session" | "shared"
 - SandboxBackend: "docker" | "podman" | "ssh" | "process" | "openshell"
@@ -21,17 +20,17 @@ SandboxScope = Literal["agent", "session", "shared"]
 SandboxBackend = Literal["docker", "podman", "ssh", "process", "openshell"]
 SandboxWorkspaceAccess = Literal["none", "ro", "rw"]
 
-DEFAULT_SANDBOX_IMAGE = "openclaw-sandbox:bookworm-slim"
-DEFAULT_SANDBOX_BROWSER_IMAGE = "openclaw-sandbox-browser:bookworm-slim"
+DEFAULT_SANDBOX_IMAGE = "jarvis-sandbox:bookworm-slim"
+DEFAULT_SANDBOX_BROWSER_IMAGE = "jarvis-sandbox-browser:bookworm-slim"
 DEFAULT_SANDBOX_NETWORK = "none"
-DEFAULT_BROWSER_NETWORK = "openclaw-sandbox-browser"
+DEFAULT_BROWSER_NETWORK = "jarvis-sandbox-browser"
 
 
 @dataclass(slots=True)
 class DockerSandboxConfig:
     """Docker/Podman container engine configuration.
 
-    Mirrors OpenClaw's ``agents.defaults.sandbox.docker`` schema.
+    Mirrors JARVIS's ``agents.defaults.sandbox.docker`` schema.
     """
 
     image: str = DEFAULT_SANDBOX_IMAGE
@@ -65,7 +64,7 @@ class DockerSandboxConfig:
 class BrowserSandboxConfig:
     """Browser sidecar container configuration.
 
-    Mirrors OpenClaw's ``agents.defaults.sandbox.browser`` schema.
+    Mirrors JARVIS's ``agents.defaults.sandbox.browser`` schema.
     """
 
     auto_start: bool = True
@@ -108,7 +107,7 @@ class BrowserSandboxConfig:
 class SandboxConfig:
     """Top-level sandbox configuration.
 
-    Mirrors OpenClaw's ``agents.defaults.sandbox`` schema.
+    Mirrors JARVIS's ``agents.defaults.sandbox`` schema.
     """
 
     mode: SandboxMode = "off"

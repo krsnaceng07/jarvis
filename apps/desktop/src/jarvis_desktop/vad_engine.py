@@ -51,11 +51,17 @@ class EnergyVADEngine:
 
     def __init__(
         self,
-        speech_threshold: int = 250,
-        hangover_frames: int = 3,
-        pre_roll_frames: int = 5,
+        speech_threshold: int = 140,
+        hangover_frames: int = 4,
+        pre_roll_frames: int = 8,
     ) -> None:
         import os
+        env_threshold = os.environ.get("JARVIS_SPEECH_THRESHOLD")
+        if env_threshold is not None:
+            try:
+                speech_threshold = int(env_threshold)
+            except ValueError:
+                pass
         env_hangover = os.environ.get("JARVIS_VAD_HANGOVER_FRAMES")
         if env_hangover is not None:
             try:

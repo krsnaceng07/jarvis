@@ -32,38 +32,46 @@ def collect_whatsapp_status_issues(
     issues: List[Dict[str, Any]] = []
 
     if not creds_file.exists():
-        issues.append({
-            "channel": "whatsapp",
-            "account_id": account_id,
-            "kind": "auth",
-            "message": "Not linked (no WhatsApp session creds.json found).",
-            "fix": "Run: 'jarvis channels login whatsapp' or invoke the 'whatsapp_login' tool to pair via terminal QR code.",
-            "auto_fixable": True,
-        })
+        issues.append(
+            {
+                "channel": "whatsapp",
+                "account_id": account_id,
+                "kind": "auth",
+                "message": "Not linked (no WhatsApp session creds.json found).",
+                "fix": "Run: 'jarvis channels login whatsapp' or invoke the 'whatsapp_login' tool to pair via terminal QR code.",
+                "auto_fixable": True,
+            }
+        )
     else:
         try:
             with open(creds_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
             registered = data.get("registered")
-            is_linked = bool(registered is True or data.get("linked") is True)
+            is_linked = bool(
+                registered is True or data.get("linked") is True or (data.get("me") or {}).get("id")
+            )
             if not is_linked:
-                issues.append({
+                issues.append(
+                    {
+                        "channel": "whatsapp",
+                        "account_id": account_id,
+                        "kind": "auth",
+                        "message": "WhatsApp session exists but is marked unlinked/logged-out.",
+                        "fix": "Run: 'jarvis channels login whatsapp' to refresh pairing.",
+                        "auto_fixable": True,
+                    }
+                )
+        except Exception as exc:
+            issues.append(
+                {
                     "channel": "whatsapp",
                     "account_id": account_id,
                     "kind": "auth",
-                    "message": "WhatsApp session exists but is marked unlinked/logged-out.",
-                    "fix": "Run: 'jarvis channels login whatsapp' to refresh pairing.",
+                    "message": f"WhatsApp credentials file is corrupted: {exc}",
+                    "fix": "Run: 'jarvis channels login whatsapp --force' to re-create clean credentials.",
                     "auto_fixable": True,
-                })
-        except Exception as exc:
-            issues.append({
-                "channel": "whatsapp",
-                "account_id": account_id,
-                "kind": "auth",
-                "message": f"WhatsApp credentials file is corrupted: {exc}",
-                "fix": "Run: 'jarvis channels login whatsapp --force' to re-create clean credentials.",
-                "auto_fixable": True,
-            })
+                }
+            )
 
     return issues
 
