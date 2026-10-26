@@ -29,6 +29,24 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent.parent
 EXTENSIONS = ROOT / "extensions"
 
+
+def _workspace_excluded() -> set[str]:
+    """Directory names excluded from the uv workspace.
+
+    ``extensions/x`` holds an upstream OpenClaw TypeScript reference file and is
+    deliberately outside the workspace (``[tool.uv.workspace].exclude``). It is
+    not a Python plugin, so it must not be held to the plugin manifest contract;
+    validating it would demand a manifest for code we never load.
+    """
+    try:
+        import tomllib
+
+        data = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    except (OSError, tomllib.TOMLDecodeError):
+        return set()
+    raw = data.get("tool", {}).get("uv", {}).get("workspace", {}).get("exclude", [])
+    return {str(entry).removeprefix("extensions/").strip("/") for entry in raw}
+
 # Phase 1C: relaxed to match OpenClaw's actual manifest shape.
 # OpenClaw's `openclaw.plugin.json` only requires `id` (must match the
 # directory name). `kind` / `version` / `description` live in the
@@ -165,8 +183,11 @@ def main() -> int:
 
     all_errors: list[str] = []
     n_manifests = 0
+    excluded = _workspace_excluded()
     for ext_dir in sorted(EXTENSIONS.iterdir()):
         if not ext_dir.is_dir():
+            continue
+        if ext_dir.name in excluded:
             continue
         n_manifests += 1
         all_errors.extend(validate_manifest(ext_dir))
