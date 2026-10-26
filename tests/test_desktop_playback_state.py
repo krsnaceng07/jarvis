@@ -11,9 +11,11 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_playback_releases_speaking_after_last_chunk():
-    source = Path("apps/desktop/src/jarvis_desktop/app.py").read_text(encoding="utf-8")
+    source = Path("apps/desktop/src/jarvis_desktop/live_transport.py").read_text(encoding="utf-8")
     cls = next(
-        n for n in ast.parse(source).body if isinstance(n, ast.ClassDef) and n.name == "JarvisLive"
+        n
+        for n in ast.parse(source).body
+        if isinstance(n, ast.ClassDef) and n.name == "LiveTransport"
     )
     method = next(
         n for n in cls.body if isinstance(n, ast.AsyncFunctionDef) and n.name == "_play_audio"
@@ -52,8 +54,8 @@ async def test_playback_releases_speaking_after_last_chunk():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("muted", [False, True])
 async def test_microphone_preserves_quiet_pcm_while_speaking(muted):
-    source = Path("apps/desktop/src/jarvis_desktop/app.py").read_text(encoding="utf-8")
-    cls = next(n for n in ast.parse(source).body if isinstance(n, ast.ClassDef) and n.name == "JarvisLive")
+    source = Path("apps/desktop/src/jarvis_desktop/live_transport.py").read_text(encoding="utf-8")
+    cls = next(n for n in ast.parse(source).body if isinstance(n, ast.ClassDef) and n.name == "LiveTransport")
     method = next(n for n in cls.body if isinstance(n, ast.AsyncFunctionDef) and n.name == "_listen_audio")
     captured = {}
 
