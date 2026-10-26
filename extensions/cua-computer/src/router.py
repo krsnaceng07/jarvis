@@ -369,10 +369,18 @@ class TierRouter:
     async def _execute_tier0_browser(
         self, action: str, params: dict[str, Any]
     ) -> dict[str, Any]:
-        """Delegate browser action to BrowserTool DOM engine."""
+        """Delegate a browser action to the host-owned browser tool.
+
+        Resolved through ``src.tools.browser_host`` so this extension never
+        imports a sibling extension; ``None`` means the browser capability is
+        not installed and the caller falls through to the native tiers.
+        """
         try:
-            from extensions.browser.src.browser_tool import BrowserTool
-            tool = BrowserTool()
+            from src.tools.browser_host import get_browser_tool
+
+            tool = get_browser_tool()
+            if tool is None:
+                return {"ok": False, "error": "browser capability not installed"}
             b_args = dict(params)
             b_args["action"] = "act"
             if action in ("click", "left_click"):
