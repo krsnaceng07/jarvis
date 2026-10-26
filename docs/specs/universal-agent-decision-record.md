@@ -196,21 +196,31 @@ verified` (naming what is not), `not completed` (naming the blocker). Never
    `VERIFIED IN REAL RUNTIME`.
 7. The 14 dirty files present at Phase 2 start are not uniformly someone else's
    work. Comparing each file against the `phase0b-working-tree-snapshot-2026-10-23`
-   stash (`stash@{0}`) and `HEAD` splits them into exactly three groups:
+   stash (`stash@{0}`) and `HEAD` splits them into exactly four groups:
    **this session's Phase 0 edits (3)** — `extensions/cua-computer/src/router.py`,
    `extensions/memory_lancedb/embeddings.py`, `tools/ci/check_manifests.py`, plus
    the new untracked `src/tools/browser_host.py`;
-   **another writer (11)** — `MEMORY.md`,
+   **another writer (10)** —
    `packages/voice_pipeline/src/jarvis_voice_pipeline/pipeline_builder.py`,
    `packages/voice_pipeline/src/jarvis_voice_pipeline/terminal_app.py`,
    `packages/voice_pipeline/tests/test_tool_audio_ordering.py`,
    `src/agents/sessions/tools/__init__.py`, and the six
    `src/agents/sessions/tools/{image,music,video}_generate_{background,tool}.py`
    modules;
+   **test output (1)** — `MEMORY.md`, appended by
+   `tests/test_web_bridge_ui.py:126` through `POST /api/memories`, whose handler
+   (`apps/desktop/src/jarvis_desktop/web_bridge.py:586-598`) writes the repo-root
+   file. `HEAD` already holds twelve copies of that appended line and the working
+   tree holds thirteen, so the file is polluted only by repeated test runs;
    **mixed (0)**. None of these files belongs to Phase 2, and none is ever staged
    with it. File mtimes were not used to decide this: the machine clock moved
-   during the session. `MEMORY.md`'s present diff is a test-written memory entry
-   (`Test Preference: Dark theme enabled`), not a media-tool edit.
+   during the session. Separately, the working copy is missing two `wishes/*`
+   lines that `HEAD` still contains. That removal is not test output either: the
+   only writer that deletes `MEMORY.md` lines is `MemoryRuntime.forget`
+   (`extensions/memory_core/runtime.py:837-897`), reachable from
+   `jarvis memory forget` (`extensions/memory_core/cli.py:354`) and from no test,
+   so the lines are real data lost from the working copy and come back only by
+   restoring the file from `HEAD`.
 8. `ruff format --check` stays failing on the two split modules until a
    separate format-only commit after Phase 2. Making them format-exempt needs
    explicit operator approval.
