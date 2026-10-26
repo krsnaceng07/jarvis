@@ -14,6 +14,7 @@ Verifies:
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
@@ -237,15 +238,16 @@ def test_is_batch_parallelizable():
 
 
 @pytest.mark.asyncio
-async def test_execute_tool_validation_error_returns_observation():
+async def test_execute_tool_validation_error_returns_observation(tmp_path: Path):
     from apps.desktop.src.jarvis_desktop.app import JarvisLive
 
     mock_ui = MagicMock()
     mock_ui.muted = False
     live = JarvisLive(mock_ui)
 
-    # Call "write" without required "content" argument
-    fc = SimpleNamespace(id="call_1", name="write", args={"path": "some/path.txt"})
+    # Call "write" without required "content" argument. The path is absolute
+    # inside tmp_path so a registry miss cannot write into the repo root.
+    fc = SimpleNamespace(id="call_1", name="write", args={"path": str(tmp_path / "path.txt")})
     resp = await live._execute_tool(fc)
 
     assert resp.name == "write"

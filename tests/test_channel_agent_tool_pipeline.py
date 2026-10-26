@@ -93,10 +93,13 @@ async def test_channel_tool_execution_filesystem_tools(tmp_path: Path):
 
 
 @pytest.mark.asyncio
-async def test_channel_save_memory_execution():
+async def test_channel_save_memory_execution(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     """Verify save_memory tool called from channel updates long-term memory."""
     from apps.desktop.src.jarvis_desktop.memory_bridge import load_memory
 
+    # The save path falls back to the active workspace (the repo root) and would
+    # append a duplicate directive to the real USER.md; keep it in tmp_path.
+    monkeypatch.setenv("JARVIS_WORKSPACE", str(tmp_path))
     pipeline = ChannelAgentPipeline.get_instance()
     mem_res = await pipeline._execute_channel_tool(
         tool_name="save_memory",

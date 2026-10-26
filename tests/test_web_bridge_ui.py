@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from unittest.mock import MagicMock
 import pytest
 from starlette.testclient import TestClient
 
+from jarvis_desktop import web_bridge
 from jarvis_desktop.web_bridge import JarvisWebUI
 
 
@@ -113,7 +115,12 @@ def test_web_ui_websocket_flow(web_ui: JarvisWebUI):
         assert web_ui.state == "STANDBY"
 
 
-def test_web_ui_memories_endpoints(web_ui: JarvisWebUI):
+def test_web_ui_memories_endpoints(
+    web_ui: JarvisWebUI, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    # The POST handler appends to ``BASE_DIR/MEMORY.md``; point it at tmp_path
+    # so a test run never writes the workspace copy of MEMORY.md for real.
+    monkeypatch.setattr(web_bridge, "BASE_DIR", tmp_path)
     client = TestClient(web_ui.app)
     # 1. Fetch memories
     resp = client.get("/api/memories")
