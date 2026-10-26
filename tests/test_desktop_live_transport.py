@@ -36,3 +36,11 @@ def test_plugin_hook_bus_is_the_same_object_in_app_and_transport() -> None:
 
     assert app._PLUGIN_HOOK_BUS is live_transport._PLUGIN_HOOK_BUS
 
+
+def test_tool_pipeline_reexports_desktop_action_executors() -> None:
+    import jarvis_desktop.desktop_actions as desktop_actions
+    import jarvis_desktop.tool_pipeline as tool_pipeline
+
+    for name in ("execute_desktop_action", "execute_auto_control"):
+        assert getattr(tool_pipeline, name) is getattr(desktop_actions, name), name
+

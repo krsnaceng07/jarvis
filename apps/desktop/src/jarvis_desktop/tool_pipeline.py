@@ -15,8 +15,9 @@ from typing import Any, Sequence
 from jarvis_llm.types import Tool, ToolCall
 from jarvis_llm.validation import ToolValidationError, validate_tool_arguments
 
-# Re-exported so the desktop host (and its tests) can patch the executor
+# Re-exported so the desktop host (and its tests) can patch the executors
 # through this module; desktop_actions owns the implementation.
+from .desktop_actions import execute_auto_control as execute_auto_control
 from .desktop_actions import execute_desktop_action as execute_desktop_action
 
 #: Maximum character count for tool output before truncation.
