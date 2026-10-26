@@ -1,6 +1,9 @@
 # Universal Agent — Phase 1 Decision Record
 
-Status: **PROPOSED — awaiting operator approval**
+Status: **PARTIALLY DECIDED — D1 is not approved.** Phase 2 and the gateway stay
+blocked. Decided: D5 deferred, the mechanical split as its own first step, and
+legacy `JarvisLive` routed through the same loop. D1 (making
+`run_embedded_agent` the single loop) awaits operator approval.
 Date: 2026-10-26
 Scope: make JARVIS finish arbitrary requests end to end (find or build a missing
 capability, do the work, verify it, report honestly) without a per-task tool and
@@ -12,22 +15,26 @@ it is approved, per the implementation guide's phase contract.
 ## Phase 0 evidence (baseline as measured today)
 
 | Gate | Before | After | Owner |
-|null|---|---|---|
+|---|---|---|---|
 | `tools.ci.check_imports` | 3 violations | **OK** (999 files) | fixed here |
 | `tools.ci.check_boundaries` | 3 violations | **OK** (999 files) | fixed here |
 | `tools.ci.check_cycles` | OK (1881 modules) | **OK** | none |
 | `tools.ci.check_manifests` | 22 errors | **OK** (167) | fixed here |
 | `tools.ci.check_schema_version` | OK | **OK** | none |
-| `tools.ci.check_max_lines` | 4 files over 2000 | **FAIL — pre-existing** | see below |
+| `tools.ci.check_max_lines` | 2 files over 2000 | **FAIL — pre-existing** | see below |
 
 `check_max_lines` failures are pre-existing debt in files this work does not touch:
-`packages/voice_pipeline/src/jarvis_voice_pipeline/terminal_app.py` (4122),
-`extensions/browser/src/browser_runtime.py` (2111),
-`apps/desktop/src/jarvis_desktop/app.py` (3017),
-`apps/desktop/src/jarvis_desktop/tool_pipeline.py` (2155).
-Two of them are the desktop surfaces Phase 2 must change, so this is *not* purely
-someone else's problem; splitting them is the cost of routing desktop through the
-canonical loop. Decision needed: split as part of Phase 2, or exempt temporarily.
+`packages/voice_pipeline/src/jarvis_voice_pipeline/terminal_app.py` (4160) and
+`extensions/browser/src/browser_runtime.py` (2111). Neither is a Phase 2 surface.
+The two desktop files named earlier are now under the hard limit after the split
+commits `f1c4b1c1` and `12a58c9c`: `apps/desktop/src/jarvis_desktop/app.py` (1692)
+and `apps/desktop/src/jarvis_desktop/tool_pipeline.py` (1249). Decision still
+needed on the two remaining files: split them, or exempt temporarily.
+
+The "After" column describes the uncommitted working tree. The three gate fixes
+(`extensions/cua-computer/src/router.py`, `extensions/memory_lancedb/embeddings.py`,
+`tools/ci/check_manifests.py`, plus the new untracked `src/tools/browser_host.py`)
+exist only there; no commit contains them, so `HEAD` still fails those three gates.
 
 The 22 manifest errors were 21 untracked `__pycache__`-only ghost directories
 (removed) plus `extensions/x`, a single upstream TypeScript reference file that
@@ -187,10 +194,23 @@ verified` (naming what is not), `not completed` (naming the blocker). Never
 6. `TESTED WITH MOCKS` is the ceiling until a human runs the live voice path.
    A green short run is reported as "worked in one short run", never as
    `VERIFIED IN REAL RUNTIME`.
-7. The 14 dirty files in the tree at Phase 2 start were written by another
-   session at 14:08-14:13, before the first split commit. They are not part of
-   this work and are never staged with it; a failure has to be attributed to
-   either the surface change or that WIP, not assumed.
+7. The 14 dirty files present at Phase 2 start are not uniformly someone else's
+   work. Comparing each file against the `phase0b-working-tree-snapshot-2026-10-23`
+   stash (`stash@{0}`) and `HEAD` splits them into exactly three groups:
+   **this session's Phase 0 edits (3)** — `extensions/cua-computer/src/router.py`,
+   `extensions/memory_lancedb/embeddings.py`, `tools/ci/check_manifests.py`, plus
+   the new untracked `src/tools/browser_host.py`;
+   **another writer (11)** — `MEMORY.md`,
+   `packages/voice_pipeline/src/jarvis_voice_pipeline/pipeline_builder.py`,
+   `packages/voice_pipeline/src/jarvis_voice_pipeline/terminal_app.py`,
+   `packages/voice_pipeline/tests/test_tool_audio_ordering.py`,
+   `src/agents/sessions/tools/__init__.py`, and the six
+   `src/agents/sessions/tools/{image,music,video}_generate_{background,tool}.py`
+   modules;
+   **mixed (0)**. None of these files belongs to Phase 2, and none is ever staged
+   with it. File mtimes were not used to decide this: the machine clock moved
+   during the session. `MEMORY.md`'s present diff is a test-written memory entry
+   (`Test Preference: Dark theme enabled`), not a media-tool edit.
 8. `ruff format --check` stays failing on the two split modules until a
    separate format-only commit after Phase 2. Making them format-exempt needs
    explicit operator approval.
@@ -209,6 +229,16 @@ Four findings block Phase 2 proper; none is caused by the two splits.
    errors are this one root cause, so the loop D1 selects has no working test
    surface. Phase 2 cannot start on this package until the module is restored
    or the import is removed by its owner.
+   The package actually needs seven never-committed modules. All seven survive as
+   untracked files in `stash@{1}^3` (`phase0b-preflight-2026-10-23`):
+   `plugin_runtime_refresh.py`, `run/permission_change.py`,
+   `run/provider_review_run.py`, `run/retry_budget.py`, `run/runtime.py`,
+   `run/turn_taint_state.py`, `turn_settlement.py` (about 400 lines total). In a
+   temporary worktree, restoring all seven made the package import and
+   `tests/test_phase70_layer3_embedded_runner_foundation.py` collect 58 tests;
+   restoring only `plugin_runtime_refresh.py` failed on the next missing module.
+   The owner chooses between restoring the seven files, writing a minimal module
+   set from the call-site contract, or removing the import.
 2. **One test kills the interpreter by design.**
    `test_training_pipeline_phase7_hardening.py::test_p7_62_job_object_memory_limit_breach`
    assigns the pytest process itself to a Windows Job Object with a 256 MB cap
