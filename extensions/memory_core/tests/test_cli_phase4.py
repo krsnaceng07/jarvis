@@ -7,6 +7,7 @@ correct argparse subcommand tree and dispatches the right handlers.
 from __future__ import annotations
 
 import argparse
+from pathlib import Path
 
 import pytest
 
@@ -212,8 +213,14 @@ def test_full_parse_and_dispatch_promote_explain(capsys: pytest.CaptureFixture[s
     assert "not yet available" in out
 
 
-def test_full_parse_and_dispatch_index(capsys: pytest.CaptureFixture[str]) -> None:
+def test_full_parse_and_dispatch_index(
+    capsys: pytest.CaptureFixture[str], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """End-to-end: ``jarvis memory index`` prints the status line."""
+    # ``memory index`` derives its DB from the active workspace, which falls
+    # back to cwd (cli.py:185); running in tmp_path keeps the repo's tracked
+    # core/memory.sqlite untouched.
+    monkeypatch.chdir(tmp_path)
     root, sub = _build_program()
     cli_module.register_memory_cli(sub)
     args = root.parse_args(["memory", "index"])
