@@ -15,8 +15,9 @@ from typing import Any, Sequence
 from jarvis_llm.types import Tool, ToolCall
 from jarvis_llm.validation import ToolValidationError, validate_tool_arguments
 
-# Re-exported so the desktop host (and its tests) can patch the executors
-# through this module; desktop_actions owns the implementation.
+# Re-exported so the desktop host (and tests) can patch executors here;
+# desktop_actions owns them. Seam limit: patching execute_desktop_action in
+# this module does not reach execute_auto_control, which uses desktop_actions'.
 from .desktop_actions import execute_auto_control as execute_auto_control
 from .desktop_actions import execute_desktop_action as execute_desktop_action
 
