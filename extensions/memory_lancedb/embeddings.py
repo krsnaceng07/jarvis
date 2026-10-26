@@ -384,22 +384,12 @@ class ProviderAdapterEmbeddings(Embeddings):
         cfg = self._config_provider() if self._config_provider is not None else {}
         provider_id = self._provider_id
         if provider_id == "auto":
-            try:
-                from extensions.openai.memory_embedding_adapter import _resolve_api_key as resolve_openai_key
-                openai_key = resolve_openai_key(cfg)
-            except Exception:
-                openai_key = None
-            try:
-                from extensions.google.memory_embedding_adapter import _resolve_api_key as resolve_google_key
-                google_key = resolve_google_key(cfg)
-            except Exception:
-                google_key = None
-            if openai_key:
-                provider_id = "openai"
-            elif google_key:
-                provider_id = "google"
-            else:
-                provider_id = "openai"
+            # Adapter selection stays inside the SDK registry: the fallback
+            # chain below already switches to whichever provider actually
+            # produces an instance, so "auto" only needs a deterministic
+            # starting preference. Probing sibling extensions for keys here
+            # duplicated that fallback and broke the extension boundary.
+            provider_id = "openai"
 
         adapter = get_provider(provider_id, cfg)
 
