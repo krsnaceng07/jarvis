@@ -12,6 +12,7 @@ export const AssistantHologramPanel: React.FC = () => {
   const { character, openModal, updateCharacter } = useModules();
   const panelRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ w: 341, h: 340 });
+  const [characterMorphing, setCharacterMorphing] = useState(false);
 
   useEffect(() => {
     const updateSize = () => {
@@ -72,7 +73,7 @@ export const AssistantHologramPanel: React.FC = () => {
         <SettingsIcon className="h-4 w-4" />
       </button>
 
-      {/* Character switch: male and female are separate baked point clouds. */}
+      {/* Character switch controls the paired source portraits and shared particle draw. */}
       <div className="absolute left-2 top-2 z-40 flex items-center gap-px rounded-full border border-[#1c4650] bg-[#03080c]/95 p-0.5 text-[9px] font-mono">
         {(['male', 'female'] as const).map((appearance) => {
           const selected = character.appearance === appearance;
@@ -80,14 +81,19 @@ export const AssistantHologramPanel: React.FC = () => {
             <button
               key={appearance}
               type="button"
-              onClick={() => updateCharacter({ appearance })}
+              disabled={characterMorphing}
+              onClick={() => {
+                if (selected || characterMorphing) return;
+                setCharacterMorphing(true);
+                updateCharacter({ appearance });
+              }}
               aria-pressed={selected}
               aria-label={`Use ${appearance} hologram character`}
               className={`rounded-full px-2 py-0.5 uppercase tracking-[0.12em] transition-colors ${
                 selected
                   ? 'bg-[#0a222a] text-[#c7f4f8] shadow-[0_0_8px_rgba(0,240,255,0.18)]'
                   : 'text-slate-500 hover:text-slate-200'
-              }`}
+              } ${characterMorphing ? 'cursor-not-allowed opacity-50' : ''}`}
             >
               {appearance === 'male' ? 'M' : 'F'}
             </button>
@@ -109,7 +115,12 @@ export const AssistantHologramPanel: React.FC = () => {
         <div className="pointer-events-none absolute inset-0 z-0 hud-panel-grid opacity-[0.16]" />
 
         <div className="relative z-10 min-h-0 w-full flex-1">
-          <ThreeHologram appearance={character.appearance} state={state} />
+          <ThreeHologram
+            appearance={character.appearance}
+            state={state}
+            onMorphActiveChange={setCharacterMorphing}
+            onGenderChange={(appearance) => updateCharacter({ appearance })}
+          />
         </div>
 
         <HologramDebugPanel />

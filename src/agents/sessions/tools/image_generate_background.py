@@ -62,10 +62,20 @@ async def execute_image_generation_job(
             "summary": summary
         }
         
-        # In a full JARVIS implementation, this is where we'd wake the agent 
-        # or push the attachment via channels_core.
+        # OpenClaw parity: Deliver immediate spoken voice notification to active voice engine
+        try:
+            from jarvis_voice_pipeline.terminal_app import NativeGeminiLiveEngine
+            active = NativeGeminiLiveEngine.get_active_engine()
+            if active and hasattr(active, "post_system_notification"):
+                active.post_system_notification(
+                    f"[SYSTEM NOTIFICATION: Background image generation '{task_id}' succeeded. "
+                    f"Saved {len(saved_paths)} image(s): {saved_paths}. "
+                    f"Briefly inform Sir in Nepali in 1 warm sentence that the image is ready.]"
+                )
+        except Exception as notify_err:
+            logger.debug("Voice notification hook note: %s", notify_err)
+
         if on_complete:
-            # We assume on_complete is an async callback taking the task_id and result
             await on_complete(task_id, _tasks[task_id])
 
     except Exception as e:
@@ -74,6 +84,19 @@ async def execute_image_generation_job(
             "status": "failed",
             "error": str(e)
         }
+
+        # OpenClaw parity: Deliver immediate failure notification to active voice engine
+        try:
+            from jarvis_voice_pipeline.terminal_app import NativeGeminiLiveEngine
+            active = NativeGeminiLiveEngine.get_active_engine()
+            if active and hasattr(active, "post_system_notification"):
+                active.post_system_notification(
+                    f"[SYSTEM NOTIFICATION: Background image generation '{task_id}' failed: {e}. "
+                    f"Briefly inform Sir in Nepali in 1 clear sentence that image generation failed.]"
+                )
+        except Exception as notify_err:
+            logger.debug("Voice notification hook note: %s", notify_err)
+
         if on_complete:
             await on_complete(task_id, _tasks[task_id])
 

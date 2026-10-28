@@ -11,7 +11,9 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import inspect
 import json
+import logging
 import os
 import re
 import shutil
@@ -43,6 +45,8 @@ from .dom_som_injector import (
     format_som_elements_summary,
     inject_set_of_marks,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def find_system_chromium() -> str | None:
@@ -639,9 +643,6 @@ class BrowserRuntime:
                         pass
 
                 launch_args = _chromium_launch_args(self.resolved)
-                port_arg = f"--remote-debugging-port={cdp_port}"
-                if port_arg not in launch_args:
-                    launch_args.append(port_arg)
                 if "--start-maximized" not in launch_args:
                     launch_args.append("--start-maximized")
 
@@ -652,11 +653,11 @@ class BrowserRuntime:
                         channel="chrome",
                         headless=bool(profile.headless),
                         args=launch_args,
-                        ignore_default_args=["--enable-automation"],
                         no_viewport=True,
                         timeout=12000,
                     )
-                except Exception:
+                except Exception as first_exc:
+                    logger.warning("launch_persistent_context channel=chrome fallback: %s", first_exc)
                     # Fallback to direct executable_path or standard launch
                     try:
                         context = await self.playwright.chromium.launch_persistent_context(
@@ -664,17 +665,31 @@ class BrowserRuntime:
                             executable_path=exec_path,
                             headless=bool(profile.headless),
                             args=launch_args,
-                            ignore_default_args=["--enable-automation"],
                             timeout=12000,
                         )
-                    except Exception:
-                        if self.browser is None:
-                            self.browser = await self.playwright.chromium.launch(
-                                executable_path=exec_path,
+                    except Exception as second_exc:
+                        logger.warning("launch_persistent_context direct fallback: %s", second_exc)
+                        try:
+                            # Fallback to Playwright bundled Chromium to avoid host Chrome single-instance collisions
+                            context = await self.playwright.chromium.launch_persistent_context(
+                                user_data_dir=str(profile_dir.resolve()),
                                 headless=bool(profile.headless),
                                 args=launch_args,
+                                timeout=12000,
                             )
-                        context = await self.browser.new_context()
+                        except Exception as third_exc:
+                            logger.warning("launch_persistent_context bundled fallback: %s", third_exc)
+                            if self.browser is None:
+                                safe_launch_args = [
+                                    a for a in launch_args
+                                    if not a.startswith("--remote-debugging-port")
+                                    and not a.startswith("--user-data-dir")
+                                ]
+                                self.browser = await self.playwright.chromium.launch(
+                                    headless=bool(profile.headless),
+                                    args=safe_launch_args,
+                                )
+                            context = await self.browser.new_context()
 
                 # Anti-detection stealth init script
                 try:
@@ -786,7 +801,12 @@ class BrowserRuntime:
     ) -> List[Dict[str, Any]]:
         """List all open tabs across profiles with optional sessionKey filtering."""
         prof = self._resolve_profile(profile)
-        await self.get_or_create_context(prof)
+        cdp_port = getattr(prof, "cdpPort", None) or 9222
+        if prof.name in self.contexts or is_port_open("127.0.0.1", cdp_port):
+            try:
+                await self.get_or_create_context(prof)
+            except Exception:
+                pass
 
         results = []
         for tid, tab in list(self._tabs.items()):
@@ -1223,73 +1243,150 @@ class BrowserRuntime:
         await _wait_for_page_ready(page, max_wait_ms=1200)
         await _dismiss_overlays_if_present(page)
 
-        # 3. Locate the first video in the search results
-        loc = page.locator(
-            "ytd-video-renderer a#video-title, ytd-video-renderer #video-title, a#video-title, ytd-rich-item-renderer #video-title"
-        ).first
-        try:
-            await loc.wait_for(state="visible", timeout=3000)
-        except Exception:
+        # 3. Locate the first playable video in search results (adaptive DOM evaluation with resilient retry)
+        video_title = clean_query
+        target_href = None
+        for _ in range(24):  # Poll DOM for up to 12s in 500ms intervals
             try:
-                await loc.wait_for(state="attached", timeout=1500)
+                dom_result = await page.evaluate("""() => {
+                    const el = document.querySelector(
+                        'ytd-video-renderer a#video-title, ytd-rich-item-renderer a#video-title, ' +
+                        'ytd-video-renderer a#thumbnail[href*="/watch"], a#video-title[href*="/watch"], a[href*="/watch?v="]'
+                    );
+                    if (el) {
+                        return {
+                            title: (el.innerText || el.textContent || '').trim(),
+                            href: el.getAttribute('href') || ''
+                        };
+                    }
+                    return null;
+                }""")
+                if dom_result and dom_result.get("href"):
+                    if dom_result.get("title"):
+                        video_title = dom_result["title"]
+                    target_href = dom_result["href"]
+                    break
             except Exception:
                 pass
+            await asyncio.sleep(0.5)
 
-        video_title = clean_query
-        try:
-            txt = await loc.text_content()
-            if txt and txt.strip():
-                video_title = txt.strip()
-        except Exception:
-            pass
-
-        # 4. Click video to start playback
+        # 4. Navigate directly to video URL for instant, reliable playback (bypassing thumbnail click intercepts)
         clicked = False
-        try:
-            await loc.click(timeout=3500)
-            clicked = True
-        except Exception:
+        nav_timeout_ms = max(20000, self.resolved.actionTimeoutMs)
+        if target_href and ("/watch" in target_href or "v=" in target_href):
+            target_v = f"https://www.youtube.com{target_href}" if target_href.startswith("/") else target_href
             try:
-                href = await loc.get_attribute("href")
-                if href:
-                    target_v = f"https://www.youtube.com{href}" if href.startswith("/") else href
-                    await page.goto(target_v, wait_until="domcontentloaded", timeout=8000)
-                    clicked = True
+                await _goto_domcontentloaded_best_effort(page, target_v, timeout_ms=nav_timeout_ms)
+                clicked = True
             except Exception:
                 pass
 
         if not clicked:
+            loc = page.locator(
+                "ytd-video-renderer a#video-title, a#video-title, ytd-video-renderer a#thumbnail[href*='/watch'], a[href*='/watch?v=']"
+            ).first
             try:
-                await loc.click(force=True, timeout=2000)
+                if await loc.count() > 0:
+                    href = await loc.get_attribute("href", timeout=3000)
+                    if href and ("/watch" in href or "v=" in href):
+                        target_v = f"https://www.youtube.com{href}" if href.startswith("/") else href
+                        await _goto_domcontentloaded_best_effort(page, target_v, timeout_ms=nav_timeout_ms)
+                        clicked = True
+                    else:
+                        await loc.click(timeout=3000)
+                        clicked = True
             except Exception:
                 pass
 
         # 5. Wait for video page to settle and start video playback
-        await _wait_for_page_ready(page, max_wait_ms=4000)
+        await _wait_for_page_ready(page, max_wait_ms=3000)
         await _dismiss_overlays_if_present(page)
 
-        # Unmute & trigger play on HTML5 video element if paused
-        try:
-            await page.evaluate("""() => {
-                const v = document.querySelector('video');
-                if (v) {
-                    v.muted = false;
-                    v.play().catch(() => {});
-                }
-            }""")
-        except Exception:
-            pass
+        # Adaptive playback verification loop: poll for up to 8s for physical video playback to start
+        is_playing = False
+        play_check_start = time.monotonic()
+        while time.monotonic() - play_check_start < 8.0:
+            try:
+                state_res = await page.evaluate("""() => {
+                    const v = document.querySelector('video');
+                    if (!v) return { found: false, playing: false };
+                    if (v.paused) {
+                        v.muted = false;
+                        v.play().catch(() => {});
+                        const playBtn = document.querySelector('.ytp-play-button');
+                        if (playBtn && (playBtn.getAttribute('data-title-no-tooltip') === 'Play' || (playBtn.title && playBtn.title.toLowerCase().includes('play')))) {
+                            playBtn.click();
+                        }
+                    }
+                    return {
+                        found: true,
+                        playing: !v.paused && v.currentTime > 0.1 && !v.ended,
+                        currentTime: v.currentTime,
+                        duration: v.duration
+                    };
+                }""")
+                if state_res and state_res.get("playing"):
+                    is_playing = True
+                    break
+            except Exception:
+                pass
+            await asyncio.sleep(0.5)
 
-        # 6. Auto-skip pre-roll ad if enabled
+        # 6. Auto-skip pre-roll ad if enabled, and install client-side continuous ad-skipper
         ad_skipped = False
         if auto_skip_ad:
-            await asyncio.sleep(0.5)
+            await asyncio.sleep(0.4)
             ad_skipped = await self._try_skip_youtube_ad(page)
+            # Install persistent background auto-skip interval in YouTube page
+            try:
+                await page.evaluate("""() => {
+                    if (window._jarvis_ad_skipper_installed) return;
+                    window._jarvis_ad_skipper_installed = true;
+                    function checkAndSkip() {
+                        const skipBtns = document.querySelectorAll(
+                            '.ytp-skip-ad-button, .ytp-ad-skip-button, .ytp-ad-skip-button-modern, ' +
+                            'button.ytp-ad-skip-button-modern, .ytp-ad-skip-button-container button, ' +
+                            '[class*="ytp-ad-skip-button"], button[id*="skip-button"], .videoAdUiSkipButton'
+                        );
+                        for (const b of skipBtns) {
+                            if (b && (b.offsetWidth > 0 || b.offsetHeight > 0)) {
+                                b.click();
+                                return;
+                            }
+                        }
+                        const player = document.querySelector('.html5-video-player');
+                        const isAdActive = !!(player && (player.classList.contains('ad-showing') || player.classList.contains('ad-interrupting')));
+                        if (isAdActive) {
+                            const v = document.querySelector('video');
+                            if (v && !isNaN(v.duration) && v.duration > 0) {
+                                v.playbackRate = 16.0;
+                                v.currentTime = v.duration;
+                            }
+                            const overlay = document.querySelector('.ytp-ad-overlay-close-button');
+                            if (overlay) overlay.click();
+                        }
+                    }
+                    setInterval(checkAndSkip, 800);
+                }""")
+            except Exception:
+                pass
+
+        # Final playback recheck in case ad skipping just transitioned to main video
+        if not is_playing:
+            try:
+                final_check = await page.evaluate("""() => {
+                    const v = document.querySelector('video');
+                    return v ? (!v.paused && !v.ended) : false;
+                }""")
+                if final_check:
+                    is_playing = True
+            except Exception:
+                pass
 
         return {
             "ok": True,
             "action": "youtube_play",
-            "status": "playing",
+            "status": "playing" if is_playing else "loaded",
             "playing_title": video_title,
             "query": clean_query,
             "url": page.url,
@@ -1300,27 +1397,30 @@ class BrowserRuntime:
     async def _try_skip_youtube_ad(self, page: Any) -> bool:
         """Internal helper to click skip ad buttons or fast-forward active ads."""
         try:
-            skip_selectors = [
-                ".ytp-ad-skip-button",
-                ".ytp-ad-skip-button-modern",
-                "button.ytp-skip-ad-button",
-                ".ytp-skip-ad-button",
-                "button.ytp-ad-skip-button-icon",
-                "[class*='ytp-ad-skip-button']",
-            ]
-            for sel in skip_selectors:
-                btn = page.locator(sel).first
-                if await btn.is_visible():
-                    await btn.click(timeout=1000)
-                    return True
-
-            # If inside ad container, seek video to end
             skipped = await page.evaluate("""() => {
-                const ad = document.querySelector('.ad-showing, .ad-interrupting, .video-ads');
-                const v = document.querySelector('video');
-                if (ad && v && !isNaN(v.duration) && v.duration > 0) {
-                    v.currentTime = v.duration;
-                    return true;
+                const skipBtns = document.querySelectorAll(
+                    '.ytp-skip-ad-button, .ytp-ad-skip-button, .ytp-ad-skip-button-modern, ' +
+                    'button.ytp-ad-skip-button-modern, .ytp-ad-skip-button-container button, ' +
+                    '[class*="ytp-ad-skip-button"], button[id*="skip-button"], .videoAdUiSkipButton'
+                );
+                for (const b of skipBtns) {
+                    if (b && (b.offsetWidth > 0 || b.offsetHeight > 0)) {
+                        b.click();
+                        return true;
+                    }
+                }
+                const player = document.querySelector('.html5-video-player');
+                const isAdActive = !!(player && (player.classList.contains('ad-showing') || player.classList.contains('ad-interrupting')));
+                const adOverlay = document.querySelector('.ytp-ad-player-overlay-layout, .ytp-ad-text');
+                if (isAdActive || adOverlay) {
+                    const v = document.querySelector('video');
+                    if (v && !isNaN(v.duration) && v.duration > 0) {
+                        v.playbackRate = 16.0;
+                        v.currentTime = v.duration;
+                        const overlay = document.querySelector('.ytp-ad-overlay-close-button');
+                        if (overlay) overlay.click();
+                        return true;
+                    }
                 }
                 return false;
             }""")
@@ -1335,13 +1435,25 @@ class BrowserRuntime:
     ) -> dict[str, Any]:
         """Skip currently playing advertisement on YouTube."""
         prof = self._resolve_profile(profile)
-        page = await self.get_page(prof, target_id)
+        page = None
+        for tid, tab in list(self._tabs.items()):
+            if not tab.page.is_closed() and "youtube.com" in tab.page.url.lower():
+                page = tab.page
+                self._active_tab_id = tid
+                break
+        if page is None:
+            page = await self.get_page(prof, target_id)
         skipped = await self._try_skip_youtube_ad(page)
         return {
             "ok": True,
             "action": "skip_ad",
             "status": "ad_skipped" if skipped else "no_active_ad",
-            "url": page.url,
+            "message": (
+                "Advertisement skipped successfully."
+                if skipped
+                else "No advertisement is currently playing."
+            ),
+            "url": getattr(page, "url", ""),
         }
 
     async def google_search(
@@ -1671,27 +1783,29 @@ class BrowserRuntime:
         # Keep Playwright actionability and strict resolution: recovery must observe
         # a failed action before retrying, never click a different or covered target.
         if act_kind_key == "click":
-            await _wait_for_page_ready(page)
-            await _dismiss_overlays_if_present(page)
             if locator:
-                target_loc = getattr(locator, "first", locator)
+                target_loc = locator
                 clicked = False
                 last_err = None
 
                 # Tier 1: Standard Playwright click
                 try:
-                    box = await target_loc.bounding_box()
-                    if box and box.get("width", 0) > 0 and box.get("height", 0) > 0:
+                    if inspect.iscoroutinefunction(getattr(target_loc, "bounding_box", None)):
                         try:
-                            await page.mouse.move(
-                                box["x"] + box["width"] / 2, box["y"] + box["height"] / 2, steps=3
-                            )
+                            box = await target_loc.bounding_box()
+                            if box and box.get("width", 0) > 0 and box.get("height", 0) > 0:
+                                await page.mouse.move(
+                                    box["x"] + box["width"] / 2, box["y"] + box["height"] / 2, steps=3
+                                )
                         except Exception:
                             pass
                     await target_loc.click(timeout=min(timeout_ms, 2500))
                     clicked = True
                 except Exception as err:
                     last_err = err
+                    err_msg = str(err).lower()
+                    if any(p in err_msg for p in ("strict mode violation", "intercept", "not enabled")):
+                        raise
 
                 # Tier 2: Force click
                 if not clicked:
@@ -1848,6 +1962,13 @@ class BrowserRuntime:
                 "pause": "k",
                 "playpause": "k",
                 "play_pause": "k",
+                "next": "Shift+N",
+                "next_song": "Shift+N",
+                "next_video": "Shift+N",
+                "next_track": "Shift+N",
+                "previous": "Shift+P",
+                "prev": "Shift+P",
+                "previous_song": "Shift+P",
                 "mute": "m",
                 "unmute": "m",
                 "fullscreen": "f",
@@ -1858,7 +1979,11 @@ class BrowserRuntime:
                 "rewind": "j",
                 "forward": "l",
             }
-            press_key = key_map.get(raw_key.lower(), raw_key)
+            rk = raw_key.lower().strip()
+            if rk == "n" and "youtube.com" in getattr(page, "url", "").lower():
+                press_key = "Shift+N"
+            else:
+                press_key = key_map.get(rk, raw_key)
             if locator:
                 try:
                     await locator.press(press_key, timeout=min(timeout_ms, 3000))
@@ -1868,16 +1993,57 @@ class BrowserRuntime:
                 await page.keyboard.press(press_key)
             await _wait_for_page_ready(page, max_wait_ms=3000)
 
-        elif act_kind_key in ("play", "pause", "playpause", "play_pause"):
+        elif act_kind_key in ("next", "next_video", "next_song", "next_track"):
             await _wait_for_page_ready(page)
             try:
-                video_loc = page.locator("video").first
-                if await video_loc.count() > 0:
-                    await video_loc.click(timeout=1500)
-                else:
-                    await page.keyboard.press("k")
+                clicked = await page.evaluate("""() => {
+                    const btn = document.querySelector('.ytp-next-button');
+                    if (btn) { btn.click(); return true; }
+                    return false;
+                }""")
+                if not clicked:
+                    await page.keyboard.press("Shift+N")
             except Exception:
-                await page.keyboard.press("k")
+                await page.keyboard.press("Shift+N")
+            await asyncio.sleep(0.05)
+
+        elif act_kind_key in ("play", "pause", "playpause", "play_pause", "resume"):
+            await _wait_for_page_ready(page)
+            if act_kind_key in ("play", "resume"):
+                try:
+                    await page.evaluate("""() => {
+                        const v = document.querySelector('video');
+                        if (v) {
+                            if (v.paused) v.play().catch(() => {});
+                        } else {
+                            const btn = document.querySelector('.ytp-play-button');
+                            if (btn) btn.click();
+                        }
+                    }""")
+                except Exception:
+                    await page.keyboard.press("k")
+            elif act_kind_key == "pause":
+                try:
+                    await page.evaluate("""() => {
+                        const v = document.querySelector('video');
+                        if (v) {
+                            if (!v.paused) v.pause();
+                        } else {
+                            const btn = document.querySelector('.ytp-play-button');
+                            if (btn) btn.click();
+                        }
+                    }""")
+                except Exception:
+                    await page.keyboard.press("k")
+            else:
+                try:
+                    video_loc = page.locator("video").first
+                    if await video_loc.count() > 0:
+                        await video_loc.click(timeout=1500)
+                    else:
+                        await page.keyboard.press("k")
+                except Exception:
+                    await page.keyboard.press("k")
             await asyncio.sleep(0.05)
 
         elif act_kind_key in ("mute", "unmute"):

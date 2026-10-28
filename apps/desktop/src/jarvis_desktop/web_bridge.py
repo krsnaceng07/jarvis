@@ -437,9 +437,9 @@ class JarvisWebUI:
         })
 
     def set_audio_level(self, level: float) -> None:
-        """Broadcast real-time visualizer audio waveform level (throttled to ~35fps)."""
+        """Broadcast real-time visualizer audio waveform level (throttled to ~25fps)."""
         now = time.time()
-        if now - self._last_audio_level_time < 0.028:
+        if now - self._last_audio_level_time < 0.040:
             return
         self._last_audio_level_time = now
 

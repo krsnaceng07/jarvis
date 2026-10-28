@@ -165,9 +165,11 @@ _BASE_TOOL_DECLARATIONS: list[dict[str, Any]] = [
     {
         "name": "computer",
         "description": (
-            "Control native Windows desktop apps, windows, and hardware controls (Notepad, Explorer, Chrome, volume, brightness). "
+            "Control native Windows desktop apps, windows, hardware controls (Notepad, Explorer, Chrome, volume, brightness), "
+            "and check authoritative real-time host clock and Nepal Standard Time. "
             "Use browser(...) for any web page interaction instead. "
-            "Actions: minimize, maximize, restore, focus_app, launch_app, close_app, close_window, kill_app, list_apps, screenshot, "
+            "Actions: get_time, current_time, get_date, "
+            "minimize, maximize, restore, focus_app, launch_app, close_app, close_window, kill_app, list_apps, screenshot, "
             "inspect_ui, click, right_click, double_click, move, type, key, hotkey, scroll, drag, wait, "
             "set_volume, get_volume, adjust_volume, mute, unmute, set_brightness, get_brightness, adjust_brightness."
         ),
@@ -177,7 +179,8 @@ _BASE_TOOL_DECLARATIONS: list[dict[str, Any]] = [
                 "action": {
                     "type": "string",
                     "description": (
-                        "Desktop action: minimize, maximize, restore, focus_app, launch_app, close_app, close_window, kill_app, "
+                        "Desktop action: get_time, current_time, get_date (inspect exact real-time host clock & Nepal Standard Time), "
+                        "minimize, maximize, restore, focus_app, launch_app, close_app, close_window, kill_app, "
                         "list_apps, screenshot, inspect_ui, click, right_click, double_click, "
                         "move, type, key, hotkey, scroll, drag, wait, "
                         "set_volume, get_volume, adjust_volume, mute, unmute, set_brightness, get_brightness, adjust_brightness"
@@ -254,7 +257,8 @@ _BASE_TOOL_DECLARATIONS: list[dict[str, Any]] = [
                 "action": {
                     "type": "string",
                     "description": (
-                        "Browser action: open, navigate, google_search, youtube_play, snapshot, "
+                        "Browser action: youtube_play (instantly play a song/video on YouTube by query), "
+                        "open, navigate, google_search, snapshot, "
                         "click, type, press_key, scroll, extract_text, go_back, go_forward, reload, close"
                     ),
                 },

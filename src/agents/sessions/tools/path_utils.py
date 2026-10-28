@@ -582,21 +582,34 @@ def launch_windows_app(target: str) -> tuple[bool, str]:
     except Exception:
         pass
 
-    # 6. Windows Start Menu .lnk shortcut lookup
-    start_menu_dirs = [
+    # 6. Windows Start Menu .lnk shortcuts & LocalAppData Programs lookup (finds OpenCode, VSCode, Slack, Discord, etc.)
+    candidate_app_dirs = [
         os.path.expandvars(r"%APPDATA%\Microsoft\Windows\Start Menu\Programs"),
         os.path.expandvars(r"%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\Programs"),
+        os.path.expandvars(r"%LOCALAPPDATA%\Programs"),
     ]
-    for sm_dir in start_menu_dirs:
-        if os.path.isdir(sm_dir):
+    for c_dir in candidate_app_dirs:
+        if os.path.isdir(c_dir):
             try:
-                for root, _, files in os.walk(sm_dir):
+                for root, _, files in os.walk(c_dir):
                     for f in files:
-                        if f.lower().endswith((".lnk", ".url")) and t_clean in f.lower():
+                        f_low = f.lower()
+                        if f_low.endswith((".lnk", ".url")) and t_clean in f_low:
                             lnk_path = os.path.join(root, f)
                             try:
                                 os.startfile(lnk_path)
                                 return True, f"Launched shortcut '{f}' ({lnk_path})"
+                            except Exception:
+                                pass
+                        elif (
+                            f_low.endswith(".exe")
+                            and not f_low.startswith("uninstall")
+                            and (t_clean == f_low.removesuffix(".exe") or t_clean in f_low)
+                        ):
+                            exe_candidate = os.path.join(root, f)
+                            try:
+                                subprocess.Popen([exe_candidate], shell=False)
+                                return True, f"Launched application '{f}' ({exe_candidate})"
                             except Exception:
                                 pass
             except Exception:

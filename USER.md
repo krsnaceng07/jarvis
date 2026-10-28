@@ -286,3 +286,6 @@ Operator's notification style: voice (speak) + on-screen log
 
 <!-- observed: 2026-10-26 | status: active -->
 - learning_feedback: User emphasizes learning from mistakes and demonstrated actions, not just verbal promises.
+
+<!-- observed: 2026-10-26 | status: active -->
+- auto_skip_ads: true

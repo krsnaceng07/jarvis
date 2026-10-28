@@ -203,8 +203,19 @@ def prepare_tool_arguments(tool_name: str, args: dict[str, Any]) -> dict[str, An
             act_lower = raw_action.lower().strip()
             if act_lower in ("goto", "visit", "browse", "go_to", "load", "open_url"):
                 prepared["action"] = "navigate"
-            elif act_lower in ("play", "youtube", "play_youtube"):
+            elif act_lower in ("youtube", "play_youtube") or (
+                act_lower == "play" and bool(prepared.get("query") or prepared.get("search"))
+            ):
                 prepared["action"] = "youtube_play"
+            elif act_lower in ("play", "resume", "unpause", "play_video", "resume_video"):
+                prepared["action"] = "act"
+                prepared["kind"] = "play"
+            elif act_lower in ("pause", "pause_video", "pause_music"):
+                prepared["action"] = "act"
+                prepared["kind"] = "pause"
+            elif act_lower in ("next", "next_song", "next_video", "next_track"):
+                prepared["action"] = "act"
+                prepared["kind"] = "next"
             elif act_lower in ("search_google", "google_search", "google"):
                 prepared["action"] = "google_search"
             elif act_lower in ("new_tab", "newtab", "open_tab"):

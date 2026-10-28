@@ -90,8 +90,6 @@ person, project, todo). Example:
 - notes/user_busy_status: user is watching reels, keep quiet
 - notes/number_stated_0618: 618
 - notes/mistake_context: user acknowledged making a mistake but did not provide details
-- wishes/current_task: Create CV
-- wishes/cv_job_target: BigMart
 - notes/current_context: User mentioned something about 'test the color of my flag in a playground', context unclear, possibly dictated audio issue.
 - notes/health_status: coughing
 - other/user_statement_nothing_said: chaina tinlai maile kehi bhaneko
@@ -108,6 +106,8 @@ person, project, todo). Example:
 - notes/user_statement_faith: User is making a statement about faith and concentration, potentially philosophical or spiritual context.
 - notes/current_context: User mentioned needing to charge.
 - health/user_health_status: fever
+
+- Test Preference: Dark theme enabled #user
 
 - Test Preference: Dark theme enabled #user
 

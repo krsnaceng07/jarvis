@@ -332,11 +332,59 @@ def _is_actionable_user_goal(text: str) -> bool:
     if not t or len(t) < 4:
         return False
 
+    # System notifications, reminders, and background triggers are announcements, NOT actionable user computer goals
+    if t.startswith(("[system notification", "[scheduled reminder", "[automation", "[notification")):
+        return False
+
     # Silence / cancellation commands
     if any(
         kw in t
         for kw in ("chup", "maun", "kehi nagar", "stop", "cancel", "quiet", "leave it", "nevermind")
     ):
+        return False
+
+    # Negative assertions, denials, and corrections ("I never said", "didn't tell you to", "did not ask")
+    negative_denials = (
+        "bhanekai chhaina",
+        "bhanekai chaina",
+        "bhanekai thina",
+        "bhanekai thiena",
+        "bhaneko chhaina",
+        "bhaneko chaina",
+        "bhaneko thiena",
+        "bhaneko thiyena",
+        "bhaneko thina",
+        "garekai chhaina",
+        "garekai chaina",
+        "kehi bhanekai",
+        "kehee bhanekai",
+        "bhaneko ta chhaina",
+        "bhanya chaina",
+        "bhanya chhaina",
+        "bhanekai thie ni",
+        "bhaneko thie ni",
+        "bhaneko thiye ni",
+        "did not ask",
+        "didn't ask",
+        "never asked",
+        "did not tell",
+        "didn't tell",
+        "never told",
+        "did not say",
+        "didn't say",
+        "never said",
+        "भनेकै छैन",
+        "भनेकै थिइन",
+        "भनेको छैन",
+        "भनेको थिइन",
+        "भनेको थिएन",
+        "गरेकै छैन",
+        "केही भनेको छैन",
+        "केहि भनेको छैन",
+        "भनेको थिएँ नि",
+        "भनेको थिए नि",
+    )
+    if any(nd in t for nd in negative_denials):
         return False
 
     # Inquiries, criticisms, complaints, or feedback about past actions or AI ability are NOT actionable computer goals
@@ -345,18 +393,51 @@ def _is_actionable_user_goal(text: str) -> bool:
         for kw in (
             "kati bela",
             "kina",
+            "किन",
             "why did",
+            "why are",
             "who told",
             "kasle bhanyo",
+            "कसले भन्यो",
+            "कसले भनेको",
+            "kasle bhaneko",
+            "kina gareko",
+            "kina garya",
+            "kina chalako",
+            "kina kholeko",
+            "kina banako",
+            "kina jaacheko",
+            "kina jaachiyo",
+            "किन गरेको",
+            "किन गर्या",
+            "किन चलाएको",
+            "किन खोलेको",
+            "किन बनाएको",
+            "किन जाँचेको",
+            "किन जाँचियो",
+            "किन बन्द",
+            "kina band",
             "did i ask",
             "bhane thiyo",
             "भयो ओपन गर्नमा",
             "bhayo open garnama",
             "galtee",
-            "galat",
-            "mistake",
+            "galti",
             "गलती",
+            "galat",
             "गलत",
+            "mistake",
+            "thulo galtee",
+            "thulo galti",
+            "ठुलो गल्ती",
+            "ठूलो गल्ती",
+            "paagal",
+            "pagal",
+            "पागल",
+            "hyaang",
+            "hyang",
+            "ह्याङ",
+            "hang",
             "sakdainau",
             "sakdainas",
             "sakdina",
@@ -783,6 +864,24 @@ def _is_actionable_user_goal(text: str) -> bool:
         "गरेर",
         "गरिदिनु",
         "गर्नु",
+        "reminder",
+        "rimaaindar",
+        "rimaindar",
+        "inpharm",
+        "inform",
+        "samjhaunu",
+        "samjhau",
+        "samjhana",
+        "alarm",
+        "sedyul",
+        "schedule",
+        "अलार्म",
+        "रिमाइन्डर",
+        "इन्फर्म",
+        "सम्झाउ",
+        "सम्झाउनु",
+        "सम्झना",
+        "सेड्युल",
     )
     if any(kw in t for kw in action_keywords):
         return True
@@ -904,6 +1003,27 @@ def _is_task_completion_speech(speech_text: str) -> bool:
         "all set",
         "all done",
         "organized",
+        "kholidie",
+        "kholidiye",
+        "kholisake",
+        "kholisaken",
+        "kholisakeko",
+        "khuligo",
+        "khulisakyo",
+        "ab ke garne",
+        "aba ke garne",
+        "ab ke garaun",
+        "aba ke garaun",
+        "ab ke garum",
+        "aba ke garum",
+        "arko command",
+        "arko kamaand",
+        "arko aadesh",
+        "sab thik chha",
+        "sab theek chha",
+        "ab geet ple hunuparchh",
+        "ab play hunuparchh",
+        "play bhaisakeko",
         "arko kaam ke",
         "arko kaam",
         "arko kehee",
@@ -913,6 +1033,10 @@ def _is_task_completion_speech(speech_text: str) -> bool:
         "what else",
         "what's next",
         "what is next",
+        "खोलेँ",
+        "खोलिदिएँ",
+        "खोलिदिए",
+        "खुलिसक्यो",
         "सकें",
         "सक्यो",
         "गरिसकें",
@@ -938,6 +1062,34 @@ def _detect_ghost_action_promise(speech_text: str, active_goal: str) -> bool:
     if not st:
         return False
 
+    # Explicit reminder commitments (OpenClaw parity: agent-runner-reminder-guard)
+    # A verbal reminder claim without executing a tool is always ghost-chatter!
+    reminder_commitments = (
+        "rimaaindar set",
+        "rimaindar set",
+        "reminder set",
+        "samjhaaunakaa laagi",
+        "samjhaunaka laagi",
+        "samjhauchhu",
+        "inpharm garchhu",
+        "inform garchhu",
+        "set gardai chhu",
+        "set gardaichhu",
+        "set garidie",
+        "set garidiye",
+        "ab ma birsane chhaina",
+        "aba ma birsine chhaina",
+        "i will remind",
+        "i'll remind",
+        "schedule a reminder",
+        "set a reminder",
+        "रिमाइन्डर सेट",
+        "सम्झाउँछु",
+        "इन्फर्म गर्छु",
+    )
+    if any(rc in st for rc in reminder_commitments):
+        return True
+
     if _is_task_completion_speech(speech_text):
         return False
 
@@ -955,8 +1107,50 @@ def _detect_ghost_action_promise(speech_text: str, active_goal: str) -> bool:
         "kasto chha",
         "dhanyabaad",
         "swagatam",
+        "ab ke garne",
+        "aba ke garne",
+        "ab ke garaun",
+        "aba ke garaun",
+        "ab ke garum",
+        "aba ke garum",
+        "arko command",
+        "arko kamaand",
+        "arko aadesh",
+        "sab thik chha",
+        "sab theek chha",
     )
     if any(ao in st for ao in assistance_offers):
+        return False
+
+    # Apologies, concessions, and explanations of mistakes are NOT ghost action promises
+    apologies_and_explanations = (
+        "maaf garnuhos",
+        "maf garnuhos",
+        "maaphee",
+        "maphi",
+        "sorry",
+        "apologize",
+        "apologies",
+        "galtee garechhu",
+        "galti garechhu",
+        "galat arth",
+        "galat tarikaale",
+        "bujhn galtee",
+        "bujhna galti",
+        "shaant rahanchhu",
+        "chupachaap baschhu",
+        "chupchap baschhu",
+        "niraashaakaa laagi",
+        "maaphee chaahanchhu",
+        "maphi chahanchhu",
+        "maaf chaahanchhu",
+        "माफ गर्नुहोस्",
+        "माफी चाहन्छु",
+        "गल्ती भयो",
+        "माफी",
+        "सॉरी",
+    )
+    if any(ap in st for ap in apologies_and_explanations):
         return False
 
     # 1. Concrete action promise verbs in Nepali or English
@@ -1099,6 +1293,29 @@ def _detect_ghost_action_promise(speech_text: str, active_goal: str) -> bool:
         "खोलेँ",
         "बनाएँ",
         "बन्द गरेँ",
+        # Reminder & Schedule commitments (OpenClaw parity: agent-runner-reminder-guard)
+        "rimaaindar set",
+        "rimaindar set",
+        "reminder set",
+        "samjhaaunakaa laagi",
+        "samjhaunaka laagi",
+        "samjhaauna rimaaindar",
+        "samjhauna rimaaindar",
+        "samjhauchhu",
+        "inpharm garchhu",
+        "inpharm gardai",
+        "inform garchhu",
+        "inform gardai",
+        "ab ma birsane chhaina",
+        "aba ma birsine chhaina",
+        "i will remind",
+        "i'll remind",
+        "schedule a reminder",
+        "set a reminder",
+        "रिमाइन्डर सेट",
+        "सम्झाउँछु",
+        "इन्फर्म गर्छु",
+        "जानकारी दिनको लागि रिमाइन्डर",
     )
     if any(pat in st for pat in completion_patterns):
         return True
@@ -1142,8 +1359,16 @@ class NativeGeminiLiveEngine:
 
     @classmethod
     def get_active_engine(cls) -> NativeGeminiLiveEngine | None:
-        """Acquire active singleton instance of NativeGeminiLiveEngine."""
-        return cls._ACTIVE_VOICE_ENGINE
+        """Acquire active singleton instance of NativeGeminiLiveEngine across process/module boundaries."""
+        if cls._ACTIVE_VOICE_ENGINE is not None:
+            return cls._ACTIVE_VOICE_ENGINE
+        import builtins
+
+        inst = getattr(builtins, "_JARVIS_ACTIVE_VOICE_ENGINE", None)
+        if inst is not None:
+            cls._ACTIVE_VOICE_ENGINE = inst
+            return inst
+        return None
 
     def post_system_notification(self, text: str) -> None:
         """Push an urgent system notification into text queue for spoken delivery."""
@@ -1154,6 +1379,9 @@ class NativeGeminiLiveEngine:
 
     def __init__(self, state: JarvisTerminalHUDState, ui: Any = None) -> None:
         NativeGeminiLiveEngine._ACTIVE_VOICE_ENGINE = self
+        import builtins
+
+        builtins._JARVIS_ACTIVE_VOICE_ENGINE = self
         self.state = state
         self.ui = ui
         self.rotator = get_default_key_rotator()
@@ -1163,6 +1391,8 @@ class NativeGeminiLiveEngine:
         self._session_connected_at: float = time.monotonic()
         self._last_audio_sent_at: float = time.monotonic()
         self._pending_sleep_transition: bool = False
+        self._enable_proactive_rollover: bool = False
+        self._active_turn_id: str = "turn_0"
 
         self.audio_out_queue: asyncio.Queue[bytes] = asyncio.Queue(maxsize=250)
         self.audio_in_queue: asyncio.Queue[bytes] = asyncio.Queue(maxsize=4000)
@@ -1192,6 +1422,8 @@ class NativeGeminiLiveEngine:
         self._tool_loop_state: dict[str, Any] = {}
         self._assistant_generating: bool = False
         self._turn_complete_received: bool = True
+        self._pre_tool_turn_done: asyncio.Event = asyncio.Event()
+        self._pre_tool_turn_done.set()
         self.prefer_devanagari: bool = False
         self._active_goal: str | None = None
         self._primary_active_goal: str | None = None
@@ -1201,6 +1433,7 @@ class NativeGeminiLiveEngine:
         self._last_user_prompt: str | None = None
         self._announced_subagent_runs: set[str] = set()
         self._barge_in_consecutive_frames: int = 0
+        self._last_barge_in_time: float = 0.0
 
         # Load workspace plugins & tools cleanly
         import contextlib
@@ -1235,11 +1468,11 @@ class NativeGeminiLiveEngine:
         self.state.transcript_store = self._transcript_store
 
         # Acoustic Energy VAD & High-pass filter engine (tuned for natural distant room speaking)
-        speech_thresh = int(os.environ.get("JARVIS_SPEECH_THRESHOLD", "140"))
+        speech_thresh = int(os.environ.get("JARVIS_SPEECH_THRESHOLD", "120"))
         self.vad = EnergyVADEngine(
             speech_threshold=speech_thresh,
-            hangover_frames=4,
-            pre_roll_frames=8,
+            hangover_frames=8,
+            pre_roll_frames=12,
         )
 
         self._restore_prior_chat_history()
@@ -1545,64 +1778,8 @@ class NativeGeminiLiveEngine:
             logger.debug("Could not restore conversation history: %s", e)
 
     def _get_pending_task_from_store(self, session_id: str = "desktop:hud") -> str | None:
-        """Inspect recent transcript store entries to determine if an unfinished user command exists."""
-        try:
-            entries = self._transcript_store.get_recent_entries(session_id, limit=8)
-            if not entries:
-                return None
-            # Check latest task_state if recorded
-            for entry in reversed(entries):
-                et = entry.get("entry_type", "")
-                data = entry.get("data", {})
-                if et == "task_state":
-                    if data.get("status") == "in_progress":
-                        return str(data.get("task", "")).strip() or None
-                    elif data.get("status") == "completed":
-                        return None
-            # If no explicit task_state, inspect the last turn
-            last_entry = entries[-1]
-            last_et = last_entry.get("entry_type", "")
-            last_data = last_entry.get("data", {})
-            last_text = str(last_data.get("text", "")).strip()
-            # If last turn was user speech, it is unfulfilled
-            if last_et in ("user_turn", "user_speech") and len(last_text) > 3:
-                return last_text
-            # If last turn was assistant speech that promised an ongoing action without finishing
-            if last_et in ("assistant_speech", "model_turn"):
-                lower_as = last_text.lower()
-                # If assistant already finished the action, do NOT re-execute
-                if any(
-                    comp in lower_as
-                    for comp in (
-                        "garidie",
-                        "garisake",
-                        "banaidie",
-                        "set garisake",
-                        "completed",
-                        "done",
-                        "thik chha",
-                    )
-                ):
-                    return None
-                in_progress_keywords = [
-                    "khojdaichhu",
-                    "khojdai chhu",
-                    "kholdaichhu",
-                    "gardaichhu",
-                    "gardai chhu",
-                    "searching",
-                    "in progress",
-                    "working on",
-                ]
-                if any(kw in lower_as for kw in in_progress_keywords):
-                    for entry in reversed(entries[:-1]):
-                        if entry.get("entry_type") in ("user_turn", "user_speech"):
-                            u_text = str(entry.get("data", {}).get("text", "")).strip()
-                            if len(u_text) > 3:
-                                return u_text
-            return None
-        except Exception:
-            return None
+        """Inspect recent transcript store entries. Unsolicited background resumption is disabled (OpenClaw parity)."""
+        return None
 
     def _build_resume_context(self, session_id: str = "desktop:hud", limit: int = 15) -> str | None:
         """Build context summary from previous SQLite transcript turns for system prompt injection."""
@@ -1613,7 +1790,7 @@ class NativeGeminiLiveEngine:
             lines: list[str] = [
                 "## Recent Conversation History (Persisted Across Restarts)\n"
                 "The following dialogue turns are from the active persistent session for context and continuity. "
-                "Maintain full continuity with this conversation history. If an active task was in progress, seamlessly continue it.\n"
+                "Maintain full continuity with this conversation history. Do NOT take spontaneous unsolicited action without fresh user commands.\n"
             ]
             for entry in entries:
                 et = entry.get("entry_type", "")
@@ -1625,16 +1802,12 @@ class NativeGeminiLiveEngine:
                     lines.append(f"• User: {txt[:350]}")
                 elif et in ("assistant_speech", "model_turn"):
                     lines.append(f"• JARVIS: {txt[:350]}")
-            active_task = self._active_goal or self._get_pending_task_from_store(session_id)
-            if active_task:
-                lines.append(
-                    f"\n## Active In-Flight Task (CRITICAL RESUMPTION)\n"
-                    f'User goal in progress: "{active_task}". '
-                    f"Seamlessly resume and fulfill this task now without asking the user to repeat the command.\n"
-                )
             if len(lines) <= 1:
                 return None
             return "\n".join(lines) + "\n"
+        except Exception as e:
+            logger.debug("Failed building resume context: %s", e)
+            return None
         except Exception as e:
             logger.debug("Failed building resume context: %s", e)
             return None
@@ -1678,18 +1851,26 @@ class NativeGeminiLiveEngine:
     ) -> None:
         """Enforce tool execution parity when the model chats or promises action without calling tools."""
         try:
-            await asyncio.sleep(0.25)
-            if self.stop_event.is_set():
-                return
-
-            if hasattr(self, "_arm_stall"):
-                self._arm_stall()
+            self._suppress_audio_until = max(getattr(self, "_suppress_audio_until", 0.0), time.monotonic() + 4.0)
             self._assistant_generating = True
             self._turn_complete_received = False
             if hasattr(self, "_turn_done_event"):
                 self._turn_done_event.clear()
             if hasattr(self, "state") and self.state and hasattr(self.state, "set_agent_state"):
                 self.state.set_agent_state("THINKING")
+
+            while not self.audio_out_queue.empty():
+                try:
+                    self.audio_out_queue.get_nowait()
+                except Exception:
+                    break
+
+            await asyncio.sleep(0.25)
+            if self.stop_event.is_set():
+                return
+
+            if hasattr(self, "_arm_stall"):
+                self._arm_stall()
 
             if is_continuation:
                 nudge_prompt = (
@@ -1700,12 +1881,9 @@ class NativeGeminiLiveEngine:
                 )
             else:
                 nudge_prompt = (
-                    f"[SYSTEM ACTION-ENFORCEMENT (JARVIS INVARIANT)]: You just verbally promised or acknowledged: '{promise_text[:120]}' "
-                    f"in response to '{goal[:200]}', but you called NO tools! "
-                    f"DO NOT CHAT, DO NOT APOLOGIZE, AND DO NOT MAKE ANOTHER VERBAL PROMISE. "
-                    f"You MUST call the required tool right now in this turn (e.g. computer(action='set_volume', volume=...), "
-                    f"computer(action='adjust_volume', delta=...), computer(action='set_brightness', value=...), "
-                    f"ls(path='...'), exec(command='...'), browser(action='...'), sessions_spawn(task='...')) to actually execute this task on the host PC."
+                    f"[SYSTEM NUDGE]: If the user's actionable request '{goal[:120]}' requires a tool and you intended to execute it, "
+                    f"call the appropriate tool now. If this turn was conversational, an inquiry, an apology, or an explanation, "
+                    f"simply provide your natural response without calling tools."
                 )
             logger.info("Sending JARVIS execution nudge to session: %s", nudge_prompt[:80])
 
@@ -1856,31 +2034,53 @@ class NativeGeminiLiveEngine:
                 break
 
         try:
+            tool_start_ts = time.monotonic()
             fcs = getattr(tool_call, "function_calls", [])
             fn_responses = []
+            max_tool_timeout = 16.0
             for fc in fcs:
+                fc_name = getattr(fc, "name", "tool")
+                tool_timeout = (
+                    45.0
+                    if fc_name in (
+                        "browser",
+                        "web_search",
+                        "web",
+                        "image_generate",
+                        "sessions_spawn",
+                        "skill_workshop",
+                        "computer",
+                    )
+                    else 16.0
+                )
+                if tool_timeout > max_tool_timeout:
+                    max_tool_timeout = tool_timeout
                 try:
-                    fr = await asyncio.wait_for(self._execute_tool_call(fc), timeout=25.0)
+                    fr = await asyncio.wait_for(self._execute_tool_call(fc), timeout=tool_timeout)
                 except asyncio.TimeoutError:
-                    fc_name = getattr(fc, "name", "tool")
-                    logger.warning("Tool '%s' timed out after 25.0s", fc_name)
+                    logger.warning("Tool '%s' timed out after %.1fs", fc_name, tool_timeout)
                     fr = types.FunctionResponse(
                         id=getattr(fc, "id", None),
                         name=fc_name,
-                        response={"error": f"Tool '{fc_name}' timed out after 25.0s."},
+                        response={"error": f"Tool '{fc_name}' timed out after {tool_timeout:.1f}s."},
                     )
                 fn_responses.append(fr)
 
-            # CRITICAL VOICE INTEGRITY PROTECTION:
-            # When assistant speaks alongside tool invocation, let the initial spoken acknowledgment
-            # finish playback smoothly so the assistant's voice is NOT cut off mid-sentence.
-            # Both tool execution (happened above in parallel) and voice speech proceed concurrently.
+            # CRITICAL VOICE INTEGRITY & SERVER DEADLINE PROTECTION:
+            # 1. Wait for server to finish streaming the pre-tool spoken acknowledgment (up to 2.5s)
+            # so early tool responses never truncate or cut off the assistant's speech in mid-sentence.
+            if hasattr(self, "_pre_tool_turn_done") and not self._pre_tool_turn_done.is_set():
+                try:
+                    await asyncio.wait_for(self._pre_tool_turn_done.wait(), timeout=2.5)
+                except asyncio.TimeoutError:
+                    pass
+
+            # 2. Let the spoken acknowledgment finish playback through hardware speakers without voice clipping
             wait_start = time.monotonic()
             while (
                 self.is_speaking or not self.audio_in_queue.empty()
             ) and not self.stop_event.is_set():
-                # Allow ample time (up to 7.0s) for natural spoken phrases to finish playback without voice clipping
-                if time.monotonic() - wait_start > 7.0:
+                if time.monotonic() - wait_start > 3.5 or (time.monotonic() - tool_start_ts) > (max_tool_timeout + 5.0):
                     break
                 await asyncio.sleep(0.04)
 
@@ -2001,9 +2201,25 @@ class NativeGeminiLiveEngine:
                 canonical_name = "browser"
                 effective_raw_args["action"] = "pause"
 
-            elif canonical_name in ("play_song", "play_music", "youtube_play"):
+            elif canonical_name in (
+                "play_song",
+                "play_music",
+                "youtube_play",
+                "play_video",
+                "play_youtube",
+            ):
                 canonical_name = "browser"
                 effective_raw_args["action"] = "youtube_play"
+                q = (
+                    effective_raw_args.get("query")
+                    or effective_raw_args.get("target")
+                    or effective_raw_args.get("song")
+                    or effective_raw_args.get("name")
+                    or effective_raw_args.get("title")
+                    or effective_raw_args.get("text")
+                )
+                if q:
+                    effective_raw_args["query"] = str(q)
 
             elif canonical_name in (
                 "open_app",
@@ -2210,12 +2426,13 @@ class NativeGeminiLiveEngine:
                     args["target"] = args["file_path"]
                 elif "file_path" not in args and "target" in args:
                     args["file_path"] = args["target"]
+            turn_scope_id = getattr(self, "_active_turn_id", "voice")
             verdict = detect_tool_call_loop(
                 self._tool_loop_state,
                 dispatch_name,
                 args,
                 config=_VOICE_LOOP_CONFIG,
-                scope={"runId": "voice"},
+                scope={"runId": turn_scope_id},
             )
             if verdict.get("level") == "critical":
                 logger.warning(
@@ -2238,7 +2455,7 @@ class NativeGeminiLiveEngine:
                 args,
                 call_id,
                 config=_VOICE_LOOP_CONFIG,
-                scope={"runId": "voice"},
+                scope={"runId": turn_scope_id},
             )
 
             invocation = await self.tool_surface.invoke(dispatch_name, args, call_id or "call")
@@ -2333,7 +2550,7 @@ class NativeGeminiLiveEngine:
     async def _mic_stream_task(self, loop: asyncio.AbstractEventLoop) -> None:
         """Capture microphone input and send via audio_out_queue with zero onset latency, VAD gating & Digital Silence Gate."""
         barge_in_thresh = int(os.environ.get("JARVIS_BARGE_IN_THRESHOLD", "100"))
-        speech_thresh = int(os.environ.get("JARVIS_SPEECH_THRESHOLD", "140"))
+        speech_thresh = int(os.environ.get("JARVIS_SPEECH_THRESHOLD", "120"))
         mic_gain = float(os.environ.get("JARVIS_MIC_GAIN", "3.0"))
         was_speaking = False
         post_speech_silence_frames = 0
@@ -2392,15 +2609,17 @@ class NativeGeminiLiveEngine:
                         if hasattr(indata, "size") and indata.size > 0
                         else 0
                     )
-                    # Genuine conversational barge-in: requires sustained voice energy (at least 3 frames >= 150ms)
-                    # and real voice peak >= 1800 to prevent Telegram notification chimes, clicks, or room echo
+                    # Genuine conversational barge-in: requires sustained voice energy (at least 5 frames >= 250ms)
+                    # and real voice peak >= 3200 with level > 0.10 to prevent speaker resonance, fan rumble, or chime
                     # from cutting off JARVIS speech mid-sentence.
-                    effective_thresh = max(barge_in_thresh, 1800)
-                    if is_user and (peak >= effective_thresh and level > 0.055):
+                    effective_thresh = max(barge_in_thresh, 3200)
+                    if is_user and (peak >= effective_thresh and level > 0.10):
                         self._barge_in_consecutive_frames += 1
-                        if self._barge_in_consecutive_frames >= 3:
+                        if self._barge_in_consecutive_frames >= 5:
                             # Conversational barge-in: user spoke loudly and sustained over assistant!
-                            self._last_user_speech_time = time.monotonic()
+                            now_bi = time.monotonic()
+                            self._last_user_speech_time = now_bi
+                            self._last_barge_in_time = now_bi
                             self.set_speaking(False)
                             self._assistant_generating = False
                             self._turn_complete_received = True
@@ -2439,7 +2658,7 @@ class NativeGeminiLiveEngine:
                 samples = np.frombuffer(filtered_pcm, dtype=np.int16)
                 peak = int(np.max(np.abs(samples))) if samples.size > 0 else 0
 
-                is_speech = self.vad.is_speech(filtered_pcm) or (peak >= speech_thresh)
+                is_speech = self.vad.is_speech(pcm_bytes, buffer_preroll=False) or (peak >= speech_thresh)
 
                 if is_speech:
                     self._last_user_speech_time = time.monotonic()
@@ -2454,8 +2673,8 @@ class NativeGeminiLiveEngine:
                 else:
                     if was_speaking:
                         post_speech_silence_frames += 1
-                        if post_speech_silence_frames <= 6:
-                            # Natural speech trailing gate (~375ms): preserve trailing natural soft consonants
+                        if post_speech_silence_frames <= 8:
+                            # Natural speech trailing gate (~400ms): preserve trailing natural soft consonants
                             # and deliver smooth acoustic decay to Gemini Live server VAD
                             _enqueue_chunk(pcm_bytes)
                         else:
@@ -2600,15 +2819,22 @@ class NativeGeminiLiveEngine:
                 continue
 
             # ZERO AUDIO LEAK DURING TOOL EXECUTION OR POST-TURN ECHO COOLDOWN:
-            # Under the Gemini Live protocol, streaming realtime audio while the assistant is executing a tool
-            # or in the immediate post-turn echo cooldown causes the Gemini backend to reject the frame with RFC 1007 error:
-            # "The audio content type (CONTENT_TYPE_AUDIO) is not supported for this model configuration."
-            if (
-                self._tool_call_in_flight
+            # Under the Gemini Live protocol, streaming realtime audio while the assistant is executing a tool,
+            # while the assistant is generating, or in the post-turn echo cooldown causes the Gemini backend
+            # to reject the frame with RFC 1007 error: "The audio content type (CONTENT_TYPE_AUDIO) is not supported for this model configuration."
+            is_turn_busy = (
+                self._assistant_generating
+                or not getattr(self, "_turn_complete_received", True)
+                or self._tool_call_in_flight
                 or getattr(self, "_pending_tool_response", False)
                 or getattr(self, "_tool_response_pending_turn", False)
+                or self.is_speaking
+                or not self.audio_in_queue.empty()
                 or time.monotonic() < getattr(self, "_post_turn_silence_until", 0.0)
-            ):
+                or time.monotonic() < getattr(self, "_suppress_audio_until", 0.0)
+                or (hasattr(self, "state") and getattr(self.state, "agent_state", "") == "THINKING")
+            )
+            if is_turn_busy:
                 # Watchdog safety: Only unfreeze if tool response has had ZERO server activity for >25.0s
                 # and assistant is not actively speaking or buffering incoming audio.
                 if getattr(self, "_tool_response_pending_turn", False):
@@ -2673,7 +2899,9 @@ class NativeGeminiLiveEngine:
             try:
                 async with self._ws_send_lock:
                     if (
-                        self._tool_call_in_flight
+                        self._assistant_generating
+                        or not getattr(self, "_turn_complete_received", True)
+                        or self._tool_call_in_flight
                         or getattr(self, "_pending_tool_response", False)
                         or getattr(self, "_tool_response_pending_turn", False)
                         or self.is_speaking
@@ -2731,7 +2959,11 @@ class NativeGeminiLiveEngine:
                         wait_count += 1
 
                     self._last_user_prompt = text
+                    self._active_turn_id = f"turn_{int(time.monotonic() * 1000)}"
                     user_lower = text.lower()
+                    is_system_announcement = text.strip().startswith(
+                        ("[SYSTEM NOTIFICATION", "[SCHEDULED REMINDER", "[AUTOMATION", "[NOTIFICATION")
+                    )
                     is_cancel = any(
                         kw in user_lower
                         for kw in (
@@ -2745,11 +2977,12 @@ class NativeGeminiLiveEngine:
                             "nevermind",
                         )
                     )
-                    if is_cancel:
-                        self._active_goal = None
-                        self._primary_active_goal = None
-                        self._task_in_progress = False
-                        self._ghost_nudge_count = 0
+                    if is_cancel or is_system_announcement:
+                        if is_cancel:
+                            self._active_goal = None
+                            self._primary_active_goal = None
+                            self._task_in_progress = False
+                            self._ghost_nudge_count = 0
                     else:
                         is_inquiry = self._is_status_inquiry(text)
                         is_actionable = self._is_actionable_user_goal(text)
@@ -2764,6 +2997,12 @@ class NativeGeminiLiveEngine:
                     self._turn_done_event.clear()
                     self._assistant_generating = True
                     self._turn_complete_received = False
+                    self._suppress_audio_until = time.monotonic() + 4.0
+                    while not self.audio_out_queue.empty():
+                        try:
+                            self.audio_out_queue.get_nowait()
+                        except Exception:
+                            break
                     self._arm_stall()
                     async with self._ws_send_lock:
                         # Canonical Gemini Live client content turn with turn_complete=True
@@ -2820,18 +3059,6 @@ class NativeGeminiLiveEngine:
                     else romanize_nepali_text(full_user)
                 )
                 self.state.add_transcript("User", display_user)
-                ui = getattr(self, "ui", None)
-                if ui and hasattr(ui, "set_live_transcript"):
-                    try:
-                        import inspect
-
-                        sig = inspect.signature(ui.set_live_transcript)
-                        if "is_final" in sig.parameters:
-                            ui.set_live_transcript(f"You: {display_user}", is_final=True, role="user")
-                        else:
-                            ui.set_live_transcript(f"You: {display_user}")
-                    except Exception:
-                        pass
 
                 self._last_user_prompt = full_user
                 if len(full_user.strip()) > 3 and not is_noise:
@@ -2855,6 +3082,7 @@ class NativeGeminiLiveEngine:
                         except Exception:
                             pass
 
+                self._active_turn_id = f"turn_{int(time.monotonic() * 1000)}"
                 is_cancel = any(
                     kw in user_lower
                     for kw in (
@@ -2918,6 +3146,14 @@ class NativeGeminiLiveEngine:
                         self._primary_active_goal = None
                         self._task_in_progress = False
                         self._ghost_nudge_count = 0
+            else:
+                logger.debug(
+                    "User speech candidate dropped: raw=%r, cleaned=%r, is_noise=%s, has_substance=%s",
+                    full_user,
+                    cleaned_substance,
+                    is_noise,
+                    has_substance,
+                )
         return []
 
     async def _receive_task(self, session: Any) -> None:
@@ -3002,10 +3238,18 @@ class NativeGeminiLiveEngine:
                                 and not getattr(self, "_tool_response_pending_turn", False)
                                 and not getattr(self, "_pending_tool_response", False)
                             ):
-                                is_genuine_barge_in = (
-                                    time.monotonic() - getattr(self, "_last_user_speech_time", 0.0)
-                                    < 1.0
-                                )
+                                # If assistant is actively speaking, only accept interruption if genuine local barge-in energy was detected
+                                # within the last 1.2s. Otherwise this interrupted signal is caused by speaker acoustic bleed into mic!
+                                if self.is_speaking:
+                                    is_genuine_barge_in = (
+                                        time.monotonic() - getattr(self, "_last_barge_in_time", 0.0)
+                                        < 1.2
+                                    )
+                                else:
+                                    is_genuine_barge_in = (
+                                        time.monotonic() - getattr(self, "_last_user_speech_time", 0.0)
+                                        < 1.5
+                                    )
                                 if is_genuine_barge_in:
                                     self.set_speaking(False)
                                     self._assistant_generating = False
@@ -3019,7 +3263,7 @@ class NativeGeminiLiveEngine:
                                     self.state.set_agent_state("LISTENING")
                                 else:
                                     logger.debug(
-                                        "Server interrupted signal ignored: no local barge-in energy detected."
+                                        "Server interrupted signal ignored: speaker is active and no local barge-in was detected."
                                     )
 
                         if sc.output_transcription and sc.output_transcription.text:
@@ -3080,6 +3324,8 @@ class NativeGeminiLiveEngine:
                                         pass
 
                         if sc.turn_complete:
+                            if hasattr(self, "_pre_tool_turn_done"):
+                                self._pre_tool_turn_done.set()
                             if streaming_started:
                                 console.print()  # Flush newline
                                 streaming_started = False
@@ -3167,6 +3413,12 @@ class NativeGeminiLiveEngine:
                                         self._turn_complete_received = False
                                         self._assistant_generating = True
                                         self._turn_done_event.clear()
+                                        self._suppress_audio_until = time.monotonic() + 4.0
+                                        while not self.audio_out_queue.empty():
+                                            try:
+                                                self.audio_out_queue.get_nowait()
+                                            except Exception:
+                                                break
                                         self.state.set_agent_state("THINKING")
                                         asyncio.create_task(
                                             self._nudge_tool_execution(
@@ -3224,6 +3476,12 @@ class NativeGeminiLiveEngine:
                                     self._turn_complete_received = False
                                     self._assistant_generating = True
                                     self._turn_done_event.clear()
+                                    self._suppress_audio_until = time.monotonic() + 4.0
+                                    while not self.audio_out_queue.empty():
+                                        try:
+                                            self.audio_out_queue.get_nowait()
+                                        except Exception:
+                                            break
                                     self.state.set_agent_state("THINKING")
                                     asyncio.create_task(
                                         self._nudge_tool_execution(
@@ -3295,6 +3553,8 @@ class NativeGeminiLiveEngine:
                         self._assistant_generating = True
                         self._turn_complete_received = False
                         self._turn_done_event.clear()
+                        if hasattr(self, "_pre_tool_turn_done"):
+                            self._pre_tool_turn_done.clear()
                         self.state.set_agent_state("THINKING")
                         if getattr(self, "audio_out_queue", None) is not None:
                             while not self.audio_out_queue.empty():
@@ -3396,7 +3656,7 @@ class NativeGeminiLiveEngine:
                 and not getattr(self, "_task_in_progress", False)
                 and not bool(getattr(self, "_active_goal", None))
             )
-            if conn_age > 720.0 and is_idle:
+            if getattr(self, "_enable_proactive_rollover", False) and conn_age > 720.0 and is_idle:
                 logger.info(
                     "Proactive session rollover: session connected for %.1fs. Refreshing clean Live connection...",
                     conn_age,
@@ -3412,8 +3672,9 @@ class NativeGeminiLiveEngine:
                 self._session_connected_at = now
                 raise SessionRollover("Proactive 12-minute session rollover for 24/7 availability.")
 
-            # Safety unfreeze: if assistant_generating stayed True for >6s without speaking or queue activity,
-            # gracefully reset so microphone audio transmission is never blocked
+            # Safety unfreeze: if assistant_generating stayed True for >15.0s without speaking or queue activity,
+            # gracefully reset so microphone audio transmission is never blocked,
+            # with a 500ms post-turn silence barrier to prevent RFC 1007 protocol mismatch.
             if (
                 self._assistant_generating
                 and not self.is_speaking
@@ -3421,13 +3682,14 @@ class NativeGeminiLiveEngine:
                 and not self._tool_call_in_flight
                 and not getattr(self, "_pending_tool_response", False)
                 and not getattr(self, "_tool_response_pending_turn", False)
-                and (now - getattr(self, "_last_server_activity", now)) > 6.0
+                and (now - getattr(self, "_last_server_activity", now)) > 15.0
             ):
                 logger.warning(
-                    "Assistant generating flag hung with empty audio queue for >6s. Gracefully resetting state."
+                    "Assistant generating flag hung with empty audio queue for >15.0s. Gracefully resetting state."
                 )
                 self._assistant_generating = False
                 self._turn_complete_received = True
+                self._post_turn_silence_until = now + 0.5
                 self._turn_done_event.set()
                 if self.state.agent_state != "STANDBY":
                     self.state.set_agent_state("LISTENING")
@@ -3617,6 +3879,12 @@ class NativeGeminiLiveEngine:
                             self._turn_done_event.clear()
                             self._assistant_generating = True
                             self._turn_complete_received = False
+                            self._suppress_audio_until = time.monotonic() + 3.0
+                            while not self.audio_out_queue.empty():
+                                try:
+                                    self.audio_out_queue.get_nowait()
+                                except Exception:
+                                    break
                             async with self._ws_send_lock:
                                 await session.send_client_content(
                                     turns=types.Content(
@@ -3633,11 +3901,16 @@ class NativeGeminiLiveEngine:
                             logger.debug("Initial greeting error: %s", e)
                     else:
                         # RECONNECTION AUTO-RESUMPTION:
-                        # If a user task or command was interrupted, immediately prompt model to seamlessly complete it!
+                        # ONLY resume if a genuine actionable user task was actively in progress before disconnect.
+                        # NEVER resume from memory, old prompts, or idle transcripts to prevent unsolicited actions!
                         pending_task = (
                             self._active_goal
-                            or self._get_pending_task_from_store()
-                            or getattr(self, "_last_user_prompt", None)
+                            if (
+                                self._task_in_progress
+                                and self._active_goal
+                                and _is_actionable_user_goal(self._active_goal)
+                            )
+                            else None
                         )
                         if pending_task:
                             logger.info(
@@ -3645,13 +3918,21 @@ class NativeGeminiLiveEngine:
                             )
                             resume_prompt = (
                                 f"[SYSTEM NOTIFICATION: Connection was momentarily interrupted and has now reconnected. "
-                                f"You were actively executing the user's task or answering their prompt: '{pending_task}'. "
+                                f"You were actively executing the user's task: '{pending_task}'. "
                                 f"Seamlessly resume and fulfill this now for the user without saying 'Online and ready' or asking them to repeat.]"
                             )
                             self._last_user_prompt = None
                             try:
                                 self._turn_done_event.clear()
                                 self._assistant_generating = True
+                                self._turn_complete_received = False
+                                self._post_turn_silence_until = time.monotonic() + 0.5
+                                self._suppress_audio_until = time.monotonic() + 3.0
+                                while not self.audio_out_queue.empty():
+                                    try:
+                                        self.audio_out_queue.get_nowait()
+                                    except Exception:
+                                        break
                                 async with self._ws_send_lock:
                                     await session.send_client_content(
                                         turns=types.Content(
@@ -3664,6 +3945,10 @@ class NativeGeminiLiveEngine:
                                 logger.warning(
                                     "Failed sending task continuation on reconnect: %s", resume_err
                                 )
+                        else:
+                            # Clean idle connection: stay ready and listening without unsolicited speech
+                            if self.state.agent_state != "STANDBY":
+                                self.state.set_agent_state("LISTENING")
 
                     # Gather send, receive, keepalive, stall watchdog & subagents completion tasks
                     send_audio = asyncio.create_task(self._send_audio_task(session))
@@ -3807,6 +4092,10 @@ class NativeGeminiLiveEngine:
                     self.session_resumption_handle = None
                     self._turn_complete_received = True
                     self._assistant_generating = False
+                    self._tool_call_in_flight = False
+                    self._pending_tool_response = False
+                    self._tool_response_pending_turn = False
+                    self._post_turn_silence_until = time.monotonic() + 0.5
                     self._drain_queues()
                     await asyncio.sleep(0.5)
                     continue
@@ -3819,6 +4108,9 @@ class NativeGeminiLiveEngine:
                     self._session_connected_at = time.monotonic()
                     self._turn_complete_received = True
                     self._assistant_generating = False
+                    self._tool_call_in_flight = False
+                    self._pending_tool_response = False
+                    self._tool_response_pending_turn = False
                     self._post_turn_silence_until = time.monotonic() + 0.5
                     self._drain_queues()
                     console.print(
@@ -3839,6 +4131,13 @@ class NativeGeminiLiveEngine:
                     self.session_resumption_handle = None
                     self._consecutive_fails = 0
                     self._network_fails = 0
+                    self._turn_complete_received = True
+                    self._assistant_generating = False
+                    self._tool_call_in_flight = False
+                    self._pending_tool_response = False
+                    self._tool_response_pending_turn = False
+                    self._post_turn_silence_until = time.monotonic() + 0.5
+                    self._drain_queues()
                     console.print(
                         f"[bold cyan]⚡ Server session deadline refreshed (1011). Seamlessly resuming on Key #{current_idx + 1}...[/bold cyan]"
                     )
@@ -3854,6 +4153,13 @@ class NativeGeminiLiveEngine:
                     self.session_resumption_handle = None
                     self._consecutive_fails = 0
                     self._network_fails = 0
+                    self._turn_complete_received = True
+                    self._assistant_generating = False
+                    self._tool_call_in_flight = False
+                    self._pending_tool_response = False
+                    self._tool_response_pending_turn = False
+                    self._post_turn_silence_until = time.monotonic() + 0.5
+                    self._drain_queues()
                     _, new_idx = self.rotator.rotate(f"Rate-limit/Auth: {err_str[:40]}")
                     console.print(
                         f"[bold yellow]⚡ Rotating to Gemini Key #{new_idx + 1} ({self.rotator.masked_key(new_idx)})...[/bold yellow]"
@@ -3868,6 +4174,14 @@ class NativeGeminiLiveEngine:
                 elif is_network_error:
                     # Network or DNS glitch: NEVER rotate API keys on network failure!
                     self._network_fails += 1
+                    self.session_resumption_handle = None
+                    self._turn_complete_received = True
+                    self._assistant_generating = False
+                    self._tool_call_in_flight = False
+                    self._pending_tool_response = False
+                    self._tool_response_pending_turn = False
+                    self._post_turn_silence_until = time.monotonic() + 0.5
+                    self._drain_queues()
                     # Jittered exponential backoff: 1.0s, 1.8s, 3.2s, 5.8s, capped at 8.0s
                     delay = min(1.0 * (1.8 ** min(self._network_fails - 1, 4)), 8.0)
                     console.print(
@@ -4076,7 +4390,7 @@ def main() -> int:
 
             def _clean_exit():
                 logger.info("Native window closed; shutting down JARVIS cleanly...")
-                active = getattr(NativeGeminiLiveEngine, "_ACTIVE_VOICE_ENGINE", None)
+                active = NativeGeminiLiveEngine.get_active_engine()
                 if active and getattr(active, "stop_event", None):
                     active.stop_event.set()
                 time.sleep(0.15)

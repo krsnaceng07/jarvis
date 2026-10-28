@@ -518,7 +518,7 @@ def create_process_tool_definition(
 
             if sys.platform == "win32":
                 if target_proc.isdigit():
-                    cmd = ["taskkill", "/F", "/PID", target_proc]
+                    cmd = ["taskkill", "/F", "/T", "/PID", target_proc]
                     res = subprocess.run(cmd, capture_output=True, text=True)
                     if res.returncode == 0:
                         return {
@@ -532,20 +532,39 @@ def create_process_tool_definition(
                         }
                 else:
                     target_lower = target_proc.lower()
-                    base_name = target_lower.removesuffix(".exe")
+                    base_name = target_lower.removesuffix(".exe").strip()
 
-                    # 1. PowerShell wildcard process termination (handles UWP like WhatsApp.Root, Spotify, etc.)
-                    ps_script = (
-                        f"$p = Get-Process -Name '*{base_name}*' -ErrorAction SilentlyContinue; "
-                        "if ($p) { $p | Stop-Process -Force; Write-Output 'KILLED' } else { Write-Output 'NONE' }"
-                    )
-                    res_ps = subprocess.run(
-                        ["powershell", "-NoProfile", "-Command", ps_script],
-                        capture_output=True,
-                        text=True,
-                        timeout=5,
-                    )
-                    if "KILLED" in res_ps.stdout:
+                    # Comprehensive candidate images
+                    candidates = [base_name, f"{base_name}.exe"]
+                    if base_name in ("powershell", "pwsh", "terminal"):
+                        candidates.extend(["powershell.exe", "pwsh.exe", "windowsterminal.exe", "wt.exe"])
+                    elif base_name in ("whatsapp", "whatsappdesktop"):
+                        candidates.extend(["whatsapp.exe", "whatsapp.root.exe", "whatsappnative.exe"])
+                    elif base_name in ("opencode", "opencode-cli"):
+                        candidates.extend(["opencode.exe", "opencode-cli.exe"])
+                    elif base_name in ("code", "vscode", "visual studio code"):
+                        candidates.extend(["code.exe"])
+                    elif base_name in ("chrome", "google chrome"):
+                        candidates.extend(["chrome.exe"])
+                    elif base_name in ("browser", "web"):
+                        candidates.extend(["chrome.exe", "msedge.exe"])
+
+                    # 1. Fast native taskkill with full process tree termination (/F /T) in 10ms
+                    killed_via_taskkill = False
+                    for cand in candidates:
+                        img_name = cand if cand.endswith(".exe") else f"{cand}.exe"
+                        try:
+                            res = subprocess.run(
+                                ["taskkill", "/F", "/T", "/IM", img_name],
+                                capture_output=True,
+                                text=True,
+                            )
+                            if res.returncode == 0:
+                                killed_via_taskkill = True
+                        except Exception:
+                            pass
+
+                    if killed_via_taskkill:
                         return {
                             "content": [
                                 {
@@ -556,42 +575,70 @@ def create_process_tool_definition(
                             "details": {"session_id": target_proc, "killed": True},
                         }
 
-                    # 2. Terminal specific binaries
-                    if target_lower in ("terminal", "windows terminal", "wt", "windowsterminal"):
-                        res = subprocess.run(
-                            ["taskkill", "/F", "/IM", "WindowsTerminal.exe"],
+                    # 2. psutil process tree kill
+                    killed_via_psutil = False
+                    try:
+                        import psutil
+
+                        for p in psutil.process_iter(["pid", "name"]):
+                            try:
+                                p_name = p.name().lower()
+                                if any(
+                                    c == p_name
+                                    or c.removesuffix(".exe") == p_name.removesuffix(".exe")
+                                    or p_name.startswith(f"{base_name}.")
+                                    or p_name.startswith(f"{base_name}-")
+                                    or f"-{base_name}" in p_name
+                                    for c in candidates
+                                ):
+                                    proc = psutil.Process(p.pid)
+                                    for child in proc.children(recursive=True):
+                                        try:
+                                            child.kill()
+                                        except Exception:
+                                            pass
+                                    proc.kill()
+                                    killed_via_psutil = True
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+
+                    if killed_via_psutil:
+                        return {
+                            "content": [
+                                {
+                                    "type": "text",
+                                    "text": f"Successfully closed host application/process '{target_proc}' on PC via process tree termination.",
+                                }
+                            ],
+                            "details": {"session_id": target_proc, "killed": True},
+                        }
+
+                    # 3. PowerShell wildcard process termination (safe try/except with 3.0s timeout)
+                    try:
+                        ps_script = (
+                            f"$p = Get-Process -Name '*{base_name}*' -ErrorAction SilentlyContinue; "
+                            "if ($p) { $p | Stop-Process -Force; Write-Output 'KILLED' } else { Write-Output 'NONE' }"
+                        )
+                        res_ps = subprocess.run(
+                            ["powershell", "-NoProfile", "-Command", ps_script],
                             capture_output=True,
                             text=True,
+                            timeout=3.0,
                         )
-                        if res.returncode != 0:
-                            res = subprocess.run(
-                                ["taskkill", "/F", "/IM", "wt.exe"], capture_output=True, text=True
-                            )
-                        if res.returncode == 0:
+                        if "KILLED" in res_ps.stdout:
                             return {
                                 "content": [
-                                    {"type": "text", "text": "Successfully closed terminal on PC."}
+                                    {
+                                        "type": "text",
+                                        "text": f"Successfully closed host application/process '{target_proc}' on PC.",
+                                    }
                                 ],
                                 "details": {"session_id": target_proc, "killed": True},
                             }
-
-                    # 3. taskkill by executable image name
-                    proc_name = (
-                        target_proc if target_lower.endswith(".exe") else f"{target_proc}.exe"
-                    )
-                    res = subprocess.run(
-                        ["taskkill", "/F", "/IM", proc_name], capture_output=True, text=True
-                    )
-                    if res.returncode == 0:
-                        return {
-                            "content": [
-                                {
-                                    "type": "text",
-                                    "text": f"Successfully closed host application/process '{target_proc}' on PC.",
-                                }
-                            ],
-                            "details": {"session_id": target_proc, "killed": True},
-                        }
+                    except Exception:
+                        pass
 
                     # 4. If neither was running, report idempotent already closed
                     return {

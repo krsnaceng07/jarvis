@@ -39,7 +39,7 @@ SHEETS = {
         "rows": 5,
         "inset": (75, 18, 245, 205),
         "pairs": [
-            ("reference 42s (stable)", (4, 1), "holo_stable.png"),
+            ("reference 46s (stable)", (4, 3), "holo_stable.png"),
             ("reference 24s (dispersed)", (2, 2), "holo_scattered.png"),
             ("reference 26s (reforming)", (2, 3), "holo_scan_mid.png"),
         ],

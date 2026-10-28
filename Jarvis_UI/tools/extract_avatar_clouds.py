@@ -3,7 +3,7 @@
 Both characters are extracted from the owner-approved storyboards so the
 dashboard and onboarding show the same silhouettes the owner signed off on:
 
-* male   <- 42s cell of ``reference/male_timeline.png`` (5 x 5 storyboard)
+* male   <- 46s cell of ``reference/male_timeline.png`` (5 x 5 storyboard)
 * female <- 42s cell of ``reference/holographic_woman_timeline.png`` (5 x 7)
 
 The renderer consumes a flat Float32 stream of ``x y z r g b`` per particle.
@@ -141,41 +141,141 @@ def finish_cloud(
     return cloud[rng.permutation(cloud.shape[0])]
 
 
-def extract_male() -> np.ndarray:
+def anatomical_male_depth(nx: np.ndarray, ny: np.ndarray, value: np.ndarray) -> np.ndarray:
+    """True 3D anatomical relief for the male holographic bust.
+
+    Instead of deriving depth purely from brightness (which flattens the face and
+    causes neck tendons to jut out in front of the jaw), this models real human
+    cranial and facial topography:
+    * Cranial ellipsoid curving back to ears and temples
+    * Nose bridge and tip projecting forward
+    * Brow ridge framing sunken eye sockets
+    * Defined lips and chin point
+    * Recessed neck positioned naturally behind the jawline
+    * Natural clavicle and upper chest curvature
+    * Subtle surface micro-relief from local luminance
+    """
+    head_r_x, head_r_y, head_r_z = 0.28, 0.32, 0.26
+    dy_head = (ny - 0.16) / head_r_y
+    dx_head = nx / head_r_x
+    r2 = dx_head**2 + dy_head**2
+    in_head = ny > -0.15
+    z_skull = np.where(in_head, np.sqrt(np.maximum(0.0, 1.0 - r2)) * head_r_z, 0.0)
+
+    z_nose = (
+        0.08 * np.exp(-(nx / 0.035)**2 - ((ny - 0.075) / 0.075)**2)
+        + 0.12 * np.exp(-(nx / 0.04)**2 - ((ny - 0.02) / 0.035)**2)
+    )
+    z_brow = 0.045 * np.exp(-(nx / 0.15)**2 - ((ny - 0.16) / 0.035)**2)
+    z_eyes = -0.055 * np.exp(-((np.abs(nx) - 0.09) / 0.04)**2 - ((ny - 0.12) / 0.035)**2)
+    z_lips = 0.055 * np.exp(-(nx / 0.06)**2 - ((ny - (-0.03)) / 0.025)**2)
+    z_chin = 0.065 * np.exp(-(nx / 0.055)**2 - ((ny - (-0.09)) / 0.04)**2)
+
+    in_neck = (ny <= -0.12) & (ny > -0.28)
+    neck_nx = np.clip(nx / 0.14, -1.0, 1.0)
+    z_neck = np.where(in_neck, 0.06 + np.sqrt(np.maximum(0.0, 1.0 - neck_nx**2)) * 0.06, 0.0)
+
+    in_torso = ny <= -0.28
+    torso_nx = np.clip(np.abs(nx) / 0.48, 0.0, 1.0)
+    z_torso = np.where(in_torso, 0.06 + (1.0 - torso_nx) * 0.10 + 0.03 * np.exp(-((ny - (-0.35)) / 0.08)**2), 0.0)
+
+    z_base = np.where(in_head, z_skull, np.where(in_neck, z_neck, z_torso))
+    z = z_base + z_nose + z_brow + z_eyes + z_lips + z_chin + (value - 0.2) * 0.04
+    return np.clip(z, 0.02, 0.65).astype(np.float32)
+
+
+def extract_male(target_count: int = 38000) -> np.ndarray:
     image = Image.open(MALE_TIMELINE).convert("RGB")
-    # 5 x 5 storyboard, 2 seconds per cell. Row 4 / column 1 is the 42s frame:
-    # the cleanest fully stabilised portrait of the male character.
+    # 5 x 5 storyboard, 2 seconds per cell. Row 4 / column 3 is the 46s frame:
+    # the settled portrait with the clearest male facial landmarks.
     cell_w = image.size[0] / 5
     cell_h = image.size[1] / 5
-    cell = image.crop((int(cell_w), int(cell_h * 4), int(cell_w * 2), int(cell_h * 5)))
+    cell = image.crop((int(cell_w * 3), int(cell_h * 4), int(cell_w * 4), int(cell_h * 5)))
 
-    # Bust crop inside the cell: hair crown through the fading chest, excluding
-    # the timestamp label and the outer HUD ring.
-    crop = cell.crop((75, 18, 245, 205))
-    data = np.asarray(crop).astype(np.float32) / 255.0
+    # Exact bust crop inside the cell: perfectly centered 180x180 square covering
+    # the hair crown down to the chest fade, excluding HUD labels and outer rings.
+    crop = cell.crop((65, 18, 245, 198))
+    data = np.asarray(crop, dtype=np.float32) / 255.0
 
     red, green, blue = data[..., 0], data[..., 1], data[..., 2]
     lum = data.mean(axis=2)
     blue_score = blue - (red + green) / 2.0
 
-    # The torso particles are much dimmer than the face, so the threshold has to
-    # stay low enough to keep the shoulders while still rejecting the ring arcs.
-    mask = (blue_score > 0.03) & (lum > 0.13)
+    # Mask foreground holographic material and reject dark background noise
+    mask = (lum > 0.06) & ((blue_score > 0.01) | (lum > 0.18))
+    gy, gx = np.gradient(lum)
+    mag = np.hypot(gy, gx)
 
-    # Stratified coverage inside the mask, brightness in the colour: the source
-    # art already encodes the face with thin bright filaments, so density must
-    # stay even or the strokes either vanish (white blob) or turn into confetti.
-    px, py, value = sample_stratified(mask, lum, cell=2, seed=11)
-    print(f"male pixels={mask.sum()} samples={px.size}")
-    return finish_cloud(
-        px,
-        py,
-        np.clip((value - 0.05) * 1.18, 0.0, 1.0),
-        height=2.40,
-        depth=(0.02, 0.66),
-        fade_bottom=0.12,
-        seed=12,
-    )
+    # Local maxima detection for constellation nodes
+    padded = np.pad(lum, 1, mode="edge")
+    is_max = np.ones_like(lum, dtype=bool)
+    for dy in [-1, 0, 1]:
+        for dx in [-1, 0, 1]:
+            if dy == 0 and dx == 0:
+                continue
+            is_max &= (lum >= padded[1 + dy : 1 + dy + lum.shape[0], 1 + dx : 1 + dx + lum.shape[1]])
+
+    rng = np.random.default_rng(123)
+    all_px, all_py, all_val = [], [], []
+
+    # 1. Landmark & constellation nodes (bright facial and hair vertices)
+    node_ys, node_xs = np.where(is_max & (lum > 0.18))
+    all_px.append(node_xs.astype(np.float32))
+    all_py.append(node_ys.astype(np.float32))
+    all_val.append(np.clip(lum[node_ys, node_xs] * 1.30, 0.0, 1.0))
+
+    # 2. Continuous ridge & contour filaments (dense sub-sampling along facial & hair ridges)
+    ridge_ys, ridge_xs = np.where((mag > 0.07) & mask)
+    for ox, oy in [(-0.25, -0.25), (0.25, 0.25), (-0.25, 0.25), (0.25, -0.25)]:
+        jx = ox + rng.uniform(-0.12, 0.12, ridge_xs.size)
+        jy = oy + rng.uniform(-0.12, 0.12, ridge_ys.size)
+        all_px.append(ridge_xs + jx)
+        all_py.append(ridge_ys + jy)
+        all_val.append(np.clip(lum[ridge_ys, ridge_xs] * 1.15, 0.0, 1.0))
+
+    # 3. Stratified volume fill with luminance-adaptive sampling density
+    vol_ys, vol_xs = np.where(mask)
+    for ox in [-0.25, 0.25]:
+        for oy in [-0.25, 0.25]:
+            p_keep = np.clip(lum[vol_ys, vol_xs] / 0.14, 0.30, 1.0)
+            kept = rng.uniform(0.0, 1.0, vol_xs.size) < p_keep
+            all_px.append(vol_xs[kept] + ox + rng.uniform(-0.15, 0.15, kept.sum()))
+            all_py.append(vol_ys[kept] + oy + rng.uniform(-0.15, 0.15, kept.sum()))
+            all_val.append(lum[vol_ys[kept], vol_xs[kept]])
+
+    px = np.concatenate(all_px).astype(np.float32)
+    py = np.concatenate(all_py).astype(np.float32)
+    val = np.concatenate(all_val).astype(np.float32)
+
+    # Subsample to exact target particle count
+    if px.size > target_count:
+        # Keep more of the eye, nose and mouth filaments at dashboard scale.
+        face_detail = (py >= 45.0) & (py <= 112.0) & (np.abs(px - 90.0) <= 36.0)
+        priority = np.where(face_detail, 2.0, 1.0)
+        idx = rng.choice(px.size, target_count, replace=False, p=priority / priority.sum())
+        px, py, val = px[idx], py[idx], val[idx]
+
+    height = 2.40
+    aspect = 1.0
+    width = height * aspect
+
+    nx = (px - 90.0) / 180.0
+    ny = (90.0 - py) / 180.0
+
+    world_x = nx * width
+    world_y = ny * height + 0.08
+    world_z = anatomical_male_depth(nx, ny, val)
+
+    # Smooth chest fade at the base so the bust doesn't end abruptly
+    fade_mask = np.clip((-ny - 0.30) / 0.20, 0.0, 1.0)
+    color = colour_ramp(val) * (1.0 - fade_mask[:, None] * 0.90)
+
+    cloud = np.concatenate(
+        (world_x[:, None], world_y[:, None], world_z[:, None], color), axis=1
+    ).astype(np.float32)
+    order = rng.permutation(cloud.shape[0])
+    print(f"male extracted={px.size} particles (target={target_count})")
+    return cloud[order]
 
 
 def extract_female() -> np.ndarray:

@@ -137,10 +137,16 @@ class CronRunner:
         except Exception as e:
             _log.warning("cron: %s handler raised: %s", job.id, e)
             return
-        if asyncio.iscoroutine(result) and self._loop is not None:
+        if asyncio.iscoroutine(result):
             try:
-                fut = asyncio.run_coroutine_threadsafe(result, self._loop)
-                fut.result(timeout=30.0)
+                # If running on the dedicated cron-runner thread, execute directly on self._loop
+                if self._loop is not None and threading.current_thread() == self._thread:
+                    self._loop.run_until_complete(asyncio.wait_for(result, timeout=30.0))
+                elif self._loop is not None and self._loop.is_running():
+                    fut = asyncio.run_coroutine_threadsafe(result, self._loop)
+                    fut.result(timeout=30.0)
+                else:
+                    asyncio.run(asyncio.wait_for(result, timeout=30.0))
             except Exception as e:
                 _log.warning("cron: %s async handler failed: %s", job.id, e)
 

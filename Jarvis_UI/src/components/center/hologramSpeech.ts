@@ -29,7 +29,7 @@ export class SpeechEnvelope {
     const desired = speaking ? (live ? this.target : Math.min(1, Math.max(0, fallback))) : 0;
 
     // Fast attack, slower release: a jaw snaps open on the syllable and eases shut.
-    const response = desired > this.level ? 30 : 8;
+    const response = desired > this.level ? 16 : 9;
     this.level += (desired - this.level) * (1 - Math.exp(-dt * response));
     return this.level;
   }

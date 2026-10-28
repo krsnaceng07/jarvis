@@ -353,6 +353,7 @@ async def test_proactive_session_rollover_on_idle() -> None:
     engine.ui = None
     # Simulate connection established 730 seconds ago (12.1 minutes)
     engine._session_connected_at = time.monotonic() - 730.0
+    engine._enable_proactive_rollover = True
 
     # Running _watch_stall_task should raise SessionRollover
     watch_task = asyncio.create_task(engine._watch_stall_task())
@@ -518,6 +519,68 @@ def test_criticisms_and_complaints_not_actionable_goals() -> None:
     assert _is_actionable_user_goal("samay kati bhayo") is False
     assert _is_actionable_user_goal("kati bajyo") is False
 
+    # Scoldings and inquiries from live transcripts must NEVER be actionable goals
+    assert _is_actionable_user_goal("अनि यति ठुलो गल्ती किन गरेको?") is False
+    assert _is_actionable_user_goal("मैले तिमीलाई भने त्यसरी बनाउन तिमीले किन बनाए?") is False
+    assert _is_actionable_user_goal("ब्राउजर पनि बन्द गरेछौ तिमीले किन बन्द गर्दियो?") is False
+    assert _is_actionable_user_goal("सबै किन बन्द गर्नु पर्ने जे भन्छु त्यो मात्र गर") is False
+    assert _is_actionable_user_goal("तिमी पागल जस्तो किन गरिरा छ") is False
+    assert _is_actionable_user_goal("अहिले म केहि भोलमको बारेमा भनेकै छैन") is False
+    assert _is_actionable_user_goal("kasaile bhanyaa chha ta?") is False
+    assert _is_actionable_user_goal("kina gareko yasto?") is False
+
+    # System notifications and reminder triggers must NEVER be actionable computer goals
+    assert _is_actionable_user_goal("[SCHEDULED REMINDER / AUTOMATION] Job 'job_1793033307_e3ac' has triggered! Instruction: 4:45 PM भयो, जानकारी गराउनुहोस्") is False
+    assert _is_actionable_user_goal("[SYSTEM NOTIFICATION: Background subagent finished. Task: 'test']") is False
+
+    # Stating a class or event time without command is conversational, NOT an actionable goal
+    assert _is_actionable_user_goal("7:00 baje klaas hai") is False
+    assert _is_actionable_user_goal("mero 10 baje class chha") is False
+
+    # Explicit reminder requests with action verbs MUST be actionable
+    assert _is_actionable_user_goal("darawish 10 45 bhaepachhi Malai inpharm garnu.") is True
+    assert _is_actionable_user_goal("45 maa Malai inpharm garnu") is True
+
+
+def test_settled_task_completion_and_closing_inquiries() -> None:
+    """Closing inquiries and browser open completion remarks must settle the goal and avoid ghost chatter."""
+    from jarvis_voice_pipeline.terminal_app import _detect_ghost_action_promise, _is_task_completion_speech
+
+    goal = "मा युट्युब ओपन गरेको छ त्यो ब्राउजर ओपन त गर्नु भने"
+    assert _is_task_completion_speech("maile YouTube browser kholidie sar. ab ke garne?") is True
+    assert _is_task_completion_speech("sab thik chha sar. arko kamaand ke chha?") is True
+
+    assert _detect_ghost_action_promise("maile YouTube browser kholidie sar. ab ke garne?", goal) is False
+    assert _detect_ghost_action_promise("sab thik chha sar. arko kamaand ke chha?", goal) is False
+
+
+def test_browser_action_play_without_query_unpauses() -> None:
+    """Browser action 'play' without query must route to kind='play' (unpause) rather than youtube_play."""
+    from jarvis_desktop.tool_pipeline import prepare_tool_arguments
+
+    prep_resume = prepare_tool_arguments("browser", {"action": "play"})
+    assert prep_resume["action"] == "act"
+    assert prep_resume["kind"] == "play"
+
+    prep_yt = prepare_tool_arguments("browser", {"action": "play", "query": "Arijit Singh song"})
+    assert prep_yt["action"] == "youtube_play"
+
+    prep_next = prepare_tool_arguments("browser", {"action": "next"})
+    assert prep_next["action"] == "act"
+    assert prep_next["kind"] == "next"
+
+
+def test_apologies_never_trigger_ghost_action_promise() -> None:
+    """Apologies, mistake acknowledgments, and explanations must NEVER trigger ghost chatter nudges."""
+    from jarvis_voice_pipeline.terminal_app import _detect_ghost_action_promise
+
+    goal = "भोलम १००% गरा"
+    assert _detect_ghost_action_promise("Hunchha sar, maile anawaashyak kaary suru garechhu, kshamaa chaahanchhu.", goal) is False
+    assert _detect_ghost_action_promise("Maaf garnuhos sar, bujhn galtee bhaeko thiyo.", goal) is False
+    assert _detect_ghost_action_promise("Sorry sir, ma chup baschhu.", goal) is False
+    assert _detect_ghost_action_promise("माफ गर्नुहोस् सर, मैले गल्ती गरेछु।", goal) is False
+    assert _detect_ghost_action_promise("माफी चाहन्छु सर, अब म शान्त रहन्छु।", goal) is False
+
 
 def test_windows_asyncio_10054_patch_installed() -> None:
     """Verify that Windows Proactor WinError 10054 patch applies safely and idempotently."""
@@ -561,6 +624,7 @@ async def test_session_rollover_respects_user_speech_recency() -> None:
     # Simulate connection established 730s ago (>12m), BUT user spoke 10s ago (<45s)
     engine._session_connected_at = time.monotonic() - 730.0
     engine._last_user_speech_time = time.monotonic() - 10.0
+    engine._enable_proactive_rollover = True
 
     # Rollover must NOT be triggered because user was actively conversing
     watch_task = asyncio.create_task(engine._watch_stall_task())
@@ -659,6 +723,75 @@ async def test_audio_streams_freely_during_user_turn_in_hearing_state() -> None:
     await send_task
 
     assert len(sent_packets) > 0, "User speech audio chunks must stream freely to session during user conversation!"
+
+
+@pytest.mark.asyncio
+async def test_reconnect_does_not_send_unsolicited_resume_prompt_when_task_not_in_progress() -> None:
+    """When reconnecting and _task_in_progress is False, no unsolicited prompt may be sent to session."""
+    sent_turns = []
+
+    class MockSession:
+        async def send_client_content(self, turns=None, turn_complete=False):
+            sent_turns.append(turns)
+
+    engine = object.__new__(terminal_app.NativeGeminiLiveEngine)
+    engine._task_in_progress = False
+    engine._active_goal = None
+    engine.state = SimpleNamespace(
+        agent_state="STANDBY",
+        set_agent_state=lambda s: setattr(engine.state, "agent_state", s),
+    )
+    # When no task was in progress, pending_task must resolve to None
+    pending_task = (
+        engine._active_goal
+        if (
+            engine._task_in_progress
+            and engine._active_goal
+            and terminal_app._is_actionable_user_goal(engine._active_goal)
+        )
+        else None
+    )
+    assert pending_task is None
+    # No resume prompt sent
+    assert len(sent_turns) == 0
+
+
+def test_music_generate_preflight_fails_fast_when_no_provider_configured() -> None:
+    """When no music generation providers are configured, tool must fail fast with truthful error."""
+    from src.agents.sessions.tools.music_generate_tool import music_generate_tool_handler
+
+    ctx = SimpleNamespace(config={})
+    res = music_generate_tool_handler(ctx, {"action": "generate", "prompt": "romantic music"})
+    assert res.get("status") == "error"
+    assert "No music-generation provider" in res.get("error", "")
+
+
+def test_music_generate_status_handles_task_id_and_omitted_parameter() -> None:
+    """Status action must support snake_case task_id, camelCase taskId, and omitted task_id."""
+    from src.agents.sessions.tools.music_generate_background import _tasks
+    from src.agents.sessions.tools.music_generate_tool import music_generate_tool_handler
+
+    ctx = SimpleNamespace(config={})
+    _tasks["mus_test123"] = {
+        "status": "failed",
+        "error": "No music-generation model configured.",
+    }
+
+    # 1. camelCase taskId
+    res1 = music_generate_tool_handler(ctx, {"action": "status", "taskId": "mus_test123"})
+    assert res1.get("status") == "failed"
+    assert "FAILED" in res1.get("message", "")
+
+    # 2. snake_case task_id
+    res2 = music_generate_tool_handler(ctx, {"action": "status", "task_id": "mus_test123"})
+    assert res2.get("status") == "failed"
+    assert "FAILED" in res2.get("message", "")
+
+    # 3. Omitted task_id (auto-resolves to latest)
+    res3 = music_generate_tool_handler(ctx, {"action": "status"})
+    assert res3.get("status") == "failed"
+    assert res3.get("task_id") == "mus_test123"
+
 
 
 

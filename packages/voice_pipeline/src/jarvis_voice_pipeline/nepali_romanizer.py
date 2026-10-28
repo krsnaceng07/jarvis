@@ -372,8 +372,8 @@ def is_phantom_noise(text: str) -> bool:
     if foreign_chars:
         # Count genuine Devanagari or ASCII alphanumeric characters
         valid_nepali_or_eng = len(re.findall(r"[\u0900-\u097fa-zA-Z0-9]", cleaned))
-        # If foreign script dominates or valid words are under 4 characters, drop as phantom noise
-        if len(foreign_chars) > valid_nepali_or_eng or valid_nepali_or_eng < 4:
+        # If foreign script dominates or there is no legitimate Nepali/English content, drop as phantom noise
+        if len(foreign_chars) > valid_nepali_or_eng or valid_nepali_or_eng == 0:
             return True
 
     return False

@@ -72,6 +72,7 @@ export const CharacterModal: React.FC = () => {
   const { character, updateCharacter, closeModal } = useModules();
   const { setSystemName } = useAssistant();
   const [step, setStep] = useState<3 | 4>(3);
+  const [characterMorphing, setCharacterMorphing] = useState(false);
   const [selectedVoice, setSelectedVoice] = useState<string | null>(() =>
     VOICE_PRESETS[character.appearance].find((voice) => voice.name === character.role)?.id ?? null,
   );
@@ -83,7 +84,8 @@ export const CharacterModal: React.FC = () => {
   useEffect(() => () => speechService.cancelSpeech(), []);
 
   const selectAppearance = (appearance: CharacterAppearance) => {
-    if (appearance === character.appearance) return;
+    if (appearance === character.appearance || characterMorphing) return;
+    setCharacterMorphing(true);
     setSelectedVoice(null);
     updateCharacter({ appearance });
   };
@@ -132,13 +134,14 @@ export const CharacterModal: React.FC = () => {
                   <button
                     key={appearance}
                     type="button"
+                    disabled={characterMorphing}
                     onClick={() => selectAppearance(appearance)}
                     aria-pressed={selected}
                     className={`h-10 border text-[12px] font-bold tracking-[0.28em] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-300 ${
                       selected
                         ? 'border-[#5c8791] bg-[#12313a]/55 text-slate-100'
                         : 'border-[#28444b] bg-[#050c11]/75 text-[#a8bbc1] hover:border-[#4d7780] hover:text-slate-100'
-                    }`}
+                      } ${characterMorphing ? 'cursor-not-allowed opacity-50' : ''}`}
                   >
                     {appearance.toUpperCase()}
                   </button>
@@ -293,7 +296,11 @@ export const CharacterModal: React.FC = () => {
             })}
           </svg>
           <div className="absolute inset-[5.5%] overflow-hidden rounded-full">
-            <ThreeHologram appearance={character.appearance} framing="preview" />
+            <ThreeHologram
+              appearance={character.appearance}
+              onMorphActiveChange={setCharacterMorphing}
+              onGenderChange={(appearance) => updateCharacter({ appearance })}
+            />
           </div>
         </section>
       </main>

@@ -31,6 +31,7 @@ class BackendBridgeService {
   private ws: WebSocket | null = null;
   private reconnectTimer: number | null = null;
   private isExplicitlyClosed = false;
+  private pendingMuted: boolean | null = null;
   private listeners = new Set<ConnectionListener>();
   private audioListeners = new Set<AudioLevelListener>();
 
@@ -76,6 +77,10 @@ class BackendBridgeService {
       this.ws.onopen = () => {
         this.isConnected = true;
         this.notifyConnection(true);
+        if (this.pendingMuted !== null) {
+          this.sendMuted(this.pendingMuted);
+          this.pendingMuted = null;
+        }
         console.log('[JARVIS Bridge] Connected to Python Agent Engine at', url);
       };
 
@@ -137,6 +142,9 @@ class BackendBridgeService {
 
     switch (type) {
       case 'init': {
+        if (typeof data.muted === 'boolean') {
+          assistantStore.setMuted(data.muted);
+        }
         const rawState = data.state || 'STANDBY';
         const mapped = this.mapBackendState(rawState);
         assistantStore.setState(mapped);
@@ -237,11 +245,8 @@ class BackendBridgeService {
       }
 
       case 'muted': {
-        const isMuted = Boolean(data.muted);
-        if (isMuted) {
-          assistantStore.setState('idle', 'Microphone Muted');
-        } else {
-          assistantStore.setState('listening', 'Jarvis is listening');
+        if (typeof data.muted === 'boolean') {
+          assistantStore.setMuted(data.muted);
         }
         break;
       }
@@ -288,12 +293,15 @@ class BackendBridgeService {
   }
 
   public setMuted(muted: boolean): void {
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify({
-        action: 'set_muted',
-        muted,
-      }));
+    this.pendingMuted = muted;
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.sendMuted(muted);
+      this.pendingMuted = null;
     }
+  }
+
+  private sendMuted(muted: boolean): void {
+    this.ws?.send(JSON.stringify({ action: 'set_muted', muted }));
   }
 
   public terminate(): void {

@@ -70,28 +70,33 @@ def _get_shared_runner() -> Any:
         return _SHARED_RUNNER
 
 
-def _normalize_schedule(schedule_input: str) -> str:
-    """Normalize schedule string.
+def _normalize_schedule(schedule_input: str, recurring: bool = False) -> str:
+    """Normalize schedule string with full support for wall-clock times, durations, ISO timestamps, and cron expressions.
 
     Supports:
+    - Wall-clock time (24h or 12h): "17:10", "17:10:00", "5:10 PM", "5:10pm", "5pm", "05:10"
+    - "tomorrow at 5:10 PM" / "tomorrow 17:10"
+    - Relative duration with suffix: "30s", "10m", "15 min", "2h", "1d", "in 5 minutes"
     - Pure integer seconds: "60", "300"
-    - Relative duration with suffix: "30s", "10m", "2h", "1d"
-    - ISO timestamp: "2026-10-01T12:00:00"
-    - 5-field cron expression: "*/5 * * * *"
+    - ISO timestamp or space-separated date+time: "2026-10-26T17:10:00", "2026-10-26 17:10"
+    - 5-field cron expression: "*/5 * * * *", "10 17 * * *"
     """
     raw = schedule_input.strip()
     if not raw:
         raise ValueError("schedule cannot be empty.")
 
-    # 1. Pure numeric seconds
+    now = datetime.now()
+
+    # 1. Pure numeric seconds: "60", "300"
     if raw.isdigit():
         secs = int(raw)
-        target = (datetime.now() + timedelta(seconds=secs)).replace(microsecond=0)
+        target = (now + timedelta(seconds=secs)).replace(microsecond=0)
         return target.isoformat()
 
-    # 2. Suffix duration: e.g. "30s", "15m", "2h", "1d"
+    # 2. Suffix or relative duration: e.g. "in 5 minutes", "30s", "15m", "2h", "1d"
+    clean_dur = re.sub(r"^in\s+", "", raw, flags=re.IGNORECASE).strip()
     dur_match = re.match(
-        r"^(\d+)\s*(s|sec|seconds|m|min|minutes|h|hr|hours|d|days)$", raw, re.IGNORECASE
+        r"^(\d+)\s*(s|sec|seconds?|m|min|minutes?|h|hr|hours?|d|days?)$", clean_dur, re.IGNORECASE
     )
     if dur_match:
         val = int(dur_match.group(1))
@@ -107,23 +112,68 @@ def _normalize_schedule(schedule_input: str) -> str:
         else:
             delta = timedelta(seconds=val)
 
-        target = (datetime.now() + delta).replace(microsecond=0)
+        target = (now + delta).replace(microsecond=0)
         return target.isoformat()
 
-    # 3. ISO timestamp
-    if re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", raw):
-        return raw
+    # 3. ISO timestamp or space-separated date+time: e.g. "2026-10-26T17:10:00", "2026-10-26 17:10"
+    iso_date_match = re.match(r"^(\d{4}-\d{2}-\d{2})[T\s](\d{1,2}):(\d{2})(?::(\d{2}))?$", raw)
+    if iso_date_match:
+        d_str, h_str, m_str, s_str = iso_date_match.groups()
+        s_val = int(s_str) if s_str else 0
+        return f"{d_str}T{int(h_str):02d}:{int(m_str):02d}:{s_val:02d}"
 
-    # 4. Cron expression (5 fields)
+    # 4. Standard 5-field cron expression: "*/5 * * * *"
     parts = raw.split()
     if len(parts) == 5:
         return raw
 
+    # 5. Wall-clock time (12-hour AM/PM or 24-hour): e.g. "17:10", "5:10 PM", "5:10pm", "5pm"
+    is_tomorrow = bool(re.search(r"\btomorrow\b", raw, re.IGNORECASE))
+    clean_time = re.sub(r"\b(at|tomorrow)\b", "", raw, flags=re.IGNORECASE).strip()
+
+    # 12-hour with AM/PM: e.g. "5:10 PM", "5:10pm", "5pm", "5:10:00 PM"
+    ampm_match = re.match(
+        r"^(\d{1,2})(?::(\d{2}))?(?::(\d{2}))?\s*(am|pm)$", clean_time, re.IGNORECASE
+    )
+    if ampm_match:
+        h_val = int(ampm_match.group(1))
+        m_val = int(ampm_match.group(2)) if ampm_match.group(2) else 0
+        s_val = int(ampm_match.group(3)) if ampm_match.group(3) else 0
+        is_pm = ampm_match.group(4).lower() == "pm"
+        if is_pm and h_val < 12:
+            h_val += 12
+        elif not is_pm and h_val == 12:
+            h_val = 0
+
+        if recurring:
+            return f"{m_val} {h_val} * * *"
+
+        target = now.replace(hour=h_val, minute=m_val, second=s_val, microsecond=0)
+        if is_tomorrow or target <= now:
+            target += timedelta(days=1)
+        return target.isoformat()
+
+    # 24-hour: e.g. "17:10", "17:10:00", "05:10"
+    h24_match = re.match(r"^(\d{1,2}):(\d{2})(?::(\d{2}))?$", clean_time)
+    if h24_match:
+        h_val = int(h24_match.group(1))
+        m_val = int(h24_match.group(2))
+        s_val = int(h24_match.group(3)) if h24_match.group(3) else 0
+
+        if 0 <= h_val <= 23 and 0 <= m_val <= 59:
+            if recurring:
+                return f"{m_val} {h_val} * * *"
+
+            target = now.replace(hour=h_val, minute=m_val, second=s_val, microsecond=0)
+            if is_tomorrow or target <= now:
+                target += timedelta(days=1)
+            return target.isoformat()
+
     # If format is unrecognized, raise helpful guidance
     raise ValueError(
         f"Unrecognized schedule format '{raw}'. "
-        "Use a 5-field cron expression (e.g. '*/5 * * * *'), an ISO timestamp ('2026-10-01T09:00:00'), "
-        "or a duration in seconds (e.g. '300' or '5m')."
+        "Use a time (e.g. '17:10' or '5:10 PM'), duration (e.g. '300' or '5m'), "
+        "ISO timestamp ('2026-10-01T09:00:00'), or 5-field cron ('*/5 * * * *')."
     )
 
 
@@ -148,12 +198,29 @@ def _make_automation_handler(job_id: str, payload: str) -> Any:
 
         # 2. Push real-time spoken announcement to active Gemini Live voice engine if connected
         try:
-            from packages.voice_pipeline.src.jarvis_voice_pipeline.terminal_app import (
-                NativeGeminiLiveEngine,
-            )
+            try:
+                from jarvis_voice_pipeline.terminal_app import NativeGeminiLiveEngine
 
-            engine = NativeGeminiLiveEngine.get_active_engine()
-            if engine is not None and not engine.stop_event.is_set():
+                engine = NativeGeminiLiveEngine.get_active_engine()
+            except ImportError:
+                from packages.voice_pipeline.src.jarvis_voice_pipeline.terminal_app import (
+                    NativeGeminiLiveEngine,
+                )
+
+                engine = NativeGeminiLiveEngine.get_active_engine()
+
+            if engine is None:
+                import builtins
+
+                engine = getattr(builtins, "_JARVIS_ACTIVE_VOICE_ENGINE", None)
+
+            if engine is not None and not getattr(engine, "stop_event", None) and hasattr(engine, "post_system_notification"):
+                notification = (
+                    f"[SCHEDULED REMINDER / AUTOMATION] Job '{job_id}' has triggered! Instruction: {clean_p}. "
+                    f"Briefly inform Sir in 1 warm, natural sentence in Nepali that this scheduled reminder or automation has triggered."
+                )
+                engine.post_system_notification(notification)
+            elif engine is not None and getattr(engine, "stop_event", None) is not None and not engine.stop_event.is_set():
                 notification = (
                     f"[SCHEDULED REMINDER / AUTOMATION] Job '{job_id}' has triggered! Instruction: {clean_p}. "
                     f"Briefly inform Sir in 1 warm, natural sentence in Nepali that this scheduled reminder or automation has triggered."
@@ -328,7 +395,8 @@ def create_automations_tool_definition(
             if not schedule_str:
                 raise ValueError("schedule is required for 'create' action.")
 
-            norm_schedule = _normalize_schedule(schedule_str)
+            recurring_flag = bool(params.get("recurring", False))
+            norm_schedule = _normalize_schedule(schedule_str, recurring=recurring_flag)
             target_job_id = job_id or f"job_{int(time.time())}_{uuid.uuid4().hex[:4]}"
             description_str = payload_str or f"Automation job {target_job_id}"
 
@@ -544,7 +612,11 @@ def create_automations_tool_definition(
                 },
                 "schedule": {
                     "type": "STRING",
-                    "description": "Cron expression ('*/5 * * * *'), ISO timestamp, or relative delay in seconds (e.g. '300' or '5m'). Required for 'create'.",
+                    "description": "Schedule time string: wall-clock time ('17:10', '5:10 PM', 'tomorrow at 5:10 PM'), relative delay ('in 10m', '300s', '5m'), ISO timestamp ('2026-10-26T17:10:00'), or 5-field cron ('*/5 * * * *'). Required for 'create'.",
+                },
+                "recurring": {
+                    "type": "BOOLEAN",
+                    "description": "Set to True if this schedule should repeat daily/periodically instead of firing once. Optional, defaults to False.",
                 },
                 "payload": {
                     "type": "STRING",

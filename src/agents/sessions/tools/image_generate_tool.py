@@ -30,10 +30,45 @@ def image_generate_tool_handler(ctx: Any, kwargs: dict[str, Any]) -> Any:
         }
     
     if action == "status":
-        task_id = kwargs.get("taskId")
+        task_id = kwargs.get("taskId") or kwargs.get("task_id")
+        from .image_generate_background import _tasks
+
         if not task_id:
-            return {"error": "taskId is required for status action."}
-        return get_image_generation_status(task_id) or {"error": "Task not found."}
+            if _tasks:
+                task_id = list(_tasks.keys())[-1]
+            else:
+                return {
+                    "status": "none",
+                    "message": "No active or recent image generation task found for this session.",
+                }
+        task_info = get_image_generation_status(task_id)
+        if not task_info:
+            return {"status": "not_found", "task_id": task_id, "error": f"Task {task_id} not found."}
+
+        st = task_info.get("status", "unknown")
+        if st == "failed":
+            err = task_info.get("error", "Unknown error")
+            return {
+                "status": "failed",
+                "task_id": task_id,
+                "error": err,
+                "message": f"Image generation task {task_id} FAILED: {err}. Report this failure honestly to the user.",
+            }
+        elif st in ("succeeded", "completed"):
+            paths = task_info.get("paths", [])
+            return {
+                "status": "succeeded",
+                "task_id": task_id,
+                "paths": paths,
+                "summary": task_info.get("summary", ""),
+                "message": f"Image generation task {task_id} completed successfully. Saved images: {paths}.",
+            }
+        else:
+            return {
+                "status": st,
+                "task_id": task_id,
+                "message": f"Image generation task {task_id} is currently {st} in the background.",
+            }
         
     # Default generate action
     prompt = kwargs.get("prompt")
@@ -109,6 +144,8 @@ def define_image_generate_tool() -> Dict[str, Any]:
             "type": "object",
             "properties": {
                 "action": {"type": "string", "description": "Action to perform (generate, list, status)"},
+                "task_id": {"type": "string", "description": "Task ID to check status for (optional; defaults to latest task)"},
+                "taskId": {"type": "string", "description": "Task ID alias to check status for"},
                 "prompt": {"type": "string", "description": "Image generation prompt"},
                 "model": {"type": "string", "description": "Model override"},
                 "size": {"type": "string", "description": "Size like 1024x1024"},

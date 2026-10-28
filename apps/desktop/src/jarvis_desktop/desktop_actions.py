@@ -90,6 +90,43 @@ async def execute_desktop_action(args: dict[str, Any]) -> str:
     if action in ("auto_control", "human_control", "computer_control"):
         return await execute_auto_control(args)
 
+    # Native Real-Time Host Clock & Nepal Standard Time Queries
+    if action in (
+        "get_time",
+        "time",
+        "current_time",
+        "get_current_time",
+        "clock",
+        "date",
+        "get_date",
+        "current_date",
+    ):
+        from datetime import datetime
+        from zoneinfo import ZoneInfo
+
+        try:
+            npt_zone = ZoneInfo("Asia/Kathmandu")
+            now_npt = datetime.now(npt_zone)
+        except Exception:
+            now_npt = datetime.now()
+
+        now_local = datetime.now()
+        npt_time_12h = now_npt.strftime("%I:%M:%S %p")
+        npt_time_24h = now_npt.strftime("%H:%M:%S")
+        npt_date = now_npt.strftime("%A, %B %d, %Y")
+
+        data = {
+            "status": "success",
+            "nepal_time": npt_time_12h,
+            "nepal_time_24h": npt_time_24h,
+            "nepal_date": npt_date,
+            "timezone": "Asia/Kathmandu (NPT, UTC+5:45)",
+            "host_local_time": now_local.strftime("%I:%M:%S %p"),
+            "iso_timestamp": now_npt.isoformat(),
+            "formatted": f"Current Nepal Time: {npt_time_12h} ({npt_date}, Nepal Standard Time)",
+        }
+        return json.dumps(data, ensure_ascii=False)
+
     # Native Audio Volume & Mute Controls
     if action in ("set_volume", "volume", "adjust_volume", "get_volume", "mute", "unmute"):
         from src.system.audio_controller import AudioController

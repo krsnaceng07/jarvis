@@ -303,8 +303,51 @@ def create_computer_tool(options: Optional[Dict[str, Any]] = None) -> AgentTool:
             closed_something = False
             details_msg = []
 
-            # 1. If user specifically asks to close YouTube or a web tab:
-            if clean_app in ("youtube", "tab"):
+            # Comprehensive candidate executable and process names for Windows apps
+            candidates = [clean_app, f"{clean_app}.exe"]
+            if clean_app in ("powershell", "pwsh", "terminal"):
+                candidates.extend(["powershell.exe", "pwsh.exe", "windowsterminal.exe", "wt.exe"])
+            elif clean_app in ("whatsapp", "whatsappdesktop"):
+                candidates.extend(["whatsapp.exe", "whatsapp.root.exe", "whatsappnative.exe"])
+            elif clean_app in ("opencode", "opencode-cli"):
+                candidates.extend(["opencode.exe", "opencode-cli.exe"])
+            elif clean_app in ("code", "vscode", "visual studio code"):
+                candidates.extend(["code.exe"])
+            elif clean_app in ("chrome", "google chrome"):
+                candidates.extend(["chrome.exe"])
+            elif clean_app in ("browser", "web"):
+                candidates.extend(["chrome.exe", "msedge.exe"])
+            elif clean_app in ("notepad", "editor"):
+                candidates.extend(["notepad.exe"])
+            elif clean_app in ("spotify",):
+                candidates.extend(["spotify.exe"])
+            elif clean_app in ("discord",):
+                candidates.extend(["discord.exe"])
+            elif clean_app in ("telegram", "tg"):
+                candidates.extend(["telegram.exe"])
+
+            # 1. If user specifically asks to close YouTube, a web tab, or browser:
+            if clean_app in ("youtube", "tab", "chrome", "browser"):
+                try:
+                    from extensions.browser.src.browser_runtime import _runtime
+
+                    if _runtime and getattr(_runtime, "_tabs", None):
+                        for tid, tab in list(_runtime._tabs.items()):
+                            if not tab.page.is_closed():
+                                if clean_app in ("chrome", "browser", "tab") or "youtube.com" in getattr(tab.page, "url", "").lower():
+                                    try:
+                                        loop = asyncio.get_event_loop()
+                                        if loop.is_running():
+                                            asyncio.create_task(tab.page.close())
+                                        else:
+                                            loop.run_until_complete(tab.page.close())
+                                    except Exception:
+                                        pass
+                                    closed_something = True
+                                    details_msg.append(f"Closed browser tab '{tab.label or tid}'.")
+                except Exception:
+                    pass
+
                 try:
                     import pyautogui
 
@@ -314,55 +357,87 @@ def create_computer_tool(options: Optional[Dict[str, Any]] = None) -> AgentTool:
                 except Exception:
                     pass
 
-            # 2. Try closing window gracefully via pygetwindow
-            try:
-                import pygetwindow as gw
+            # 2. If graceful close, try closing window gracefully via pygetwindow first
+            if action in ("close_app", "close_window", "close"):
+                try:
+                    import pygetwindow as gw
 
-                for w in gw.getAllWindows():
-                    if w.title and clean_app in w.title.lower():
-                        w.close()
-                        closed_something = True
-                        details_msg.append(f"Closed window '{w.title}'.")
+                    for w in gw.getAllWindows():
+                        if w.title and any(c.removesuffix(".exe") in w.title.lower() for c in candidates):
+                            try:
+                                w.close()
+                                closed_something = True
+                                details_msg.append(f"Closed window '{w.title}'.")
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
+                if closed_something:
+                    await asyncio.sleep(0.3)
+
+            # 3. Check if matching process is still alive (or if action is kill_app)
+            # Many Windows apps (like WhatsApp, Discord, Spotify) minimize to system tray on close,
+            # or console/terminal apps keep running. Self-healing escalation to force kill is mandatory.
+            still_alive_pids: list[int] = []
+            try:
+                import psutil
+
+                for p in psutil.process_iter(["pid", "name"]):
+                    try:
+                        p_name = p.name().lower()
+                        if any(
+                            c == p_name
+                            or c.removesuffix(".exe") == p_name.removesuffix(".exe")
+                            or p_name.startswith(f"{clean_app}.")
+                            or p_name.startswith(f"{clean_app}-")
+                            or f"-{clean_app}" in p_name
+                            for c in candidates
+                        ):
+                            still_alive_pids.append(p.pid)
+                    except Exception:
+                        pass
             except Exception:
                 pass
 
-            # 3. If action is kill_app or graceful close didn't close any window, terminate process
-            if action in ("kill_app", "quit_app") or not closed_something:
-                try:
-                    import psutil
+            # 4. Escalate to fast native taskkill (/F /T terminates entire process tree cleanly in 10ms)
+            if action in ("kill_app", "quit_app") or still_alive_pids or not closed_something:
+                import subprocess
 
-                    for p in psutil.process_iter(["name"]):
-                        try:
-                            p_name = p.name().lower()
-                            if (
-                                clean_app == p_name
-                                or clean_app == p_name.removesuffix(".exe")
-                                or p_name.startswith(f"{clean_app}.")
-                            ):
-                                p.terminate()
+                for cand in candidates:
+                    img_name = cand if cand.endswith(".exe") else f"{cand}.exe"
+                    try:
+                        res = subprocess.run(
+                            ["taskkill", "/IM", img_name, "/F", "/T"],
+                            capture_output=True,
+                            text=True,
+                            check=False,
+                        )
+                        if res.returncode == 0:
+                            closed_something = True
+                            details_msg.append(f"Terminated process tree for '{img_name}'.")
+                    except Exception:
+                        pass
+
+                # If any PID still survived taskkill, terminate via psutil tree kill
+                if still_alive_pids:
+                    try:
+                        import psutil
+
+                        for pid in still_alive_pids:
+                            try:
+                                proc = psutil.Process(pid)
+                                for child in proc.children(recursive=True):
+                                    try:
+                                        child.kill()
+                                    except Exception:
+                                        pass
+                                proc.kill()
                                 closed_something = True
-                                details_msg.append(f"Terminated process '{p.name()}'.")
-                        except Exception:
-                            pass
-                except Exception:
-                    pass
-
-            # 4. Fallback to taskkill if needed
-            if not closed_something:
-                try:
-                    import subprocess
-
-                    res = subprocess.run(
-                        ["taskkill", "/IM", f"{clean_app}.exe", "/F"],
-                        capture_output=True,
-                        text=True,
-                        check=False,
-                    )
-                    if res.returncode == 0:
-                        closed_something = True
-                        details_msg.append(f"Terminated via taskkill '{clean_app}.exe'.")
-                except Exception:
-                    pass
+                                details_msg.append(f"Force killed PID {pid}.")
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
 
             return {
                 "action": action,

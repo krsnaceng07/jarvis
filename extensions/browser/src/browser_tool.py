@@ -248,6 +248,23 @@ class BrowserTool:
                 and ("youtube.com" in target_url or "youtu.be" in target_url)
             ):
                 label = "youtube"
+
+            # If opening a YouTube search results URL or if a search query is passed with YouTube, auto-play the video!
+            if target_url and "youtube.com/results" in target_url and "search_query=" in target_url:
+                import urllib.parse
+
+                parsed = urllib.parse.urlparse(target_url)
+                qs = urllib.parse.parse_qs(parsed.query)
+                q_list = qs.get("search_query", [])
+                if q_list:
+                    res = await runtime.youtube_play(query=q_list[0], profile=profile, target_id=target_id)
+                    return json_result(res)
+
+            yt_query = raw_params.get("query") or raw_params.get("search_query")
+            if target_url and ("youtube.com" in target_url or "youtu.be" in target_url) and yt_query:
+                res = await runtime.youtube_play(query=str(yt_query), profile=profile, target_id=target_id)
+                return json_result(res)
+
             res = await runtime.open_tab(profile, url=target_url, label=label)
             tid = res.get("targetId")
             try:
@@ -564,16 +581,35 @@ class BrowserTool:
             "play_pause",
             "toggle_play",
             "resume",
+            "play",
             "play_video",
             "resume_video",
             "pause_music",
             "stop_music",
+            "next",
+            "next_song",
+            "next_video",
+            "next_track",
         ):
-            res = await runtime.act(profile=profile, target_id=target_id, kind="pause")
+            if action in ("next", "next_song", "next_video", "next_track"):
+                kind = "next"
+            elif action in ("play", "resume", "resume_video", "play_video"):
+                kind = "play"
+            else:
+                kind = "pause"
+            res = await runtime.act(profile=profile, target_id=target_id, kind=kind)
             return json_result(res)
 
         elif action in ("google_search", "search_google"):
             q = raw_params.get("query") or raw_params.get("text") or ""
+            page = await runtime.get_page(profile=profile, target_id=target_id)
+            curr_url = getattr(page, "url", "").lower() if page else ""
+            q_str = str(q).lower()
+            if "youtube.com" in curr_url or "youtube" in q_str or (
+                any(w in q_str for w in ("song", "geet", "music", "video")) and "google.com" not in curr_url
+            ):
+                res = await runtime.youtube_play(query=str(q), profile=profile, target_id=target_id)
+                return json_result(res)
             res = await runtime.google_search(query=str(q), profile=profile, target_id=target_id)
             return json_result(res)
 

@@ -70,3 +70,15 @@ def test_apply_proposal(tmp_path):
     assert target_skill.read_text(encoding="utf-8") == "---\nname: my-skill\n---\nSkill content"
     assert target_asset.exists()
     assert target_asset.read_text(encoding="utf-8") == "{}"
+
+
+def test_install_skill_local(tmp_path):
+    svc = SkillWorkshopService(workspace_dir=tmp_path)
+    source_dir = tmp_path / "custom_source"
+    source_dir.mkdir(parents=True)
+    (source_dir / "SKILL.md").write_text("---\nname: custom\n---\nCustom logic", encoding="utf-8")
+
+    installed = svc.install_skill(str(source_dir), name="custom-skill")
+    assert installed.exists()
+    assert (installed / "SKILL.md").exists()
+    assert "Custom logic" in (installed / "SKILL.md").read_text(encoding="utf-8")

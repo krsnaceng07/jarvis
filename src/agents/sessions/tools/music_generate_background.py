@@ -20,8 +20,6 @@ def get_music_generation_status(task_id: str) -> Optional[dict]:
 
 
 def _cleanup_old_tasks():
-    import time
-    now = time.time()
     # Keep tasks for deduplication
     pass
 
@@ -65,6 +63,19 @@ async def execute_music_generation_job(
             "summary": summary
         }
         
+        # OpenClaw parity: Deliver immediate spoken voice notification to active voice engine
+        try:
+            from jarvis_voice_pipeline.terminal_app import NativeGeminiLiveEngine
+            active = NativeGeminiLiveEngine.get_active_engine()
+            if active and hasattr(active, "post_system_notification"):
+                active.post_system_notification(
+                    f"[SYSTEM NOTIFICATION: Background music generation '{task_id}' succeeded. "
+                    f"Saved {len(saved_paths)} audio track(s): {saved_paths}. "
+                    f"Briefly inform Sir in Nepali in 1 warm sentence that the music generation is complete and ready.]"
+                )
+        except Exception as notify_err:
+            logger.debug("Voice notification hook note: %s", notify_err)
+
         if on_complete:
             await on_complete(task_id, _tasks[task_id])
 
@@ -74,6 +85,19 @@ async def execute_music_generation_job(
             "status": "failed",
             "error": str(e)
         }
+
+        # OpenClaw parity: Deliver immediate failure notification to active voice engine
+        try:
+            from jarvis_voice_pipeline.terminal_app import NativeGeminiLiveEngine
+            active = NativeGeminiLiveEngine.get_active_engine()
+            if active and hasattr(active, "post_system_notification"):
+                active.post_system_notification(
+                    f"[SYSTEM NOTIFICATION: Background music generation '{task_id}' failed: {e}. "
+                    f"Briefly inform Sir in Nepali in 1 clear sentence that the music generation failed and why.]"
+                )
+        except Exception as notify_err:
+            logger.debug("Voice notification hook note: %s", notify_err)
+
         if on_complete:
             await on_complete(task_id, _tasks[task_id])
 

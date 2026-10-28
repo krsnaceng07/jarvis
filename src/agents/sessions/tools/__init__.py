@@ -397,18 +397,11 @@ def create_coding_tools(
     ]
 
     try:
-        from extensions.browser.src.browser_tool import BrowserTool
+        from src.tools.browser_host import browser_tool_entry
 
-        b_tool = BrowserTool()
-        coding_tools.append(
-            {
-                "name": "browser",
-                "description": b_tool.description,
-                "parameters": b_tool.parameters,
-                "execute": lambda cid, a: b_tool.execute(cid, a),
-                "call": lambda act, a: b_tool.call(act, a),
-            }
-        )
+        b_entry = browser_tool_entry()
+        if b_entry is not None:
+            coding_tools.append(b_entry)
     except Exception:
         pass
 

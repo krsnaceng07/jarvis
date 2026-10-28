@@ -10,6 +10,18 @@ export interface AvatarCloud {
   max: readonly [number, number, number];
 }
 
+export interface AvatarMorphCloud {
+  positions: Float32Array;
+  targetPositions: Float32Array;
+  colors: Float32Array;
+  targetColors: Float32Array;
+  scatter: Float32Array;
+  targetScatter: Float32Array;
+  alphas: Float32Array;
+  targetAlphas: Float32Array;
+  count: number;
+}
+
 export const CLOUD_URLS: Record<CharacterAppearance, string> = {
   male: '/avatar_male.bin',
   female: '/avatar_female.bin',
@@ -113,6 +125,43 @@ export function buildCloud(data: Float32Array, seed = 0x5f3759df): AvatarCloud {
     min: [minX, minY, minZ],
     max: [maxX, maxY, maxZ],
   };
+}
+
+/**
+ * Pair the baked portraits into one stable particle index space. When one
+ * portrait has fewer samples, its points are evenly resampled and their
+ * per-particle alpha is weighted so duplication does not brighten the cloud.
+ */
+export function pairAvatarClouds(male: AvatarCloud, female: AvatarCloud): AvatarMorphCloud {
+  const count = Math.max(male.count, female.count);
+  const positions = new Float32Array(count * 3);
+  const targetPositions = new Float32Array(count * 3);
+  const colors = new Float32Array(count * 3);
+  const targetColors = new Float32Array(count * 3);
+  const scatter = new Float32Array(count * 3);
+  const targetScatter = new Float32Array(count * 3);
+  const alphas = new Float32Array(count);
+  const targetAlphas = new Float32Array(count);
+  const sample = (index: number, sourceCount: number) => Math.min(sourceCount - 1, Math.floor(((index + 0.5) * sourceCount) / count));
+
+  for (let i = 0; i < count; i += 1) {
+    const maleIndex = sample(i, male.count);
+    const femaleIndex = sample(i, female.count);
+    const from = i * 3;
+    const maleOffset = maleIndex * 3;
+    const femaleOffset = femaleIndex * 3;
+
+    positions.set(male.positions.subarray(maleOffset, maleOffset + 3), from);
+    targetPositions.set(female.positions.subarray(femaleOffset, femaleOffset + 3), from);
+    colors.set(male.colors.subarray(maleOffset, maleOffset + 3), from);
+    targetColors.set(female.colors.subarray(femaleOffset, femaleOffset + 3), from);
+    scatter.set(male.scatter.subarray(maleOffset, maleOffset + 3), from);
+    targetScatter.set(female.scatter.subarray(femaleOffset, femaleOffset + 3), from);
+    alphas[i] = male.count / count;
+    targetAlphas[i] = female.count / count;
+  }
+
+  return { positions, targetPositions, colors, targetColors, scatter, targetScatter, alphas, targetAlphas, count };
 }
 
 export interface FaceAnchors {

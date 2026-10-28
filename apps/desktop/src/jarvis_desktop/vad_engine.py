@@ -51,9 +51,9 @@ class EnergyVADEngine:
 
     def __init__(
         self,
-        speech_threshold: int = 140,
-        hangover_frames: int = 4,
-        pre_roll_frames: int = 8,
+        speech_threshold: int = 120,
+        hangover_frames: int = 8,
+        pre_roll_frames: int = 12,
     ) -> None:
         import os
         env_threshold = os.environ.get("JARVIS_SPEECH_THRESHOLD")
@@ -73,7 +73,7 @@ class EnergyVADEngine:
         self.speech_hangover_counter = 0
         self.pre_roll_buffer: deque[bytes] = deque(maxlen=pre_roll_frames)
 
-    def is_speech(self, pcm_chunk: bytes) -> bool:
+    def is_speech(self, pcm_chunk: bytes, buffer_preroll: bool = True) -> bool:
         """Return True if chunk contains speech energy or is in speech hangover tail."""
         if not pcm_chunk:
             return False
@@ -89,7 +89,8 @@ class EnergyVADEngine:
             if self.speech_hangover_counter > 0:
                 self.speech_hangover_counter -= 1
                 return True
-            self.pre_roll_buffer.append(pcm_chunk)
+            if buffer_preroll:
+                self.pre_roll_buffer.append(pcm_chunk)
             return False
         except Exception:
             return False

@@ -186,7 +186,49 @@ class SubagentRunner:
             except Exception as e:
                 result_parts.append(f"Command '{cmd_candidate}' failed: {e}")
 
-        # 2. Local directory, folder, or codebase inspection/analysis
+        # 2. Process / App / System Diagnostics & Troubleshooting
+        is_diag_task = any(
+            k in task_lower
+            for k in (
+                "process",
+                "app close",
+                "fail to close",
+                "why",
+                "troubleshoot",
+                "diagnos",
+                "powershell",
+                "whatsapp",
+                "kill_app",
+                "close_app",
+                "system log",
+            )
+        )
+        if not result_parts and is_diag_task and ("exec" in tools or "bash" in tools):
+            exec_tool = tools.get("exec") or tools.get("bash")
+            diag_cmd = (
+                "Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -or "
+                "$_.ProcessName -match 'powershell|pwsh|whatsapp|code|opencode|chrome' } | "
+                "Select-Object Id, ProcessName, MainWindowTitle | Format-Table -AutoSize"
+            )
+            try:
+                res = await self._invoke_tool(
+                    exec_tool, f"subagent_diag_{record.run_id[:8]}", {"command": diag_cmd}
+                )
+                out = ""
+                if isinstance(res, dict):
+                    content = res.get("content", [])
+                    if isinstance(content, list) and content:
+                        out = str(content[0].get("text", ""))
+                    elif "text" in res:
+                        out = str(res["text"])
+                else:
+                    out = str(res)
+                if out.strip():
+                    result_parts.append(f"Process diagnostic census:\n{out.strip()[:1000]}")
+            except Exception as diag_err:
+                result_parts.append(f"Diagnostic inspection error: {diag_err}")
+
+        # 3. Local directory, folder, or codebase inspection
         is_dir_task = (
             any(
                 k in task_lower
@@ -198,8 +240,7 @@ class SubagentRunner:
                     "explore",
                     "list files",
                     "check directory",
-                    "analyze",
-                    "analysis",
+                    "check folder",
                     "pholdar",
                     "drive",
                     "repo",
